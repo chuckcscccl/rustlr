@@ -1,0 +1,52 @@
+# Grammar for JBasic for MVOCC, adopted from Cup version
+
+nonterminal P prog
+nonterminal S stmt
+nonterminal SL stmtlist
+nonterminal E expr
+terminal ; goto and label ( ) assign = true false if + * then not print while
+terminal begin end
+typedterminal id String
+typedterminal num Integer
+typedterminal string String
+topsym P
+
+left * 500
+left + 400
+left = 300
+left not 600
+left and 500
+left ) 50
+left ( 900
+left num 980
+left id 970
+
+# Programs, statement lists, statements and expressions:
+
+P --> SL:seq { return new prog(seq); }
+
+SL --> S:s ; { return new stmtlist(s,null); }
+SL --> S:s ; SL:seq  { return new stmtlist(s,seq); }
+
+S --> label id:x { return new labelst(x); }
+S --> print E:e  { return new printst(e); }
+S --> id:v assign E:e  { return new assignst(v,e); }
+S --> goto id:x  { return new gotost(x); }
+S --> if E:b then S:st  { return new ifst(b,st); }
+S --> while E:b begin SL:seq end  { return new whilest(b,seq); }
+
+E --> num:n  { return new intexp((int)n); }
+E --> id:v   { return new varexp(v); }
+E --> string:s  { return new strexp(s); }
+E --> true   { return new boolexp(true); }
+E --> false  { return new boolexp(false); }
+E --> E:a + E:b  { return new sumexp(a,b); }
+E --> E:a * E:b  { return new multexp(a,b); }
+E --> E:a and E:b  { return new andexp(a,b); }
+E --> E:a = E:b  { return new eqexp(a,b); }
+E --> not E:a    { return new negexp(a); }
+E --> ( E:a )    { return a; }
+
+# don't use S --> id:v := E:e  { return new assignst(v,e); }
+
+EOF

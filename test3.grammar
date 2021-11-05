@@ -1,0 +1,52 @@
+# test grammar, should be LR(0)
+
+nonterminal S String
+nonterminal T String
+nonterminal U String
+terminal 0 a b ( )
+topsym S
+
+S --> a T { return "starting with a"; }
+S --> b U { return "starting with b"; }
+U --> 0 { return "reduce to S"; }
+T --> 0 { return "reduce to T"; }
+U --> ( U ) 
+T --> ( T )
+
+EOF
+
+To avoid a reduce-reduce conflict with S-->0 and T-->0, we have to remember
+whether the first symbol shifted was an "a" or a "b".  This is the purpose
+of the LR(0) state machine.  
+
+You can write an equivalent BRC(1,0) grammar as follows:
+
+S --> aT 
+S --> bU 
+U --> 0 
+T --> 0 
+U --> (U) 
+T --> BT)
+B --> (
+
+The extra non-terminal B allows for the propagation of the information that
+"b" was read first so that when choosing between U-->0 and T-->0 we need 
+to just look at one symbol BEFORE 0 - that is to say that we use a "lookback".
+Unlike the "lookahead" used in LR(1) and SLR(1) parsing, the lookback exists
+on the parse stack and can be either terminal or non-terminal.  If the lookback
+is (, we reduce 0 to U, if it is B, we reduce 0 to T.  With a BRC grammar
+there is no need to construct a state machine, and is therefore easier to
+implement a parser generator around, especially for Prolog and other
+declarative languages with pattern matching and which relies heavily 
+on recursion.
+
+BRC (bounded right context) grammars are a subclass of LR grammars, which are
+more powerful because they allow us to remember the ENTIRE stack with the
+state machine.  However, every LR grammar also has an equivalent BRC grammar.
+
+BRC grammars predate LR grammars and are mostly forgotten.  In 1999 I worked
+on a project to develop a parser generator for a Prolog-like language, and 
+in the process I rediscovered BRC grammars.  Writing an LR parser generator 
+requires a style of programming that Prolog is not suited for.  It was much 
+more natural to use BRC grammars.  You can find a research paper I wrote 
+back then on my homepage.  That's my contribution to the field of parsing.

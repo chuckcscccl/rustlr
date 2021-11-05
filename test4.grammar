@@ -1,0 +1,198 @@
+# test grammar for slr generator with difficult FIRST, FOLLOW computation
+
+nonterminal S Integer
+nonterminal T Integer
+nonterminal U Integer
+terminal x ( )
+topsym S
+
+T --> S   { return 2; }
+S --> T   { return 3; }
+T --> (   { return 4; }
+S --> x   { return 1; }
+T --> U x { return 5; }
+U --> ) T { return 6; }
+T -->     { return 0; }
+
+EOF
+
+Output of my SLR generator (this grammar is ambiguous, so expect conflicts).
+
+! Possible shift-reduce conflict.  Conflict state:
+  T --> .S 
+  S --> .T 
+  T --> .( 
+  S --> .x 
+  T --> .U x 
+  U --> .) T 
+  T --> .
+  START --> .S EOF 
+! Possible shift-reduce conflict.  Conflict state:
+  T --> S .
+  START --> S .EOF 
+! Possible shift-reduce conflict.  Conflict state:
+  T --> .S 
+  S --> .T 
+  T --> .( 
+  S --> .x 
+  T --> .U x 
+  U --> .) T 
+  U --> ) .T 
+  T --> .
+!!! Reduce-reduce conflict detected.  Conflict state:
+  S --> T .
+  U --> ) T .
+FSM with 11 states created
+state 0:
+  T --> .S 
+  S --> .T 
+  T --> .( 
+  S --> .x 
+  T --> .U x 
+  U --> .) T 
+  T --> .
+  START --> .S EOF 
+state 1:
+  T --> S .
+  START --> S .EOF 
+state 2:
+  S --> T .
+state 3:
+  T --> ( .
+state 4:
+  S --> x .
+state 5:
+  T --> U .x 
+state 6:
+  T --> .S 
+  S --> .T 
+  T --> .( 
+  S --> .x 
+  T --> .U x 
+  U --> .) T 
+  U --> ) .T 
+  T --> .
+state 7:
+  START --> S EOF .
+state 8:
+  T --> U x .
+state 9:
+  T --> S .
+state 10:
+  S --> T .
+  U --> ) T .
+Nullible Nonterminals:
+S T 
+FIRST SETS:
+S : ( ) x 
+T : ( ) x 
+U : ) 
+START : ( ) EOF x 
+FOLLOW SETS:
+S : EOF x 
+T : EOF x 
+U : x 
+START : 
+
+
+
+////////////////////////// 
+Output of my LR(1) parser generator (updated).  This grammar is also hopelessly ambiguous.
+
+! Possible shift-reduce conflict.  Conflict state:
+  T --> S . , EOF
+  START --> S .EOF  , EOF
+! Possible shift-reduce conflict.  Conflict state:
+  T --> .S  , x
+  S --> .T  , x
+  T --> .(  , x
+  S --> .x  , x
+  T --> .U x  , x
+  U --> .) T  , x
+  U --> ) .T  , x
+  T --> . , x
+!!! Reduce-reduce conflict detected.  Conflict state:
+  S --> T . , x
+  U --> ) T . , x
+FSM with 15 states created
+state 0:
+  T --> .S  , EOF
+  S --> .T  , EOF
+  T --> .(  , EOF
+  S --> .x  , EOF
+  T --> .U x  , EOF
+  U --> .) T  , x
+  T --> . , EOF
+  START --> .S EOF  , EOF
+state 1:
+  T --> S . , EOF
+  START --> S .EOF  , EOF
+state 2:
+  S --> T . , EOF
+state 3:
+  T --> ( . , EOF
+state 4:
+  S --> x . , EOF
+state 5:
+  T --> U .x  , EOF
+state 6:
+  T --> .S  , x
+  S --> .T  , x
+  T --> .(  , x
+  S --> .x  , x
+  T --> .U x  , x
+  U --> .) T  , x
+  U --> ) .T  , x
+  T --> . , x
+state 7:
+  START --> S EOF . , EOF
+state 8:
+  T --> U x . , EOF
+state 9:
+  T --> S . , x
+state 10:
+  S --> T . , x
+  U --> ) T . , x
+state 11:
+  T --> ( . , x
+state 12:
+  S --> x . , x
+state 13:
+  T --> U .x  , x
+state 14:
+  T --> U x . , x
+Nullible Nonterminals:
+S T 
+FIRST SETS:
+S : ( ) x 
+T : ( ) x 
+U : ) 
+START : ( ) EOF x 
+
+fsm 0,x = s4
+fsm 0,( = s3
+fsm 0,) = s6
+fsm 0,EOF = r6
+fsm 0,S = g1
+fsm 0,T = g2
+fsm 0,U = g5
+fsm 1,EOF = ac
+fsm 2,EOF = r1
+fsm 3,EOF = r2
+fsm 4,EOF = r3
+fsm 5,x = s8
+fsm 6,x = r6
+fsm 6,( = s11
+fsm 6,) = s6
+fsm 6,S = g9
+fsm 6,T = g10
+fsm 6,U = g13
+fsm 7,EOF = r7
+fsm 8,EOF = r4
+fsm 9,x = r0
+fsm 10,x = r1
+fsm 11,x = r2
+fsm 12,x = r3
+fsm 13,x = s14
+fsm 14,x = r4
+

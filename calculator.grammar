@@ -1,0 +1,24 @@
+# ambiguous grammar for online calculator, enum Expr defined in exprtrees.rs
+
+!use crate::exprtrees::*;
+!use crate::exprtrees::Expr::*;
+
+absyntype Expr
+nonterminal E Expr
+terminal + - * ( )
+typedterminal int Expr
+topsym E
+
+left * 500
+left + 400
+left - 400
+
+E --> int:n { n }
+E --> E:e1 + E:e2 { Plus(bx(e1),bx(e2)) }
+E --> E:e1 - E:e2 { Minus(bx(e1),bx(e2)) }
+E ==> E:e1 * E:e2
+      { Times(bx(e1),bx(e2)) }
+  <==
+E --> - E:e { Negative(bx(e)) }
+E --> ( E:e )  { e }
+EOF

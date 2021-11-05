@@ -1,0 +1,21 @@
+# non-context free language a^n b^n c^n parsed using Externaltype
+
+!
+! /* (i32,i32) defaults to (0,0), used to form two-counter automaton. */
+
+absyntype bool
+externtype (i32,i32)
+nonterminals A B C AB S
+terminals a b c
+topsym S
+
+S --> AB:ok C { let (an,bn)=parser.exstate; println!("counters at end: an {}, bn {}",an,bn); ok && bn==0 }
+
+AB --> A B { let (an,bn)=parser.exstate; if an!=bn {parser.abort("different numbers of a's and b's");} an==bn }
+
+A --> A a  { parser.exstate.0+=1; true }
+A -->     
+B --> B b  { parser.exstate.1+=1; true }
+B -->
+C --> C c  { parser.exstate.1-=1; true }
+C -->
