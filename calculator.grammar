@@ -4,10 +4,11 @@
 !use crate::exprtrees::Expr::*;
 
 absyntype Expr
-nonterminal E Expr
-terminal + - * ( )
-typedterminal int Expr
+nonterminal E 
+terminals + - * ( ) int
+terminal ERROR
 topsym E
+errsym ERROR
 
 left * 500
 left + 400
@@ -21,4 +22,5 @@ E ==> E:e1 * E:e2
   <==
 E --> - E:e { Negative(bx(e)) }
 E --> ( E:e )  { e }
+E --> ERROR int:n { parser.report("not a valid expression"); Val(-1000) }
 EOF

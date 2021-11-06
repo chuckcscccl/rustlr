@@ -1,11 +1,8 @@
-# adopted from MVOCC, adopted from Cup version
+# Unambiguous LR grammar for simple calculator.
 
-absyntype i32
-nonterminal E i32
-nonterminal T i32
-nonterminal F i32
-terminal + * ( )
-typedterminal num i32
+valuetype i32
+nonterminals E T F
+terminals + * ( ) num
 topsym E
 
 E --> E:e + T:t { return e+t; }
