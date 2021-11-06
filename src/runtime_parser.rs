@@ -152,6 +152,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
     {
        self.err_occured = false;
+       self.stack.clear();
        let mut result = AT::default();
        // push state 0 on stack:
        self.stack.push(Stackelement {si:0, value:AT::default()});
