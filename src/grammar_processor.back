@@ -100,7 +100,7 @@ pub struct Grammar
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
 //  pub Recover : HashSet<String>, // recovery non-terminal symbols
-  pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
+//  pub Resynch : HashSet<String>, // resynchronization terminal symbols
   pub Errsym : String,        // error recovery terminal symbol
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
 }
@@ -121,7 +121,7 @@ impl Grammar
        Absyntype:String::from("i64"), //default(),
        Externtype:String::from(""),   // default unused field
 //       Recover : HashSet::new(),
-       Resynch : HashSet::new(),
+//       Resynch : HashSet::new(),
        Errsym : String::new(),
        Extras: String::new(),
      }
@@ -271,7 +271,6 @@ impl Grammar
                   self.Recover.insert(stokens[i].to_owned());
                } // for each subsequent token
             },
-            */
             "resynch" | "resync"  => {
                if stage==0 {stage=1;}
                for i in 1..stokens.len()
@@ -279,9 +278,11 @@ impl Grammar
                   if !self.terminal(stokens[i]) {
                      panic!("!!!Error recovery re-synchronization symbol {} is not a declared terminal, line {}",stokens[i],linenum);
                   }
-                  self.Resynch.insert(stokens[i].trim().to_owned());
+                  self.Resynch.insert(stokens[i].to_owned());
                } // for each subsequent token
             },
+            */
+            
             "absyntype" | "valuetype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
@@ -306,7 +307,7 @@ impl Grammar
                  self.Symbols[*index].precedence = preclevel;
                }
 	    }, // precedence and associativity
-	    /*"recover" | "resync" |*/ "flexname"  => {}, //not covered
+	    "recover" | "resync" | "flexname"  => {}, //not covered
 	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}

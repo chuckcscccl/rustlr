@@ -1,0 +1,61 @@
+# grammar for "C-plus-minus"
+
+!use rustlr::{Lextoken,Lexer};
+!use std::io::{Write};
+!
+!fn readln()-> String {
+!  let mut s = String::new();
+!  std::io::stdin().read_line(&mut s);
+!  s
+!}
+!
+!struct Slex<'t> {
+! split : std::str::SplitWhitespace<'t>,
+!}
+!impl<'t> Lexer<String> for Slex<'t> {
+!  fn nextsym(&mut self) -> Option<Lextoken<String>> {
+!    match self.split.next() {
+!     None => None,
+!     Some(sym) => Some(Lextoken::new(sym.trim().to_string(), sym.to_string())),
+!    }//match
+!  }//nextsym
+!  fn linenum(&self) -> usize {0}
+!}
+!
+!fn main() {
+!   print!("Write something in C+- : ");
+!   std::io::stdout().flush().unwrap();
+!   let input = readln();
+!   let mut lexer1 =  Slex{split:input.split_whitespace()};
+!   let mut parser1 = make_parser();
+!   parser1.parse( &mut lexer1);
+!   println!("parsing success: {}",!parser1.error_occurred());
+!}//main
+
+
+absyntype String
+nonterminals STAT STATLIST EXPR
+nonterminal EXPRLIST mut
+terminals x y z cin cout ; ( ) << >> ERROR
+topsym STATLIST
+#errsym ERROR
+resync ; )
+
+STATLIST --> STAT  |  STATLIST STAT 
+STAT --> cin >> EXPR ; {readln()}
+STAT --> cout << EXPRLIST:s ; {println!(": {}",&s); String::new()}
+#STAT ==> cin ERROR ; {parser.report("where is cin going?"); String::new()}
+#       | cout ERROR EXPR {parser.report("cout what?"); String::new()}
+#     <==
+
+EXPR --> x {"x".to_string()} | y {"y".to_string()}  | z {"z".to_string()}
+EXPR --> ( EXPR:s ) {s}
+EXPRLIST --> EXPR:s {s}
+EXPRLIST --> EXPRLIST:sl << EXPR:s { format!("{} {}",sl,s) }
+
+#EXPR --> ERROR { parser.report("what is this?"); String::from("error") }
+STAT --> ERROR ; { parser.report("invalid statement, skipping to ;"); String::from("")}
+
+EOF
+
+The error recovery algorithm used by rustlr is the following:

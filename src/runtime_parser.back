@@ -71,9 +71,8 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   /// do not reference  
   pub stack :  Vec<Stackelement<AT>>, // parse stack
 //  pub recover : HashSet<&'static str>, // for error recovery
-  pub resynch : HashSet<&'static str>,
+//  pub resynch : HashSet<&'static str>,
   pub Errsym : &'static str,
-  err_occured : bool,
   pub linenum : usize,
   pub column : usize,  // not used for now
 }//struct RuntimeParser
@@ -92,11 +91,10 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          exstate : ET::default(),
          stack : Vec::with_capacity(1024),
          Errsym : "",
-         err_occured : false,
          linenum : 0,
          column : 0,
 //         recover : HashSet::new(),
-         resynch : HashSet::new(),
+//         resynch : HashSet::new(),
        };
        for _ in 0..slen {p.RSM.push(HashMap::new());}
        p
@@ -108,176 +106,60 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     pub fn abort(&mut self, msg:&str)
     {
        println!("!!!Parsing Aborted: {}",msg);
-       self.err_occured = true;
        self.stopparsing=true;
     }
 
-    /// may be called from grammar semantic actions to report error
-    pub fn report(&mut self, errmsg:&str)  // linenum must be set prior to call
-    {
-       println!("PARSER ERROR REPORT for LINE {}: {}",self.linenum,errmsg);
-       self.err_occured = true;
-    }
-
-    fn reduce(&mut self, ri:&usize)
-    {
-              let rulei = &self.Rules[*ri];
-              let ruleilhs = rulei.lhs; // &'static : Copy
-              let val = (rulei.Ruleaction)(self); // calls delegate function
-              let newtop = self.stack[self.stack.len()-1].si; 
-              let goton = self.RSM[newtop].get(ruleilhs).unwrap();
-//              if TRACE>1 {println!(" ..performing Reduce({}), new state {}, action on {}: {:?}..",ri,newtop,ruleilhs,goton);}
-              if let Stateaction::Gotonext(nsi) = goton {
-                self.stack.push(Stackelement{si:*nsi,value:val});
-                // DO NOT CHANGE LOOKAHEAD AFTER REDUCE!
-              }// goto next state after reduce
-              else {
-                self.report("no suitable action can be taken");
-                self.stopparsing=true;
-              }
-    }//reduce
-
-    /// can be called to determine if an error occurred during parsing.  The parser
-    /// will not panic.
-    pub fn error_occurred(&self) -> bool {self.err_occured}
-
-    fn nexttoken(&self, tokenizer:&mut dyn Lexer<AT>) -> Lextoken<AT>
-    {
-       if let Some(tok) = tokenizer.nextsym() {tok}
-        else { Lextoken{sym:"EOF".to_owned(),  value:AT::default()} } 
-    }
     // parse does not reset state stack
     /// this function is used to invoke the generated parser returned by
     /// make_function.
     pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
-    {
-       self.err_occured = false;
-       self.stack.clear();
-//       self.exstate = ET::default(); ???
+    { 
        let mut result = AT::default();
        // push state 0 on stack:
        self.stack.push(Stackelement {si:0, value:AT::default()});
        let unexpected = Stateaction::Error(String::from("unexpected end of input"));
        let mut action = unexpected; //Stateaction::Error(String::from("get started"));
        self.stopparsing = false;
+//       if !tokenizer.has_next() { self.stopparsing=true; }
+//       let mut lookahead = tokenizer.nextsym(); // initial, this is a Lextoken
        let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()}; 
        if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
        else {self.stopparsing=true;}
 
        while !self.stopparsing
-       {
-         self.linenum = tokenizer.linenum(); //self.column=tokenizer.column();
+       {  
          let currentstate = self.stack[self.stack.len()-1].si;
-//         if TRACE>1 {print!(" current state={}, lookahead={}, ",&currentstate,&lookahead.sym);}
-         let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());//.unwrap();
-//         if TRACE>1 {println!("RSM action : {:?}",actionopt);}
-//println!("actionopt: {:?}, current state {}",actionopt,self.stack[self.stack.len()-1].si);            
-///// Do error recovery
+         if TRACE>1 {print!(" current state={}, lookahead={}, ",&currentstate,&lookahead.sym);}
+         let actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());//.unwrap();
+         if TRACE>1 {println!("RSM action : {:?}",actionopt);}
          if let None = actionopt {
-            self.report(&format!("unexpected symbol {}, attempting recovery ...",&lookahead.sym));
-            let mut erraction = None;
-            // skip ahead until a resync symbol is found
-
-            ///// prefer to use Errsym method
-            if self.Errsym.len()>0 {
-               let errsym = self.Errsym;
-               //lookdown stack for "shift" action on errsym
-               let mut k = self.stack.len()-1; // offset by 1 because of usize
-               let mut spos = k+1;
-               while k>0 && spos>k
-               {
-                  let ksi = self.stack[k-1].si;
-                  erraction = self.RSM[ksi].get(errsym);
-                  if let Some(Shift(_)) = erraction { spos=k;}
-                  else {k-=1;}
-               }//while k>0
-               if spos==k { self.stack.truncate(k); }
-               if let Some(Shift(i)) = erraction { // simulate shift errsym 
-                 self.stack.push(Stackelement{si:*i,value:AT::default()});
-                 erraction = None; // do next action, shift value
-               }
-            }//errsym exists
-
-            else  // if no error symbol defined, try to use resync
-
-            if self.resynch.len()>0 {
-               while &lookahead.sym!="EOF" &&
-                      !self.resynch.contains(&lookahead.sym[..]) {
-                 lookahead = self.nexttoken(tokenizer);
-               }
-             if &lookahead.sym!="EOF" {
-              // look for state on stack that has action defined on next symbol
-              lookahead = self.nexttoken(tokenizer); // skipp err-causing symbol
-             }
-              let mut k = self.stack.len()-1; // offset by 1 because of usize
-              let mut position = 0;
-              while k>0 && erraction==None
-               {
-                  let ksi = self.stack[k-1].si;
-                  erraction = self.RSM[ksi].get(&lookahead.sym[..]);
-                  if let None=erraction {k-=1;}
-               }//while k>0 && erraction==None
-              match erraction {
-                 None => {}, // do nothing, whill shift next symbol
-                 _ => { self.stack.truncate(k);},//pop stack
-              }//match
-            }// there are resync symbols
-
-            /// executed regardless of recovery method: skip ahead
-            if let None = erraction { //skip input, loop back
-                lookahead = self.nexttoken(tokenizer);
-                if &lookahead.sym=="EOF" {
-                  self.abort("error recovery failed before end of input");
-                }
-            }
-
-/* /////           
-            while let Some(Reduce(ri)) = erraction // keep reducing
-            {
-              //self.reduce(ri); // borrow error- only need mut self.stack
-              let rulei = &self.Rules[*ri];
-              let ruleilhs = rulei.lhs; // &'static : Copy
-              let val = (rulei.Ruleaction)(self); // calls delegate function
-              let newtop = self.stack[self.stack.len()-1].si; 
-              let gotonopt = self.RSM[newtop].get(ruleilhs);
-              match gotonopt {
-                Some(Gotonext(nsi)) => { 
-                  self.stack.push(Stackelement{si:*nsi,value:val});
-                },// goto next state after reduce
-                _ => {self.abort("recovery failed"); },
-              }//match
-              // end reduce
-              let tos=self.stack[self.stack.len()-1].si;
-              erraction = self.RSM[tos].get(self.Errsym);
-            } // while let erraction is reduce
-            //println!("erraction: {:?}, current state {}",erraction,self.stack[self.stack.len()-1].si);
-
-///// */
-
-
-            
-         }//error recovery
-         else {
-          action = actionopt.unwrap().clone();  // cloning stateaction is ok
-          match &action {
+            panic!("!!PARSE ERROR: no action at state {}, lookahead {}, line {}",currentstate,&lookahead.sym,tokenizer.linenum());
+         }
+         action = actionopt.unwrap().clone();  // cloning stateaction is ok
+         match &action {
             Stateaction::Shift(i) => { // shift to state si
+//              self.stack.push(Stackelement{si:*i,value:lookahead.value.clone()});
                 self.stack.push(Stackelement{si:*i,value:mem::replace(&mut lookahead.value,AT::default())});
-                lookahead = self.nexttoken(tokenizer);
+              // cloning here ok because it's just a token, like an int or string
+//              if !tokenizer.has_next() { self.stopparsing=true; }
+//              else {lookahead = tokenizer.nextsym();} // ADVANCE LOOKAHEAD HERE ONLY!
+                if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
+                else {
+                  lookahead=Lextoken{sym:"EOF".to_owned(),  value:AT::default()};
+                }
              }, //shift
             Stateaction::Reduce(ri) => { //reduce by rule i
-               self.reduce(ri);
-            /*
               let rulei = &self.Rules[*ri];
               let ruleilhs = rulei.lhs; // &'static : Copy
               let val = (rulei.Ruleaction)(self); // calls delegate function
               let newtop = self.stack[self.stack.len()-1].si; 
               let goton = self.RSM[newtop].get(ruleilhs).unwrap();
+              if TRACE>1 {println!(" ..performing Reduce({}), new state {}, action on {}: {:?}..",ri,newtop,ruleilhs,goton);}
               if let Stateaction::Gotonext(nsi) = goton {
                 self.stack.push(Stackelement{si:*nsi,value:val});
                 // DO NOT CHANGE LOOKAHEAD AFTER REDUCE!
               }// goto next state after reduce
               else { self.stopparsing=true; }
-             */
              },
             Stateaction::Accept => {
               result = self.stack.pop().unwrap().value;
@@ -289,13 +171,11 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
             Stateaction::Gotonext(_) => { //should not see this here
               self.stopparsing = true;
              },
-          }//match & action
-         }// else not in error recovery mode
+         }//match & action
        } // main parser loop
        if let Stateaction::Error(msg) = &action {
           panic!("!!!Parsing failed on line {}, next symbol {}: {}",tokenizer.linenum(),&lookahead.sym,msg);
        }
-       //if self.err_occured {result = AT::default(); }
        return result;
     }//parse
 }// impl RuntimeParser
@@ -309,15 +189,16 @@ impl Statemachine
   pub fn writeparser(&self, filename:&str)->Result<(),std::io::Error>
   {
     let mut fd = File::create(filename)?;
-    write!(fd,"//Parser generated by rustlr\n
+    write!(fd,"//Parser generated by RustLr\n
+#![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(unused_parens)]
 #![allow(unused_mut)]
 #![allow(unused_assignments)]
-extern crate rustlr;
-use rustlr::{{RuntimeParser,RProduction,decode_action}};\n")?;
+extern crate RustLr;
+use RustLr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
 
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses
 
@@ -388,9 +269,6 @@ use rustlr::{{RuntimeParser,RProduction,decode_action}};\n")?;
       else {write!(fd," return {}::default();}};\n",absyn)?;}
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// for each rule
-    write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
-    // resynch vector
-    for s in &self.Gmr.Resynch {write!(fd," parser1.resynch.insert(\"{}\");\n",s)?;}
 
     // generate code to load RSM from TABLE
     write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
@@ -411,15 +289,16 @@ use rustlr::{{RuntimeParser,RProduction,decode_action}};\n")?;
 pub fn write_verbose(&self, filename:&str)->Result<(),std::io::Error>
   {
     let mut fd = File::create(filename)?;
-    write!(fd,"//Parser generated by rustlr\n
+    write!(fd,"//Parser generated by RustLr\n
+#![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(unused_parens)]
 #![allow(unused_mut)]
 #![allow(unused_assignments)]
-extern crate rustlr;
-use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
+extern crate RustLr;
+use RustLr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses
     let ref absyn = self.Gmr.Absyntype;
@@ -454,10 +333,8 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
       else {write!(fd," return {}::default();}};\n",absyn)?;}
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// for each rule
-    write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
-    // resynch vector
-    for s in &self.Gmr.Resynch {write!(fd," parser1.resynch.insert(\"{}\");\n",s)?;}
-    
+
+
     for i in 0..self.FSM.len()
     {
       let row = &self.FSM[i];

@@ -14,9 +14,9 @@ left * 500
 left + 400
 left - 400
 
-E --> int:n { n }
-E --> E:e1 + E:e2 { Plus(bx(e1),bx(e2)) }
-E --> E:e1 - E:e2 { Minus(bx(e1),bx(e2)) }
+E --> int:n {n}
+E --> E:e1 + E:e2 {Plus(bx(e1),bx(e2))}
+E --> E:e1 - E:e2 {Minus(bx(e1),bx(e2)) }
 E ==> E:e1 * E:e2
       { Times(bx(e1),bx(e2)) }
   <==

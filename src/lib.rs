@@ -51,10 +51,13 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 ///
 /// Given the grammar at <https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar>,
 ///```ignore
-/// rustler("mg","lalr");
+/// rustler("test1","lalr");
 ///```
 /// would generate the file
-///<https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs>
+///<https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs>.
+/// Since this grammar is small enought (requiring less than 16 LALR states), the
+/// generated parser is readable, which is appropriate for testing.  For larger
+/// grammars, the parser generator switches to a binary representation.
 
 pub fn rustler(grammarname:&str, option:&str) {
   let mut gram1 = Grammar::new();
