@@ -2,7 +2,12 @@
 //! LR(1) parsers.  It is also capable of recognizing operator precedence and
 //! associativity declarations that allows the use of some ambiguous grammars.
 //! Parsers also have optional access to *external state* information that allows
-//! them to recognize more than just context-free languages.  Most of the items
+//! them to recognize more than just context-free languages.  A 
+//! classical method of error recovery is used.  The parser can generate a full
+//! LR(1) parser given the grammar for an early version of java (Java1.4) in
+//! approximately 10-20 seconds on contemporary processors.
+//!
+//! Most of the items
 //! exported by this crate are only required by the parsers that are generated,
 //! and does not form an API.  This crate does not form an API as most of the
 //! exported items are required only by the parsers that are generated.  The
@@ -10,7 +15,29 @@
 //! the [Lexer] trait.  Only a simple lexer that returns individual characters
 //! in a string ([charlexer]) is provided.  
 //!
-//! A tutorial is being prepared at
+//! Example
+//!
+//! Given the grammar at <https://cs.hofstra.edu/~cscccl/rustlr_project/calculator.grammar>,
+//!```\ignore
+//! rustlr calculator.grammar lr1
+//!```
+//! generates a LR(1) parser as a rust program 
+//! (<https://cs.hofstra.edu/~cscccl/rustlr_project/calculatorparser.rs>).
+//! This program includes a make_parser function, which can be used as in
+//!
+//!```ignore
+//! let mut scanner = Exprscanner::new(&sourcefile);
+//! let mut parser1 = make_parser();
+//! let absyntree = parser1.parse(&mut scanner);
+//!```
+//! Here, Exprscanner is a structure that must implement the [Lexer] trait 
+//! required by the generated parser.
+//!
+//! A relatively self-contained grammar and how to use its generated parser is at
+//! <https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>.
+//!
+//!
+//! A detailed tutorial is being prepared at
 //! <https://cs.hofstra.edu/~cscccl/rustlr_project/> that will explain the
 //! format of grammars and how to generate and use parsers for several sample
 //! languages.
@@ -42,8 +69,11 @@ use runtime_parser::*;
 pub use lr_statemachine::{Stateaction,decode_action};
 pub use runtime_parser::{RuntimeParser,RProduction};
 
-/// this is the only function that invokes the parser generator, if they do not run
-/// rustlr::main directly.  It expects to find a file of the form grammarname.grammar.
+////// main function, called from main with command-line args
+
+/// this is the only function that can invoke the parser generator externally,
+/// without running rustlr (rustlr::main) directly.
+/// It expects to find a file of the form grammarname.grammar.
 /// The option argument that can currently only be "lr1" or "lalr".  It generates
 /// a grammar in a file named grammarnameparser.rs.
 ///
@@ -58,7 +88,6 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 /// Since this grammar is small enought (requiring less than 16 LALR states), the
 /// generated parser is readable, which is appropriate for testing.  For larger
 /// grammars, the parser generator switches to a binary representation.
-
 pub fn rustler(grammarname:&str, option:&str) {
   let mut gram1 = Grammar::new();
   let grammarfile = format!("{}.grammar",&grammarname);

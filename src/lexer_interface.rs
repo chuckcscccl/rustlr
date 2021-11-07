@@ -42,6 +42,8 @@ pub trait Lexer<AT:Default>
   fn nextsym(&mut self) -> Option<Lextoken<AT>>;
   /// returns the current line number.  The 
   fn linenum(&self) -> usize; // line number
+  /// returns the current column (character position) on the current line.
+  fn column(&self) -> usize;
 }//trait Lexer
 
 
@@ -51,12 +53,13 @@ pub trait Lexer<AT:Default>
 /// terminal symbols in the grammar.
 pub struct charlexer<'t>
 {
-   chars: Chars<'t>
+   chars: Chars<'t>,
+   index: usize,
 }
 impl<'t> charlexer<'t>
 {
   pub fn new<'u:'t>(input:&'u str) -> charlexer<'u>
-  { charlexer {chars:input.chars()} }
+  { charlexer {chars:input.chars(), index:0} }
 }
 impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
 {
@@ -64,8 +67,12 @@ impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
    {
       match self.chars.next() {
         None => {None},
-        Some(c) => { Some(Lextoken::new(c.to_string(),AT::default())) },
-      }
-   }
+        Some(c) => {
+          self.index+=1;
+          Some(Lextoken::new(c.to_string(),AT::default()))
+        },
+      }//match
+   }//nextsym
    fn linenum(&self) -> usize { 0 }
+   fn column(&self) -> usize { self.index }
 }//impl Lexer for lexer

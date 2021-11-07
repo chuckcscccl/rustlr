@@ -208,7 +208,7 @@ impl Grammar
                self.Extras.push_str(&line[pbi+1..]);
                self.Extras.push_str("\n");                             
             },
-            "gramname" | "grammarname" | "grammar" | "name" => {
+            "grammarname" | "grammar_name" => {
                self.name = String::from(stokens[1]);
             },
             "EOF" => {atEOF=true},
@@ -253,7 +253,10 @@ impl Grammar
                }//match
 	       //if TRACE>4 {println!("top symbol is {}",stokens[1]);}
 	    }, //topsym
-            "errorsym" | "errsymbol" | "errsym" => {
+            "errsym" | "errorsymbol" => {
+               if stage>1 {
+                 panic!("!!! Error recover symbol must be declared before production rules, line {}",linenum);
+               }
                if stage==0 {stage=1;}
                if !self.terminal(stokens[1]) {
                  panic!("!!!Error recover symbol {} is not a terminal, line {} ",stokens[1],linenum);
@@ -331,13 +334,14 @@ impl Grammar
               let barsplit:Vec<_> = linec.split('|').collect();
               
               for rul in &barsplit 
-              { if rul.trim().len()>0 {
-              //println!("see rule seg ({})",rul);              
+              { //if rul.trim().len()>0 {  // must include empty productions!
+              //println!("see rule seg ({})",rul);
               let bstokens:Vec<_> = rul.trim().split_whitespace().collect();
               let mut rhsyms:Vec<Gsym> = Vec::new();
               let mut semaction = "}";
 	      let mut i:usize = 0;
               let mut maxprec:i32 = 0;
+              let mut seenerrsym = false;
               while i<bstokens.len() {
 	        let strtok = bstokens[i];
 		i+=1;
@@ -352,6 +356,13 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
 		   None => {panic!("unrecognized grammar symbol {}, line {}",toks[0],linenum); },
 		   Some(symi) => {
                      let sym = &self.Symbols[*symi];
+                     if self.Errsym.len()>0 && &sym.sym == &self.Errsym {
+                       if !seenerrsym { seenerrsym = true; }
+                       else { panic!("Error symbol {} can only appear once in a production, line {}",&self.Errsym,linenum); }
+                     }
+                     if !sym.terminal && seenerrsym {
+                       panic!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum);
+                     }
 		     let mut newsym = sym.clone();
 		     if toks.len()>1 && toks[1].trim().len()>0
                         { newsym.setlabel(toks[1].trim()); }
@@ -371,8 +382,8 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
 	      };
 	      if TRACE>2 {printrule(&rule);}
 	      self.Rules.push(rule);
-            } // if rul not empty
-            } // for barsplit
+            //} 
+            } // for rul
             }, 
             _ => {panic!("error parsing grammar on line {}, grammar stage {}",linenum,stage);},  
          }//match first word

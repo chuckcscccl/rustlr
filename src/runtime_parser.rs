@@ -49,7 +49,8 @@ pub struct Stackelement<AT:Default>
 /// program will contain a make_parser function that returns this structure.
 /// Most of the pub items are, however, only exported to support the operation
 /// of the parser, and should not be accessed directly.  Only the functions
-/// [RuntimeParser::parse] and [RuntimeParser::abort] should be called directly 
+/// [RuntimeParser::parse], [RuntimeParser::report], [RuntimeParser::abort]
+/// and [RuntimeParser::error_occurred] should be called directly 
 /// from user programs.  Only the field [RuntimeParser::exstate] should be accessed
 /// by user programs.
 pub struct RuntimeParser<AT:Default,ET:Default>  
@@ -115,7 +116,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// may be called from grammar semantic actions to report error
     pub fn report(&mut self, errmsg:&str)  // linenum must be set prior to call
     {
-       println!("PARSER ERROR REPORT for LINE {}: {}",self.linenum,errmsg);
+       println!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
        self.err_occured = true;
     }
 
@@ -147,8 +148,9 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
         else { Lextoken{sym:"EOF".to_owned(),  value:AT::default()} } 
     }
     // parse does not reset state stack
+    
     /// this function is used to invoke the generated parser returned by
-    /// make_function.
+    /// the generated parser program's make_function.
     pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
     {
        self.err_occured = false;
@@ -166,7 +168,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 
        while !self.stopparsing
        {
-         self.linenum = tokenizer.linenum(); //self.column=tokenizer.column();
+         self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
          let currentstate = self.stack[self.stack.len()-1].si;
 //         if TRACE>1 {print!(" current state={}, lookahead={}, ",&currentstate,&lookahead.sym);}
          let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());//.unwrap();
@@ -194,13 +196,23 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
                if spos==k { self.stack.truncate(k); }
                if let Some(Shift(i)) = erraction { // simulate shift errsym 
                  self.stack.push(Stackelement{si:*i,value:AT::default()});
-                 erraction = None; // do next action, shift value
-               }
+                 // now keep lookahead until action is found that transitions from
+                 // current state (i).  since only terminals may follow errsym,
+                 // this would have to be a shift rule
+                 while let None = self.RSM[*i].get(&lookahead.sym[..]) {
+                    if &lookahead.sym[..]=="EOF" {break;}
+                    lookahead = self.nexttoken(tokenizer);
+                 }//while let
+                 // either at end of input or found action on next symbol
+                 erraction = self.RSM[*i].get(&lookahead.sym[..]);
+               } // if shift action found down under stack
+               else {erraction = None; }// don't reduce
             }//errsym exists
 
-            else  // if no error symbol defined, try to use resync
-
-            if self.resynch.len()>0 {
+            // at this point, if erraction is None, then Errsym failed to recover,
+            // try the resynch symbol method...
+            
+            if erraction==None && self.resynch.len()>0 {
                while &lookahead.sym!="EOF" &&
                       !self.resynch.contains(&lookahead.sym[..]) {
                  lookahead = self.nexttoken(tokenizer);
@@ -223,7 +235,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
               }//match
             }// there are resync symbols
 
-            /// executed regardless of recovery method: skip ahead
+            // at this point, if erraction is None, then resynch recovery failed too.
+            // only action left is to skip ahead...
             if let None = erraction { //skip input, loop back
                 lookahead = self.nexttoken(tokenizer);
                 if &lookahead.sym=="EOF" {
@@ -254,9 +267,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 
 ///// */
 
-
-            
          }//error recovery
+         
          else {
           action = actionopt.unwrap().clone();  // cloning stateaction is ok
           match &action {
@@ -293,7 +305,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          }// else not in error recovery mode
        } // main parser loop
        if let Stateaction::Error(msg) = &action {
-          panic!("!!!Parsing failed on line {}, next symbol {}: {}",tokenizer.linenum(),&lookahead.sym,msg);
+          //panic!("!!!Parsing failed on line {}, next symbol {}: {}",tokenizer.linenum(),&lookahead.sym,msg);
+          self.report(&format!("failure with next symbol {}",tokenizer.linenum()));
        }
        //if self.err_occured {result = AT::default(); }
        return result;
