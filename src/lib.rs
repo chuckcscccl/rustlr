@@ -4,13 +4,12 @@
 //! Parsers also have optional access to *external state* information that allows
 //! them to recognize more than just context-free languages.  A 
 //! classical method of error recovery is used.  The parser can generate a full
-//! LR(1) parser given the grammar for an early version of java (Java1.4) in
+//! LR(1) parser given the grammar for Java in
 //! approximately 10-20 seconds on contemporary processors.
 //!
 //! Most of the items
 //! exported by this crate are only required by the parsers that are generated,
-//! and does not form an API.  This crate does not form an API as most of the
-//! exported items are required only by the parsers that are generated.  The
+//! and does not form an API. The
 //! user needs to provide a grammar and a lexical analyzer that implements
 //! the [Lexer] trait.  Only a simple lexer that returns individual characters
 //! in a string ([charlexer]) is provided.  
@@ -33,7 +32,8 @@
 //! Here, Exprscanner is a structure that must implement the [Lexer] trait 
 //! required by the generated parser.
 //!
-//! A relatively self-contained grammar and how to use its generated parser is at
+//! A relatively self-contained example, containing both a grammar and code for
+//! using its generated parser, is at
 //! <https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>.
 //!
 //!
