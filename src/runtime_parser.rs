@@ -78,6 +78,7 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   err_occured : bool,
   pub linenum : usize,
   pub column : usize,  // not used for now
+  report_line : usize,
 }//struct RuntimeParser
 
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
@@ -97,6 +98,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          err_occured : false,
          linenum : 0,
          column : 0,
+         report_line : 0,
 //         recover : HashSet::new(),
          resynch : HashSet::new(),
        };
@@ -117,8 +119,25 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// may be called from grammar semantic actions to report error
     pub fn report(&mut self, errmsg:&str)  // linenum must be set prior to call
     {
-       println!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+       if (self.report_line != self.linenum || self.linenum==0)  {
+         println!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+         self.report_line = self.linenum;
+       }
+       else {
+         print!("{} ",errmsg);
+       }
        self.err_occured = true;
+    }
+
+    //called to simulate a shift
+    fn errshift(&mut self, sym:&str) -> bool
+    {
+       let csi = self.stack[self.stack.len()-1].si; // current state
+       let actionopt = self.RSM[csi].get(sym);
+       if let Some(Shift(ni)) = actionopt {
+         self.stack.push(Stackelement{si:*ni,value:AT::default()}); true
+       }
+       else {false}
     }
 
     fn reduce(&mut self, ri:&usize)
@@ -156,6 +175,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     {
        self.err_occured = false;
        self.stack.clear();
+       let mut eofcount = 0;
 //       self.exstate = ET::default(); ???
        let mut result = AT::default();
        // push state 0 on stack:
@@ -175,9 +195,11 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());//.unwrap();
 //         if TRACE>1 {println!("RSM action : {:?}",actionopt);}
 //println!("actionopt: {:?}, current state {}",actionopt,self.stack[self.stack.len()-1].si);            
+
 ///// Do error recovery
          if let None = actionopt {
-            self.report(&format!("unexpected symbol {}, attempting recovery ...",&lookahead.sym));
+//            self.report(&format!("unexpected symbol {} ... current state {}",&lookahead.sym,self.stack[self.stack.len()-1].si));
+              self.report(&format!("unexpected symbol {} ..",&lookahead.sym));
             let mut erraction = None;
             // skip ahead until a resync symbol is found
 
@@ -185,29 +207,56 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
             if self.Errsym.len()>0 {
                let errsym = self.Errsym;
                //lookdown stack for "shift" action on errsym
-               let mut k = self.stack.len()-1; // offset by 1 because of usize
+               // but that could be current state too (start at top)
+               let mut k = self.stack.len(); // offset by 1 because of usize
                let mut spos = k+1;
                while k>0 && spos>k
                {
                   let ksi = self.stack[k-1].si;
                   erraction = self.RSM[ksi].get(errsym);
-                  if let Some(Shift(_)) = erraction { spos=k;}
-                  else {k-=1;}
+                  if let None = erraction {k-=1;} else {spos=k;}
+                  //if let Some(Shift(_)) = erraction { spos=k;}
+                  //else {k-=1;}
                }//while k>0
                if spos==k { self.stack.truncate(k); }
+
+            // run all reduce actions that are valid before the Errsym:
+            while let Some(Reduce(ri)) = erraction // keep reducing
+            {
+              //self.reduce(ri); // borrow error- only need mut self.stack
+              let rulei = &self.Rules[*ri];
+              let ruleilhs = rulei.lhs; // &'static : Copy
+//println!("ERR reduction on rule {}, lhs {}",ri,ruleilhs);
+              let val = (rulei.Ruleaction)(self); // calls delegate function
+              let newtop = self.stack[self.stack.len()-1].si; 
+              let gotonopt = self.RSM[newtop].get(ruleilhs);
+              match gotonopt {
+                Some(Gotonext(nsi)) => { 
+                  self.stack.push(Stackelement{si:*nsi,value:val});
+                },// goto next state after reduce
+                _ => {self.abort("recovery failed"); },
+              }//match
+              // end reduce
+              let tos=self.stack[self.stack.len()-1].si;
+              erraction = self.RSM[tos].get(self.Errsym);
+            } // while let erraction is reduce
+
+
                if let Some(Shift(i)) = erraction { // simulate shift errsym 
                  self.stack.push(Stackelement{si:*i,value:AT::default()});
-                 // now keep lookahead until action is found that transitions from
-                 // current state (i).  since only terminals may follow errsym,
-                 // this would have to be a shift rule
+//println!("SIMULATING shift to state {}",i);                 
+                 // keep lookahead until action is found that transitions from
+                 // current state (i). but skipping ahead without reducing
+                 // the error production is not a good idea
                  while let None = self.RSM[*i].get(&lookahead.sym[..]) {
-                    if &lookahead.sym[..]=="EOF" {break;}
+                    if &lookahead.sym[..]=="EOF" {eofcount+=1; break;}
                     lookahead = self.nexttoken(tokenizer);
                  }//while let
                  // either at end of input or found action on next symbol
                  erraction = self.RSM[*i].get(&lookahead.sym[..]);
+//println!("next action from state {} on lookahead {} : {:?}",i,&lookahead.sym,&erraction);                 
                } // if shift action found down under stack
-               else {erraction = None; }// don't reduce
+               //else {erraction = None; }// don't reduce
             }//errsym exists
 
             // at this point, if erraction is None, then Errsym failed to recover,
@@ -222,6 +271,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
               // look for state on stack that has action defined on next symbol
               lookahead = self.nexttoken(tokenizer); // skipp err-causing symbol
              }
+             else {eofcount += 1;}
               let mut k = self.stack.len()-1; // offset by 1 because of usize
               let mut position = 0;
               while k>0 && erraction==None
@@ -240,7 +290,10 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
             // only action left is to skip ahead...
             if let None = erraction { //skip input, loop back
                 lookahead = self.nexttoken(tokenizer);
-                if &lookahead.sym=="EOF" {
+                let csi =self.stack[self.stack.len()-1].si;
+                erraction = self.RSM[csi].get(&lookahead.sym[..]);
+//println!("csi {}",csi);                
+                if &lookahead.sym=="EOF" && erraction==None && eofcount>0 {
                   self.abort("error recovery failed before end of input");
                 }
             }

@@ -215,7 +215,7 @@ pub fn enhanced_parse(&mut self, tokenizer:&mut dyn Enhanced_Lexer<AT>) -> Parse
                   if let None=erraction {k-=1;}
                }//while k>0 && erraction==None
               match erraction {
-                 None => {}, // do nothing, whill shift next symbol
+                 None => {}, // do nothing, will shift next symbol
                  _ => { self.stack.truncate(k);},//pop stack
               }//match
             }// there are resync symbols
