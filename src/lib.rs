@@ -47,7 +47,6 @@
 //! as well, such as scanlex (<https://docs.rs/scanlex/0.1.4/scanlex/>).
 
 
-
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
@@ -65,8 +64,11 @@ mod lexer_interface;
 pub use lexer_interface::*;
 mod runtime_parser;
 use runtime_parser::*;
+mod enhancements;
+pub use enhancements::*;
 
 pub use lr_statemachine::{Stateaction,decode_action};
+//pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 pub use runtime_parser::{RuntimeParser,RProduction};
 
 ////// main function, called from main with command-line args

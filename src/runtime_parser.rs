@@ -55,7 +55,7 @@ pub struct Stackelement<AT:Default>
 /// by user programs.
 pub struct RuntimeParser<AT:Default,ET:Default>  
 {
-  /// this the "external state" structure, with type ET defined by the grammar.
+  /// this is the "external state" structure, with type ET defined by the grammar.
   /// The semantic actions associated with each grammar rule, which are written
   /// in the grammar, have ref mut access to the RuntimeParser structure, which
   /// allows them to read and change the external state object.  This gives
@@ -68,7 +68,8 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   pub RSM : Vec<HashMap<&'static str,Stateaction>>,  // runtime state machine
   /// do not reference
   pub Rules : Vec<RProduction<AT,ET>>, //rules with just lhs and delegate function
-   stopparsing : bool,
+  ////// this value should be set through abort or report
+  stopparsing : bool,
   /// do not reference  
   pub stack :  Vec<Stackelement<AT>>, // parse stack
 //  pub recover : HashSet<&'static str>, // for error recovery
@@ -83,7 +84,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 {
     /// this is only called by the make_parser function in the machine-generated
     /// parser program.  *Do not call this function in other places* as it
-    /// only generate a skeleton.
+    /// only generates a skeleton.
     pub fn new(rlen:usize, slen:usize) -> RuntimeParser<AT,ET>
     {  // given number of rules and number states
        let mut p = RuntimeParser {
@@ -150,7 +151,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     // parse does not reset state stack
     
     /// this function is used to invoke the generated parser returned by
-    /// the generated parser program's make_function.
+    /// the generated parser program's make_parser function.
     pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
     {
        self.err_occured = false;
@@ -486,3 +487,4 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
   }//write_verbose
 
 } // impl Statemachine
+

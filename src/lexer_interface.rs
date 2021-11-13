@@ -9,6 +9,7 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 use std::str::Chars;
+use crate::{ParseResult,ParseValue};
 
 /// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
@@ -53,7 +54,7 @@ pub trait Lexer<AT:Default>
 /// terminal symbols in the grammar.
 pub struct charlexer<'t>
 {
-   chars: Chars<'t>,
+   pub chars: Chars<'t>,
    index: usize,
 }
 impl<'t> charlexer<'t>
@@ -76,3 +77,20 @@ impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
    fn linenum(&self) -> usize { 0 }
    fn column(&self) -> usize { self.index }
 }//impl Lexer for lexer
+
+
+/////////////enhancements
+/// Enhanced Lexer trait, compatible with Lexer
+pub trait Enhanced_Lexer<AT:Default> : Lexer<AT>
+{
+  fn current_line(&self) -> String;
+}
+
+impl<'t,AT:ParseValue> Enhanced_Lexer<AT> for charlexer<'t>
+{
+  fn current_line(&self) -> String
+  { 
+     self.chars.clone().collect()
+  }
+}
+/////////////////////
