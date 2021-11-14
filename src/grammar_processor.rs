@@ -99,9 +99,9 @@ pub struct Grammar
   pub Rulesfor: HashMap<String,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
-//  pub Recover : HashSet<String>, // recovery non-terminal symbols
   pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
   pub Errsym : String,        // error recovery terminal symbol
+  pub Lexnames : HashMap<String,String>, // print names of terminals
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
 }
 
@@ -123,6 +123,7 @@ impl Grammar
 //       Recover : HashSet::new(),
        Resynch : HashSet::new(),
        Errsym : String::new(),
+       Lexnames : HashMap::new(),
        Extras: String::new(),
      }
   }//new grammar
@@ -187,11 +188,11 @@ impl Grammar
        }
        else if linelen>1 && &line[0..1]=="!" {
            self.Extras.push_str(&line[1..]);
-           //self.Extras.push_str("\n");                                      
        }
        else if linelen>1 && &line[0..1]!="#" {
          let toksplit = line.split_whitespace();
          let stokens:Vec<&str> = toksplit.collect();
+         if stokens.len()<1 {continue;}
          match stokens[0] {
             "use" => {
               self.Extras.push_str("use ");
@@ -299,6 +300,7 @@ impl Grammar
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
+               if stokens.len()<3 {continue;}
 	       let mut preclevel:i32 = 0;
 	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
                else {panic!("did not read precedence level on line {}",linenum);}
@@ -309,7 +311,10 @@ impl Grammar
                  self.Symbols[*index].precedence = preclevel;
                }
 	    }, // precedence and associativity
-	    /*"recover" | "resync" |*/ "flexname"  => {}, //not covered
+	    "flexname" | "lexname"  => {
+               if stokens.len()<3 {continue;}
+               self.Lexnames.insert(stokens[1].to_string(),stokens[2].to_string());
+            },
 	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}

@@ -66,7 +66,7 @@ pub fn stateeq(s1:&Itemset, s2:&Itemset) -> bool
 
 fn extract_core(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
 {
-   let mut core0 = HashSet::new();
+   let mut core0 = HashSet::with_capacity(256);
    for LRitem{ri:r, pi:p, la} in items  { core0.insert((*r,*p)); }
    core0
 }
@@ -103,6 +103,7 @@ pub struct LR1State
    index: usize, // index into vector
    items:Itemset,
    lhss: BTreeSet<String>,  // set of left-side non-terminals
+   expected : HashSet<String>, // expected lookaheads for error reporting
 }
 impl LR1State
 {
@@ -110,8 +111,9 @@ impl LR1State
   {
      LR1State {
         index : 0,   // need to change
-        items : HashSet::new(),
-        lhss: BTreeSet::new(),
+        items : HashSet::with_capacity(256),
+        lhss: BTreeSet::new(), // for quick lookup
+        expected : HashSet::with_capacity(32),
      }
   }
   pub fn insert(&mut self, item:LRitem, lhs:&str) -> bool
@@ -179,6 +181,11 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
      let rulei = &Gmr.Rules[ri]; //.get(ri).unwrap();
      let lhs = &rulei.lhs.sym;
      closed.insert(nextitem,lhs); // place item in interior
+     // insert terminals into expected set for error reporting
+     if pi<rulei.rhs.len() && rulei.rhs[pi].terminal { // add to expected
+       closed.expected.insert(rulei.rhs[pi].sym.clone());
+     }
+     else if pi==rulei.rhs.len() {closed.expected.insert(la.clone());}
      if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
        let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);  
@@ -262,6 +269,7 @@ impl Statemachine
                 index : toadd,
                 items : state.items.clone(),
                 lhss: BTreeSet::new(),
+                expected : state.expected.clone(),
              };
              stateclone.merge_states(&self.States[toadd]);
              if stateclone.items.len() > self.States[toadd].items.len() {
@@ -289,7 +297,7 @@ impl Statemachine
        if TRACE>2 {printstate(&state,&self.Gmr);}
        indices.insert(newstateindex); // add to StateLookup index hashset
        self.States.push(state);
-       self.FSM.push(HashMap::new()); // always add row to fsm at same time
+       self.FSM.push(HashMap::with_capacity(64)); // always add row to fsm at same time
        if self.lalr {self.Open.push(newstateindex)}
      }// add new state
 
@@ -384,15 +392,17 @@ impl Statemachine
   // generate the GOTO sets of a state with index si, creates new states
   fn makegotos(&mut self, si:usize)
   {
-     let ref state = self.States[si];
+     let ref /*mut*/ state = self.States[si];
      // key to following hashmap is the next symbol after pi (the dot)
-     let mut newstates:HashMap<String,LR1State> = HashMap::new();
+     let mut newstates:HashMap<String,LR1State> = HashMap::with_capacity(64);
      let mut keyvec:Vec<String> = Vec::new(); //keys of newstates
      for item in &state.items
      {
        let rule = self.Gmr.Rules.get(item.ri).unwrap();
        if item.pi<rule.rhs.len() { // can goto (dot before end of rule)
           let ref nextsym = rule.rhs[item.pi].sym;
+          //insert into expected if next symbol is terminal
+          //if rule.rhs[item.pi].terminal {state.expected.insert(nextsym.clone());}
           if let None = newstates.get(nextsym) {
              newstates.insert(nextsym.to_owned(),LR1State::new());
              keyvec.push(nextsym.clone());
@@ -471,7 +481,7 @@ impl Statemachine
     startstate = stateclosure(startstate,&self.Gmr);
     //setRactions(startstate); //???????
     self.States.push(startstate); // add start state
-    self.FSM.push(HashMap::new()); // row for state
+    self.FSM.push(HashMap::with_capacity(64)); // row for state
     // now generate closure for state machine (not individual states)
     let mut closed:usize = 0;
     if !self.lalr {

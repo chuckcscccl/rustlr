@@ -67,6 +67,8 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   /// used only by generated parser: do not reference
   pub RSM : Vec<HashMap<&'static str,Stateaction>>,  // runtime state machine
   /// do not reference
+  pub Expected : Vec<Vec<&'static str>>,
+  /// do not reference
   pub Rules : Vec<RProduction<AT,ET>>, //rules with just lhs and delegate function
   ////// this value should be set through abort or report
   stopparsing : bool,
@@ -90,6 +92,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     {  // given number of rules and number states
        let mut p = RuntimeParser {
          RSM : Vec::with_capacity(slen),
+         Expected : Vec::with_capacity(slen),
          Rules : Vec::with_capacity(rlen),
          stopparsing : false,
          exstate : ET::default(),
@@ -99,10 +102,12 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          linenum : 0,
          column : 0,
          report_line : 0,
-//         recover : HashSet::new(),
          resynch : HashSet::new(),
        };
-       for _ in 0..slen {p.RSM.push(HashMap::new());}
+       for _ in 0..slen {
+         p.RSM.push(HashMap::with_capacity(16));
+         p.Expected.push(Vec::new());
+       }
        p
     }//new
 
