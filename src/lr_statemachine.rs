@@ -103,7 +103,7 @@ pub struct LR1State
    index: usize, // index into vector
    items:Itemset,
    lhss: BTreeSet<String>,  // set of left-side non-terminals
-   expected : HashSet<String>, // expected lookaheads for error reporting
+   //expected : HashSet<String>, // expected lookaheads for error reporting
 }
 impl LR1State
 {
@@ -113,7 +113,7 @@ impl LR1State
         index : 0,   // need to change
         items : HashSet::with_capacity(256),
         lhss: BTreeSet::new(), // for quick lookup
-        expected : HashSet::with_capacity(32),
+        //expected : HashSet::with_capacity(32),
      }
   }
   pub fn insert(&mut self, item:LRitem, lhs:&str) -> bool
@@ -181,11 +181,13 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
      let rulei = &Gmr.Rules[ri]; //.get(ri).unwrap();
      let lhs = &rulei.lhs.sym;
      closed.insert(nextitem,lhs); // place item in interior
+     /*
      // insert terminals into expected set for error reporting
      if pi<rulei.rhs.len() && rulei.rhs[pi].terminal { // add to expected
        closed.expected.insert(rulei.rhs[pi].sym.clone());
      }
      else if pi==rulei.rhs.len() {closed.expected.insert(la.clone());}
+     */
      if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
        let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);  
@@ -217,7 +219,7 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
 /// There is no reason to use it in other programs.
 #[derive(Clone,PartialEq,Eq,Debug)]
 pub enum Stateaction {
-  Shift(usize),     // shift then got to state index
+  Shift(usize),     // shift then go to state index
   Reduce(usize),    // reduce by rule index
   Gotonext(usize),  // folded into same table, only for non-terminals
   Accept,
@@ -269,7 +271,7 @@ impl Statemachine
                 index : toadd,
                 items : state.items.clone(),
                 lhss: BTreeSet::new(),
-                expected : state.expected.clone(),
+                //expected : state.expected.clone(),
              };
              stateclone.merge_states(&self.States[toadd]);
              if stateclone.items.len() > self.States[toadd].items.len() {
@@ -401,8 +403,7 @@ impl Statemachine
        let rule = self.Gmr.Rules.get(item.ri).unwrap();
        if item.pi<rule.rhs.len() { // can goto (dot before end of rule)
           let ref nextsym = rule.rhs[item.pi].sym;
-          //insert into expected if next symbol is terminal
-          //if rule.rhs[item.pi].terminal {state.expected.insert(nextsym.clone());}
+
           if let None = newstates.get(nextsym) {
              newstates.insert(nextsym.to_owned(),LR1State::new());
              keyvec.push(nextsym.clone());

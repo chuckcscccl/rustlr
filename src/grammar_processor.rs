@@ -101,7 +101,7 @@ pub struct Grammar
   pub Externtype : String,    // type of external structure
   pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
   pub Errsym : String,        // error recovery terminal symbol
-  pub Lexnames : HashMap<String,String>, // print names of terminals
+  pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
 }
 

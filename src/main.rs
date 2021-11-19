@@ -47,7 +47,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
   let mut lalr = false;
-  let mut tracelev:usize = 0; // trace-level
+  let mut tracelev:usize = 1; // trace-level
   while argi<argc
   {
      match &args[argi][..] {
@@ -88,16 +88,18 @@ fn rustle(args:&Vec<String>) // called from main
   let mut fsm0 = Statemachine::new(grammar1);
   fsm0.lalr = lalr;
   if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
-  println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);
+  if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
   fsm0.generatefsm();
-  if tracelev>1 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
-  else if tracelev>0 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
+  if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
+  else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 {parserfile = format!("{}parser.rs",&gramname);}
   let write_result = 
     if fsm0.States.len()<=16 {fsm0.write_verbose(&parserfile)}
     else if fsm0.States.len()<=65536 {fsm0.writeparser(&parserfile)}
     else {panic!("too many states: {}",fsm0.States.len())};
-  println!("{} total states",fsm0.States.len());
-  if let Ok(_) = write_result {println!("written parser to {}",&parserfile);}
+  if tracelev>0 {println!("{} total states",fsm0.States.len());}
+  if let Ok(_) = write_result {
+     if tracelev>0 {println!("written parser to {}",&parserfile);}
+  }
 }//rustle
 

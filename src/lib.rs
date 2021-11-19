@@ -4,8 +4,8 @@
 //! Parsers also have optional access to *external state* information that allows
 //! them to recognize more than just context-free languages.  A 
 //! classical method of error recovery is used.  The parser can generate a full
-//! LR(1) parser given the grammar for Java in
-//! approximately 10-20 seconds on contemporary processors.
+//! LR(1) parser given the ANSI C grammar in
+//! approximately 2-4 seconds on contemporary processors. 
 //!
 //! Most of the items
 //! exported by this crate are only required by the parsers that are generated,

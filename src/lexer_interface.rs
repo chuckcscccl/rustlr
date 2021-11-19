@@ -41,14 +41,14 @@ pub trait Lexer<AT:Default>
 {
   /// retrieves the next Lextoken, or None at end-of-stream.
   fn nextsym(&mut self) -> Option<Lextoken<AT>>;
-  /// returns the current line number.  The 
+  /// returns the current line number.
   fn linenum(&self) -> usize; // line number
   /// returns the current column (character position) on the current line.
   fn column(&self) -> usize;
 }//trait Lexer
 
 
-/// This is a sample Lexer implementation designed to return every character in a
+/// This is a sample Lexer implementation designed to return every non-whitespace character in a
 /// string as a separate token, and is used in small grammars for testing and
 /// illustration purposes.  It is assumed that the characters read are defined as
 /// terminal symbols in the grammar.
@@ -66,13 +66,20 @@ impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
 {
    fn nextsym(&mut self) -> Option<Lextoken<AT>>
    {
-      match self.chars.next() {
-        None => {None},
+      let mut res = None;
+      let mut stop = false;
+      while !stop
+      {
+       res=match self.chars.next() {
+        None => {stop=true; None},
         Some(c) => {
           self.index+=1;
-          Some(Lextoken::new(c.to_string(),AT::default()))
+          if c.is_whitespace() {None}
+          else {stop=true; Some(Lextoken::new(c.to_string(),AT::default()))}
         },
-      }//match
+       }//match
+      }//while
+      res
    }//nextsym
    fn linenum(&self) -> usize { 0 }
    fn column(&self) -> usize { self.index }
@@ -80,7 +87,8 @@ impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
 
 
 /////////////enhancements
-/// Enhanced Lexer trait, compatible with Lexer
+/// Enhanced Lexer trait for newer versions of rustlr, compatible with Lexer.
+/// The original Lexer interface is retained for compatibility.
 pub trait Enhanced_Lexer<AT:Default> : Lexer<AT>
 {
   fn current_line(&self) -> String;
