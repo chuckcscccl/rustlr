@@ -9,7 +9,7 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 use std::str::Chars;
-use crate::{ParseResult,ParseValue};
+//use crate::{ParseResult,ParseValue};
 
 /// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
@@ -36,15 +36,24 @@ impl<AT:Default> Lextoken<AT>
   }//new Lextoken
 }//impl Lextoken
 
-/// This trait defines the interace that any lexical analyzer must be adopted to.
+/// This trait defines the interace that any lexical analyzer must be adopted
+/// to.  The default implementations for linenum, column and
+/// current_line *should be replaced.* They're provided only for compatibility.
 pub trait Lexer<AT:Default>
 {
-  /// retrieves the next Lextoken, or None at end-of-stream.
+  /// retrieves the next Lextoken, or None at end-of-stream. 
   fn nextsym(&mut self) -> Option<Lextoken<AT>>;
-  /// returns the current line number.
-  fn linenum(&self) -> usize; // line number
+  /// returns the current line number.  The default implementation
+  /// returns 0.
+  fn linenum(&self) -> usize { 0 } // line number
   /// returns the current column (character position) on the current line.
-  fn column(&self) -> usize;
+  /// The default implementation returns 0;
+  fn column(&self) -> usize { 0 }
+  /// returns the current line being tokenized as an owned string.  The
+  /// default implementation returns the empty string.
+  fn current_line(&self) -> String  { // with default implementation
+     String::from("")
+  }
 }//trait Lexer
 
 
@@ -81,24 +90,10 @@ impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
       }//while
       res
    }//nextsym
-   fn linenum(&self) -> usize { 0 }
+   fn linenum(&self) -> usize { 1 }
    fn column(&self) -> usize { self.index }
-}//impl Lexer for lexer
-
-
-/////////////enhancements
-/// Enhanced Lexer trait for newer versions of rustlr, compatible with Lexer.
-/// The original Lexer interface is retained for compatibility.
-pub trait Enhanced_Lexer<AT:Default> : Lexer<AT>
-{
-  fn current_line(&self) -> String;
-}
-
-impl<'t,AT:ParseValue> Enhanced_Lexer<AT> for charlexer<'t>
-{
-  fn current_line(&self) -> String
-  { 
+   fn current_line(&self) -> String
+   { 
      self.chars.clone().collect()
-  }
-}
-/////////////////////
+   }   
+}//impl Lexer for lexer

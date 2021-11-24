@@ -394,19 +394,20 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
          }//match first word
        }// not an empty or comment line
      } // while !atEOF
-     if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF")
+     if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF") || self.Symhash.contains_key("ANY_ERROR")
      {
         panic!("Error in grammar: START and EOF are reserved symbols");
      }
      // add start,eof and starting rule:
      let startnt = Gsym::new("START",false);
      let eofterm =  Gsym::new("EOF",true);
+//     let anyerr = Gsym::new("ANY_ERROR",true);
      self.Symhash.insert(String::from("START"),self.Symbols.len());
-     self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);     
+     self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);
+//   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+2);     
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
-     //self.Symbols.insert(String::from("START"),startnt.clone());
-     //self.Symbols.insert(String::from("EOF"),eofterm.clone());
+//     self.Symbols.push(anyerr.clone());     
      let topgsym = &self.Symbols[*self.Symhash.get(&self.topsym).unwrap()];
      let startrule = Grule {  // START-->topsym EOF
         lhs:startnt,

@@ -17,7 +17,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
-use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine};
+use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine,augment_file};
 use crate::Stateaction::*;
 
 /// this structure is only exported because it is required by the generated parsers.
@@ -79,8 +79,12 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   pub Errsym : &'static str,
   err_occured : bool,
   pub linenum : usize,
-  pub column : usize,  // not used for now
+  pub column : usize,
   report_line : usize,
+  training : bool,
+  pub trained: HashMap<(usize,String),String>,
+  /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
+  pub Symset : HashSet<&'static str>,
 }//struct RuntimeParser
 
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
@@ -103,12 +107,16 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          column : 0,
          report_line : 0,
          resynch : HashSet::new(),
+         //added for training
+         training : false,
+         trained : HashMap::new(),
+         Symset : HashSet::with_capacity(64),
        };
        for _ in 0..slen {
          p.RSM.push(HashMap::with_capacity(16));
          //p.Expected.push(Vec::new());
        }
-       p
+       return p;
     }//new
 
     /// this function can be called from with the "semantic" actions attached
@@ -116,20 +124,21 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// "reduce" action of the parser.
     pub fn abort(&mut self, msg:&str)
     {
-       println!("!!!Parsing Aborted: {}",msg);
+       println!("\n!!!Parsing Aborted: {}",msg);
        self.err_occured = true;
        self.stopparsing=true;
     }
 
     /// may be called from grammar semantic actions to report error
-    pub fn report(&mut self, errmsg:&str)  // linenum must be set prior to call
-    {
+    pub fn report(&mut self, errmsg:&str)  
+    {      // linenum must be set prior to call
        if (self.report_line != self.linenum || self.linenum==0)  {
-         println!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+//         print!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
+         print!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
          self.report_line = self.linenum;
        }
        else {
-         print!("{} ",errmsg);
+         print!(" {} ",errmsg);
        }
        self.err_occured = true;
     }
@@ -196,7 +205,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        {
          self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
          let currentstate = self.stack[self.stack.len()-1].si;
-//         if TRACE>1 {print!(" current state={}, lookahead={}, ",&currentstate,&lookahead.sym);}
+         //if TRACE>1 {print!(" current state={}, lookahead={}, ",&currentstate,&lookahead.sym);}
          let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());//.unwrap();
 //         if TRACE>1 {println!("RSM action : {:?}",actionopt);}
 //println!("actionopt: {:?}, current state {}",actionopt,self.stack[self.stack.len()-1].si);            
@@ -204,9 +213,59 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 ///// Do error recovery
          if iserror(&actionopt) /*let None = actionopt*/ {
 //            self.report(&format!("unexpected symbol {} ... current state {}",&lookahead.sym,self.stack[self.stack.len()-1].si));
-              self.report(&format!("unexpected symbol {} ..",&lookahead.sym));
+            let lksym = &lookahead.sym[..];
+            // is lookahead recognized as a grammar symbol?
+            // if actionopt is NONE, check entry for ANY_ERROR            
+            if self.Symset.contains(lksym) {
+               if let None=&actionopt {
+                  actionopt = self.RSM[currentstate].get("ANY_ERROR");
+               }
+            }// lookahead is recognized grammar sym
+            else {
+               actionopt = self.RSM[currentstate].get("ANY_ERROR");
+            }// lookahead is not a grammar sym
+
+            let errmsg = if let Some(Error(em)) = &actionopt {
+               format!("unexpected symbol {}, **{}** ..",lksym,em)
+            } else {format!("unexpected symbol {} ..",lksym)};
+
+            self.report(&errmsg);
+            
+            if self.training {  /////// TRAINING MODE:
+              let cstate = self.stack[self.stack.len()-1].si;
+              let csym = lookahead.sym.clone();
+              let mut inp = String::from("");
+              print!("\n>>>TRAINER: is this error message adequate? If not, enter a better one: ");
+              let rrrflush = io::stdout().flush();
+              if let Ok(n) = io::stdin().read_line(&mut inp) {
+                if inp.len()>4 && self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,csym.clone()))*/ {
+                  print!(">>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) ");
+                  let rrrflush2 = io::stdout().flush();
+                  let mut inp2 = String::new();
+                  if let Ok(n) = io::stdin().read_line(&mut inp2) {
+                     if inp2.trim()=="no" || inp2.trim()=="No" {
+                       self.trained.insert((cstate,csym),inp);
+                     }
+                     else  {// insert for any error
+                       self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
+                     }
+                  }// read ok
+                }// unexpected symbol is grammar sym
+                else if inp.len()>4 && !self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,String::from("ANY_ERROR")))*/ {
+                  self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
+                }
+                
+ /*               
+                if n>2 && !self.trained.contains_key(&(cstate,csym.clone())) {
+                  self.trained.insert((cstate,csym),inp);
+                }
+*/                
+              }// process user response
+            }//train   //// END TRAINING MODE
+            
+
+      // do error recovery
             let mut erraction = None;
-            // skip ahead until a resync symbol is found
 
             ///// prefer to use Errsym method
             if self.Errsym.len()>0 {
@@ -370,6 +429,26 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        //if self.err_occured {result = AT::default(); }
        return result;
     }//parse
+
+    /// Parse in training mode: when an error occurs, the parser will
+    /// ask the human trainer for an appropriate error message: it will
+    /// then insert an entry into its state transition table to
+    /// give the same error message on future errors of the same type.
+    /// If the error is caused by an expected token that is recognized
+    /// as a terminal symbol of the grammar, the trainer can select to
+    /// enter the entry 
+    /// under the reserved ANY_ERROR symbol. If the unexpected token is
+    /// not recognized as a grammar symbol, then the entry will always
+    /// be entered under ANY_ERROR
+    pub fn parse_train(&mut self, tokenizer:&mut dyn Lexer<AT>, filename:&str) -> AT
+    {
+      self.training = true;
+      let result = self.parse(tokenizer);
+      if let Err(m) = augment_file(filename,self) {
+        println!("Error in augmenting parser: {:?}",m)
+      }
+      return result;
+    }
 }// impl RuntimeParser
 
 
@@ -389,7 +468,7 @@ impl Statemachine
 #![allow(unused_mut)]
 #![allow(unused_assignments)]
 extern crate rustlr;
-use rustlr::{{RuntimeParser,RProduction,decode_action}};\n")?;
+use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
 
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses
 
@@ -470,16 +549,22 @@ use rustlr::{{RuntimeParser,RProduction,decode_action}};\n")?;
     write!(fd,"   let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;\n")?;
     write!(fd,"   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));\n }}\n\n")?;
 //    write!(fd,"\n for i in 0..{} {{for k in 0..{} {{\n",rows,cols)?;
-//    write!(fd,"   parser1.RSM[i].insert(SYMBOLS[k],decode_action(TABLE[i*{}+k]));\n }}}}\n\n",cols)?;
+//    write!(fd,"   parser1.RSM[i].insert(SYMBOLS[k],decode_action(TABLE[i*{}+k]));\n }}}}\n",cols)?;
+    write!(fd," for s in SYMBOLS {{ parser1.Symset.insert(s); }}\n\n")?;
 
+    write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
-    write!(fd,"}} //make_parser\n")?;
+    write!(fd,"}} //make_parser\n\n")?;
+
+    ////// Augment!
+    write!(fd,"fn load_extras(parser:&mut RuntimeParser<{},{}>)\n{{\n",absyn,extype)?;
+    write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation")?;
     Ok(())
   }//writeparser
 
 
-
-///////////////// non-binary version //////////////////
+//////////////
+///////////////// non-binary version (no augmentation) //////////////////
 pub fn write_verbose(&self, filename:&str)->Result<(),std::io::Error>
   {
     let mut fd = File::create(filename)?;

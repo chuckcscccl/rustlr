@@ -55,6 +55,9 @@ pub fn printitem(item:&LRitem, Gmr:&Grammar)
 // representation of each LR1 state
 pub type Itemset = HashSet<LRitem>;
 // check if two states are the same
+
+pub type LookupSet<T> = BTreeSet<T>;
+
 pub fn stateeq(s1:&Itemset, s2:&Itemset) -> bool
 {
    if s1.len()!=s2.len() { return false; }
@@ -231,7 +234,7 @@ pub struct Statemachine  // AT is abstract syntax (enum) type
 {
    pub Gmr: Grammar,
    pub States: Vec<LR1State>, 
-   pub Statelookup: HashMap<String,BTreeSet<usize>>,
+   pub Statelookup: HashMap<String,LookupSet<usize>>,
    pub FSM: Vec<HashMap<String,Stateaction>>,
    pub lalr: bool,
    pub Open: Vec<usize>, // for LALR only, vector of unclosed states
@@ -258,7 +261,7 @@ impl Statemachine
      state.index = newstateindex;
      let lookupkey = if self.lalr {state.hashval_lalr()} else {state.hashval()};
      if let None=self.Statelookup.get(&lookupkey) {
-        self.Statelookup.insert(lookupkey.clone(),BTreeSet::new());
+        self.Statelookup.insert(lookupkey.clone(),LookupSet::new());
      }
      let indices = self.Statelookup.get_mut(&lookupkey).unwrap();
      let mut toadd = newstateindex; // defaut is add new state (will push)

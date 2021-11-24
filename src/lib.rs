@@ -5,14 +5,24 @@
 //! them to recognize more than just context-free languages.  A 
 //! classical method of error recovery is used.  The parser can generate a full
 //! LR(1) parser given the ANSI C grammar in
-//! approximately 2-4 seconds on contemporary processors. 
+//! approximately 2-4 seconds on contemporary processors.
+//!
+//! A detailed tutorial is being prepared at
+//! <https://cs.hofstra.edu/~cscccl/rustlr_project/> that will explain the
+//! format of grammars and how to generate and use parsers for several sample
+//! languages.
+//!
 //!
 //! Most of the items
 //! exported by this crate are only required by the parsers that are generated,
 //! and does not form an API. The
 //! user needs to provide a grammar and a lexical analyzer that implements
 //! the [Lexer] trait.  Only a simple lexer that returns individual characters
-//! in a string ([charlexer]) is provided.  
+//! in a string ([charlexer]) is provided.
+//! The examples in the tutorial use basic_lexer
+//! (<https://docs.rs/basic_lexer/0.1.2/basic_lexer/>), which was written by
+//! the same author but other tokenizers can be easily adopted
+//! as well, such as scanlex (<https://docs.rs/scanlex/0.1.4/scanlex/>).
 //!
 //! Example
 //!
@@ -37,14 +47,6 @@
 //! <https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>.
 //!
 //!
-//! A detailed tutorial is being prepared at
-//! <https://cs.hofstra.edu/~cscccl/rustlr_project/> that will explain the
-//! format of grammars and how to generate and use parsers for several sample
-//! languages.
-//! The examples in the tutorial use basic_lexer
-//! (<https://docs.rs/basic_lexer/0.1.2/basic_lexer/>), which was written by
-//! the same author but other tokenizers can be easily adopted
-//! as well, such as scanlex (<https://docs.rs/scanlex/0.1.4/scanlex/>).
 
 
 #![allow(dead_code)]
@@ -64,8 +66,10 @@ mod lexer_interface;
 pub use lexer_interface::*;
 mod runtime_parser;
 use runtime_parser::*;
-mod enhancements;
-pub use enhancements::*;
+mod augmenter;
+use augmenter::*;
+//mod enhancements;
+//pub use enhancements::*;
 
 pub use lr_statemachine::{Stateaction,decode_action};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
