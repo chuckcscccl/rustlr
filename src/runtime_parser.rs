@@ -226,7 +226,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
             }// lookahead is not a grammar sym
 
             let errmsg = if let Some(Error(em)) = &actionopt {
-               format!("unexpected symbol {}, **{}** ..",lksym,em)
+               format!("unexpected symbol {}, ** {} ** ..",lksym,em)
             } else {format!("unexpected symbol {} ..",lksym)};
 
             self.report(&errmsg);
@@ -238,7 +238,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
               print!("\n>>>TRAINER: is this error message adequate? If not, enter a better one: ");
               let rrrflush = io::stdout().flush();
               if let Ok(n) = io::stdin().read_line(&mut inp) {
-                if inp.len()>4 && self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,csym.clone()))*/ {
+                if inp.len()>5 && self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,csym.clone()))*/ {
                   print!(">>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) ");
                   let rrrflush2 = io::stdout().flush();
                   let mut inp2 = String::new();
@@ -251,7 +251,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
                      }
                   }// read ok
                 }// unexpected symbol is grammar sym
-                else if inp.len()>4 && !self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,String::from("ANY_ERROR")))*/ {
+                else if inp.len()>5 && !self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,String::from("ANY_ERROR")))*/ {
                   self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
                 }
                 
