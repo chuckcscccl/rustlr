@@ -15,9 +15,8 @@ use std::str::Chars;
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
 /// symbol specified in the grammar that defines the language.  AT is the type of the
 /// *value* attached to the token, which is usually some enum that distinguishes between
-/// numbers, keywords, alphanumeric symbols and other symbols.  See the tutorial and
-/// examples at <https://cs.hofstra.edu/~cscccl/rustlr_project>
-/// on how to define the right kind of AT.
+/// numbers, keywords, alphanumeric symbols and other symbols.  See the [tutorial and examples](<https://cs.hofstra.edu/~cscccl/rustlr_project>)
+/// on how to define the right kind of AT type.
 
 pub struct Lextoken<AT:Default> // now separated from Gsym
 {

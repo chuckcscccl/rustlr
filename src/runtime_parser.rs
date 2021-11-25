@@ -60,8 +60,8 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   /// in the grammar, have ref mut access to the RuntimeParser structure, which
   /// allows them to read and change the external state object.  This gives
   /// the parsers greater flexibility and capability, including the ability to
-  /// parse some non-context free languages.  See the sample grammar at
-  /// <https://cs.hofstra.edu/~cscccl/rustlr_project/ncf.grammar>.
+  /// parse some non-context free languages.  See 
+  /// [this sample grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/ncf.grammar>).
   /// The exstate is initialized to ET::default().
   pub exstate : ET,  // external state structure, usage optional
   /// used only by generated parser: do not reference
@@ -439,7 +439,24 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// enter the entry 
     /// under the reserved ANY_ERROR symbol. If the unexpected token is
     /// not recognized as a grammar symbol, then the entry will always
-    /// be entered under ANY_ERROR
+    /// be entered under ANY_ERROR.
+    ///
+    /// Example: with the parser for this [toy grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar), parse_train can run as follows:
+    ///```ignore
+    ///  Write something in C+- : cout << x y ;   
+    ///  ERROR on line 1, column 0: unexpected symbol y ..
+    ///  >>>TRAINER: is this error message adequate? If not, enter a better one: need another <<                   
+    ///  >>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) yes
+    ///```
+    /// (ignore the column number as the lexer for this toy language does not implement it)
+    ///
+    /// parse_train will then save a [modified version](https://cs.hofstra.edu/~cscccl/rustlr_project/augmented_cpmparser.rs) of the parser as specified
+    /// by the filename argument.  When the augmented parser is used, it will
+    /// give a more helpful error message:
+    ///```
+    /// Write something in C+- : cout << x endl
+    /// ERROR on line 1, column 0: unexpected symbol endl, **need another <<** ..
+    ///```
     pub fn parse_train(&mut self, tokenizer:&mut dyn Lexer<AT>, filename:&str) -> AT
     {
       self.training = true;

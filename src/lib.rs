@@ -2,13 +2,20 @@
 //! LR(1) parsers.  It is also capable of recognizing operator precedence and
 //! associativity declarations that allows the use of some ambiguous grammars.
 //! Parsers also have optional access to *external state* information that allows
-//! them to recognize more than just context-free languages.  A 
-//! classical method of error recovery is used.  The parser can generate a full
+//! them to recognize more than just context-free languages.  Rustlr implements
+//! methods of error recovery similar to those found in other LR generators.
+//! For error reporting, however, rustlr parsers can run in
+//! *training mode*, in which, when a parse error is encountered, the human 
+//! trainer can augment the parser's state transition table with an
+//! appropriate error message. The augmented parser is automatically saved.
+//! See the [RuntimeParser::parse_train] function.
+//!
+//! The parser can generate a full
 //! LR(1) parser given the ANSI C grammar in
 //! approximately 2-4 seconds on contemporary processors.
 //!
-//! A detailed tutorial is being prepared at
-//! <https://cs.hofstra.edu/~cscccl/rustlr_project/> that will explain the
+//! A [`detailed tutorial`](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
+//! is being prepared that will explain the
 //! format of grammars and how to generate and use parsers for several sample
 //! languages.
 //!
@@ -19,19 +26,19 @@
 //! user needs to provide a grammar and a lexical analyzer that implements
 //! the [Lexer] trait.  Only a simple lexer that returns individual characters
 //! in a string ([charlexer]) is provided.
-//! The examples in the tutorial use basic_lexer
-//! (<https://docs.rs/basic_lexer/0.1.2/basic_lexer/>), which was written by
+//! The examples in the tutorial use
+//! [basic_lexer](<https://docs.rs/basic_lexer/0.1.2/basic_lexer/>), which was written by
 //! the same author but other tokenizers can be easily adopted
-//! as well, such as scanlex (<https://docs.rs/scanlex/0.1.4/scanlex/>).
+//! as well, such as [scanlex](<https://docs.rs/scanlex/0.1.4/scanlex/>).
 //!
 //! Example
 //!
-//! Given the grammar at <https://cs.hofstra.edu/~cscccl/rustlr_project/calculator.grammar>,
+//! Given [this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/calculator.grammar>), with file name "calculator.grammar",
 //!```\ignore
 //! rustlr calculator.grammar lr1
 //!```
-//! generates a LR(1) parser as a rust program 
-//! (<https://cs.hofstra.edu/~cscccl/rustlr_project/calculatorparser.rs>).
+//! generates a LR(1) parser as 
+//! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/calculatorparser.rs>).
 //! This program includes a make_parser function, which can be used as in
 //!
 //!```ignore
@@ -43,8 +50,8 @@
 //! required by the generated parser.
 //!
 //! A relatively self-contained example, containing both a grammar and code for
-//! using its generated parser, is at
-//! <https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>.
+//! using its generated parser, is found 
+//! [here](<https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>).
 //!
 //!
 
@@ -85,12 +92,12 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 ///
 /// Example:
 ///
-/// Given the grammar at <https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar>,
+/// Given the grammar called [test1.grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar>),
 ///```ignore
 /// rustler("test1","lalr");
 ///```
-/// would generate the file
-///<https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs>.
+/// would generate 
+///[this parser](<https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs>).
 /// Since this grammar is small enought (requiring less than 16 LALR states), the
 /// generated parser is readable, which is appropriate for testing.  For larger
 /// grammars, the parser generator switches to a binary representation.
