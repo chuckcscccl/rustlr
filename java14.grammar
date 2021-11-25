@@ -1,4 +1,4 @@
-# My LR(1) parser generater created 4509 states for this grammar.
+# rustlr LR(1) parser generater created 4508 states for this grammar.
 
 terminal BOOLEAN 
 terminal BYTE SHORT INT LONG CHAR 
@@ -574,15 +574,3 @@ expression --> assignment_expression
 constant_expression --> expression
 
 EOF
-
-    public static void main(String[] argv) throws Exception
-    { ArrayList<Gsym> S = new ArrayList<Gsym>();
-	S.add(new Gsym("PACKAGE"));
-	S.add(new Gsym("IDENTIFIER","hello"));
-	S.add(new Gsym("SEMICOLON"));
-	S.add(new Gsym("PUBLIC"));
-	S.add(new Gsym("CLASS"));  S.add(new Gsym("SEMICOLON"));
-	S.add(new Gsym("EOF"));
-	java14parser j14p = new java14parser(S);
-	Object x = j14p.parse();
-    }
