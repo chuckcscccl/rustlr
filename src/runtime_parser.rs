@@ -77,7 +77,7 @@ pub struct RuntimeParser<AT:Default,ET:Default>
 //  pub recover : HashSet<&'static str>, // for error recovery
   pub resynch : HashSet<&'static str>,
   pub Errsym : &'static str,
-  err_occured : bool,
+  err_occurred : bool,
   pub linenum : usize,
   pub column : usize,
   report_line : usize,
@@ -102,7 +102,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          exstate : ET::default(),
          stack : Vec::with_capacity(1024),
          Errsym : "",
-         err_occured : false,
+         err_occurred : false,
          linenum : 0,
          column : 0,
          report_line : 0,
@@ -125,7 +125,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     pub fn abort(&mut self, msg:&str)
     {
        println!("\n!!!Parsing Aborted: {}",msg);
-       self.err_occured = true;
+       self.err_occurred = true;
        self.stopparsing=true;
     }
 
@@ -140,7 +140,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        else {
          print!(" {} ",errmsg);
        }
-       self.err_occured = true;
+       self.err_occurred = true;
     }
 
     //called to simulate a shift
@@ -167,14 +167,14 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
                 // DO NOT CHANGE LOOKAHEAD AFTER REDUCE!
               }// goto next state after reduce
               else {
-                self.report("no suitable action can be taken");
+                self.report("state transition table corrupted: no suitable action after reduce");
                 self.stopparsing=true;
               }
     }//reduce
 
     /// can be called to determine if an error occurred during parsing.  The parser
     /// will not panic.
-    pub fn error_occurred(&self) -> bool {self.err_occured}
+    pub fn error_occurred(&self) -> bool {self.err_occurred}
 
     fn nexttoken(&self, tokenizer:&mut dyn Lexer<AT>) -> Lextoken<AT>
     {
@@ -187,7 +187,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// the generated parser program's make_parser function.
     pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
     {
-       self.err_occured = false;
+       self.err_occurred = false;
        self.stack.clear();
        let mut eofcount = 0;
 //       self.exstate = ET::default(); ???
@@ -426,7 +426,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
           //panic!("!!!Parsing failed on line {}, next symbol {}: {}",tokenizer.linenum(),&lookahead.sym,msg);
           self.report(&format!("failure with next symbol {}",tokenizer.linenum()));
        }
-       //if self.err_occured {result = AT::default(); }
+       //if self.err_occurred {result = AT::default(); }
        return result;
     }//parse
 
@@ -434,7 +434,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// ask the human trainer for an appropriate error message: it will
     /// then insert an entry into its state transition table to
     /// give the same error message on future errors of the same type.
-    /// If the error is caused by an expected token that is recognized
+    /// If the error is caused by an unexpected token that is recognized
     /// as a terminal symbol of the grammar, the trainer can select to
     /// enter the entry 
     /// under the reserved ANY_ERROR symbol. If the unexpected token is
@@ -649,7 +649,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 } // impl Statemachine
 
 
-
+//// independent function
     fn iserror(actionopt:&Option<&Stateaction>) -> bool
     {
        match actionopt {
@@ -659,3 +659,63 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
          }
     }//iserror
 
+
+
+
+
+////////////////////////////////////
+////// reimplementing the parsing algorithm more modularly, with aim of
+////// allowing custom parsers
+//////////// errors should compile a report
+
+type ErrorHandler<AT,ET> =
+  fn(&mut RuntimeParser<AT,ET>, &mut dyn Lexer<AT>, &Option<Stateaction>)
+    -> Stateaction;
+
+impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
+{
+
+  // reduce already implemented
+  // no separate function for gotonext - part of reduce
+
+  pub fn parse_core(&mut self, tokenizer:&mut dyn Lexer<AT>, errhandler:ErrorHandler<AT,ET>) -> AT
+  {
+    self.stack.clear();
+    self.err_occurred = false;
+    self.stack.push(Stackelement {si:0, value:AT::default()});
+    self.stopparsing = false;
+    let mut action = Stateaction::Error(String::new());
+    let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()}; 
+    if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
+    else {self.stopparsing=true;}
+
+    while !self.stopparsing
+    {
+      self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
+      let currentstate = self.stack[self.stack.len()-1].si;
+      let actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());
+      let actclone:Option<Stateaction> = match actionopt {
+        Some(a) => Some(a.clone()),
+        None => None,
+      };
+      if iserror(&actionopt) { action = errhandler(self,tokenizer,&actclone); }
+      else { action = actclone.unwrap(); }
+      match &action {
+        Shift(nextstate) => {
+           self.stack.push(Stackelement{si:*nextstate,value:lookahead.value});
+           lookahead = self.nexttoken(tokenizer);
+        },
+        Reduce(rulei) => { self.reduce(rulei); },
+        _ => {}, 
+      }//match action
+    }// main parse loop
+    AT::default()
+  }//parse_core
+
+  pub fn error_recover(&mut self, actionopt:&Option<Stateaction>) -> Stateaction
+  {
+  
+    Error(String::from("this is just filler"))
+  }
+
+}//imple RuntimeParser 2

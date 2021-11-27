@@ -45,8 +45,8 @@ pub enum ParseResult<AT:ParseValue>
 {
    /// a complete, error-free AT (abstract syntax tree) 
    Complete(AT),
-   /// a partial abstract syntax tree with String, usize representing
-   /// error message
+   /// a partial abstract syntax tree with error message String, line and
+   /// column number usizes.
    Partial(AT,String,usize),
 }
 
