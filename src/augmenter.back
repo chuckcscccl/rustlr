@@ -54,7 +54,7 @@ pub fn augment_file<AT:Default,ET:Default>(filename:&str, parser:&mut RuntimePar
     {
      let (state,sym) = key;
      let enter = parser.trained.get(key).unwrap().trim();
-     write!(fout,"  parser.RSM[{}].insert(\"{}\",Stateaction::Error(\"{}\"));\n",state,sym,enter)?;
+     write!(fout,"  parser.RSM[{}].insert(\"{}\",Stateaction::Error(\"{}\".to_string()));\n",state,sym,enter)?;
     }
    write!(fout,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
   }

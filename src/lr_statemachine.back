@@ -220,13 +220,13 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
 
 /// this enum is only exported because it's used by the generated parsers.
 /// There is no reason to use it in other programs.
-#[derive(Copy,Clone,PartialEq,Eq,Debug)]
+#[derive(Clone,PartialEq,Eq,Debug)]
 pub enum Stateaction {
   Shift(usize),     // shift then go to state index
   Reduce(usize),    // reduce by rule index
   Gotonext(usize),  // folded into same table, only for non-terminals
   Accept,
-  Error(&'static str),
+  Error(String),
 }
 
 // abstract parser struct
@@ -522,8 +522,8 @@ pub fn decode_action(code:u64) -> Stateaction
       (1,si) => Gotonext(si as usize),
       (2,ri) => Reduce(ri as usize),
       (3,_)  => Accept,
-      (4,x)  => Error("shouldn't be here"),
-      _      => Error("unrecognized action in TABLE"),
+      (4,x)  => Error(x.to_string()),
+      _      => Error("unrecognized action in TABLE".to_owned()),
     }
 }//decode - must be independent function seen by parsers
 

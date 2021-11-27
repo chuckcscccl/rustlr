@@ -182,10 +182,9 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
         else { Lextoken{sym:"EOF".to_owned(),  value:AT::default()} } 
     }
     // parse does not reset state stack
-    
-    /// this function is used to invoke the generated parser returned by
-    /// the generated parser program's make_parser function.
-    pub fn parse0(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
+
+    //original
+    fn parse0(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
     {
        self.err_occurred = false;
        self.stack.clear();
@@ -194,8 +193,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        let mut result = AT::default();
        // push state 0 on stack:
        self.stack.push(Stackelement {si:0, value:AT::default()});
-       let unexpected = Stateaction::Error(String::from("unexpected end of input"));
-       let mut action = unexpected; //Stateaction::Error(String::from("get started"));
+       let unexpected = Stateaction::Error("unexpected end of input");
+       let mut action = unexpected; 
        self.stopparsing = false;
        let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()}; 
        if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
@@ -457,6 +456,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// Write something in C+- : cout << x endl
     /// ERROR on line 1, column 0: unexpected symbol endl, **need another <<** ..
     ///```
+    ///
+    /// parse_train calls parse, which uses stdin/stdout for user interface.
     pub fn parse_train(&mut self, tokenizer:&mut dyn Lexer<AT>, filename:&str) -> AT
     {
       self.training = true;
@@ -670,7 +671,11 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 ////// allowing custom parsers
 //////////// errors should compile a report
 
-type ErrorReporter<AT,ET> =
+/// In case one wishes to construct a parser error-reporting interface
+/// that's different from the supplied [RuntimeParser::parse] function,
+/// which prints to stdout, a function of ErrorReporter type can be defined
+/// and used in conjuction with [RuntimeParser:parse_core].
+pub type ErrorReporter<AT,ET> =
   fn(&mut RuntimeParser<AT,ET>, &Lextoken<AT>, &Option<Stateaction>);
   
 
@@ -689,6 +694,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
      self.nexttoken(tokenizer)
   }
 
+  /// This is the core parser, which expects a ErrorReporter function to be
+  /// passed in as an argument.
   pub fn parse_core(&mut self, tokenizer:&mut dyn Lexer<AT>, err_reporter:ErrorReporter<AT,ET>) -> AT
   {
     self.stack.clear();
@@ -696,7 +703,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     let mut result = AT::default();
     self.stack.push(Stackelement {si:0, value:AT::default()});
     self.stopparsing = false;
-    let mut action = Stateaction::Error(String::new());
+    let mut action = Stateaction::Error("");
     let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()};
     if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
     else {self.stopparsing=true;}
@@ -707,7 +714,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
       let currentstate = self.stack[self.stack.len()-1].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());
       let actclone:Option<Stateaction> = match actionopt {
-        Some(a) => Some(a.clone()),
+        Some(a) => Some(*a),
         None => None,
       };
       if iserror(&actionopt) {  // either None or Error
@@ -735,6 +742,10 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     return result;
   }//parse_core
 
+  /// this function is used to invoke the generated parser returned by
+  /// the generated parser program's make_parser function.  This
+  /// function invokes parse_core with err_report_train as the ErrorReporter
+  /// function.
   pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
   {
      self.parse_core(tokenizer,err_report_train)
@@ -835,15 +846,15 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
    }// skip ahead
    match erraction {
      None => None,
-     Some(act) => Some(act.clone()),
+     Some(act) => Some(*act),
    }//return match
   }//error_recover
 
 }//imple RuntimeParser 2
 
 
-///// default errorreporter, with training ability
-fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, mut erropt:&Option<Stateaction>)
+/// default ErrorReporter, with training ability
+pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, mut erropt:&Option<Stateaction>)
 {
   // known that actionop is None or Some(Error(_))
   let cstate = parser.stack[parser.stack.len()-1].si;

@@ -99,9 +99,9 @@ pub struct Grammar
   pub Rulesfor: HashMap<String,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
-//  pub Recover : HashSet<String>, // recovery non-terminal symbols
-//  pub Resynch : HashSet<String>, // resynchronization terminal symbols
+  pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
   pub Errsym : String,        // error recovery terminal symbol
+  pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
 }
 
@@ -121,8 +121,9 @@ impl Grammar
        Absyntype:String::from("i64"), //default(),
        Externtype:String::from(""),   // default unused field
 //       Recover : HashSet::new(),
-//       Resynch : HashSet::new(),
+       Resynch : HashSet::new(),
        Errsym : String::new(),
+       Lexnames : HashMap::new(),
        Extras: String::new(),
      }
   }//new grammar
@@ -187,11 +188,11 @@ impl Grammar
        }
        else if linelen>1 && &line[0..1]=="!" {
            self.Extras.push_str(&line[1..]);
-           //self.Extras.push_str("\n");                                      
        }
        else if linelen>1 && &line[0..1]!="#" {
          let toksplit = line.split_whitespace();
          let stokens:Vec<&str> = toksplit.collect();
+         if stokens.len()<1 {continue;}
          match stokens[0] {
             "use" => {
               self.Extras.push_str("use ");
@@ -208,7 +209,7 @@ impl Grammar
                self.Extras.push_str(&line[pbi+1..]);
                self.Extras.push_str("\n");                             
             },
-            "gramname" | "grammarname" | "grammar" | "name" => {
+            "grammarname" | "grammar_name" => {
                self.name = String::from(stokens[1]);
             },
             "EOF" => {atEOF=true},
@@ -253,7 +254,10 @@ impl Grammar
                }//match
 	       //if TRACE>4 {println!("top symbol is {}",stokens[1]);}
 	    }, //topsym
-            "errorsym" | "errsymbol" | "errsym" => {
+            "errsym" | "errorsymbol" => {
+               if stage>1 {
+                 panic!("!!! Error recover symbol must be declared before production rules, line {}",linenum);
+               }
                if stage==0 {stage=1;}
                if !self.terminal(stokens[1]) {
                  panic!("!!!Error recover symbol {} is not a terminal, line {} ",stokens[1],linenum);
@@ -271,6 +275,7 @@ impl Grammar
                   self.Recover.insert(stokens[i].to_owned());
                } // for each subsequent token
             },
+            */
             "resynch" | "resync"  => {
                if stage==0 {stage=1;}
                for i in 1..stokens.len()
@@ -278,11 +283,9 @@ impl Grammar
                   if !self.terminal(stokens[i]) {
                      panic!("!!!Error recovery re-synchronization symbol {} is not a declared terminal, line {}",stokens[i],linenum);
                   }
-                  self.Resynch.insert(stokens[i].to_owned());
+                  self.Resynch.insert(stokens[i].trim().to_owned());
                } // for each subsequent token
             },
-            */
-            
             "absyntype" | "valuetype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
@@ -297,6 +300,7 @@ impl Grammar
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
+               if stokens.len()<3 {continue;}
 	       let mut preclevel:i32 = 0;
 	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
                else {panic!("did not read precedence level on line {}",linenum);}
@@ -307,7 +311,10 @@ impl Grammar
                  self.Symbols[*index].precedence = preclevel;
                }
 	    }, // precedence and associativity
-	    "recover" | "resync" | "flexname"  => {}, //not covered
+	    "flexname" | "lexname"  => {
+               if stokens.len()<3 {continue;}
+               self.Lexnames.insert(stokens[1].to_string(),stokens[2].to_string());
+            },
 	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}
@@ -332,13 +339,14 @@ impl Grammar
               let barsplit:Vec<_> = linec.split('|').collect();
               
               for rul in &barsplit 
-              { if rul.trim().len()>0 {
-              //println!("see rule seg ({})",rul);              
+              { //if rul.trim().len()>0 {  // must include empty productions!
+              //println!("see rule seg ({})",rul);
               let bstokens:Vec<_> = rul.trim().split_whitespace().collect();
               let mut rhsyms:Vec<Gsym> = Vec::new();
               let mut semaction = "}";
 	      let mut i:usize = 0;
               let mut maxprec:i32 = 0;
+              let mut seenerrsym = false;
               while i<bstokens.len() {
 	        let strtok = bstokens[i];
 		i+=1;
@@ -353,6 +361,13 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
 		   None => {panic!("unrecognized grammar symbol {}, line {}",toks[0],linenum); },
 		   Some(symi) => {
                      let sym = &self.Symbols[*symi];
+                     if self.Errsym.len()>0 && &sym.sym == &self.Errsym {
+                       if !seenerrsym { seenerrsym = true; }
+                       else { panic!("Error symbol {} can only appear once in a production, line {}",&self.Errsym,linenum); }
+                     }
+                     if !sym.terminal && seenerrsym {
+                       panic!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum);
+                     }
 		     let mut newsym = sym.clone();
 		     if toks.len()>1 && toks[1].trim().len()>0
                         { newsym.setlabel(toks[1].trim()); }
@@ -372,26 +387,27 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
 	      };
 	      if TRACE>2 {printrule(&rule);}
 	      self.Rules.push(rule);
-            } // if rul not empty
-            } // for barsplit
+            //} 
+            } // for rul
             }, 
             _ => {panic!("error parsing grammar on line {}, grammar stage {}",linenum,stage);},  
          }//match first word
        }// not an empty or comment line
      } // while !atEOF
-     if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF")
+     if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF") || self.Symhash.contains_key("ANY_ERROR")
      {
         panic!("Error in grammar: START and EOF are reserved symbols");
      }
      // add start,eof and starting rule:
      let startnt = Gsym::new("START",false);
      let eofterm =  Gsym::new("EOF",true);
+//     let anyerr = Gsym::new("ANY_ERROR",true);
      self.Symhash.insert(String::from("START"),self.Symbols.len());
-     self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);     
+     self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);
+//   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+2);     
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
-     //self.Symbols.insert(String::from("START"),startnt.clone());
-     //self.Symbols.insert(String::from("EOF"),eofterm.clone());
+//     self.Symbols.push(anyerr.clone());     
      let topgsym = &self.Symbols[*self.Symhash.get(&self.topsym).unwrap()];
      let startrule = Grule {  // START-->topsym EOF
         lhs:startnt,
