@@ -578,7 +578,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
 
     ////// Augment!
     write!(fd,"fn load_extras(parser:&mut RuntimeParser<{},{}>)\n{{\n",absyn,extype)?;
-    write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation")?;
+    write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writeparser
 
