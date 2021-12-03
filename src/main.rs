@@ -50,6 +50,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut argi = 2; // next argument position
   let mut lalr = false;
   let mut tracelev:usize = 1; // trace-level
+  let mut verbose = false;
   while argi<argc
   {
      match &args[argi][..] {
@@ -62,6 +63,8 @@ fn rustle(args:&Vec<String>) // called from main
           if tracelev>0 {println!("trace-level set to {}",tracelev);}
           }
        },
+       "verbose" | "-verbose" => { verbose=true; },
+       "binary" | "-binary" => { verbose=false; },       
        "-o" => {
           argi+=1;
           if argi<argc {parserfile = args[argi].clone();}
@@ -70,7 +73,7 @@ fn rustle(args:&Vec<String>) // called from main
      }//match directive
      argi+=1;
   }//while there are command-line args
-  
+  if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
   let mut grammar1 = Grammar::new();
   grammar1.parse_grammar(filepath);
@@ -96,7 +99,7 @@ fn rustle(args:&Vec<String>) // called from main
   else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 {parserfile = format!("{}parser.rs",&gramname);}
   let write_result = 
-    if fsm0.States.len()<=16 {fsm0.write_verbose(&parserfile)}
+    if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
     else if fsm0.States.len()<=65536 {fsm0.writeparser(&parserfile)}
     else {panic!("too many states: {}",fsm0.States.len())};
   if tracelev>0 {println!("{} total states",fsm0.States.len());}
