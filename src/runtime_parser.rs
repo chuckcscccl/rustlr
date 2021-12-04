@@ -18,6 +18,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
 use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine,augment_file};
+use crate::{LBox};
 use crate::Stateaction::*;
 
 /// this structure is only exported because it is required by the generated parsers.
@@ -467,7 +468,14 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
       }
       self.training = false;
       return result;
-    }
+    }//parse_train
+
+    /// creates a [LBox] smart pointer that includes line/column information;
+    /// should be called from the semantic actions of a grammar rule, e.g.
+    ///```ignore
+    ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
+    ///```
+    pub fn lb(&self,e:AT) -> LBox<AT> { LBox::new(e,self.linenum,self.column) }
 }// impl RuntimeParser
 
 
@@ -674,7 +682,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 /// In case one wishes to construct a parser error-reporting interface
 /// that's different from the supplied [RuntimeParser::parse] function,
 /// which prints to stdout, a function of ErrorReporter type can be defined
-/// and used in conjuction with [RuntimeParser:parse_core].
+/// and used in conjuction with [RuntimeParser::parse_core].
 pub type ErrorReporter<AT,ET> =
   fn(&mut RuntimeParser<AT,ET>, &Lextoken<AT>, &Option<Stateaction>);
   
@@ -688,7 +696,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
   /// this is the LR parser shift action: push the next state, along with the
   /// value of the current lookahead token onto the parse stack, returns the
   /// next token
-  pub fn shift(&mut self, nextstate:usize, lookahead:Lextoken<AT>, tokenizer:&mut dyn Lexer<AT>) -> Lextoken<AT>
+  fn shift(&mut self, nextstate:usize, lookahead:Lextoken<AT>, tokenizer:&mut dyn Lexer<AT>) -> Lextoken<AT>
   {
      self.stack.push(Stackelement{si:nextstate,value:lookahead.value});
      self.nexttoken(tokenizer)

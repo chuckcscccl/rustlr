@@ -19,12 +19,14 @@ mod grammar_processor;
 use grammar_processor::*;
 mod lr_statemachine;
 use lr_statemachine::*;
-mod lexer_interface;
+pub mod lexer_interface;
 pub use lexer_interface::*;
-mod runtime_parser;
+pub mod runtime_parser;
 use runtime_parser::*;
 mod augmenter;
 use augmenter::*;
+pub mod generic_absyn;
+pub use generic_absyn::*;
 //mod enhancements;
 //pub use enhancements::*;
 

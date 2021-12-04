@@ -1,4 +1,7 @@
-// module for interfacing with any lexical analyzer
+//! Rustlr allows the use of any lexical analyzer (tokenizer) that satisfies
+//! the [Lexer] trait.  Only a simple [charlexer] tokenizer that separates
+//! non-whitespaces characters is provided as an example.
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
