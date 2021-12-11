@@ -302,7 +302,7 @@ impl Statemachine
        }
      }// lalr or lr1
 
-     if TRACE==2 {println!("transition to state {} from state {}, symbol {}..",toadd,psi,&nextsym);}
+     if TRACE>3 {println!("transition to state {} from state {}, symbol {}..",toadd,psi,&nextsym);}
      if toadd==newstateindex {  // add new state
        if TRACE>2 {printstate(&state,&self.Gmr);}
        indices.insert(newstateindex); // add to StateLookup index hashset
@@ -318,7 +318,7 @@ impl Statemachine
      let currentaction = self.FSM[psi].get(&nextsym);
      let mut changefsm = true;
      match currentaction {   // detect shift-reduce conflict
-       Some(Accept) => {changefsm=false;},
+       Some(Accept) => { changefsm=false; },
        Some(Reduce(ri2)) =>  {
          let prec2 = self.Gmr.Rules[*ri2].precedence;
          let prec1 = gsymbol.precedence;
@@ -358,13 +358,17 @@ impl Statemachine
   // it assumes that the . is at the right end of the rule
   fn addreduce(FSM: &mut Vec<HashMap<String,Stateaction>>, Gmr:&Grammar, item:&LRitem, si:usize)
   {
+     let isaccept = (item.ri == Gmr.Rules.len()-1 && item.la=="EOF");
      let currentaction = FSM[si].get(&item.la);
      let mut changefsm = true;
      let ri1 = &item.ri;
      /// detect CONFLICT HERE
      match currentaction {
-        Some(Accept) => {changefsm = false;},
-        Some(Reduce(ri2)) if ri2<ri1 => {
+        Some(Accept) => {
+          changefsm = false;
+          if !isaccept {println!("Reduce({})-Accept conflict resolved in favor of Accept",ri1)}
+        },
+        Some(Reduce(ri2)) if ri2<ri1 && !isaccept => {
            changefsm=false;
            println!("Reduce-Reduce Conflict conflicted detected between rules {} and {}, resolved in favor of {}",ri2,ri1,ri2);
            printrulela(*ri1,Gmr,&item.la);  printrulela(*ri2,Gmr,&item.la);
@@ -375,8 +379,8 @@ impl Statemachine
            printrulela(*ri1,Gmr,&item.la);  printrulela(*ri2,Gmr,&item.la); 
            //printstate(&self.States[si],Gmr);            
         },
-        Some(Reduce(ri2)) if ri2==ri1 => {changefsm=false;},
-        Some(Shift(_)) => {   // shift-reduce conflict
+        Some(Reduce(ri2)) if ri2==ri1 && !isaccept => {changefsm=false;},
+        Some(Shift(_)) if !isaccept => {   // shift-reduce conflict
            let prec1 = Gmr.Rules[item.ri].precedence;
            let prec2 = Gmr.Symbols[*Gmr.Symhash.get(&item.la).unwrap()].precedence;
 
@@ -387,10 +391,11 @@ impl Statemachine
        _ => {},
      }//match to detect conflict
      // special case: current action should be Accept:
-     if item.ri == Gmr.Rules.len()-1 && item.la=="EOF" { changefsm=true; }
      if changefsm {   // only Reduce/Accept added here
         // accept or reduce
-        if item.ri==Gmr.Rules.len()-1 && item.la=="EOF"  { // start rule
+        if isaccept /*item.ri==Gmr.Rules.len()-1 && item.la=="EOF"*/  {
+           if let None = &currentaction {}
+           else {println!("Accept has precedence over {:?}",&currentaction);}
            FSM[si].insert(item.la.clone(),Stateaction::Accept);
         }
         else {
