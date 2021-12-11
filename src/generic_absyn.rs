@@ -12,6 +12,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(unused_mut)]
+#![allow(unused_macros)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
@@ -22,30 +23,46 @@ use std::collections::{HashMap,HashSet};
 use crate::RuntimeParser;
 use crate::GenAbsyn::*;
 
-/// custom smart pointer that encapsulates line number and column information
+/// custom smart pointer that encapsulates line number, column and other information
 /// for warnings and error messages after the parsing stage.  Implements
 /// [Deref] and [DerefMut] so the encapsulated expression can be accessed as
 /// in a standard Box.  For example, an abstract syntax type can be defined by
-///```ignore
+///```text
 /// enum Expr {
 ///   Val(i64),
 ///   PlusExpr(LBox<Expr>,LBox<Expr>),
 ///   ...
 /// }
 ///```
+///```text
+/// fn check(e:&Expr) {
+///   match e {
+///     PlusExpr(a,b) => {
+///       println!("checking subexpressions on line {} and {}",a.line,b.line);
+///       check(a); check(b); // Deref coercion used here
+///     },
+///   ...
+///```
 /// The [RuntimeParser::lb] function can be called from the semantic actions
 /// of a grammar
-/// to create LBoxed-values that include line/column information.
+/// to create LBoxed-values that include line/column information.  LBox<T>
+/// implements the Default trait if T does, so an LBox type can also serve
+/// as the absyntract syntax type for a grammar.
+/// The src_id field of LBox can be used to point to externally kept
+/// information about the source being compiled, such as the source file
+/// name when mulitple files are compiled together.
 pub struct LBox<T>
 {
   pub exp:Box<T>,
   pub line:usize,
   pub column:usize,
-}
+  pub src_id:usize,   // must refer to info kept externally
+}                   
 impl<T> LBox<T>
 {
   pub fn new(e:T,ln:usize,col:usize) -> LBox<T>
-  { LBox { exp:Box::new(e), line:ln, column:col } }
+  { LBox { exp:Box::new(e), line:ln, column:col, src_id:0 } }
+  pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
 }
 impl<T> Deref for LBox<T>
 {
@@ -87,6 +104,7 @@ impl Clone for ABox
        exp: self.exp.clone(),
        line: self.line,
        column: self.column,
+       src_id: self.src_id,
      }
   }
 }// impl Clone for ABox
@@ -103,8 +121,9 @@ impl Clone for ABox
 pub enum GenAbsyn
 {
   Integer(i64),
+  BigInteger(String),
   Float(f64),
-  Sym(&'static str),
+  Symbol(&'static str),
   Keyword(&'static str),
   Alphanum(String),
   Stringlit(String),
@@ -114,8 +133,8 @@ pub enum GenAbsyn
   Ternop(usize,ABox,ABox,ABox),
   Sequence(usize,Vec<ABox>),
   Partial(ABox,String), // error result, line/column/msg
-  NewLine(usize,usize),
-  Whitespaces(usize,usize,usize),
+  NewLine,
+  Whitespaces(usize),
   Nothing,
 }
 impl GenAbsyn
@@ -159,7 +178,7 @@ impl Default for GenAbsyn
 /// strings.  The index of the corresponding &'static str in 
 /// the static array OPERATORS will determine
 /// the usize index that identifies each Binop, Uniop, etc.
-struct Absyn_Statics<const N:usize,const M:usize,const P:usize>
+pub struct Absyn_Statics<const N:usize,const M:usize,const P:usize>
 {
    pub KEYWORDS: [&'static str; N],
    pub SYMBOLS: [&'static str; M],
@@ -198,3 +217,30 @@ impl<const N:usize,const M:usize,const P:usize> Absyn_Statics<N,M,P>
 }//impl Absyn_Statics
 
 
+/* //testing  - did compile
+fn check(e:&GenAbsyn) -> bool {
+  match e {
+    Binop(3,x,_) => {
+         println!("Binop 3 not allowed on line {}, column {}",x.line,x.column);
+         false
+    },
+    Binop(i,a,b) => { check(a) && check(b) },
+    _ => true
+  }
+}
+*/
+
+
+///macro for creating [LBox] structures, for use in grammar semantic actions: each semantic action associated
+/// with a grammar rule is a Rust lambda expression of the form
+/// __|parser|{...}__
+/// of type __fn(&mut RuntimeParser) -> AT__ where AT is the type of the abstract
+/// syntax value defined for the grammar. __lbox!(e)__ expands to **parser.lb(e)**, calling the [RuntimeParser::lb] function.
+/// The macro can also form an [ABox], which is an alias for LBox<GenAbsyn>
+
+#[macro_export]
+macro_rules! lbox {
+  ( $x:expr ) => {
+    parser.lb($x)
+  };
+}

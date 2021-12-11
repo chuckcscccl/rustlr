@@ -1,12 +1,12 @@
 [package]
 name = "rustlr"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Chuck Liang"]
 edition = "2018"
 license = "MIT"
 description = "LR(1)/LALR(1) parser generator for rust"
 repository = "https://github.com/chuckcscccl/rustlr/"
-keywords = ["parser", "lr", "lalr"]
+keywords = ["parser", "parsing", "parser-generator", "lr", "yacc"]
 categories = ["parsing", "compilers"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

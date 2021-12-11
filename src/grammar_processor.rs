@@ -143,6 +143,9 @@ impl Grammar
      }
   }
 
+  fn using_generic(&self) -> bool
+  { self.Absyntype=="GenAbsyn" || self.Absyntype=="ABox"  }
+
 ////// meta (grammar) parser
   pub fn parse_grammar(&mut self, filename:&str)
   {
@@ -289,14 +292,12 @@ impl Grammar
             "absyntype" | "valuetype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
-               //self.Absyntype = String::from(stokens[1]);
-	       if TRACE>2 {println!("abstract syntax type is {}",stokens[1]);}
+	       if TRACE>2 {println!("abstract syntax type is {}",&self.Absyntype);}
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Externtype = String::from(line[pos..].trim());            
-               //self.Externtype = String::from(stokens[1]);
-	       if TRACE>2 {println!("external structure type is {}",stokens[1]);}
+	       if TRACE>2 {println!("external structure type is {}",&self.Externtype);}
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
@@ -315,6 +316,7 @@ impl Grammar
                if stokens.len()<3 {continue;}
                self.Lexnames.insert(stokens[1].to_string(),stokens[2].to_string());
             },
+//////////// case for grammar production:            
 	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}

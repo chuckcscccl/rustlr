@@ -318,6 +318,7 @@ impl Statemachine
      let currentaction = self.FSM[psi].get(&nextsym);
      let mut changefsm = true;
      match currentaction {   // detect shift-reduce conflict
+       Some(Accept) => {changefsm=false;},
        Some(Reduce(ri2)) =>  {
          let prec2 = self.Gmr.Rules[*ri2].precedence;
          let prec1 = gsymbol.precedence;
@@ -325,7 +326,6 @@ impl Statemachine
          else if prec2.abs()>prec1.abs() {changefsm=false;} // still reduce
          if TRACE>0 {println!("shift-reduce conflict resolved by operator precedence/associativity:"); printrulela(*ri2,&self.Gmr,&nextsym); /*printstate(&self.States[psi],&self.Gmr);*/}
        },
-       Some(Accept) => {changefsm=false;},
        _ => {},
      }// match for conflict detection
      if changefsm {self.FSM[psi].insert(nextsym,newaction);}
@@ -363,6 +363,7 @@ impl Statemachine
      let ri1 = &item.ri;
      /// detect CONFLICT HERE
      match currentaction {
+        Some(Accept) => {changefsm = false;},
         Some(Reduce(ri2)) if ri2<ri1 => {
            changefsm=false;
            println!("Reduce-Reduce Conflict conflicted detected between rules {} and {}, resolved in favor of {}",ri2,ri1,ri2);
@@ -375,7 +376,6 @@ impl Statemachine
            //printstate(&self.States[si],Gmr);            
         },
         Some(Reduce(ri2)) if ri2==ri1 => {changefsm=false;},
-        Some(Accept) => {changefsm = false;},
         Some(Shift(_)) => {   // shift-reduce conflict
            let prec1 = Gmr.Rules[item.ri].precedence;
            let prec2 = Gmr.Symbols[*Gmr.Symhash.get(&item.la).unwrap()].precedence;
@@ -386,6 +386,8 @@ impl Statemachine
         },
        _ => {},
      }//match to detect conflict
+     // special case: current action should be Accept:
+     if item.ri == Gmr.Rules.len()-1 && item.la=="EOF" { changefsm=true; }
      if changefsm {   // only Reduce/Accept added here
         // accept or reduce
         if item.ri==Gmr.Rules.len()-1 && item.la=="EOF"  { // start rule
@@ -429,43 +431,6 @@ impl Statemachine
        else // . at end of production, this is a reduce situation
        {
           Statemachine::addreduce(&mut self.FSM,&self.Gmr,item,si);
-           /*
-          let currentaction = self.FSM[si].get(&item.la);
-          let mut changefsm = true;
-          let ri1 = &item.ri;
-          /// detect CONFLICT HERE
-          match currentaction {
-            Some(Reduce(ri2)) if ri2<ri1 => {
-              changefsm=false;
-              println!("Reduce-Reduce Conflict conflicted detected between rules {} and {}, resolved in favor of {}",ri2,ri1,ri2);
-              printstate(&self.States[si],&self.Gmr);
-            },
-            Some(Reduce(ri2)) if ri2>ri1 => {
-              println!("Reduce-Reduce Conflict conflicted detected between rules {} and {}, resolved in favor of {}",ri2,ri1,ri1);
-              printstate(&self.States[si],&self.Gmr);            
-            },
-            Some(Accept) => {changefsm = false;},
-            Some(Shift(_)) => {   // shift-reduce conflict
-              let prec1 = self.Gmr.Rules[item.ri].precedence;
-              let prec2 = self.Gmr.Symbols[*self.Gmr.Symhash.get(&item.la).unwrap()].precedence;
-              //let prec2 = self.Gmr.Symbols.get(&item.la).unwrap().precedence;
-              if prec1==prec2 && prec1<0 {changefsm=false;} // assume right-associative
-              else if prec2.abs()>prec1.abs() {changefsm=false;} // still shift 
-              if TRACE>4 {println!("shift-reduce conflict resolved by operator precedence/associativity:"); printstate(&self.States[si],&self.Gmr);}
-            },
-            _ => {},
-          }//match to detect conflict
-
-          if changefsm {   // only Reduce/Accept added here
-             // accept or reduce
-             if item.ri==self.Gmr.Rules.len()-1 && item.la=="EOF"  { // start rule
-               self.FSM[si].insert(item.la.clone(),Stateaction::Accept);
-             }
-             else {
-               self.FSM[si].insert(item.la.clone(),Stateaction::Reduce(item.ri));
-             }
-          }// add reduce action
-          */
        } // set reduce action
      }// for each item 
      // form closures for all new states and add to self.States list

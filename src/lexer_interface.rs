@@ -67,30 +67,35 @@ pub struct charlexer<'t>
 {
    pub chars: Chars<'t>,
    index: usize,
+   len: usize
 }
 impl<'t> charlexer<'t>
 {
   pub fn new<'u:'t>(input:&'u str) -> charlexer<'u>
-  { charlexer {chars:input.chars(), index:0} }
+  { charlexer {chars:input.chars(), index:0, len:input.len()} }
 }
 impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
 {
    fn nextsym(&mut self) -> Option<Lextoken<AT>>
    {
+//println!("Calling nextsym.. len {}",self.len);   
       let mut res = None;
       let mut stop = false;
-      while !stop
+      while !stop && self.index<self.len
       {
-       res=match self.chars.next() {
+       let nc = self.chars.next();
+//println!("SEE a char ({:?}) at index {}",&nc,self.index);        
+       res=match nc { //self.chars.next() {
         None => {stop=true; None},
         Some(c) => {
           self.index+=1;
-          if c.is_whitespace() {None}
+          if c.is_whitespace() {if self.index>=self.len {stop=true;} None}
           else {stop=true; Some(Lextoken::new(c.to_string(),AT::default()))}
         },
        }//match
       }//while
-      res
+//println!("....RETURNING");
+      if (self.index<=self.len) {res} else {None}
    }//nextsym
    fn linenum(&self) -> usize { 1 }
    fn column(&self) -> usize { self.index }

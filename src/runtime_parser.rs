@@ -35,7 +35,7 @@ impl<AT:Default,ET:Default> RProduction<AT,ET>
   {
      RProduction {
        lhs : lh,
-       Ruleaction : |p|{AT::default()},
+       Ruleaction : |p|{<AT>::default()},
      }
   }
 }//impl RProduction
@@ -428,7 +428,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        }
        //if self.err_occurred {result = AT::default(); }
        return result;
-    }//parse
+    }//parse0
 
     /// Parse in training mode: when an error occurs, the parser will
     /// ask the human trainer for an appropriate error message: it will
@@ -494,6 +494,7 @@ impl Statemachine
 #![allow(non_camel_case_types)]
 #![allow(unused_parens)]
 #![allow(unused_mut)]
+#![allow(unused_imports)]
 #![allow(unused_assignments)]
 extern crate rustlr;
 use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
@@ -564,7 +565,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       //if semaction.len()<1 {semaction = "}}";}
       //if al>1 {semaction = semaction.substring(0,al-1);}
       if semaction.len()>1 {write!(fd,"{};\n",semaction.trim_end())?;}
-      else {write!(fd," return {}::default();}};\n",absyn)?;}
+      else {write!(fd," return <{}>::default();}};\n",absyn)?;}
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// for each rule
     write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
@@ -636,7 +637,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
       //if semaction.len()<1 {semaction = "}}";}
       //if al>1 {semaction = semaction.substring(0,al-1);}
       if semaction.len()>1 {write!(fd,"{};\n",semaction.trim_end())?;}
-      else {write!(fd," return {}::default();}};\n",absyn)?;}
+      else {write!(fd," return <{}>::default();}};\n",absyn)?;}
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// for each rule
     write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
@@ -880,7 +881,7 @@ pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>,
   }// lookahead is not a grammar sym
   let errmsg = if let Some(Error(em)) = &actionopt {
     format!("unexpected symbol {}, ** {} ** ..",lksym,em)
-  } else {format!("unexpected symbol {} ..",lksym)};
+  } else {format!("unexpected symbol {} .. ",lksym)};
 
   parser.report(&errmsg);
          
@@ -888,7 +889,7 @@ pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>,
     let cstate = parser.stack[parser.stack.len()-1].si;
     let csym = lookahead.sym.clone();
     let mut inp = String::from("");
-    print!("\n>>>TRAINER: is this error message adequate? If not, enter a replacement (default yes): ");
+    print!("\n>>>TRAINER: if this message is not adequate (for state {}), enter a replacement (default no change): ",cstate);
     let rrrflush = io::stdout().flush();
     if let Ok(n) = io::stdin().read_line(&mut inp) {
        if inp.len()>5 && parser.Symset.contains(lksym) {

@@ -1,16 +1,19 @@
-"rustlr" LR(1) and LALR(1) parser generator by Chuck Liang.
-Tutorial to be made available at https://cs.hofstra.edu/~cscccl/rustlr_project/
+# **[rustlr](https://docs.rs/rustlr/0.1.1/rustlr/index.html)**
+**LR(1) and LALR(1) parser generator by Chuck Liang.**
 
-This is the first release of the project.  It has only been used for
-implmentating modestly scaled, experimental programming languages.  If
-there's significant interest, it will be become more robust, with
-enhanced features, in future releases.
+**A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) is being prepared.**
 
-Version 0.1.1:
+The project grew out of the author's compiler construction and
+programming languages classes over the year.  It has been used for
+implmentating modestly scaled, experimental programming languages.  It
+will be become more robust, with enhanced features, in future
+releases.
 
-  The ability to train the parser has been added: the Runtime::parse_train
+#### Version 0.1.1:
+
+  The ability to train the parser has been added: the [Runtime::parse_train][1]
   function will ask for user input to improve error reporting by augmenting
-  basic generated LR state machine with Error entries.
+  the basic generated LR state machine with Error entries.
 
 Future releases of rustlr will also be able to train from scripts:
 this means that a new parser can be quickly trained to display
@@ -19,5 +22,7 @@ feature currently has not been tested extensively).
 
 Future releases of rustlr will also allow the construction of a custom parser
 using the generated state machine so that users of rustlr are not limited to
-the built-in generic RuntimeParser::parse function.
+the built-in generic [RuntimeParser::parse][2] function.
 
+[1]:https://docs.rs/rustlr/0.1.1/rustlr/struct.RuntimeParser.html#method.parse_train
+[2]:https://docs.rs/rustlr/0.1.1/rustlr/struct.RuntimeParser.html#method.parse
