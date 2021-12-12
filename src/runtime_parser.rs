@@ -125,12 +125,13 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// "reduce" action of the parser.
     pub fn abort(&mut self, msg:&str)
     {
-       println!("\n!!!Parsing Aborted: {}",msg);
+       eprintln!("\n!!!Parsing Aborted: {}",msg);
        self.err_occurred = true;
        self.stopparsing=true;
     }
 
-    /// may be called from grammar semantic actions to report error
+    /// may be called from grammar semantic actions to report error.
+    /// this report function will print to stdout. 
     pub fn report(&mut self, errmsg:&str)  
     {      // linenum must be set prior to call
        if (self.report_line != self.linenum || self.linenum==0)  {
@@ -439,7 +440,9 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// enter the entry 
     /// under the reserved ANY_ERROR symbol. If the unexpected token is
     /// not recognized as a grammar symbol, then the entry will always
-    /// be entered under ANY_ERROR.
+    /// be entered under ANY_ERROR.  ANY_ERROR entries for a state will match
+    /// all future unexpected symbols for that state: however, entries for
+    /// valid grammar symbols will still override the generic entry.
     ///
     /// Example: with the parser for this [toy grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar), parse_train can run as follows:
     ///```ignore
@@ -450,8 +453,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     ///```
     /// (ignore the column number as the lexer for this toy language does not implement it)
     ///
-    /// parse_train will then save a [modified version](https://cs.hofstra.edu/~cscccl/rustlr_project/augmented_cpmparser.rs) of the parser as specified
-    /// by the filename argument.  When the augmented parser is used, it will
+    /// parse_train will then modify [the parser file](https://cs.hofstra.edu/~cscccl/rustlr_project/augmented_cpmparser.rs) as specified
+    /// by the filename (path) argument.  When the augmented parser is used, it will
     /// give a more helpful error message:
     ///```
     /// Write something in C+- : cout << x endl
@@ -464,13 +467,13 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
       self.training = true;
       let result = self.parse(tokenizer);
       if let Err(m) = augment_file(filename,self) {
-        println!("Error in augmenting parser: {:?}",m)
+        eprintln!("Error in augmenting parser: {:?}",m)
       }
       self.training = false;
       return result;
     }//parse_train
 
-    /// creates a [LBox] smart pointer that includes line/column information;
+    /// creates a [LBox] smart pointer that includes line/column/src information;
     /// should be called from the semantic actions of a grammar rule, e.g.
     ///```ignore
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
@@ -912,3 +915,12 @@ pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>,
   }//if training   //// END TRAINING MODE
 
 }// default errorreporter
+
+
+// training from file and script
+struct trainscript<AT:Default,ET:Default>
+{
+  parser: RuntimeParser<AT,ET>,
+  srcfile: String,
+  errscript: String,
+}

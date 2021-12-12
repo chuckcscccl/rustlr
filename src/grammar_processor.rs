@@ -151,7 +151,7 @@ impl Grammar
   {
      let mut reader =  match File::open(filename) {
        Ok(f) => { Some(BufReader::new(f)) },
-       _ => { println!("cannot open file, reading from stdin..."); None},
+       _ => { eprintln!("cannot open file, reading from stdin..."); None},
      };//match
 
      let mut line=String::from("");

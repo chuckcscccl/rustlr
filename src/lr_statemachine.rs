@@ -164,9 +164,46 @@ impl Eq for LR1State {}
 pub fn printstate(state:&LR1State,Gmr:&Grammar) 
 {
   println!("state {}:",state.index);
+  let mut lamap:HashMap<(usize,usize),Vec<&String>> = HashMap::with_capacity(Gmr.Rules.len()*4);
+  for item in &state.items
+  {
+     let laset:&mut Vec<&String> = match lamap.get_mut(&(item.ri,item.pi)) {
+        Some(x) => x,
+        None => {
+           let mut newset = Vec::<&String>::with_capacity(16);
+           lamap.insert((item.ri,item.pi),newset);
+           lamap.get_mut(&(item.ri,item.pi)).unwrap()
+        },
+     };//match
+     laset.push(&item.la);
+  }
+  for (ri,pi) in lamap.keys()
+  {
+    let ref lhs_sym = Gmr.Rules[*ri].lhs.sym;
+     let ref rhs = Gmr.Rules[*ri].rhs;
+     print!("  ({}) {} --> ",ri,lhs_sym);
+     let mut position = 0;
+     for gsym in rhs 
+     {
+       if &position==pi {print!(".");}
+       print!("{} ",gsym.sym);
+       position+=1;
+     }
+     if &position==pi {print!(". ");}
+     print!(" {{ ");
+     for la in lamap.get(&(*ri,*pi)).unwrap()
+     {
+       print!("{},",la);
+     }
+     println!(" }}");
+  }//for key
+}//printstate
+pub fn printstate_raw(state:&LR1State,Gmr:&Grammar) 
+{
   for item in &state.items
   { printitem(item,Gmr); }
-}//printstate
+}
+
 
 
 pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
@@ -344,7 +381,7 @@ impl Statemachine
               // determine if this is a reduce item
               if item.pi >= Gmr.Rules[item.ri].rhs.len() {
                  if TRACE>1 {print!("LALR MERGE: ");}
-                 Statemachine::addreduce(FSM,Gmr,item,si);
+                 Statemachine::aditdreduce(FSM,Gmr,item,si);
               }
               States[si].items.insert(item.clone());
           }// new item needs to be inserted

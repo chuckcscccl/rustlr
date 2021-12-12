@@ -51,56 +51,84 @@ pub trait Lexer<AT:Default>
   /// returns the current column (character position) on the current line.
   /// The default implementation returns 0;
   fn column(&self) -> usize { 0 }
-  /// returns the current line being tokenized as an owned string.  The
+  /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
-  fn current_line(&self) -> String  { // with default implementation
-     String::from("")
-  }
+  fn current_line(&self) -> &str  { "" }
+/*  
+  /// function that modifies a Lextoken
+  /// For example, some symbols such as {, } and |
+  /// are reserved and cannot be used for terminal symbols.  Lextokens
+  /// containing them have to be modified.  The default implementation
+  /// returns the given token unmodified.  Note that this function is
+  /// **not** called automatically by [RuntimeParser::parse], and it is
+  /// up to the implementor of [Lexer::nextsym] to call it.
+  fn modify(t:Lextoken<AT>)->Lextoken<AT> { t }
+
+  /// this function takes a functional argument intended to change the
+  /// [Lexer::modify] function.  The default implementation does nothing.
+  fn set_modify(&mut self,fn(Lextoken<AT>)->Lextoken<AT>) {}
+*/  
 }//trait Lexer
 
 
-/// This is a sample Lexer implementation designed to return every non-whitespace character in a
+/// This is a sample Lexer implementation designed to return every character in a
 /// string as a separate token, and is used in small grammars for testing and
 /// illustration purposes.  It is assumed that the characters read are defined as
 /// terminal symbols in the grammar.
 pub struct charlexer<'t>
 {
-   pub chars: Chars<'t>,
+   chars: Chars<'t>,
    index: usize,
-   len: usize
+   len: usize,
+   line:usize,
+   keep_ws: bool,  // keep whitespace chars
+   /// function to modify char returned by nextsym, can be changed.
+   /// Both [charlexer::make] and [charlexer::new] sets this function
+   /// initially to `|x|{x.to_string()}`.  For example, some characters such
+   /// as '{' and '}' cannot be used as terminal symbols of a grammar and must
+   /// be translated into something like "LBRACE" and "RBRACE"
+   pub modify: fn(char)->String, 
 }
 impl<'t> charlexer<'t>
 {
+  /// creates a charlexer that emits only non-whitespace chars
   pub fn new<'u:'t>(input:&'u str) -> charlexer<'u>
-  { charlexer {chars:input.chars(), index:0, len:input.len()} }
+  { charlexer {chars:input.chars(), index:0, len:input.len(), line:1, keep_ws:false, modify: |x|{x.to_string()}} }
+  /// creates a charlexer with the option of keeping whitespace chars if kws=true
+  pub fn make<'u:'t>(input:&'u str, kws:bool) -> charlexer<'u>
+  { charlexer {chars:input.chars(), index:0, len:input.len(), line:1, keep_ws:kws, modify:|x|{x.to_string()}} } 
 }
 impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
 {
    fn nextsym(&mut self) -> Option<Lextoken<AT>>
    {
-//println!("Calling nextsym.. len {}",self.len);   
       let mut res = None;
       let mut stop = false;
       while !stop && self.index<self.len
       {
        let nc = self.chars.next();
-//println!("SEE a char ({:?}) at index {}",&nc,self.index);        
        res=match nc { //self.chars.next() {
         None => {stop=true; None},
         Some(c) => {
           self.index+=1;
-          if c.is_whitespace() {if self.index>=self.len {stop=true;} None}
-          else {stop=true; Some(Lextoken::new(c.to_string(),AT::default()))}
+          if c=='\n' {self.line+=1;}
+          if c.is_whitespace() && !self.keep_ws {None}
+          else {
+            stop=true;
+            let mc = (self.modify)(c);
+            Some(Lextoken::new(mc,AT::default()))}
         },
        }//match
       }//while
-//println!("....RETURNING");
       if (self.index<=self.len) {res} else {None}
    }//nextsym
-   fn linenum(&self) -> usize { 1 }
+   /// returns current line number starting from 1
+   fn linenum(&self) -> usize { self.line }
+   /// returns the index of the current char, starting from 1
    fn column(&self) -> usize { self.index }
-   fn current_line(&self) -> String
+   /// returns slice of underlying data using [std::str::Chars::as_str]
+   fn current_line(&self) -> &str
    { 
-     self.chars.clone().collect()
+     self.chars.as_str()
    }   
 }//impl Lexer for lexer

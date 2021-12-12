@@ -46,7 +46,7 @@ fn main()
 fn rustle(args:&Vec<String>) // called from main
 {
   let argc = args.len();
-  if argc<2 {panic!("Must give file path of .grammar");}
+  if argc<2 {eprintln!("Must give path of .grammar file"); return;}
   let filepath = &args[1];
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
@@ -103,8 +103,8 @@ fn rustle(args:&Vec<String>) // called from main
   let write_result = 
     if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
     else if fsm0.States.len()<=65536 {fsm0.writeparser(&parserfile)}
-    else {panic!("too many states: {}",fsm0.States.len())};
-  if tracelev>0 {println!("{} total states",fsm0.States.len());}
+    else {println!("too many states: {} execeeds limit of 65536",fsm0.States.len()); return;};
+  if tracelev>0 {eprintln!("{} total states",fsm0.States.len());}
   if let Ok(_) = write_result {
      if tracelev>0 {println!("written parser to {}",&parserfile);}
   }
