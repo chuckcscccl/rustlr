@@ -81,6 +81,7 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   err_occurred : bool,
   pub linenum : usize,
   pub column : usize,
+  pub src_id : usize,
   report_line : usize,
   training : bool,
   pub trained: HashMap<(usize,String),String>,
@@ -106,6 +107,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          err_occurred : false,
          linenum : 0,
          column : 0,
+         src_id : 0,
          report_line : 0,
          resynch : HashSet::new(),
          //added for training
@@ -144,6 +146,13 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        }
        self.err_occurred = true;
     }
+
+    /// sets an index that index source information, such as the source file
+    /// when compiling multiple sources. This must be maintained externally.
+    /// The source id will also be passed on to the [LBox] smartpointers by
+    /// the [RuntimeParser::lb] function.
+    pub fn set_src_id(&mut self, id:usize)
+    { self.src_id =id; }
 
     //called to simulate a shift
     fn errshift(&mut self, sym:&str) -> bool
@@ -478,7 +487,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     ///```ignore
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
     ///```
-    pub fn lb(&self,e:AT) -> LBox<AT> { LBox::new(e,self.linenum,self.column) }
+    pub fn lb(&self,e:AT) -> LBox<AT> { LBox::new(e,self.linenum,self.column,self.src_id) }
 }// impl RuntimeParser
 
 
@@ -914,10 +923,10 @@ pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>,
     }// process user response
   }//if training   //// END TRAINING MODE
 
-}// default errorreporter
+}// default errorreporter function
 
 
-// training from file and script
+/////// training from file and script
 struct trainscript<AT:Default,ET:Default>
 {
   parser: RuntimeParser<AT,ET>,

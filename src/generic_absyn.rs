@@ -60,8 +60,8 @@ pub struct LBox<T>
 }                   
 impl<T> LBox<T>
 {
-  pub fn new(e:T,ln:usize,col:usize) -> LBox<T>
-  { LBox { exp:Box::new(e), line:ln, column:col, src_id:0 } }
+  pub fn new(e:T,ln:usize,col:usize,src:usize) -> LBox<T>
+  { LBox { exp:Box::new(e), line:ln, column:col, src_id:src } }
   pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
 }
 impl<T> Deref for LBox<T>
@@ -79,7 +79,7 @@ impl<T> DerefMut for LBox<T>
 }
 impl<T:Default> Default for LBox<T>
 {
-  fn default() -> Self {LBox::new(T::default(),0,0)}
+  fn default() -> Self {LBox::new(T::default(),0,0,0)}
 }
 
 /// [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
