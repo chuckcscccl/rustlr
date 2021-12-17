@@ -18,7 +18,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
 use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine,augment_file};
-use crate::{LBox};
+use crate::{LBox,LRc};
 use crate::Stateaction::*;
 
 /// this structure is only exported because it is required by the generated parsers.
@@ -488,6 +488,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
     ///```
     pub fn lb(&self,e:AT) -> LBox<AT> { LBox::new(e,self.linenum,self.column,self.src_id) }
+    /// similar to [RuntimeParser::lb], but creates a [LRc] instead of [LBox]
+    pub fn lrc(&self,e:AT) -> LRc<AT> { LRc::new(e,self.linenum,self.column,self.src_id) }    
 }// impl RuntimeParser
 
 

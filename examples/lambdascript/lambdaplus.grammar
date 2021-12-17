@@ -1,0 +1,50 @@
+# Grammar for parsing "lambdascript", with integer constants.  
+# Adopted from 2014 Java version.
+
+!use rustlr::LRc;
+!use crate::abstmachine::*;
+!use crate::abstmachine::Lamterm::*;
+
+absyntype LRc<Lamterm>
+externtype Machine
+terminals lambda ( ) [ ] DOT let = in define ;
+terminal INTEGER
+terminal ID
+nonterminal T
+nonterminal Vars
+nonterminal Moreargs
+nonterminal Ts
+topsym Ts
+
+# place defs in Machine:
+Ts --> T:x ;  { ArrayList<term> S = new ArrayList<term>(); S.add(x); return S; }
+Ts --> Ts:y T:x ;  { y.add(x); return y; }
+
+T --> ID:x { parser.lrc(Var(x)) }
+T --> INTEGER:x { parser.lrc(Iconst(x)); }
+T ==> ( T:a Moreargs:ts ) { 
+  if (ts.size()<1) return a;
+  term t = new app(a,ts.get(0));
+  for(int i=1;i<ts.size();i++) t = new app(t,ts.get(i));
+  return t; }
+  <==
+T ==> lambda Vars:vs DOT T:b  { term t = b;
+  for(int i=vs.size()-1;i>=0;i--) t = new abs(vs.get(i),t); 
+  return t; }
+  <==
+T --> let ID:x = T:v in T:b { return new app(new abs(x,b),v); }
+
+# define evaluate to the term being defined, but also affects global env
+T ==> define ID:x = T:v { 
+  machine.Defs = new Binding(new var(x),new Closure(v,machine.Defs),machine.Defs); return v; }
+  <==
+
+Moreargs --> { ArrayList<term> s = new ArrayList<term>(); return s; }
+Moreargs --> Moreargs:ts T:b { ts.add(b); return ts; }
+
+Vars ==> ID:x { ArrayList<String> A = new ArrayList<String>(); 
+  A.add(x); return A; }
+     <==
+Vars --> Vars:vs ID:y {vs.add(y); return vs;}
+
+EOF

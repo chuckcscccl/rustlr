@@ -227,15 +227,29 @@ impl Grammar
             }, //terminals
 	    "typedterminal" if stage==0 => {
 	       let mut newterm = Gsym::new(stokens[1],true);
-	       if stokens.len()>2 {newterm.settype(stokens[2]);}
+               let mut tokentype = String::new();
+               for i in 2..stokens.len() {
+                  tokentype.push_str(&stokens[i][..]);
+                  tokentype.push(' ');
+               }
+	       if stokens.len()>2 {
+                 newterm.settype(tokentype.trim());
+               }
+               else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
-               self.Symbols.push(newterm);               
-	       //self.Symbols.insert(stokens[1].to_owned(),newterm);
-   	       //if TRACE>2 {println!("typedterminal {}:{}",stokens[1],stokens[2]);}
+               self.Symbols.push(newterm);           
 	    }, //typed terminals
 	    "nonterminal" if stage==0 => {
 	       let mut newterm = Gsym::new(stokens[1],false);
-	       if stokens.len()>2 {newterm.settype(stokens[2]);}
+               let mut tokentype = String::new();
+               for i in 2..stokens.len() {
+                  tokentype.push_str(&stokens[i][..]);
+                  tokentype.push(' ');
+               }
+	       if stokens.len()>2 {
+                 newterm.settype(tokentype.trim());
+               }
+               else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);                              
 	    }, //nonterminals

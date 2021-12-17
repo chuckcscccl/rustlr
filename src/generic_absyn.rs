@@ -17,7 +17,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-
+use std::rc::Rc;
 use std::ops::{Deref,DerefMut};
 use std::collections::{HashMap,HashSet};
 use crate::RuntimeParser;
@@ -63,6 +63,12 @@ impl<T> LBox<T>
   pub fn new(e:T,ln:usize,col:usize,src:usize) -> LBox<T>
   { LBox { exp:Box::new(e), line:ln, column:col, src_id:src } }
   pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
+  ///should be used to create a new LBoxed expression that inherits
+  /// lexical information from existing LBox
+  pub fn transfer(&self,e:T) -> LBox<T>
+  {
+     LBox::new(e,self.line,self.column,self.src_id)
+  }
 }
 impl<T> Deref for LBox<T>
 {
@@ -81,6 +87,82 @@ impl<T:Default> Default for LBox<T>
 {
   fn default() -> Self {LBox::new(T::default(),0,0,0)}
 }
+impl<T:Clone> Clone for LBox<T>
+{
+   fn clone(&self) -> Self
+   {
+      LBox {
+        exp : self.exp.clone(),
+        line: self.line,
+        column: self.column,
+        src_id: self.src_id,
+      }
+   }//clone
+}
+
+///Like LBox but encapsulates an Rc. Implements [Deref] and emulates the
+///[Rc::clone] function.
+pub struct LRc<T>
+{
+  pub exp:Rc<T>,
+  pub line:usize,
+  pub column:usize,
+  pub src_id:usize,
+}
+impl<T> LRc<T>
+{
+  pub fn new(e:T,ln:usize,col:usize,src:usize) -> LRc<T>
+  { LRc { exp:Rc::new(e), line:ln, column:col, src_id:src } }
+  pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
+  ///should be used to create a new LRced expression that inherits
+  /// lexical information from existing LRc
+  pub fn transfer(&self,e:T) -> LRc<T>
+  {
+     LRc::new(e,self.line,self.column,self.src_id)
+  }
+  ///uses [Rc::clone] to increase reference count of encapsulated Rc,
+  ///copies line, column and source_id information.
+  pub fn clone(lrc:&LRc<T>) -> LRc<T>
+  {
+     LRc {
+        exp: Rc::clone(&lrc.exp),
+        line: lrc.line,
+        column: lrc.column,
+        src_id: lrc.src_id,
+     }
+  }//clone
+}
+
+impl<T:Clone> Clone for LRc<T>
+{
+   fn clone(&self) -> Self
+   {
+     LRc::clone(self)
+   }//clone
+}
+
+impl<T> Deref for LRc<T>
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.exp
+    }
+}
+/*  DerefMut is not implemented for Rc<T>
+impl<T> DerefMut for LRc<T>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.exp
+    }
+}
+*/
+impl<T:Default> Default for LRc<T>
+{
+  fn default() -> Self {LRc::new(T::default(),0,0,0)}
+}
+
+
+
 
 /// [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
 /// unlike a generic LBox
@@ -96,6 +178,7 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          .finish()
     }
 }// impl Debug for ABox
+/*
 impl Clone for ABox
 {
   fn clone(&self) -> Self
@@ -108,7 +191,7 @@ impl Clone for ABox
      }
   }
 }// impl Clone for ABox
-
+*/
 
 /// Generic Abstract Syntax type: Rustlr offers the user the option
 /// of using a ready-made abstract syntax type that should be suitable for
