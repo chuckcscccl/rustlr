@@ -251,13 +251,15 @@ impl Grammar
                }
                else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
-               self.Symbols.push(newterm);                              
+               self.Symbols.push(newterm);
+               self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
 	    }, //nonterminals
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
 	          let newterm = Gsym::new(stokens[i],false);
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
                   self.Symbols.push(newterm);
+                  self.Rulesfor.insert(stokens[i].to_owned(),HashSet::new());
 		  if TRACE>2 {println!("nonterminal {}",stokens[i]);}
                }
             },
@@ -403,6 +405,12 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
 	      };
 	      if TRACE>2 {printrule(&rule);}
 	      self.Rules.push(rule);
+              // Add rules to Rulesfor map
+              if let None = self.Rulesfor.get(LHS) {
+                 self.Rulesfor.insert(String::from(LHS),HashSet::new());
+              }
+              let rulesforset = self.Rulesfor.get_mut(LHS).unwrap();
+              rulesforset.insert(self.Rules.len()-1);
             //} 
             } // for rul
             }, 

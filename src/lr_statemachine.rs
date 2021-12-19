@@ -230,8 +230,8 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
      */
      if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
-       let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);  
-       for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap() //rulent:usize
+       let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
+       for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
        {
           for lafollow in lookaheads 
           { 
@@ -246,7 +246,7 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
 //if TRACE>2 {println!("added new item of rule {}, la {}",&rulent,&lafollow);}
             }
           }//for each possible lookahead following non-terminal
-       }// for each rule in this non-terminal                 
+       }// for each rule in this non-terminal
      } // add items to closure for this item
   }  // while not closed
   closed
