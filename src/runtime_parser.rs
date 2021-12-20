@@ -192,253 +192,6 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
        if let Some(tok) = tokenizer.nextsym() {tok}
         else { Lextoken{sym:"EOF".to_owned(),  value:AT::default()} } 
     }
-    // parse does not reset state stack
-
-    //original
-    fn parse0(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
-    {
-       self.err_occurred = false;
-       self.stack.clear();
-       let mut eofcount = 0;
-//       self.exstate = ET::default(); ???
-       let mut result = AT::default();
-       // push state 0 on stack:
-       self.stack.push(Stackelement {si:0, value:AT::default()});
-       let unexpected = Stateaction::Error("unexpected end of input");
-       let mut action = unexpected; 
-       self.stopparsing = false;
-       let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()}; 
-       if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
-       else {self.stopparsing=true;}
-
-       while !self.stopparsing
-       {
-         self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
-         let currentstate = self.stack[self.stack.len()-1].si;
-         //if TRACE>1 {print!(" current state={}, lookahead={}, ",&currentstate,&lookahead.sym);}
-         let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());//.unwrap();
-//         if TRACE>1 {println!("RSM action : {:?}",actionopt);}
-//println!("actionopt: {:?}, current state {}",actionopt,self.stack[self.stack.len()-1].si);            
-
-///// Do error recovery
-         if iserror(&actionopt) /*let None = actionopt*/ {
-//            self.report(&format!("unexpected symbol {} ... current state {}",&lookahead.sym,self.stack[self.stack.len()-1].si));
-            let lksym = &lookahead.sym[..];
-            // is lookahead recognized as a grammar symbol?
-            // if actionopt is NONE, check entry for ANY_ERROR            
-            if self.Symset.contains(lksym) {
-               if let None=&actionopt {
-                  actionopt = self.RSM[currentstate].get("ANY_ERROR");
-               }
-            }// lookahead is recognized grammar sym
-            else {
-               actionopt = self.RSM[currentstate].get("ANY_ERROR");
-            }// lookahead is not a grammar sym
-
-            let errmsg = if let Some(Error(em)) = &actionopt {
-               format!("unexpected symbol {}, ** {} ** ..",lksym,em)
-            } else {format!("unexpected symbol {} ..",lksym)};
-
-            self.report(&errmsg);
-            
-            if self.training {  /////// TRAINING MODE:
-              let cstate = self.stack[self.stack.len()-1].si;
-              let csym = lookahead.sym.clone();
-              let mut inp = String::from("");
-              print!("\n>>>TRAINER: is this error message adequate? If not, enter a better one: ");
-              let rrrflush = io::stdout().flush();
-              if let Ok(n) = io::stdin().read_line(&mut inp) {
-                if inp.len()>5 && self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,csym.clone()))*/ {
-                  print!(">>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) ");
-                  let rrrflush2 = io::stdout().flush();
-                  let mut inp2 = String::new();
-                  if let Ok(n) = io::stdin().read_line(&mut inp2) {
-                     if inp2.trim()=="no" || inp2.trim()=="No" {
-                       self.trained.insert((cstate,csym),inp);
-                     }
-                     else  {// insert for any error
-                       self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
-                     }
-                  }// read ok
-                }// unexpected symbol is grammar sym
-                else if inp.len()>5 && !self.Symset.contains(lksym) /*&& !self.trained.contains_key(&(cstate,String::from("ANY_ERROR")))*/ {
-                  self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
-                }
-                
- /*               
-                if n>2 && !self.trained.contains_key(&(cstate,csym.clone())) {
-                  self.trained.insert((cstate,csym),inp);
-                }
-*/                
-              }// process user response
-            }//train   //// END TRAINING MODE
-            
-
-      // do error recovery
-            let mut erraction = None;
-
-            ///// prefer to use Errsym method
-            if self.Errsym.len()>0 {
-               let errsym = self.Errsym;
-               //lookdown stack for "shift" action on errsym
-               // but that could be current state too (start at top)
-               let mut k = self.stack.len(); // offset by 1 because of usize
-               let mut spos = k+1;
-               while k>0 && spos>k
-               {
-                  let ksi = self.stack[k-1].si;
-                  erraction = self.RSM[ksi].get(errsym);
-                  if let None = erraction {k-=1;} else {spos=k;}
-                  //if let Some(Shift(_)) = erraction { spos=k;}
-                  //else {k-=1;}
-               }//while k>0
-               if spos==k { self.stack.truncate(k); }
-
-            // run all reduce actions that are valid before the Errsym:
-            while let Some(Reduce(ri)) = erraction // keep reducing
-            {
-              //self.reduce(ri); // borrow error- only need mut self.stack
-              let rulei = &self.Rules[*ri];
-              let ruleilhs = rulei.lhs; // &'static : Copy
-//println!("ERR reduction on rule {}, lhs {}",ri,ruleilhs);
-              let val = (rulei.Ruleaction)(self); // calls delegate function
-              let newtop = self.stack[self.stack.len()-1].si; 
-              let gotonopt = self.RSM[newtop].get(ruleilhs);
-              match gotonopt {
-                Some(Gotonext(nsi)) => { 
-                  self.stack.push(Stackelement{si:*nsi,value:val});
-                },// goto next state after reduce
-                _ => {self.abort("recovery failed"); },
-              }//match
-              // end reduce
-              let tos=self.stack[self.stack.len()-1].si;
-              erraction = self.RSM[tos].get(self.Errsym);
-            } // while let erraction is reduce
-
-
-               if let Some(Shift(i)) = erraction { // simulate shift errsym 
-                 self.stack.push(Stackelement{si:*i,value:AT::default()});
-//println!("SIMULATING shift to state {}",i);                 
-                 // keep lookahead until action is found that transitions from
-                 // current state (i). but skipping ahead without reducing
-                 // the error production is not a good idea
-                 while let None = self.RSM[*i].get(&lookahead.sym[..]) {
-                    if &lookahead.sym[..]=="EOF" {eofcount+=1; break;}
-                    lookahead = self.nexttoken(tokenizer);
-                 }//while let
-                 // either at end of input or found action on next symbol
-                 erraction = self.RSM[*i].get(&lookahead.sym[..]);
-//println!("next action from state {} on lookahead {} : {:?}",i,&lookahead.sym,&erraction);                 
-               } // if shift action found down under stack
-               //else {erraction = None; }// don't reduce
-            }//errsym exists
-
-            // at this point, if erraction is None, then Errsym failed to recover,
-            // try the resynch symbol method...
-            
-            if erraction==None && self.resynch.len()>0 {
-               while &lookahead.sym!="EOF" &&
-                      !self.resynch.contains(&lookahead.sym[..]) {
-                 lookahead = self.nexttoken(tokenizer);
-               }
-             if &lookahead.sym!="EOF" {
-              // look for state on stack that has action defined on next symbol
-              lookahead = self.nexttoken(tokenizer); // skipp err-causing symbol
-             }
-             else {eofcount += 1;}
-              let mut k = self.stack.len()-1; // offset by 1 because of usize
-              let mut position = 0;
-              while k>0 && erraction==None
-               {
-                  let ksi = self.stack[k-1].si;
-                  erraction = self.RSM[ksi].get(&lookahead.sym[..]);
-                  if let None=erraction {k-=1;}
-               }//while k>0 && erraction==None
-              match erraction {
-                 None => {}, // do nothing, whill shift next symbol
-                 _ => { self.stack.truncate(k);},//pop stack
-              }//match
-            }// there are resync symbols
-
-            // at this point, if erraction is None, then resynch recovery failed too.
-            // only action left is to skip ahead...
-            if let None = erraction { //skip input, loop back
-                lookahead = self.nexttoken(tokenizer);
-                let csi =self.stack[self.stack.len()-1].si;
-                erraction = self.RSM[csi].get(&lookahead.sym[..]);
-//println!("csi {}",csi);                
-                if &lookahead.sym=="EOF" && erraction==None && eofcount>0 {
-                  self.abort("error recovery failed before end of input");
-                }
-            }
-
-/* /////           
-            while let Some(Reduce(ri)) = erraction // keep reducing
-            {
-              //self.reduce(ri); // borrow error- only need mut self.stack
-              let rulei = &self.Rules[*ri];
-              let ruleilhs = rulei.lhs; // &'static : Copy
-              let val = (rulei.Ruleaction)(self); // calls delegate function
-              let newtop = self.stack[self.stack.len()-1].si; 
-              let gotonopt = self.RSM[newtop].get(ruleilhs);
-              match gotonopt {
-                Some(Gotonext(nsi)) => { 
-                  self.stack.push(Stackelement{si:*nsi,value:val});
-                },// goto next state after reduce
-                _ => {self.abort("recovery failed"); },
-              }//match
-              // end reduce
-              let tos=self.stack[self.stack.len()-1].si;
-              erraction = self.RSM[tos].get(self.Errsym);
-            } // while let erraction is reduce
-            //println!("erraction: {:?}, current state {}",erraction,self.stack[self.stack.len()-1].si);
-
-///// */
-
-         }//error recovery
-         
-         else {
-          action = actionopt.unwrap().clone();  // cloning stateaction is ok
-          match &action {
-            Stateaction::Shift(i) => { // shift to state si
-                self.stack.push(Stackelement{si:*i,value:mem::replace(&mut lookahead.value,AT::default())});
-                lookahead = self.nexttoken(tokenizer);
-             }, //shift
-            Stateaction::Reduce(ri) => { //reduce by rule i
-               self.reduce(ri);
-            /*
-              let rulei = &self.Rules[*ri];
-              let ruleilhs = rulei.lhs; // &'static : Copy
-              let val = (rulei.Ruleaction)(self); // calls delegate function
-              let newtop = self.stack[self.stack.len()-1].si; 
-              let goton = self.RSM[newtop].get(ruleilhs).unwrap();
-              if let Stateaction::Gotonext(nsi) = goton {
-                self.stack.push(Stackelement{si:*nsi,value:val});
-                // DO NOT CHANGE LOOKAHEAD AFTER REDUCE!
-              }// goto next state after reduce
-              else { self.stopparsing=true; }
-             */
-             },
-            Stateaction::Accept => {
-              result = self.stack.pop().unwrap().value;
-              self.stopparsing = true;
-             },
-            Stateaction::Error(msg) => {
-              self.stopparsing = true;
-             },
-            Stateaction::Gotonext(_) => { //should not see this here
-              self.stopparsing = true;
-             },
-          }//match & action
-         }// else not in error recovery mode
-       } // main parser loop
-       if let Stateaction::Error(msg) = &action {
-          //panic!("!!!Parsing failed on line {}, next symbol {}: {}",tokenizer.linenum(),&lookahead.sym,msg);
-          self.report(&format!("failure with next symbol {}",tokenizer.linenum()));
-       }
-       //if self.err_occurred {result = AT::default(); }
-       return result;
-    }//parse0
 
     /// Parse in training mode: when an error occurs, the parser will
     /// ask the human trainer for an appropriate error message: it will
@@ -774,7 +527,6 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
      self.parse_core(tokenizer,err_report_train)
   }
 
-
   /// Error recovery routine of rustlr, separate from error_reporter.
   /// This function will modify the parser and lookahead symbol and return
   /// either the next action the parser should take (if recovery succeeded)
@@ -877,7 +629,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 
 
 /// default ErrorReporter, with training ability
-pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, mut erropt:&Option<Stateaction>)
+pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
 {
   // known that actionop is None or Some(Error(_))
   let cstate = parser.stack[parser.stack.len()-1].si;
@@ -928,10 +680,94 @@ pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>,
 }// default errorreporter function
 
 
-/////// training from file and script
-struct trainscript<AT:Default,ET:Default>
+pub trait ErrHandler  // not to be confused with error recovery
 {
-  parser: RuntimeParser<AT,ET>,
-  srcfile: String,
-  errscript: String,
+  fn err_reporter<AT:Default,ET:Default>(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>);
+}// ErrReporter trait
+
+
+////  Default reporter, with training ability (still backwards compatible)
+pub struct StandardReporter
+{
+  pub  training : bool,
+  pub  trained : HashMap<(usize,String),String>,
+  pub  parserfile: String,
 }
+impl StandardReporter
+{
+  /// creates default standard reporter for use by parse_stdio (does not train)
+  pub fn new() -> StandardReporter
+  {
+    StandardReporter {
+      training:false, trained:HashMap::new(), parserfile:String::new() }
+  }
+  /// creates a stdio error reporter with interactive training, takes as
+  /// argument parser file name, to create script for future retraining.
+  pub fn new_training(existingparser:&str) -> StandardReporter
+  {
+    StandardReporter {
+      training:true, trained:HashMap::with_capacity(8),
+      parserfile:existingparser.to_owned() }     
+  }
+  // augment_train implemented in augmenter.rs
+}
+impl ErrHandler for StandardReporter
+{
+  // this function will be able to write training script to file
+  fn err_reporter<AT:Default,ET:Default>(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
+ {
+  let outfile = format!("{}.training_script", &self.parserfile);
+  let mut outfd = File::create(&outfile).unwrap();
+  let mut wresult = write!(outfd,"#Rustlr Error Training Script for {}\n\n",&self.parserfile);
+  // known that actionop is None or Some(Error(_))
+  let cstate = parser.stack[parser.stack.len()-1].si; // current state
+  let mut actionopt = if let Some(act)=erropt {Some(act)} else {None};
+  let lksym = &lookahead.sym[..];
+  // is lookahead recognized as a grammar symbol?
+  // if actionopt is NONE, check entry for ANY_ERROR            
+  if parser.Symset.contains(lksym) {
+     if let None=actionopt {
+        actionopt = parser.RSM[cstate].get("ANY_ERROR");
+     }
+  }// lookahead is recognized grammar sym
+  else {
+     actionopt = parser.RSM[cstate].get("ANY_ERROR");
+  }// lookahead is not a grammar sym
+  let errmsg = if let Some(Error(em)) = &actionopt {
+    format!("unexpected symbol {}, ** {} ** ..",lksym,em)
+  } else {format!("unexpected symbol {} .. ",lksym)};
+
+  parser.report(&errmsg);
+
+  if self.training {          ////// Training mode
+  //    let cstate = parser.stack[parser.stack.len()-1].si;
+    let csym = lookahead.sym.clone();
+    let mut inp = String::from("");
+    print!("\n>>>TRAINER: if this message is not adequate (for state {}), enter a replacement (default no change): ",cstate);
+    let rrrflush = io::stdout().flush();
+    if let Ok(n) = io::stdin().read_line(&mut inp) {
+       if inp.len()>5 && parser.Symset.contains(lksym) {
+         print!(">>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) ");
+        let rrrflush2 = io::stdout().flush();
+        let mut inp2 = String::new();
+        if let Ok(n) = io::stdin().read_line(&mut inp2) {
+            if inp2.trim()=="no" || inp2.trim()=="No" {
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,&csym,&inp);
+               self.trained.insert((cstate,csym),inp);
+            }
+            else  {// insert for any error
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",&inp);            
+               self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
+            }
+        }// read ok
+       }// unexpected symbol is grammar sym
+       else if inp.len()>5 && !parser.Symset.contains(lksym) {
+         wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",&inp);                   
+         self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
+       }
+    }// process user response
+  }//if training   //// END TRAINING MODE
+  
+ }// standardreporter function
+}// impl ErrHandler for StandardReporter
+
