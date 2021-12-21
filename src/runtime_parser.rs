@@ -692,6 +692,7 @@ pub struct StandardReporter
   pub  training : bool,
   pub  trained : HashMap<(usize,String),String>,
   pub  parserfile: String,
+  pub  scriptfile: String,
 }
 impl StandardReporter
 {
@@ -699,16 +700,26 @@ impl StandardReporter
   pub fn new() -> StandardReporter
   {
     StandardReporter {
-      training:false, trained:HashMap::new(), parserfile:String::new() }
+      training:false, trained:HashMap::new(), parserfile:String::new(), scriptfile:String::new(), }
   }
-  /// creates a stdio error reporter with interactive training, takes as
+  /// creates a stdio error handler with interactive training, takes as
   /// argument parser file name, to create script for future retraining.
-  pub fn new_training(existingparser:&str) -> StandardReporter
+  pub fn new_interactive_training(existingparser:&str) -> StandardReporter
   {
     StandardReporter {
       training:true, trained:HashMap::with_capacity(8),
-      parserfile:existingparser.to_owned() }     
+      parserfile:existingparser.to_owned(), scriptfile:String::new(), }     
   }
+  /// creates a stdio error handler that trains (non-interactively) from
+  /// a previously created script.  It's the user's responsibility to match
+  /// the script file with the input source.
+  pub fn new_script_training(existingparser:&str,script:&str) -> StandardReporter
+  {
+    StandardReporter {
+      training:true, trained:HashMap::with_capacity(8),
+      parserfile:existingparser.to_owned(),
+      scriptfile:script.to_owned(), }     
+  }  
   // augment_train implemented in augmenter.rs
 }
 impl ErrHandler for StandardReporter
@@ -716,8 +727,10 @@ impl ErrHandler for StandardReporter
   // this function will be able to write training script to file
   fn err_reporter<AT:Default,ET:Default>(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
  {
-  let outfile = format!("{}.training_script", &self.parserfile);
+  let outfile =  format!("{}_script.txt", if self.scriptfile.len()<1 {&self.parserfile} else {&self.scriptfile});
   let mut outfd = File::create(&outfile).unwrap();
+  let scriptopt = if self.scriptfile.len()<1 {None}
+   else {Some(BufReader::new(File::open(&self.scriptfile).unwrap()))};
   let mut wresult = write!(outfd,"#Rustlr Error Training Script for {}\n\n",&self.parserfile);
   // known that actionop is None or Some(Error(_))
   let cstate = parser.stack[parser.stack.len()-1].si; // current state
@@ -740,9 +753,10 @@ impl ErrHandler for StandardReporter
   parser.report(&errmsg);
 
   if self.training {          ////// Training mode
-  //    let cstate = parser.stack[parser.stack.len()-1].si;
+    //    let cstate = parser.stack[parser.stack.len()-1].si;
     let csym = lookahead.sym.clone();
-    let mut inp = String::from("");
+    let mut inp = String::from("");    
+   if self.scriptfile.len()<1 {  // interactive mode
     print!("\n>>>TRAINER: if this message is not adequate (for state {}), enter a replacement (default no change): ",cstate);
     let rrrflush = io::stdout().flush();
     if let Ok(n) = io::stdin().read_line(&mut inp) {
@@ -766,6 +780,35 @@ impl ErrHandler for StandardReporter
          self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
        }
     }// process user response
+   }// interactive mode
+   else { // training from script mode
+     let mut scin = scriptopt.unwrap();
+     let mut readn = 0;
+     while readn < 1
+     {
+       inp = String::new();
+       match scin.read_line(&mut inp) {
+         Ok(n) if n>1 && &inp[0..1]!="#" && inp.trim().len()>0 => {readn=n;},
+         Ok(n) if n>0 => { readn=0; }, // keep reading
+         _ => {readn = 1; } // stop - this means End of Stream
+       }//match
+       if readn>1 { // read something
+         let inpsplit:Vec<&str> = inp.split_whitespace().collect();
+         if inpsplit.len()>4 && inpsplit[3].trim()==":::" {
+           let inline = inpsplit[0].trim().parse::<usize>().unwrap();
+           let incolumn = inpsplit[1].trim().parse::<usize>().unwrap();
+           let insym = inpsplit[2].trim();
+           if parser.linenum==inline && parser.column==incolumn {
+             if &csym==insym || insym=="ANY_ERROR" {
+               let posc = inp.find(":::").unwrap()+4;
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,insym,&inp[posc..]);                   
+               self.trained.insert((cstate,String::from(insym)),String::from(&inp[posc..]));
+             } // unexpected symbol match
+           }// line/column match
+         }//inpsplit check
+       }// valid training line read
+     }//while readn<2
+   }//training from script mode
   }//if training   //// END TRAINING MODE
   
  }// standardreporter function
