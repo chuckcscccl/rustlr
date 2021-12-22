@@ -128,7 +128,7 @@ pub fn augment_file<AT:Default,ET:Default>(filepath:&str, parser:&mut RuntimePar
 
 impl StandardReporter
 {
- pub fn augment_training<AT:Default,ET:Default>(&mut self, filepath:&str, parser:&mut RuntimeParser<AT,ET>) -> std::io::Result<()>
+ pub fn augment_training(&mut self, filepath:&str) -> std::io::Result<()>
  {
    if self.trained.len()<1 {return Ok(());}
    let fopen = std::fs::OpenOptions::new().write(true).read(true).open(filepath);
@@ -140,7 +140,9 @@ impl StandardReporter
    }//match
    let mut fio = fopen.unwrap();
    let finopen = File::open(filepath);
-   if let Err(_) = finopen {   return augment_file0(filepath,parser);   }
+   if let Err(_) = finopen {
+       return Err(Error::new(ErrorKind::Other,"augmenter can't find file"));   
+   }
    let mut fin = BufReader::new(finopen.unwrap());
    let mut position:u64 = 0;
    let mut line = String::new();

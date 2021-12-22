@@ -43,7 +43,7 @@ impl<AT:Default,ET:Default> RProduction<AT,ET>
 pub struct Stackelement<AT:Default>
 {
    pub si : usize, // state index
-   pub value : AT,  // semantic value (don't clone grammar symbols)
+   pub value : AT, // semantic value (don't clone grammar symbols)
 }
 
 /// this is the structure created by the generated parser.  The generated parser
@@ -450,7 +450,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 /// In case one wishes to construct a parser error-reporting interface
 /// that's different from the supplied [RuntimeParser::parse] function,
 /// which prints to stdout, a function of ErrorReporter type can be defined
-/// and used in conjuction with [RuntimeParser::parse_core].
+/// and used in conjuction with [RuntimeParser::parse_core.
 pub type ErrorReporter<AT,ET> =
   fn(&mut RuntimeParser<AT,ET>, &Lextoken<AT>, &Option<Stateaction>);
   
@@ -623,9 +623,9 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
      None => None,
      Some(act) => Some(*act),
    }//return match
-  }//error_recover
+  }//error_recover function
 
-}//imple RuntimeParser 2
+}//impl RuntimeParser 2
 
 
 /// default ErrorReporter, with training ability
@@ -677,61 +677,66 @@ pub fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>,
     }// process user response
   }//if training   //// END TRAINING MODE
 
-}// default errorreporter function
+}// default errorreporter function - conforms to type ErrorReporter
 
 
-pub trait ErrHandler  // not to be confused with error recovery
+/////////////// new approach using more flexible trait object
+pub trait ErrHandler<AT:Default,ET:Default> // not same as error recovery
 {
-  fn err_reporter<AT:Default,ET:Default>(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>);
+  fn err_reporter(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>);
+//  fn training_mode(&self, parser:&RuntimeParser<AT,ET>) -> bool {false}
+//  fn interactive_mode(&self, parser:&RuntimeParser<AT,ET>) -> bool {false}
 }// ErrReporter trait
 
 
-////  Default reporter, with training ability (still backwards compatible)
+////  Default trainer, can train interactively or from script
 pub struct StandardReporter
 {
   pub  training : bool,
+//    pub  interactive : bool,  scriptinopt==None
   pub  trained : HashMap<(usize,String),String>,
-  pub  parserfile: String,
-  pub  scriptfile: String,
+  pub  scriptinopt:  Option<BufReader<File>>,   // for training from script
+  pub  scriptoutopt: Option<File>,   // created during interactive training
 }
 impl StandardReporter
 {
-  /// creates default standard reporter for use by parse_stdio (does not train)
+  /// creates default standard reporter, used by parse_stdio (does not train)
   pub fn new() -> StandardReporter
   {
     StandardReporter {
-      training:false, trained:HashMap::new(), parserfile:String::new(), scriptfile:String::new(), }
+      training:false, trained:HashMap::new(), scriptinopt:None, scriptoutopt:None,}
   }
   /// creates a stdio error handler with interactive training, takes as
   /// argument parser file name, to create script for future retraining.
   pub fn new_interactive_training(existingparser:&str) -> StandardReporter
   {
+    let outfile =  format!("{}_script.txt", existingparser);
+    let mut fout = File::create(outfile).expect("failed to create training script file");
+    let _ = write!(fout,"# Rustlr training script for {}\n\n",existingparser);
     StandardReporter {
       training:true, trained:HashMap::with_capacity(8),
-      parserfile:existingparser.to_owned(), scriptfile:String::new(), }     
+      scriptoutopt:Some(fout), scriptinopt:None,}     
   }
   /// creates a stdio error handler that trains (non-interactively) from
   /// a previously created script.  It's the user's responsibility to match
   /// the script file with the input source.
-  pub fn new_script_training(existingparser:&str,script:&str) -> StandardReporter
+  pub fn new_script_training(existingparser:&str,scriptfile:&str) -> StandardReporter
   {
+    let fin = BufReader::new(File::open(scriptfile).expect("failed to open training script file"));
     StandardReporter {
-      training:true, trained:HashMap::with_capacity(8),
-      parserfile:existingparser.to_owned(),
-      scriptfile:script.to_owned(), }     
+      training:true, trained:HashMap::with_capacity(32),
+      scriptoutopt:None,
+      scriptinopt:Some(fin), }     
   }  
   // augment_train implemented in augmenter.rs
-}
-impl ErrHandler for StandardReporter
+}//impl StandardReporter
+
+impl<AT:Default,ET:Default> ErrHandler<AT,ET> for StandardReporter
 {
   // this function will be able to write training script to file
-  fn err_reporter<AT:Default,ET:Default>(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
- {
-  let outfile =  format!("{}_script.txt", if self.scriptfile.len()<1 {&self.parserfile} else {&self.scriptfile});
-  let mut outfd = File::create(&outfile).unwrap();
-  let scriptopt = if self.scriptfile.len()<1 {None}
-   else {Some(BufReader::new(File::open(&self.scriptfile).unwrap()))};
-  let mut wresult = write!(outfd,"#Rustlr Error Training Script for {}\n\n",&self.parserfile);
+  fn err_reporter(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
+ { 
+  let mut wresult:std::io::Result<()> = Err(std::io::Error::new(std::io::ErrorKind::Other,"")); // dummy
   // known that actionop is None or Some(Error(_))
   let cstate = parser.stack[parser.stack.len()-1].si; // current state
   let mut actionopt = if let Some(act)=erropt {Some(act)} else {None};
@@ -747,16 +752,17 @@ impl ErrHandler for StandardReporter
      actionopt = parser.RSM[cstate].get("ANY_ERROR");
   }// lookahead is not a grammar sym
   let errmsg = if let Some(Error(em)) = &actionopt {
-    format!("unexpected symbol {}, ** {} ** ..",lksym,em)
+    format!("unexpected symbol {}, ** {} ** ..",lksym,em.trim())
   } else {format!("unexpected symbol {} .. ",lksym)};
 
   parser.report(&errmsg);
 
   if self.training {          ////// Training mode
-    //    let cstate = parser.stack[parser.stack.len()-1].si;
     let csym = lookahead.sym.clone();
     let mut inp = String::from("");    
-   if self.scriptfile.len()<1 {  // interactive mode
+   if let None=self.scriptinopt {  // interactive mode
+   if let Some(outfd1) = &self.scriptoutopt {
+    let mut outfd = outfd1;
     print!("\n>>>TRAINER: if this message is not adequate (for state {}), enter a replacement (default no change): ",cstate);
     let rrrflush = io::stdout().flush();
     if let Ok(n) = io::stdin().read_line(&mut inp) {
@@ -766,23 +772,24 @@ impl ErrHandler for StandardReporter
         let mut inp2 = String::new();
         if let Ok(n) = io::stdin().read_line(&mut inp2) {
             if inp2.trim()=="no" || inp2.trim()=="No" {
-               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,&csym,&inp);
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,&csym,inp.trim());
                self.trained.insert((cstate,csym),inp);
             }
             else  {// insert for any error
-               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",&inp);            
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",inp.trim());
                self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
             }
         }// read ok
        }// unexpected symbol is grammar sym
        else if inp.len()>5 && !parser.Symset.contains(lksym) {
-         wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",&inp);                   
+         wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",inp.trim());
          self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
        }
     }// process user response
-   }// interactive mode
-   else { // training from script mode
-     let mut scin = scriptopt.unwrap();
+   }}// interactive mode
+   else { // training from script mode (non-interactive)
+    if let Some(brfd) = &mut self.scriptinopt {
+     let mut scin = brfd;
      let mut readn = 0;
      while readn < 1
      {
@@ -801,16 +808,122 @@ impl ErrHandler for StandardReporter
            if parser.linenum==inline && parser.column==incolumn {
              if &csym==insym || insym=="ANY_ERROR" {
                let posc = inp.find(":::").unwrap()+4;
-               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,insym,&inp[posc..]);                   
+               println!("\n>>>Found matching entry from training script for {}, error message: {}",insym,&inp[posc..]);
                self.trained.insert((cstate,String::from(insym)),String::from(&inp[posc..]));
              } // unexpected symbol match
            }// line/column match
          }//inpsplit check
        }// valid training line read
      }//while readn<2
-   }//training from script mode
+   }}//training from script mode
   }//if training   //// END TRAINING MODE
   
  }// standardreporter function
 }// impl ErrHandler for StandardReporter
 
+
+//////////////// temporary: live side by side with parse_core
+impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
+{
+  /// core parser (temporarily lives side by side with parse_core) that
+  /// takes dynamic trait objects for lexical scanner and err_reporting.
+  /// This design makes it possible to create a custom error reporting
+  /// interface, such as a graphical IDE interface, while still using the
+  /// base parser state machine generated by rustlr.
+  pub fn parse_base(&mut self, tokenizer:&mut dyn Lexer<AT>, err_handler:&mut dyn ErrHandler<AT,ET>) -> AT
+  {
+    self.stack.clear();
+    self.err_occurred = false;
+    let mut result = AT::default();
+    self.stack.push(Stackelement {si:0, value:AT::default()});
+    self.stopparsing = false;
+    let mut action = Stateaction::Error("");
+    let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()};
+    if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
+    else {self.stopparsing=true;}
+
+    while !self.stopparsing
+    {
+      self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
+      let currentstate = self.stack[self.stack.len()-1].si;
+      let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());
+      let actclone:Option<Stateaction> = match actionopt {
+        Some(a) => Some(*a),
+        None => None,
+      };
+      if iserror(&actionopt) {  // either None or Error
+        if !self.err_occurred {self.err_occurred = true;}
+        
+        err_handler.err_reporter(self,&lookahead,&actclone);
+        //err_reporter(self,&lookahead,&actclone);
+        
+        match self.error_recover(&mut lookahead,tokenizer) {
+          None => { self.stopparsing=true; break; }
+          Some(act) => {action = act;},
+        }//match
+      }// iserror
+      else { action = actclone.unwrap(); }
+      match &action {
+        Shift(nextstate) => {
+           lookahead = self.shift(*nextstate,lookahead,tokenizer);
+        },
+        Reduce(rulei) => { self.reduce(rulei); },
+        Accept => {
+          self.stopparsing=true;
+          if self.stack.len()>0 {result = self.stack.pop().unwrap().value;}
+          else {self.err_occurred=true;}
+        },
+        _ => {}, // continue
+      }//match action
+    }// main parse loop
+    return result;
+  }//parse_base
+
+  ///provided generic parsing function that reports errors on std::io
+  pub fn parse_stdio(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
+  {
+    let mut stdeh = StandardReporter::new();
+    self.parse_base(tokenizer,&mut stdeh) 
+  }//parse_stdio
+
+  ///parses in interactive training mode with provided path to parserfile.
+  ///parser file will be modified and a training script file will be
+  ///created for future retraining after grammar is modified. 
+  pub fn parse_stdio_train(&mut self, tokenizer:&mut dyn Lexer<AT>, parserfile:&str) -> AT
+    {
+      let mut stdtrainer = StandardReporter::new_interactive_training(parserfile);
+      let result = self.parse_base(tokenizer,&mut stdtrainer);
+      if let Err(m) = stdtrainer.augment_training(parserfile) {
+        eprintln!("Error in augmenting parser: {:?}",m)
+      }
+
+      return result;
+    }//parse_stdio_train
+
+  /// trains parser from training script created by interactive training.  this
+  /// is intended to be used after a grammar has been modified and the parser
+  /// is regenerated with different state numbers.  It is the user's
+  /// responsibility to keep consistent the parser file, script file, and sample
+  /// input that was used when the script was created.  The script contains
+  /// the line and column numbers of each error encountered, along with either
+  /// unexpected symbol that caused the error, or the reserved ANY_ERROR
+  /// symbol if the error message is to be applied to all unexpected symbols.
+  /// These entries must match, in sequence, the errors encountered during
+  /// retraining - it is therefore recommended that the same tokenizer be used
+  /// during retraining so that the same line/column information are given.
+  /// The trainer will augment the parser (parserfile) with new Error
+  /// entries, overriding any previous ones.  It is also recommended that the
+  /// user examines the "load_extras" function that appears at the end of
+  /// the augmented parser.  The train_from_script function does not return
+  /// a value, unlike [RuntimeParser::parse_stdio] and [RuntimeParser::parse_stdio_train].
+  pub fn train_from_script(&mut self, tokenizer:&mut dyn Lexer<AT>, parserfile:&str, scriptfile:&str)
+  {
+      let mut stdtrainer = StandardReporter::new_script_training(parserfile,scriptfile);
+      let result = self.parse_base(tokenizer,&mut stdtrainer);
+      if let Err(m) = stdtrainer.augment_training(parserfile) {
+        eprintln!("Error in augmenting parser: {:?}",m)
+      }
+      if !self.err_occurred {println!("no errors encountered during parsing");}
+  }//train_from_script
+
+}// 3rd impl RuntimeParser
