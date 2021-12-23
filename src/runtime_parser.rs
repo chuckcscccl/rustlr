@@ -232,7 +232,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     ///```ignore
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
     ///```
-    pub fn lb(&self,e:AT) -> LBox<AT> { LBox::new(e,self.linenum,self.column,self.src_id) }
+    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.linenum,self.column,self.src_id) }
+    pub fn lbself(&self,e:AT) -> LBox<AT> { LBox::new(e,self.linenum,self.column,self.src_id) }
     /// similar to [RuntimeParser::lb], but creates a [LRc] instead of [LBox]
     pub fn lrc(&self,e:AT) -> LRc<AT> { LRc::new(e,self.linenum,self.column,self.src_id) }    
 }// impl RuntimeParser

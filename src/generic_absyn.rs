@@ -52,6 +52,9 @@ use crate::RuntimeParser;
 /// The src_id field of LBox can be used to point to externally kept
 /// information about the source being compiled, such as the source file
 /// name when mulitple files are compiled together.
+/// It is also possible to use `LBox<dyn Any>` as the abstract syntax type
+/// along with the [LBox::upcast] and [LBox::downcast] functions and
+/// convenience macros [lbup] and [lbdown].
 pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
@@ -72,7 +75,7 @@ impl<T> LBox<T>
 {
   pub fn new(e:T,ln:usize,col:usize,src:usize) -> LBox<T>
   { LBox { exp:Box::new(e), line:ln, column:col, src_id:src } }
-  pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
+  //pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
   pub fn transfer(&self,e:T) -> LBox<T>
@@ -127,12 +130,15 @@ impl LBox<dyn Any+'static>
      })
   }
   /// do not try to create a `LBox<dyn Any>` structure with something like
-  /// `let lb:LBox<dyn Any> = LBox::new(String::from("abc"),0,0,0)`.  This
-  /// does not work as LBox is simply borrowing the underlying mechanics of
+  ///```
+  /// let lb:LBox<dyn Any> = LBox::new(String::from("abc"),0,0,0);
+  ///```  
+  /// This does not work as LBox is simply borrowing the underlying mechanics of
   /// [Box] instead of re-creating them.  Do instead:
   ///```
   /// let lb:LBox<dyn Any> = LBox::upcast(LBox::new(String::from("abc"),0,0,0));
   ///```
+  /// upcast always returns a `LBox<dyn Any>`.
   pub fn upcast<T:'static>(lb:LBox<T>) -> Self
   {
      let bx:Box<dyn Any> = lb.exp;
@@ -140,25 +146,26 @@ impl LBox<dyn Any+'static>
   }
 //  pub fn frombox(e:Box<dyn Any>,ln:usize,col:usize,src:usize) -> Self
 //  { LBox { exp:e, line:ln, column:col, src_id:src } }  
-
-
-/*
-  pub fn down<U:Any+'static>(lb:LBox<dyn Any>) -> Option<LBox<U>>
-  {
-     let boxdown = lb.exp.downcast::<U>();
-     if let Err(_) = boxdown {return None;}
-     Some(LBox {
-       exp : boxdown.unwrap(),
-       line: lb.line,
-       column: lb.column,
-       src_id: lb.src_id,
-     })  
-  }
-  */
 }// downcast for LBox
 
+///this is provided so `LBox<dyn Any>` can be used for the abstract syntax type.
+/// the default is a Lbox containing a static string.
+impl Default for LBox<dyn Any+'static>
+{
+  fn default() -> Self {LBox::upcast(LBox::new("LBox<dyn Any> defaults to this string",0,0,0))}
+}
 
-
+/*  // probably won't help
+impl<U:'static> LBox<U>
+{ 
+  pub fn upcast<T:'static>(lb:LBox<T>) -> Self
+  {
+     let bxany:Box<dyn Any> = lb.exp;  // this casts Box<T> to Box<Any>
+     let bx = bxany.downcast::<U>().unwrap(); // use carefully!
+     LBox { exp:bx, line:lb.line, column:lb.column, src_id:lb.src_id, }
+  }
+}
+*/
 
 ///Like LBox but encapsulates an Rc. Implements [Deref] and emulates the
 ///[Rc::clone] function.
@@ -236,8 +243,19 @@ impl LRc<dyn Any+'static>
        src_id: self.src_id,
      })
   }
+  /// upcasts `LRc<T>` to `LRc<dyn Any>`
+  pub fn upcast<T:'static>(lb:LRc<T>) -> Self
+  {
+     let bx:Rc<dyn Any> = lb.exp;
+     LRc { exp:bx, line:lb.line, column:lb.column, src_id:lb.src_id, }
+  }
 }// downcast for LRc
 
+///this is required if `LRc<dyn Any>` is used for the abstract syntax type
+impl Default for LRc<dyn Any+'static>
+{
+  fn default() -> Self {LRc::upcast(LRc::new("LRc<dyn Any> defaults to this string",0,0,0))}
+}
 
 // [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
 // unlike a generic LBox
@@ -388,24 +406,55 @@ fn check(e:&GenAbsyn) -> bool {
 }
 */
 
-
+/*
 ///macro for creating [LBox] structures, for use in grammar semantic actions: each semantic action associated
 /// with a grammar rule is a Rust lambda expression of the form
 /// __|parser|{...}__
 /// of type __fn(&mut RuntimeParser) -> AT__ where AT is the type of the abstract
 /// syntax value defined for the grammar. __lbox!(e)__ expands to **parser.lb(e)**, calling the [RuntimeParser::lb] function.
 // The macro can also form an [ABox], which is an alias for LBox<GenAbsyn>
-
 #[macro_export]
 macro_rules! lbox {
+  ( $parser:expr,$x:expr ) => {
+    $parser.lb($x)
+  };
+}
+*/
+
+///macro for creating `LBox<dyn Any>` structures that can encapsulate any type
+///as abstract syntax.  **Must** called from within the semantic actions of a
+///grammar production rule as it calls the [RuntimeParser::lb] function to
+///insert the lexical line/column/src information into the LBox.
+#[macro_export]
+macro_rules! lbup {
   ( $x:expr ) => {
-    parser.lb($x)
+    LBox::upcast($x)
   };
 }
 
+/// macro for downcasting `LBox<dyn Any>` to a concrete type. Must be called
+/// from within the semantic actions of grammar productions.  **Warning:**
+/// **unwrap** is called within the macro
+#[macro_export]
+macro_rules! lbdown {
+  ( $x:expr,$t:ty ) => {
+    $x.downcast::<$t>().unwrap()
+  };
+}
+
+/// similar to [lbdown], but also extracts the boxed expression
+#[macro_export]
+macro_rules! lbget {
+  ( $x:expr,$t:ty ) => {
+    $x.downcast::<$t>().unwrap().exp
+  };
+}
+
+
 /*
+// just to see if it compiles
 struct BB(usize);
-fn testing() // just to see if it compiles
+fn testing() 
 {
   let bb1:&dyn Any = &BB(1);
   let bb2:Box<dyn Any> = Box::new(BB(2));
@@ -416,5 +465,6 @@ fn testing() // just to see if it compiles
   let b6:LBox<dyn Any> = LBox::upcast(b5);
   let b4:LBox<BB> = b6.downcast::<BB>().unwrap();
   let lb:LBox<dyn Any> = LBox::upcast(LBox::new(String::from("abc"),0,0,0));
+  //let lbd:LBox<dyn Default> = LBox::upcast(LBox::new(String::from("ab"),0,0,0));  
 }
 */
