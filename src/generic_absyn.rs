@@ -20,6 +20,7 @@
 use std::rc::Rc;
 use std::ops::{Deref,DerefMut};
 use std::collections::{HashMap,HashSet};
+use std::any::Any;
 use crate::RuntimeParser;
 use crate::GenAbsyn::*;
 
@@ -51,7 +52,7 @@ use crate::GenAbsyn::*;
 /// The src_id field of LBox can be used to point to externally kept
 /// information about the source being compiled, such as the source file
 /// name when mulitple files are compiled together.
-pub struct LBox<T>
+pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
   pub line:usize,
@@ -69,7 +70,7 @@ impl<T> LBox<T>
   {
      LBox::new(e,self.line,self.column,self.src_id)
   }
-}
+}//impl LBox
 impl<T> Deref for LBox<T>
 {
     type Target = T;
@@ -100,9 +101,30 @@ impl<T:Clone> Clone for LBox<T>
    }//clone
 }
 
+impl LBox<dyn Any+'static>
+{
+  /// emulates [Box::downcast] function, when `LBox<dyn Any>` is used as
+  /// the abstract syntax type.  Note that unlike Box::downcast, an Option
+  /// is returned here instead of a result.
+  pub fn downcast<U:'static>(self) -> Option<LBox<U>>
+  {
+     let boxdown = self.exp.downcast::<U>();
+     if let Err(_) = boxdown {return None;}
+     Some(LBox {
+       exp : boxdown.unwrap(),
+       line: self.line,
+       column: self.column,
+       src_id: self.src_id,
+     })
+  }
+}// downcast for LBox
+
+
+
+
 ///Like LBox but encapsulates an Rc. Implements [Deref] and emulates the
 ///[Rc::clone] function.
-pub struct LRc<T>
+pub struct LRc<T:?Sized>
 {
   pub exp:Rc<T>,
   pub line:usize,
@@ -161,7 +183,22 @@ impl<T:Default> Default for LRc<T>
   fn default() -> Self {LRc::new(T::default(),0,0,0)}
 }
 
-
+impl LRc<dyn Any+'static>
+{
+  /// emulates [LRc::downcast] function. Note that unlike Box::downcast,
+  ///an Option is returned here instead of a result.
+  pub fn downcast<U:'static>(self) -> Option<LRc<U>>
+  {
+     let rcdown = self.exp.downcast::<U>();
+     if let Err(_) = rcdown {return None;}
+     Some(LRc {
+       exp : rcdown.unwrap(),
+       line: self.line,
+       column: self.column,
+       src_id: self.src_id,
+     })
+  }
+}// downcast for LRc
 
 
 /// [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
