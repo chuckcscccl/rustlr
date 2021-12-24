@@ -2,10 +2,51 @@
 //!
 //! Rustlr allows any type that implements the Default trait to be used as
 //! the abstract syntax type (grammar directive absyntype).  However, this
-//! module defines a 
-//! custom smart pointer [LBox] that simplifies the
-//! construction of abstract syntax trees. LBox keeps the line and column
-//! numbers of each syntatic construct.
+//! module defines custom smart pointers [LBox] and [LRc] that simplify the
+//! construction of abstract syntax trees. LBox/LRc keep the line, column
+//! and source id numbers of each syntatic construct, as these are often
+//! needed during later stages of code analysis post-parsing.
+//!
+//! For example, an abstract syntax type can be defined by
+//!```text
+//! enum Expr {
+//!   Val(i64),
+//!   PlusExpr(LBox<Expr>,LBox<Expr>),
+//!   ...
+//! }
+//!```
+//!```text
+//! fn check(e:&Expr) {
+//!   match e {
+//!     PlusExpr(a,b) => {
+//!       println!("checking subexpressions on line {} and {}",a.line,b.line);
+//!       check(a); check(b); // Deref coercion used here
+//!     },
+//!   ...
+//!```
+//! The [RuntimeParser::lb] function can be called from the semantic actions
+//! of a grammar
+//! to create LBoxed-values that include line/column information.  LBox<T>
+//! implements the Default trait if T does, so an LBox type can also serve
+//! as the absyntract syntax type for a grammar.
+//! The src_id field of LBox can be used to point to externally kept
+//! information about the source being compiled, such as the source file
+//! name when mulitple files are compiled together.
+//! It is also possible to use `LBox<dyn Any>` as the abstract syntax type
+//! along with the [LBox::upcast] and [LBox::downcast] functions and
+//! convenience macros [lbup] and [lbdown].
+//!
+//! Sufficient functionality has also been implemented to allow the use of
+//! `LBox<dyn Any>` as the abstract syntax type of Grammars.
+//! This effectively allows grammar symbols to carray values of different types
+//! as Any-trait objects.  The functions [LBox::upcast], [LBox::downcast], [RuntimeParser::lba],
+//! and the convenience macros [lbup], [lbdown] and [lbget]
+//! are intended to support this usage.  A simplified, sample grammar using
+//! `LBox<dyn Any>` as the abstract syntax type returned by the parser is
+//! found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/simple.grammar),
+//! which generates this LALR [parser](https://cs.hofstra.edu/~cscccl/rustlr_project/simpleparser.rs).
+//!
+//! Equivalent functions are available for [LRc]. 
 
 #![allow(dead_code)]
 #![allow(unused_variables)]
@@ -27,34 +68,7 @@ use crate::RuntimeParser;
 /// custom smart pointer that encapsulates line number, column and other information
 /// for warnings and error messages after the parsing stage.  Implements
 /// [Deref] and [DerefMut] so the encapsulated expression can be accessed as
-/// in a standard Box.  For example, an abstract syntax type can be defined by
-///```text
-/// enum Expr {
-///   Val(i64),
-///   PlusExpr(LBox<Expr>,LBox<Expr>),
-///   ...
-/// }
-///```
-///```text
-/// fn check(e:&Expr) {
-///   match e {
-///     PlusExpr(a,b) => {
-///       println!("checking subexpressions on line {} and {}",a.line,b.line);
-///       check(a); check(b); // Deref coercion used here
-///     },
-///   ...
-///```
-/// The [RuntimeParser::lb] function can be called from the semantic actions
-/// of a grammar
-/// to create LBoxed-values that include line/column information.  LBox<T>
-/// implements the Default trait if T does, so an LBox type can also serve
-/// as the absyntract syntax type for a grammar.
-/// The src_id field of LBox can be used to point to externally kept
-/// information about the source being compiled, such as the source file
-/// name when mulitple files are compiled together.
-/// It is also possible to use `LBox<dyn Any>` as the abstract syntax type
-/// along with the [LBox::upcast] and [LBox::downcast] functions and
-/// convenience macros [lbup] and [lbdown].
+/// in a standard Box.  
 pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
@@ -249,7 +263,7 @@ impl LRc<dyn Any+'static>
      let bx:Rc<dyn Any> = lb.exp;
      LRc { exp:bx, line:lb.line, column:lb.column, src_id:lb.src_id, }
   }
-}// downcast for LRc
+}// downcast/upcast for LRc
 
 ///this is required if `LRc<dyn Any>` is used for the abstract syntax type
 impl Default for LRc<dyn Any+'static>
@@ -442,7 +456,8 @@ macro_rules! lbdown {
   };
 }
 
-/// similar to [lbdown], but also extracts the boxed expression
+/// similar to [lbdown], but also extracts the boxed expression, should
+/// use for non-copiable LBoxed values.
 #[macro_export]
 macro_rules! lbget {
   ( $x:expr,$t:ty ) => {

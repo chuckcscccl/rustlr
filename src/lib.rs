@@ -7,23 +7,24 @@
 //! For error reporting, however, rustlr parsers can run in
 //! *training mode*, in which, when a parse error is encountered, the human 
 //! trainer can augment the parser's state transition table with an
-//! appropriate error message. The augmented parser is automatically saved.
-//! See the [RuntimeParser::parse_train] function.
+//! appropriate error message. The augmented parser is automatically saved
+//! along with a training script that can be used to retrain a new parser after
+//! a grammar has been modified.
+//! See the [RuntimeParser::parse_stdio_train] and [RuntimeParser::train_from_script] functions.
 //!
 //! The parser can generate a full
 //! LR(1) parser given the ANSI C grammar in
 //! approximately 2-4 seconds on contemporary processors.
 //!
-//! A [`detailed tutorial`](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
+//! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is being prepared that will explain the
 //! format of grammars and how to generate and use parsers for several sample
 //! languages.
 //!
-//!
-//! Most of the items
-//! exported by this crate are only required by the parsers that are generated,
-//! and does not form an API. The
-//! user needs to provide a grammar and a lexical analyzer that implements
+//! Rustlr should be installed as an executable (cargo install rustlr).
+//! Many of the items exported by this crate are only required by the parsers
+//! that are generated, and are not intended to be used in other programs.
+//! The user needs to provide a grammar and a lexical analyzer that implements
 //! the [Lexer] trait.  Only a simple lexer that returns individual characters
 //! in a string ([charlexer]) is provided.
 //! The examples in the tutorial use
@@ -31,26 +32,19 @@
 //! the same author but other tokenizers can be easily adopted
 //! as well, such as [scanlex](<https://docs.rs/scanlex/0.1.4/scanlex/>).
 //!
-//! Example
-//!
-//! Given [this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/calculator.grammar>), with file name "calculator.grammar",
+//! As a simplified, self-contained example of how to use rustlr,
+//! Given [this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar>) with file name "brackets.grammar",
 //!```\ignore
-//! rustlr calculator.grammar lr1
+//! rustlr brackets.grammar lalr
 //!```
-//! generates a LR(1) parser as 
-//! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/calculatorparser.rs>).
-//! This program includes a make_parser function, which can be used as in
+//! generates a LALR parser as 
+//! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/bracketsparser.rs>).
+//! This program includes a 'make_parser' function, which can be used as in
+//! the included main.  The program also contains a 'load_extras' function,
+//! which can be modified by interactive training to give more helpful error
+//! messages other than the generic *"unexpected symbol.."*.
 //!
-//!```ignore
-//! let mut scanner = Exprscanner::new(&sourcefile);
-//! let mut parser1 = make_parser();
-//! let absyntree = parser1.parse(&mut scanner);
-//!```
-//! Here, Exprscanner is a structure that must implement the [Lexer] trait 
-//! required by the generated parser.
-//!
-//! A relatively self-contained example, containing both a grammar and code for
-//! using its generated parser, is found 
+//! Another self-contained example is found
 //! [here](<https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>).
 //!
 //!
