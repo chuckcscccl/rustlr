@@ -92,7 +92,7 @@ impl<T> LBox<T>
   //pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
-  pub fn transfer(&self,e:T) -> LBox<T>
+  pub fn transfer<U>(&self,e:U) -> LBox<U>
   {
      LBox::new(e,self.line,self.column,self.src_id)
   }
@@ -169,6 +169,17 @@ impl Default for LBox<dyn Any+'static>
   fn default() -> Self {LBox::upcast(LBox::new("LBox<dyn Any> defaults to this string",0,0,0))}
 }
 
+impl<T:std::fmt::Debug> std::fmt::Debug for LBox<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&**self, f)    
+//        f.debug_struct("LBox")
+//         .field("exp", &self.exp)
+//         .field("y", &self.y)
+//         .finish()
+    }
+}
+
+
 /*  // probably won't help
 impl<U:'static> LBox<U>
 { 
@@ -195,9 +206,9 @@ impl<T> LRc<T>
   pub fn new(e:T,ln:usize,col:usize,src:usize) -> LRc<T>
   { LRc { exp:Rc::new(e), line:ln, column:col, src_id:src } }
   pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
-  ///should be used to create a new LRced expression that inherits
+  ///should be used to create a new LRc-expression that inherits
   /// lexical information from existing LRc
-  pub fn transfer(&self,e:T) -> LRc<T>
+  pub fn transfer<U>(&self,e:U) -> LRc<U>
   {
      LRc::new(e,self.line,self.column,self.src_id)
   }
@@ -271,10 +282,17 @@ impl Default for LRc<dyn Any+'static>
   fn default() -> Self {LRc::upcast(LRc::new("LRc<dyn Any> defaults to this string",0,0,0))}
 }
 
+impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&**self, f)    
+    }
+}
+
 // [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
 // unlike a generic LBox
 type ABox = LBox<GenAbsyn>;
 
+/*
 impl std::fmt::Debug for ABox
 {
 fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -285,6 +303,7 @@ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
          .finish()
     }
 }// impl Debug for ABox
+*/
 /*
 impl Clone for ABox
 {
