@@ -4,7 +4,7 @@
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) is being prepared.**
 
 The project grew out of the author's compiler construction and
-programming languages classes over the year.  It has been used for
+programming languages classes over the years.  It has been used for
 implmentating modestly scaled, experimental programming languages.  It
 will be become more robust, with enhanced features, in future
 releases.

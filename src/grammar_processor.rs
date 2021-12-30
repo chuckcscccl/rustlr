@@ -17,7 +17,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 
-pub const DEFAULTPRECEDENCE:i32 = 20;
+pub const DEFAULTPRECEDENCE:i32 = 0;
 pub const TRACE:usize = 0;
 
 #[derive(Clone)]
