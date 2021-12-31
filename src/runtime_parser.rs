@@ -261,6 +261,7 @@ impl Statemachine
 #![allow(unused_mut)]
 #![allow(unused_imports)]
 #![allow(unused_assignments)]
+#![allow(irrefutable_let_patterns)]
 extern crate rustlr;
 use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
 
@@ -314,7 +315,36 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       write!(fd," rule = RProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,self.Gmr.Rules[i].lhs.sym)?;      
       write!(fd," rule.Ruleaction = |parser|{{ ")?;
       let mut k = self.Gmr.Rules[i].rhs.len();
+
+      //form labels and patterns as we go
+      let mut labels = String::from("(");
+      let mut patterns = String::from("(");
       while k>0
+      {
+        let gsym = &self.Gmr.Rules[i].rhs[k-1];
+        if gsym.label.len()>0 {
+	  let varlab = format!("_vflab_{}",k-1);
+	  labels.push_str(&varlab); labels.push(',');
+	  /*patterns.push('(');*/ patterns.push_str(&gsym.label); patterns.push_str(",");
+	  write!(fd," let mut {}=",&varlab)?;
+	}
+        write!(fd,"parser.stack.pop()")?; 
+        if gsym.label.len()>0 { write!(fd,".unwrap().value;  ")?;}
+        else {write!(fd,";  ")?;}
+        k -= 1;      
+      }// for each symbol on right hand side of rule
+      // form if-let clause
+      let defaultaction = format!("return <{}>::default();}}",absyn);
+      let mut semaction = &self.Gmr.Rules[i].action; //string that ends with }
+      if semaction.len()<=1 {semaction = &defaultaction;}
+      if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; }
+      else { // write an if-let
+        labels.push(')');  patterns.push(')');
+	write!(fd,"if let {}={} {{ {}  else {{return <{}>::default();}} }};\n",&patterns,&labels,semaction.trim_end(),absyn)?;
+      }// if-let semantic action
+
+/*
+      while k>0 // k-1 indexes backwards rhs of grammar rule
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
         if gsym.label.len()>0 && &gsym.rusttype[0..3]=="mut"
@@ -327,10 +357,10 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
         k -= 1;
       } // for each symbol on right hand side of rule  
       let mut semaction = &self.Gmr.Rules[i].action; //this is a string
-      //if semaction.len()<1 {semaction = "}}";}
-      //if al>1 {semaction = semaction.substring(0,al-1);}
       if semaction.len()>1 {write!(fd,"{};\n",semaction.trim_end())?;}
       else {write!(fd," return <{}>::default();}};\n",absyn)?;}
+*/
+
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// for each rule
     write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
@@ -679,6 +709,7 @@ fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, loo
 pub trait ErrHandler<AT:Default,ET:Default> // not same as error recovery
 {
   fn err_reporter(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>);
+  fn report_err(&self, parser:&mut RuntimeParser<AT,ET>, msg:&str) { parser.report(msg) }
 //  fn training_mode(&self, parser:&RuntimeParser<AT,ET>) -> bool {false}
 //  fn interactive_mode(&self, parser:&RuntimeParser<AT,ET>) -> bool {false}
 }// ErrReporter trait

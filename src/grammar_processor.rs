@@ -17,7 +17,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 
-pub const DEFAULTPRECEDENCE:i32 = 0;
+pub const DEFAULTPRECEDENCE:i32 = 20;
 pub const TRACE:usize = 0;
 
 #[derive(Clone)]
@@ -350,10 +350,6 @@ impl Grammar
 
               let pos0 = line.find(stokens[1]).unwrap() + stokens[1].len();
               let mut linec = line[pos0..].to_string();
-//              let semaction = if let Some(pos) = line.find('{') {
-//                 linec.truncate(pos-pos0);
-//                 &line[pos+1..]
-//              } else {"}"};
               let barsplit:Vec<_> = linec.split('|').collect();
               
               for rul in &barsplit 
@@ -374,7 +370,7 @@ impl Grammar
 		   break;
                 }
 		let toks:Vec<&str> = strtok.split(':').collect();
-if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}		
+//if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}		
 		match self.Symhash.get(toks[0]) {
 		   None => {panic!("unrecognized grammar symbol {}, line {}",toks[0],linenum); },
 		   Some(symi) => {
@@ -387,8 +383,22 @@ if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}
                        panic!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum);
                      }
 		     let mut newsym = sym.clone();
-		     if toks.len()>1 && toks[1].trim().len()>0
-                        { newsym.setlabel(toks[1].trim()); }
+		     
+		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
+		       let mut label = String::new();
+                       if &toks[1][0..1]=="'" { // if-let pattern
+		         label.push_str(&toks[1][1..]);
+			 while !label.ends_with("'") && i<bstokens.len()
+			 { // i indexes all tokens split by whitespaces
+			    label.push(' '); label.push_str(bstokens[i]); i+=1;
+			 }
+			 if !label.ends_with("'") { panic!("pattern labels must be closed with  a ', line {}",linenum);}
+		       }// ' pattern '
+                       else { label = toks[1].trim().to_string(); }
+		       newsym.setlabel(label.trim_end_matches("'"));
+		       //newsym.setlabel(toks[1].trim()); 
+	             }//label exists
+			
                      if maxprec.abs() < newsym.precedence.abs()  {
                         maxprec=newsym.precedence;
                      }

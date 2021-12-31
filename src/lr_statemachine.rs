@@ -359,7 +359,7 @@ impl Statemachine
        Some(Reduce(ri2)) =>  {
          let prec2 = self.Gmr.Rules[*ri2].precedence;
          let prec1 = gsymbol.precedence;
-         if prec1==prec2 && prec1>=0 {changefsm=false;} // assume left-associative
+         if prec1==prec2 && prec1>0 {changefsm=false;} // assume left-associative
          else if prec2.abs()>prec1.abs() {changefsm=false;} // still reduce
          if TRACE>0 {println!("shift-reduce conflict resolved by operator precedence/associativity:"); printrulela(*ri2,&self.Gmr,&nextsym); /*printstate(&self.States[psi],&self.Gmr);*/}
        },
