@@ -21,8 +21,11 @@
 !     Some(sym) => Some(Lextoken::new(sym.trim().to_string(), sym.to_string())),
 !    }//match
 !  }//nextsym
-!  fn linenum(&self) -> usize {0}
-!  fn column(&self) -> usize {0} // not accurate, just filler
+!  fn current_line(&self) -> &str
+!  {
+!    "current_line function not re-implemented for tokenizer"
+!  }
+!  fn linenum(&self) -> usize {1}
 !}
 !
 !fn main() {
@@ -31,7 +34,7 @@
 !   let input = readln();
 !   let mut lexer1 =  Slex{split:input.split_whitespace()};
 !   let mut parser1 = make_parser();
-!   parser1.parse( &mut lexer1);
+!   parser1.parse_train( &mut lexer1,"cpmparser.rs" );
 !   println!("parsing success: {}",!parser1.error_occurred());
 !}//main
 
@@ -41,7 +44,7 @@ nonterminals STAT STATLIST EXPR
 nonterminal EXPRLIST mut
 terminals x y z cin cout ; ( ) << >> ERROR
 topsym STATLIST
-errsym ERROR
+#errsym ERROR
 resync ;
 
 STATLIST --> STAT  |  STATLIST STAT 
@@ -71,13 +74,15 @@ most once on the right-hand side of a production rule, followed by
 zero or more terminal symbols.  When an error is encountered (a
 lookahead symbol with no defined transition in the LR/LALR
 finite-state machine), the parser looks down the parse stack for a
-state that can "shift" the error symbol (ERROR here). If found, it
-truncates the stack and simuluates a shift of the next state
-associated with the error symbol onto the stack.  It then skips lookheads
-until a valid transition is found for the new state.  Since only terminal
-symbols may follow the error symbol, eventually one of the error productions
-will be reduced.  These productions can have semantic actions that
-report specific errors.
+state that has a transition defined on the symbol.  It truncates the
+stack and performs all possible reductions until a state that can
+"shift" the error symbol (ERROR in this example) is found, and
+simuluates a shift of the next state associated with the error symbol
+onto the stack.  It then skips lookheads until a valid transition is
+found for the new state.  Since only terminal symbols may follow the
+error symbol, eventually one of the error productions will be reduced.
+These productions can have semantic actions that report specific
+errors.
 
 The second method of error recovery is rather straightforward: the
 grammar can define one or more "resynchronization" terminal symbols
