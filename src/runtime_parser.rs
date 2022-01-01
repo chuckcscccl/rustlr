@@ -330,14 +330,20 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       while k>0
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
-        if gsym.label.len()>1 && &gsym.label[0..1]=="'" {
-	  let varlab = format!("_vflab_{}",k-1);
+	if gsym.label.len()>1 && gsym.label.find('@').is_some() { // if-let pattern
+	  let atindex = gsym.label.find('@').unwrap();
+	  let varlab = if atindex>0 {gsym.label[0..atindex].to_string()} 
+	      else {format!("_vflab_{}",k-1)};
+ 	  if atindex>0 {labels.push_str("&mut ");}
 	  labels.push_str(&varlab); labels.push(',');
-	  patterns.push_str(&gsym.label[1..]); patterns.push_str(",");
-	  write!(fd," let mut {}=",&varlab)?;
+	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push_str(",");
+	  write!(fd," let mut {}=",&varlab)?;	  
 	}
 	else if gsym.label.len()>0 { // simple pattern, no need for if-let
-          write!(fd," let mut {}:{}=",&gsym.label,absyn)?; 	  
+	  if gsym.rusttype.len()>=3 && &gsym.rusttype[0..3]=="mut" {
+	    write!(fd," let mut {}:{}=",&gsym.label,absyn)?;
+	  }
+          else {write!(fd," let {}:{}=",&gsym.label,absyn)?;}
 	}
         write!(fd,"parser.stack.pop()")?; 
         if gsym.label.len()>0 { write!(fd,".unwrap().value;  ")?;}
@@ -348,7 +354,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       let defaultaction = format!("return <{}>::default();}}",absyn);
       let mut semaction = &self.Gmr.Rules[i].action; //string that ends with }
       if semaction.len()<=1 {semaction = &defaultaction;}
-      if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; }
+      if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; } //empty pattern
       else { // write an if-let
         labels.push(')');  patterns.push(')');
 	write!(fd,"if let {}={} {{ {}  else {{parser.bad_pattern(\"{}\")}} }};\n",&patterns,&labels,semaction.trim_end(),&patterns)?;

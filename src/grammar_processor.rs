@@ -386,6 +386,16 @@ impl Grammar
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
+		       
+		       if let Some(atindex) = toks[1].find('@') { //if-let pattern
+			 label.push_str(toks[1]);
+			 while !label.ends_with('@') && i<bstokens.len()
+			 { // i indexes all tokens split by whitespaces
+			    label.push(' '); label.push_str(bstokens[i]); i+=1;
+			 }
+			 if !label.ends_with('@') { panic!("pattern labels must be closed with @, line {}",linenum);}			 
+		       } // if-let pattern
+/*		       
                        if &toks[1][0..1]=="'" { // if-let pattern
 		         label.push_str(&toks[1][..]); // include leading ' in string
 			 while !label.ends_with("'") && i<bstokens.len()
@@ -394,8 +404,10 @@ impl Grammar
 			 }
 			 if !label.ends_with("'") { panic!("pattern labels must be closed with  a ', line {}",linenum);}
 		       }// ' pattern '
+*/		       
                        else { label = toks[1].trim().to_string(); }
-		       newsym.setlabel(label.trim_end_matches("'"));
+		       newsym.setlabel(label.trim_end_matches('@'));
+		       //newsym.setlabel(label.trim_end_matches("'"));		       
 		       //newsym.setlabel(toks[1].trim()); 
 	             }//label exists
 			
