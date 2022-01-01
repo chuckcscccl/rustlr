@@ -147,14 +147,22 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     pub fn report(&mut self, errmsg:&str)  
     {      // linenum must be set prior to call
        if (self.report_line != self.linenum || self.linenum==0)  {
-//         print!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-         print!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
+         eprint!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
          self.report_line = self.linenum;
        }
        else {
-         print!(" {} ",errmsg);
+         eprint!(" {} ",errmsg);
        }
        self.err_occurred = true;
+    }// report
+
+    /// this function is only exported to support the generated code
+    pub fn bad_pattern(&mut self,pattern:&str) -> AT
+    {
+       let msg = format!("pattern {} failed to bind to stacked values",pattern);
+       self.report(&msg);
+       AT::default()
     }
 
     /// sets an index that index source information, such as the source file
@@ -316,17 +324,20 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       write!(fd," rule.Ruleaction = |parser|{{ ")?;
       let mut k = self.Gmr.Rules[i].rhs.len();
 
-      //form labels and patterns as we go
+      //form if-let labels and patterns as we go...
       let mut labels = String::from("(");
       let mut patterns = String::from("(");
       while k>0
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
-        if gsym.label.len()>0 {
+        if gsym.label.len()>1 && &gsym.label[0..1]=="'" {
 	  let varlab = format!("_vflab_{}",k-1);
 	  labels.push_str(&varlab); labels.push(',');
-	  /*patterns.push('(');*/ patterns.push_str(&gsym.label); patterns.push_str(",");
+	  patterns.push_str(&gsym.label[1..]); patterns.push_str(",");
 	  write!(fd," let mut {}=",&varlab)?;
+	}
+	else if gsym.label.len()>0 { // simple pattern, no need for if-let
+          write!(fd," let mut {}:{}=",&gsym.label,absyn)?; 	  
 	}
         write!(fd,"parser.stack.pop()")?; 
         if gsym.label.len()>0 { write!(fd,".unwrap().value;  ")?;}
@@ -340,7 +351,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; }
       else { // write an if-let
         labels.push(')');  patterns.push(')');
-	write!(fd,"if let {}={} {{ {}  else {{return <{}>::default();}} }};\n",&patterns,&labels,semaction.trim_end(),absyn)?;
+	write!(fd,"if let {}={} {{ {}  else {{parser.bad_pattern(\"{}\")}} }};\n",&patterns,&labels,semaction.trim_end(),&patterns)?;
       }// if-let semantic action
 
 /*

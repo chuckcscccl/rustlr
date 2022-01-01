@@ -2,25 +2,29 @@
 
 !use crate::exprtrees::*;
 !use crate::exprtrees::Expr::*;
+!use rustlr::{LBox};
 
 absyntype Expr
-nonterminal E 
-terminals + - * ( ) int
-terminal ERROR
-topsym E
-errsym ERROR
+nonterminal E
+nonterminal ES
+terminal + - * ( ) ;
+terminal int
+topsym ES
 
 left * 500
 left + 400
 left - 400
 
-E --> int:n {n}
-E --> E:e1 + E:e2 {Plus(bx(e1),bx(e2))}
-E --> E:e1 - E:e2 {Minus(bx(e1),bx(e2)) }
+E --> int:n { n }
+E --> E:e1 + E:e2 { Plus(parser.lb(e1),parser.lb(e2)) }
+E --> E:e1 - E:e2 { Minus(parser.lb(e1),parser.lb(e2)) }
 E ==> E:e1 * E:e2
-      { Times(bx(e1),bx(e2)) }
+      { Times(parser.lb(e1),parser.lb(e2)) }
   <==
-E --> - E:e { Negative(bx(e)) }
+E --> - E:e { Negative(parser.lb(e)) }
 E --> ( E:e )  { e }
-E --> ERROR int:n { parser.report("not a valid expression"); Val(-1000) }
+ES --> E:n ; { Seq(vec![parser.lb(n)]) }
+ES ==> ES:'Seq(mut v)'  E:e ; {
+   v.push(parser.lb(e)); return Seq(v);
+   } <==
 EOF

@@ -387,7 +387,7 @@ impl Grammar
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
                        if &toks[1][0..1]=="'" { // if-let pattern
-		         label.push_str(&toks[1][1..]);
+		         label.push_str(&toks[1][..]); // include leading ' in string
 			 while !label.ends_with("'") && i<bstokens.len()
 			 { // i indexes all tokens split by whitespaces
 			    label.push(' '); label.push_str(bstokens[i]); i+=1;
