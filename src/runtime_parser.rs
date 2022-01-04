@@ -160,7 +160,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// this function is only exported to support the generated code
     pub fn bad_pattern(&mut self,pattern:&str) -> AT
     {
-       let msg = format!("pattern {} failed to bind to stacked values",pattern);
+       let msg = format!("pattern {} failed to bind to stacked values\n",pattern);
        self.report(&msg);
        AT::default()
     }
@@ -357,7 +357,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; } //empty pattern
       else { // write an if-let
         labels.push(')');  patterns.push(')');
-	write!(fd,"if let {}={} {{ {}  else {{parser.bad_pattern(\"{}\")}} }};\n",&patterns,&labels,semaction.trim_end(),&patterns)?;
+	write!(fd,"\n  if let {}={} {{ {}  else {{parser.bad_pattern(\"{}\")}} }};\n",&patterns,&labels,semaction.trim_end(),&patterns)?;
       }// if-let semantic action
 
 /*

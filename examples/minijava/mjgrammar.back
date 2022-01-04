@@ -9,7 +9,7 @@
 absyntype Construct
 terminal ID INTEGER STRING BOOL
 terminal class public static void main String extends return length
-terminal ( ) [ ] ; DOT ! , new this
+terminal ( ) [ ] ; DOT ! , new this boolean void
 terminal LBR RBR OROR
 terminal int boolean if else while == = + - * / < && MOD
 nonterminal Program program
@@ -59,7 +59,7 @@ left else 40
 #flexname MOD %
 # flexname SOP System.out.printf
 
-Program --> MainCl:@Maincl(mc)@  ClassDecl:@Classes(cs)@  { Program(parser.lb(mc),cs) }
+Program --> MainCl:@Maincl(mc)@  ClassDecl:@Classes(cs)@ { Program(mc,cs) }
    
 MainCl ==> class ID:@Id(cn)@ LBR public static void main ( String [ ] ID:@Id(an)@ ) LBR Stats:@Stms(thebody)@ RBR RBR  {
    Maincl(Mainclass{classname:cn,
@@ -70,16 +70,13 @@ MainCl ==> class ID:@Id(cn)@ LBR public static void main ( String [ ] ID:@Id(an)
 
 ClassDecl --> { Classes(Vec::new()) }
 ClassDecl ==> ClassDecl:@Classes(mut cs)@  ClassDec:@Class(cl)@  {
-  cs.push(parser.lb(cl)); Classes(cs)
+  cs.push(cl); Classes(cs)
   } <==
-ClassDec ==> class ID:@Id(name)@ Extension:@Id(sup)@ LBR Decl:@Decs(mut ds)@ RBR {
-  let mut vdecs=Vec::new();
-  let mut mdecs=Vec::new();
-  separatedecs(ds,&mut vdecs,&mut mdecs); /*split var and method declarations*/
+ClassDec ==> class ID:@Id(name)@ Extension:@Id(sup)@ LBR Decl:@Decs(ds)@ RBR {
   Class(ClassDec {superclass:sup,
                   classname:name,
-		  vars:vdecs,
-		  methods:mdecs})
+		  vars:Vec::new(),
+		  methods:Vec::new()})
   } <==
   
 Extension --> extends ID:sup { sup }
@@ -102,12 +99,12 @@ FormalLst --> { Vdecs(Vec::new()) }
 
 # warning: list constructed backwards:
 FormalLst ==> Type:@Id(ty)@ ID:@Id(a)@ FormalRst:@Vdecs(mut frs)@ {
-  frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
+  frs.push(VarDec{dname:a,dtype:ty,initval:Nothing});
   Vdecs(frs) 
   } <==
 FormalRst --> { Vdecs(Vec::new()) }
 FormalRst ==> , Type:@Id(ty)@ ID:@Id(a)@ FormalRst:@Vdecs(mut frs)@ {
-  frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
+  frs.push(VarDec{dname:a,dtype:ty,initval:Nothing});
   Vdecs(frs) 
   } <==
 Type --> int [ ] { return Id("int[]".to_owned()); }
@@ -132,11 +129,11 @@ Stat ==> Exp:@Exp(v)@ [ Exp:@Exp(i)@ ] = Exp:@Exp(e)@ ; {
   Stm(ArAssignst(parser.lb(v),parser.lb(i),parser.lb(e)))
   } <==
 Stat ==> Exp:@Exp(obj)@ DOT ID:@Id(m)@ ( ExpLst:@Exps(args)@ ) ; {
-  Stm(Callstat(parser.lb(obj),m,args))
+  Methodcall(parser.lb(obj),m,args)
   } <==
 
 Stat --> return Exp:@Exp(e)@ ; { Stm(Returnst(parser.lb(e))) }
-Stat --> VarDec:@Vdec(v)@  {Stm(Vardecst(v.dname,v.dtype,parser.lb(v.initval)))}
+Stat --> VarDec:v  { return v; }
 
 Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
 Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
@@ -151,7 +148,7 @@ Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lb(a),parser.lb(b))
 Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lb(a),parser.lb(i)))} 
 Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lb(obj))) }
 
-Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Exp(Callexp(parser.lb(obj),f,args)) }
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Methodcall(parser.lb(obj),f,args) }
 Exp --> INTEGER:i { i }
 Exp --> STRING:s { s }
 Exp --> BOOL:b { b }
