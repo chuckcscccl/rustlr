@@ -940,7 +940,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 
   ///Parses in interactive training mode with provided path to parserfile.
   ///The parser file will be modified and a training script file will be
-  ///created for future retraining after grammar is modified.
+  ///created for future retraining after grammar is modified. This function
+  ///is equivalent to [RuntimeParser::parse_train].
   ///
   /// When an error occurs, the parser will
     /// ask the human trainer for an appropriate error message: it will

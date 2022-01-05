@@ -1,4 +1,4 @@
-# **[rustlr](https://docs.rs/rustlr/0.1.3/rustlr/index.html)**
+# **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
 **LR(1) and LALR(1) parser generator by Chuck Liang.**
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) is being prepared.**
@@ -57,7 +57,28 @@ releases.
   Another potential feature to be explored is the ability to generate an
   abstract syntax type structure from the grammar itself.
 
+#### Version 0.1.4:
 
-[1]:https://docs.rs/rustlr/0.1.3/rustlr/struct.RuntimeParser.html#method.parse_train
-[2]:https://docs.rs/rustlr/0.1.3/rustlr/struct.RuntimeParser.html#method.parse
-[3]:https://docs.rs/rustlr/0.1.3/rustlr/struct.RuntimeParser.html#method.train_from_script
+ This version's main enhancements are pattern labels.  In a grammar production,
+ the value attached to nonterminal and terminal symbols can be extracted by
+ specifying a pattern, which will cause an if-let statement to be automatically
+ generated.  For abstract syntax with many layers of enums and structs, but
+ which shares a single "absyntype" for the grammar.  For example, if *Exp* and
+ *Expl* are variants of a common enum, one can now write rules such as 
+
+ ```
+  Exprlist -->  { Expl(Vec::new()) }
+  Exprlist --> Exprlist:@Expl(mut ev)@ , Expr:@Exp(e)@  {ev.push(e); Expl(ev)}
+ ```
+ This capability was used to construct a parser for a scaled-down version of
+ Java and is included in the examples directory of the repository.
+
+ Abilities for using LBox were also extended, which allows *`LBox<dyn Any>`* to
+ be used as the abstract syntax type, with functions and macros for
+ up/downcasting.
+  
+
+[1]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse_train
+[2]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse
+[3]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.train_from_script
+

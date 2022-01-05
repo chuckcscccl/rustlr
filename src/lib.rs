@@ -32,8 +32,8 @@
 //! the same author but other tokenizers can be easily adopted
 //! as well, such as [scanlex](<https://docs.rs/scanlex/0.1.4/scanlex/>).
 //!
-//! As a simplified, self-contained example of how to use rustlr,
-//! given [this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar>) with file name "brackets.grammar",
+//! As a simplified, **self-contained example** of how to use rustlr,
+//! given **[this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar>)** with file name "brackets.grammar",
 //!```\ignore
 //! rustlr brackets.grammar lalr
 //!```
