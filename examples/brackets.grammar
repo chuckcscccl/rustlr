@@ -24,7 +24,7 @@ resync Whitespace
 
 # The following are the grammar production rules.
 
-E --> ( S:'(a,b,c)' ) {(a+1,b,c)}
+E --> ( S:(a,b,c) ) {(a+1,b,c)}
 E --> [ S:(a,b,c) ] {(a,b+1,c)}
 E --> LBRACE S:(a,b,c) RBRACE  {(a,b,c+1)}
 S --> WS { (0,0,0) }
