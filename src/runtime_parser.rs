@@ -148,7 +148,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     {      // linenum must be set prior to call
        if (self.report_line != self.linenum || self.linenum==0)  {
 //         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-         eprint!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
          self.report_line = self.linenum;
        }
        else {
