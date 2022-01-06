@@ -1,0 +1,48 @@
+class factorials
+{ 
+  public static void main(String[] args)
+  {
+     int a;
+     fact A = new fact();
+     System.out.printf("the factorial of 6 is ");
+     System.out.printf("%d\n", A.f1(6) );
+     System.out.printf("with tail-recursion it's also ");
+     System.out.printf("%d\n", A.f2(6,1) );
+     System.out.printf("without recursion it's still ");
+     a = A.f3(6);
+     System.out.printf("%d\n", A.f3(6) );     
+  } 
+}
+
+
+class fact
+{
+   public int f1(int n)
+   {
+       int a;
+       if (n<2) a=1;
+         else a = n * this.f1(n-1);
+       return a;
+   }
+
+   public int f2(int n, int accum)  // accum must be initially 1
+   {
+       int a; 
+       if (n<2) a = accum;
+       else a = this.f2(n-1,accum*n);
+       return a;
+   }
+
+   public int f3(int n)
+   {
+       int accum = 1;
+       while (1<n)
+       {
+          accum = accum*n;
+          n = n-1;
+       }
+       return accum;
+   }
+} // fact
+
+

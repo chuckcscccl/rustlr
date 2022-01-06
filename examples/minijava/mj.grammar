@@ -1,4 +1,19 @@
-# grammar for minijava+ (adopted from MYOCC version 2014)
+# Grammar for minijava+ (adopted from MYOCC version 2014)
+# This package includes this grammar, absyntax.rs, mjlexer.rs and main.rs
+# There are also several "minijava" programs that can be parsed including
+# QuickSort.mj and BinaryTree.mj
+
+# The grammar defines a scaled-down version of Java similar to the "Tiger"
+# language in Andrew Appel's compiler textbooks.  This language was originally
+# used in a compilers class taught at Hofstra University in 2014, during which
+# students wrote their own LR(1) parser generator in Java. It's easier to
+# implement full LR(1) as opposed to LALR(1), which is all that's needed for
+# this grammar.
+
+# This grammar does not really introduce many more features compared to
+# what's already covered in the advanced calculator grammar, but it serves as
+# a larger, more realistic example of how rustlr can be used to build ASTs and
+# parsers for languages.
 
 !use rustlr::LBox;
 !use crate::absyntax::*;
@@ -42,22 +57,13 @@ left == 310
 left = 800
 left < 300
 left MOD 705
-#left ( 900
-#left ) 50
-#left LBR 890
-#left RBR 60
-#left [ 880
-#left ] 70
 left DOT 810
-#left ; 805 
+# to deal with the dangling-else problem, else is given higher precedence
+# than if. Reduction by (Stat --> if (Exp) Stat) will be delayed if the
+# the lookahead symbol is 'else'.
 left if 30
 left else 40
 
-#flexname LBR {
-#flexname RBR }
-#flexname DOT .
-#flexname MOD %
-# flexname SOP System.out.printf
 
 Program --> MainCl:@Maincl(mc)@  ClassDecl:@Classes(cs)@  { Program(parser.lb(mc),cs) }
    

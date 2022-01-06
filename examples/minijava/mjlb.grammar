@@ -1,0 +1,147 @@
+# grammar for minijava+ (adopted from MYOCC version 2014)
+
+!extern crate rustlr;
+!use rustlr::*;
+!use rustlr::LBox;
+!use crate::absyntax::*;
+!use crate::Construct::*;
+!use crate::Expr::*;
+!use crate::Stat::*;
+
+absyntype LBox<dyn Any>
+terminal ID INTEGER STRING BOOL
+terminal class public static void main String extends return length
+terminal ( ) [ ] ; DOT ! , new this boolean void
+terminal LBR RBR OROR
+terminal int boolean if else while == = + - * / < && MOD
+nonterminal Program program
+nonterminal MainCl mainclass
+nonterminal ClassDec classdec
+nonterminal ClassDecl mut
+nonterminal Extension String
+nonterminal VarDec vardec
+nonterminal MethodDec mthdec
+nonterminal Decl Vec<declaration>
+nonterminal FormalLst mut Vec<formal>
+nonterminal FormalRst mut Vec<formal>
+nonterminal Type typ
+nonterminal Stat stat
+nonterminal Stats mut Vec<stat>
+nonterminal Exp expr
+nonterminal ExpLst mut Vec<expr>
+nonterminal ExpRst mut Vec<expr>
+topsym Program
+#recover Stat
+resync ;
+
+left + 500
+left - 510
+left * 700
+left / 710
+left && 400
+left OROR 350
+left ! 450
+left == 310
+left = 800
+left < 300
+left MOD 705
+#left ( 900
+#left ) 50
+#left LBR 890
+#left RBR 60
+#left [ 880
+#left ] 70
+left DOT 810
+left ; 805 
+left if 30
+left else 40
+
+#flexname LBR {
+#flexname RBR }
+#flexname DOT .
+#flexname MOD %
+# flexname SOP System.out.printf
+
+Program ==> MainCl:m ClassDecl:cs {
+    lbup!(Program(lbdown!(m,Mainclass),lbdown!(cs,Vec<ClassDec>).exp))
+  } <==
+   
+MainCl ==> class ID:cn LBR public static void main ( String [ ] ID:an ) LBR Stats:thebody RBR RBR {
+  lbup!(Mainclass{classname:lbdown!(cn,String).exp,
+                   argvname:,lbdown!(an,String).exp,
+                   body: lbdown!(thebody,Stat).exp})
+  } <==
+
+ClassDecl --> {  }
+ClassDecl --> ClassDecl:Classes(cs) ClassDec:c { cs.push(c); Classes(cs) }
+ClassDec --> class ID:name Extension:sup LBR Decl:ds RBR { return new classdec(name,ds,sup); }
+Extension --> extends ID:sup { return sup; }
+Extension --> { return "Object"; }
+VarDec --> Type:t ID:v ;  { return new vardec(t,v,null); }
+VarDec --> Type:t ID:v = Exp:i ; { return new vardec(t,v,i); }
+MethodDec --> public Type:ty ID:name ( FormalLst:args ) LBR Stats:body RBR { return new mthdec(ty,name,args,new blockstat(body)); }
+Decl -->  { return new Vec<declaration>(); }
+Decl --> Decl:ds VarDec:v { ds.add(v); return ds; }
+Decl --> Decl:ds MethodDec:m { ds.add(m); return ds; }
+FormalLst --> { return new Vec<formal>(); }
+
+# warning: list constructed backwards:
+FormalLst --> Type:ty ID:a FormalRst:frs { frs.add(new formal(ty,a)); return frs; }
+FormalRst --> { return new Vec<formal>(); }
+FormalRst --> , Type:ty ID:a FormalRst:frs { frs.add(new formal(ty,a)); return frs; }
+Type --> int [ ] { return new arraytyp(); }
+Type --> boolean { return new booltyp(); }
+Type --> String  { return new strtyp(); }
+Type --> int     { return new inttyp(); }
+Type --> void     { return new voidtyp(); }
+Type --> ID:c    { return new vartyp(c); }    
+Stats --> { return new Vec<stat>(); }
+Stats --> Stats:sl Stat:s { sl.add(s); return sl; }
+Stat --> LBR Stats:sl RBR { return new blockstat(sl); }
+Stat --> if ( Exp:c ) Stat:a else Stat:b {return new ifstat(c,a,b);}
+Stat --> if ( Exp:c ) Stat:a { return new ifstat(c,a,null); }
+Stat --> while ( Exp:c ) Stat:s { return new whilestat(c,s); }
+Stat --> ID:v = Exp:e ; { return new assignstat(new varexp(v),e); }
+
+#  no void, x.f();
+#  A.x[i] = x
+#
+
+### either change both leading Exp to ID or keep both as Exp
+
+Stat --> Exp:v [ Exp:i ] = Exp:e ; {return new arrayassignstat(v,i,e); }
+Stat --> Exp:obj DOT ID:m ( ExpLst:args ) ; { return new methodcall(obj,m,args); }
+
+Stat --> return Exp:e ; { return new returnstat(e); }
+Stat --> VarDec:v  { return v; }
+Exp --> Exp:a * Exp:b  { return new multexp(a,b); }
+Exp --> Exp:a + Exp:b  { return new sumexp(a,b); }
+Exp --> Exp:a / Exp:b  { return new divexp(a,b); }
+Exp --> Exp:a - Exp:b  { return new subexp(a,b); }
+Exp --> Exp:a && Exp:b  { return new andexp(a,b); }
+Exp --> Exp:a OROR Exp:b { return new orexp(a,b); }
+Exp --> ! Exp:a  { return new notexp(a); }
+Exp --> Exp:a < Exp:b  { return new ltexp(a,b); }
+Exp --> Exp:a MOD Exp:b  { return new modexp(a,b); }
+Exp --> Exp:a == Exp:b  { return new eqexp(a,b); }
+Exp --> Exp:a [ Exp:i ] { return new indexexp(a,i); }
+Exp --> Exp:obj DOT ID:field { return new fieldexp(obj,field); }
+
+Exp --> Exp:obj DOT ID:f ( ExpLst:a ) { return new methodcall(obj,f,a); }
+
+Exp --> INTEGER:i { return new intexp((int)i); }
+Exp --> STRING:s { return new strexp(s); }
+Exp --> BOOL:b { return new boolexp(b); }
+Exp --> ID:x { return new varexp(x); }
+Exp --> this { return new thisexp(); }
+Exp --> new int [ Exp:s ] { return new newarrayexp(s); }
+Exp --> new ID:x ( ) { return new newobjexp(x); }
+Exp --> ( Exp:e ) { return e; }
+
+# warning: backwards list:
+ExpLst --> { return new Vec<expr>(); }
+ExpLst --> Exp:e ExpRst:er { er.add(e); return er; }
+ExpRst --> { return new Vec<expr>(); }
+ExpRst --> , Exp:e ExpRst:er { er.add(e); return er; }
+
+EOF

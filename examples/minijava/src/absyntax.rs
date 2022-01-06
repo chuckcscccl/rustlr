@@ -1,6 +1,26 @@
-// Abstract syntax for minijava (adopted from 2014 java program)
+/* Abstract syntax for minijava (adopted from 2014 java program)
+
+   Unlike in the simple calculator example, when a single enum suffices to
+   define the abstract syntax, here there are several enums and structs that
+   are unified by the enum 'Construct'.  This is the absyntype of the minijava
+   grammar.  There are some repetition in the reprsentation.  In particular,
+   a variable declaration can appear as a Construct::Vdec(..) as well as a
+   Construct::Stm(Vardecst(..)).  This is due to the fact variable declarations
+   can appear in different places: in the definition of a class, the definition
+   of the formal arguments of a method, as well as a statement inside a
+   method body.  Similarly, a method call can appear as either a
+   Construct::Exp or as a Construct::Stm.
+
+   A list of variable and method declarations, found in the definition of a
+   a class is represented as a vector of Constructs, then split into two
+   lists using the separatedecs function.
+
+   All vectors use LBox, including vectors of statements.  Thus every statement
+   or declaration will be inside an LBox which will allow us to give proper
+   error messages after the parsing state, such as during type checking.
+   
+*/
 #![allow(dead_code)]
-//extern crate rustlr;
 use rustlr::LBox;
 use crate::Construct::*;
 use crate::Expr::*;
@@ -19,7 +39,6 @@ pub enum Construct
    Vdecs(Vec<LBox<VarDec>>),
    Method(MethodDec),
    Methods(Vec<LBox<MethodDec>>),
-   //Methodcall(LBox<Expr>,String,Vec<LBox<Expr>>), //this can be expr or stat   
    Decs(Vec<LBox<Construct>>),
    Class(ClassDec),
    Classes(Vec<LBox<ClassDec>>),
@@ -102,6 +121,9 @@ pub struct Mainclass  // main class can only contain a main
   pub body : Stat,       // body of main
 }
 
+// separates a list containing both variable and method declarations as 
+// "constructs" into two separate lists; for use when constructing a class
+// declaration.
 pub fn separatedecs(mut ds:Vec<LBox<Construct>>,vars:&mut Vec<LBox<VarDec>>,mths:&mut Vec<LBox<MethodDec>>)
 {
   while ds.len()>0
@@ -110,7 +132,7 @@ pub fn separatedecs(mut ds:Vec<LBox<Construct>>,vars:&mut Vec<LBox<VarDec>>,mths
      match &mut *dec {
        Vdec(vd) => {
          let vdec = std::mem::replace(vd,VarDec::default());
-         vars.push(dec.transfer(vdec));
+         vars.push(dec.transfer(vdec)); // transfers lexical info to new lbox
        },
        Method(md) => {
          let mdec = std::mem::replace(md,MethodDec::default());
