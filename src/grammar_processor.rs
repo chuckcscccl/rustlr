@@ -24,7 +24,7 @@ pub const TRACE:usize = 0;
 pub struct Gsym // struct for a grammar symbol
 {
   pub sym : String,
-  pub rusttype : String,  //used only to indicate "mut"
+  pub rusttype : String, // used to derive private enum
   pub terminal : bool,
   pub label : String,  // object-level variable holding value
   pub precedence : i32,   // negatives indicate right associativity
@@ -38,7 +38,7 @@ impl Gsym
       sym : s.to_owned(),
       terminal : isterminal,
       label : String::default(),
-      rusttype : String::from("String"),
+      rusttype : String::new(),
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
     }
   }
@@ -232,8 +232,10 @@ impl Grammar
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-	       if stokens.len()>2 {
-                 newterm.settype(tokentype.trim());
+	       if stokens.len()>2 && stokens[2]!="mut" {
+	         let rtype = format!("Priv_Variant_Default({})",&self.Absyntype);
+		 newterm.settype(&rtype);
+                 //newterm.settype(tokentype.trim());
                }
                else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
@@ -246,8 +248,10 @@ impl Grammar
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-	       if stokens.len()>2 {
-                 newterm.settype(tokentype.trim());
+	       if stokens.len()>2 && stokens[2]!="mut" {
+	         let rtype = format!("Priv_Variant_{}({})",self.Symbols.len(),tokentype.trim());
+		 newterm.settype(&rtype);
+                 //newterm.settype(tokentype.trim());
                }
                else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());

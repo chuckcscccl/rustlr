@@ -14,6 +14,7 @@
 use std::str::Chars;
 //use crate::{ParseResult,ParseValue};
 
+
 /// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
 /// symbol specified in the grammar that defines the language.  AT is the type of the
@@ -132,3 +133,32 @@ impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
      self.chars.as_str()
    }   
 }//impl Lexer for lexer
+
+//////////////////////// new stuff
+
+/// This struct is intended to replace Lextoken, and will not use owned string
+pub struct LexToken<'t,AT:Default>
+{
+  pub sym: &'t str,
+  pub value: AT,
+}
+impl<'t,AT:Default> LexToken<'t,AT>
+{
+  pub fn new(s:&'t str, v:AT) -> LexToken<'t,AT> { LexToken{sym:s, value:v} }
+}
+
+/// This trait is intended to replace Lexer, and won't use owned strings
+pub trait Tokenizer<AT:Default>
+{
+  /// retrieves the next Lextoken, or None at end-of-stream. 
+  fn nextsym(&mut self) -> Option<LexToken<AT>>;
+  /// returns the current line number.  The default implementation
+  /// returns 0.
+  fn linenum(&self) -> usize { 0 } // line number
+  /// returns the current column (character position) on the current line.
+  /// The default implementation returns 0;
+  fn column(&self) -> usize { 0 }
+  /// returns the current line being tokenized.  The
+  /// default implementation returns the empty string.
+  fn current_line(&self) -> &str  { "" }
+}

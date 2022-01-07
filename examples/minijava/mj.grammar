@@ -30,19 +30,19 @@ terminal int boolean if else while == = + - * / < && MOD
 nonterminal Program program
 nonterminal MainCl mainclass
 nonterminal ClassDec classdec
-nonterminal ClassDecl mut
+nonterminal ClassDecl 
 nonterminal Extension String
 nonterminal VarDec vardec
 nonterminal MethodDec mthdec
 nonterminal Decl Vec<declaration>
-nonterminal FormalLst mut Vec<formal>
-nonterminal FormalRst mut Vec<formal>
+nonterminal FormalLst Vec<formal>
+nonterminal FormalRst Vec<formal>
 nonterminal Type typ
 nonterminal Stat stat
-nonterminal Stats mut Vec<stat>
+nonterminal Stats Vec<stat>
 nonterminal Exp expr
-nonterminal ExpLst mut Vec<expr>
-nonterminal ExpRst mut Vec<expr>
+nonterminal ExpLst Vec<expr>
+nonterminal ExpRst Vec<expr>
 topsym Program
 resync ;
 
