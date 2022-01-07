@@ -162,3 +162,4 @@ pub trait Tokenizer<AT:Default>
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
 }
+//rewrite parse as parse_zc, which uses Tokenizer/LexToken - just rewrite it.
