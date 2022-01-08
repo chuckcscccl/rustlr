@@ -1,6 +1,6 @@
 [package]
 name = "rustlr"
-version = "0.1.4"
+version = "0.2.0"
 authors = ["Chuck Liang"]
 edition = "2018"
 license = "MIT"

@@ -243,3 +243,227 @@
        //if self.err_occurred {result = AT::default(); }
        return result;
     }//parse0
+
+//////////////
+
+/// This type is retained for compatibility with existing parsers but
+/// but is deprecated by the [ErrHandler] trait.
+pub type ErrorReporter<AT,ET> =
+  fn(&mut RuntimeParser<AT,ET>, &Lextoken<AT>, &Option<Stateaction>);
+  
+
+//impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
+//{
+
+  // shift/reduce already implemented
+  // no separate function for gotonext - part of reduce
+
+  /// This is the core parser, which expects a ErrorReporter function to be
+  /// passed in as an argument.  *This function is being deprecated in favor
+  /// of [RuntimeParser::parse_base]*.
+  pub fn parse_core(&mut self, tokenizer:&mut dyn Lexer<AT>, err_reporter:ErrorReporter<AT,ET>) -> AT
+  {
+    self.stack.clear();
+    self.err_occurred = false;
+    let mut result = AT::default();
+    self.stack.push(Stackelement {si:0, value:AT::default()});
+    self.stopparsing = false;
+    let mut action = Stateaction::Error("");
+    let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()};
+    if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
+    else {self.stopparsing=true;}
+
+    while !self.stopparsing
+    {
+      self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
+      let currentstate = self.stack[self.stack.len()-1].si;
+      let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());
+      let actclone:Option<Stateaction> = match actionopt {
+        Some(a) => Some(*a),
+        None => None,
+      };
+      if iserror(&actionopt) {  // either None or Error
+        if !self.err_occurred {self.err_occurred = true;}
+        err_reporter(self,&lookahead,&actclone);
+        match self.error_recover(&mut lookahead,tokenizer) {
+          None => { self.stopparsing=true; break; }
+          Some(act) => {action = act;},
+        }//match
+      }// iserror
+      else { action = actclone.unwrap(); }
+      match &action {
+        Shift(nextstate) => {
+           lookahead = self.shift(*nextstate,lookahead,tokenizer);
+        },
+        Reduce(rulei) => { self.reduce(rulei); },
+        Accept => {
+          self.stopparsing=true;
+          if self.stack.len()>0 {result = self.stack.pop().unwrap().value;}
+          else {self.err_occurred=true;}
+        },
+        _ => {}, // continue
+      }//match action
+    }// main parse loop
+    return result;
+  }//parse_core
+
+//
+/////
+
+/// default ErrorReporter, with training ability
+fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
+{
+  // known that actionop is None or Some(Error(_))
+  let cstate = parser.stack[parser.stack.len()-1].si;
+  let mut actionopt = if let Some(act)=erropt {Some(act)} else {None};
+  let lksym = &lookahead.sym[..];
+  // is lookahead recognized as a grammar symbol?
+  // if actionopt is NONE, check entry for ANY_ERROR            
+  if parser.Symset.contains(lksym) {
+     if let None=actionopt {
+        actionopt = parser.RSM[cstate].get("ANY_ERROR");
+     }
+  }// lookahead is recognized grammar sym
+  else {
+     actionopt = parser.RSM[cstate].get("ANY_ERROR");
+  }// lookahead is not a grammar sym
+  let errmsg = if let Some(Error(em)) = &actionopt {
+    format!("unexpected symbol {}, ** {} ** ..",lksym,em.trim())
+  } else {format!("unexpected symbol {} .. ",lksym)};
+
+  parser.report(&errmsg);
+         
+  if parser.training {  /////// TRAINING MODE:
+    let cstate = parser.stack[parser.stack.len()-1].si;
+    let csym = lookahead.sym.clone();
+    let mut inp = String::from("");
+    print!("\n>>>TRAINER: if this message is not adequate (for state {}), enter a replacement (default no change): ",cstate);
+    let rrrflush = io::stdout().flush();
+    if let Ok(n) = io::stdin().read_line(&mut inp) {
+       if inp.len()>5 && parser.Symset.contains(lksym) {
+         print!(">>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) ");
+        let rrrflush2 = io::stdout().flush();
+        let mut inp2 = String::new();
+        if let Ok(n) = io::stdin().read_line(&mut inp2) {
+            if inp2.trim()=="no" || inp2.trim()=="No" {
+               parser.trained.insert((cstate,csym),inp);
+            }
+            else  {// insert for any error
+                       parser.trained.insert((cstate,String::from("ANY_ERROR")),inp);
+            }
+        }// read ok
+       }// unexpected symbol is grammar sym
+       else if inp.len()>5 && !parser.Symset.contains(lksym) {
+         parser.trained.insert((cstate,String::from("ANY_ERROR")),inp);
+       }
+    }// process user response
+  }//if training   //// END TRAINING MODE
+}// default errorreporter function - conforms to type ErrorReporter (older)
+
+
+
+/*  old versions of file augmenter
+// old version kept in case new one doesn't work on some file systems.
+// function to read file and agument  // original version
+fn augment_file0<AT:Default,ET:Default>(filename:&str, parser:&mut RuntimeParser<AT,ET>) -> std::io::Result<()>
+{
+   let outfile = format!("augmented_{}",filename);
+   let finopt = match File::open(filename) {
+     Ok(f) => { Some(BufReader::new(f)) },
+     _ => { return Err(Error::new(ErrorKind::Other,"can't find file")); }
+   };
+   let mut fin = finopt.unwrap();
+   let mut fout = File::create(outfile)?;
+   let mut line = String::new();
+   fin.read_line(&mut line)?;
+   if line.trim()!="//Parser generated by rustlr" {
+     return Err(Error::new(ErrorKind::Other, "input file was not created by rustlr"));
+   }
+   write!(fout,"{}",&line)?;
+   let mut stop = false;
+   let mut oktoaugment = true;
+   while !stop
+   {
+     line = String::new();
+     match fin.read_line(&mut line) {
+       Ok(n) if n>0 => {},
+       _ => {stop=true; oktoaugment=false;}
+     }
+     if line.trim().len()>21 && &line.trim()[..21]=="}//end of load_extras"  {stop=true;}
+     else {
+        write!(fout,"{}",&line)?;
+     }
+   }//while !stop
+   //// now augment
+   if oktoaugment {
+//println!("AUGMENTATION STARTED");   
+    for key in parser.trained.keys()
+    {
+     let (state,sym) = key;
+     let enter = parser.trained.get(key).unwrap().trim();
+     write!(fout,"  parser.RSM[{}].insert(\"{}\",Stateaction::Error(\"{}\"));\n",state,sym,enter)?;
+    }
+   write!(fout,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
+  }
+  else {return Err(Error::new(ErrorKind::Other,"given file cannot be augmented"));}
+   Ok(())
+}//augment_file
+
+
+//   "//Parser generated by rustlr"
+//}//end of load_extras: don't change this line as it affects augmentation
+
+
+
+////////////////////////////////////////////////////////////////////
+/////////////////// version 2: writes to same file
+
+pub fn augment_file<AT:Default,ET:Default>(filepath:&str, parser:&mut RuntimeParser<AT,ET>) -> std::io::Result<()>
+{
+   if parser.trained.len()<1 {return Ok(());}
+   let fopen = std::fs::OpenOptions::new().write(true).read(true).open(filepath);
+   match &fopen   {
+     Ok(f) => {},
+     _ => {
+       return Err(Error::new(ErrorKind::Other,"augmenter can't find file"));
+     },
+   }//match
+   let mut fio = fopen.unwrap();
+   let finopen = File::open(filepath);
+   if let Err(_) = finopen {   return augment_file0(filepath,parser);   }
+   let mut fin = BufReader::new(finopen.unwrap());
+   let mut position:u64 = 0;
+   let mut line = String::new();
+   fin.read_line(&mut line)?;
+   if line.trim()!="//Parser generated by rustlr" {
+     return Err(Error::new(ErrorKind::Other, "input file was not created by rustlr"));
+   }
+   //write!(fout,"{}",&line)?;
+   let mut stop = false;
+   let mut oktoaugment = true;
+   while !stop
+   {
+     line = String::new();
+     position = fin.stream_position()?;     
+     match fin.read_line(&mut line) {
+       Ok(n) if n>0 => {},
+       _ => {stop=true; oktoaugment=false;}
+     }
+     if line.trim().len()>21 && &line.trim()[..21]=="}//end of load_extras"  {stop=true;}
+   }//while !stop
+   //// now augment
+   if oktoaugment {
+    fio.seek(SeekFrom::Start(position))?;
+    for key in parser.trained.keys()
+    {
+     let (state,sym) = key;
+     let enter = parser.trained.get(key).unwrap().trim();
+     write!(fio,"  parser.RSM[{}].insert(\"{}\",Stateaction::Error(\"{}\"));\n",state,sym,enter)?;
+    }
+   write!(fio,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
+  } //ok to augment
+  else {return Err(Error::new(ErrorKind::Other,"given file cannot be augmented"));}
+   Ok(())
+}// new augment_file
+*/
+

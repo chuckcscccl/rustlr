@@ -27,7 +27,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
-use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine,augment_file};
+use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine};
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
 
@@ -54,6 +54,8 @@ pub struct Stackelement<AT:Default>
 {
    pub si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
+   //pub line: usize,  // line and column
+   //pub column: usize, 
 }
 
 /// this is the structure created by the generated parser.  The generated parser
@@ -93,8 +95,8 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   pub column : usize,
   pub src_id : usize,
   report_line : usize,
-  training : bool,
-  pub trained: HashMap<(usize,String),String>,
+//  training : bool,
+//  pub trained: HashMap<(usize,String),String>,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
 }//struct RuntimeParser
@@ -121,8 +123,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
          report_line : 0,
          resynch : HashSet::new(),
          //added for training
-         training : false,
-         trained : HashMap::new(),
+         //training : false,
+         //trained : HashMap::new(),
          Symset : HashSet::with_capacity(64),
        };
        for _ in 0..slen {
@@ -492,67 +494,8 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 ////// allowing custom parsers
 //////////// errors should compile a report
 
-/// This type is retained for compatibility with existing parsers but
-/// but is deprecated by the [ErrHandler] trait.
-pub type ErrorReporter<AT,ET> =
-  fn(&mut RuntimeParser<AT,ET>, &Lextoken<AT>, &Option<Stateaction>);
-  
-
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 {
-
-  // shift/reduce already implemented
-  // no separate function for gotonext - part of reduce
-
-  /// This is the core parser, which expects a ErrorReporter function to be
-  /// passed in as an argument.  *This function is being deprecated in favor
-  /// of [RuntimeParser::parse_base]*.
-  pub fn parse_core(&mut self, tokenizer:&mut dyn Lexer<AT>, err_reporter:ErrorReporter<AT,ET>) -> AT
-  {
-    self.stack.clear();
-    self.err_occurred = false;
-    let mut result = AT::default();
-    self.stack.push(Stackelement {si:0, value:AT::default()});
-    self.stopparsing = false;
-    let mut action = Stateaction::Error("");
-    let mut lookahead = Lextoken{sym:"EOF".to_owned(),value:AT::default()};
-    if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
-    else {self.stopparsing=true;}
-
-    while !self.stopparsing
-    {
-      self.linenum = tokenizer.linenum(); self.column=tokenizer.column();
-      let currentstate = self.stack[self.stack.len()-1].si;
-      let mut actionopt = self.RSM[currentstate].get(lookahead.sym.as_str());
-      let actclone:Option<Stateaction> = match actionopt {
-        Some(a) => Some(*a),
-        None => None,
-      };
-      if iserror(&actionopt) {  // either None or Error
-        if !self.err_occurred {self.err_occurred = true;}
-        err_reporter(self,&lookahead,&actclone);
-        match self.error_recover(&mut lookahead,tokenizer) {
-          None => { self.stopparsing=true; break; }
-          Some(act) => {action = act;},
-        }//match
-      }// iserror
-      else { action = actclone.unwrap(); }
-      match &action {
-        Shift(nextstate) => {
-           lookahead = self.shift(*nextstate,lookahead,tokenizer);
-        },
-        Reduce(rulei) => { self.reduce(rulei); },
-        Accept => {
-          self.stopparsing=true;
-          if self.stack.len()>0 {result = self.stack.pop().unwrap().value;}
-          else {self.err_occurred=true;}
-        },
-        _ => {}, // continue
-      }//match action
-    }// main parse loop
-    return result;
-  }//parse_core
-
   /// this function is used to invoke the generated parser returned by
   /// the generated parser program's make_parser function.  *This function
   /// is equivalent to [RuntimeParser::parse_stdio]*.
@@ -661,57 +604,6 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
   }//error_recover function
 
 }//impl RuntimeParser 2
-
-
-/// default ErrorReporter, with training ability
-fn err_report_train<AT:Default,ET:Default>(parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>)
-{
-  // known that actionop is None or Some(Error(_))
-  let cstate = parser.stack[parser.stack.len()-1].si;
-  let mut actionopt = if let Some(act)=erropt {Some(act)} else {None};
-  let lksym = &lookahead.sym[..];
-  // is lookahead recognized as a grammar symbol?
-  // if actionopt is NONE, check entry for ANY_ERROR            
-  if parser.Symset.contains(lksym) {
-     if let None=actionopt {
-        actionopt = parser.RSM[cstate].get("ANY_ERROR");
-     }
-  }// lookahead is recognized grammar sym
-  else {
-     actionopt = parser.RSM[cstate].get("ANY_ERROR");
-  }// lookahead is not a grammar sym
-  let errmsg = if let Some(Error(em)) = &actionopt {
-    format!("unexpected symbol {}, ** {} ** ..",lksym,em.trim())
-  } else {format!("unexpected symbol {} .. ",lksym)};
-
-  parser.report(&errmsg);
-         
-  if parser.training {  /////// TRAINING MODE:
-    let cstate = parser.stack[parser.stack.len()-1].si;
-    let csym = lookahead.sym.clone();
-    let mut inp = String::from("");
-    print!("\n>>>TRAINER: if this message is not adequate (for state {}), enter a replacement (default no change): ",cstate);
-    let rrrflush = io::stdout().flush();
-    if let Ok(n) = io::stdin().read_line(&mut inp) {
-       if inp.len()>5 && parser.Symset.contains(lksym) {
-         print!(">>>TRAINER: should this message be given for all unexpected symbols in the current state? (default yes) ");
-        let rrrflush2 = io::stdout().flush();
-        let mut inp2 = String::new();
-        if let Ok(n) = io::stdin().read_line(&mut inp2) {
-            if inp2.trim()=="no" || inp2.trim()=="No" {
-               parser.trained.insert((cstate,csym),inp);
-            }
-            else  {// insert for any error
-                       parser.trained.insert((cstate,String::from("ANY_ERROR")),inp);
-            }
-        }// read ok
-       }// unexpected symbol is grammar sym
-       else if inp.len()>5 && !parser.Symset.contains(lksym) {
-         parser.trained.insert((cstate,String::from("ANY_ERROR")),inp);
-       }
-    }// process user response
-  }//if training   //// END TRAINING MODE
-}// default errorreporter function - conforms to type ErrorReporter (older)
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -874,7 +766,7 @@ impl<AT:Default,ET:Default> ErrHandler<AT,ET> for StandardReporter
 }// impl ErrHandler for StandardReporter
 
 
-//////////////// temporary: live side by side with parse_core
+//////////////// temporary: live side by side with parse_core (tobe replaced)
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 {
   /// Core parser (temporarily lives side by side with parse_core) that
