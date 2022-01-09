@@ -302,6 +302,7 @@ impl<'t> StrTokenizer<'t>
 
     //check for unclosed string
     if pi<self.input.len() && &self.input[pi..pi+1]=="\"" {
+        self.position = self.input.len();
         eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
         return Some((LexError,line0,pi-self.line_start+1));        
     }//unclosed string
@@ -396,7 +397,7 @@ ere\""));
   stk.set_input("{while (1==3.5-.7101*0x7E6) fork(x_y); //don't run
 printf(\"%d hello
  there!
-hello!\");
+hello!);
 ::*- abcd @@&&
 
 x = x==      y;
