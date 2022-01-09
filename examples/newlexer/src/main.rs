@@ -52,27 +52,28 @@ pub struct StrTokenizer<'t>
    floatp:Regex,
    strlit:Regex,
    alphan:Regex,
-   //nonalph:Regex,
+   nonalph:Regex,
    singletons:HashSet<char>,
-   symbols: Vec<&'static str>,
+   symbols: Vec<&'t str>,
    input: &'t str,
    position: usize,
    pub keep_whitespace:bool,
    pub keep_newline:bool,
-   pub line:usize,
-   line_comment:&'static str,
+   line:usize,
+   line_comment:&'t str,
    pub keep_comments:bool,
+   line_start:usize, // keep starting position of line, for column info
 }
 impl<'t> StrTokenizer<'t>
 {
   pub fn new() -> StrTokenizer<'t>
   {
-    let decuint = Regex::new(r"\d+").unwrap();
-    let hexnum = Regex::new(r"0x[\dA-Fa-f]+").unwrap();
-    let floatp = Regex::new(r"\d*.\d+").unwrap();
-    let strlit = Regex::new(r"\x22(?s)(.*)\x22").unwrap();
-    let alphan = Regex::new(r"[_a-zA-Z][_\da-zA-Z]*").unwrap();
-    //let nonalph=Regex::new(r"[!@#$%^&*?-+*/.,<>?=~`';:\\|]").unwrap();
+    let decuint = Regex::new(r"^\d+").unwrap();
+    let hexnum = Regex::new(r"^0x[\dABCDEFabcdef]+").unwrap();
+    let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
+    let strlit = Regex::new(r"^\x22(?s)(.*)\x22").unwrap();
+    let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
+    let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]").unwrap();
     let mut singletons = HashSet::with_capacity(16);
     for c in ['(',')','[',']','{','}'] {singletons.insert(c);}
     let mut symbols = Vec::with_capacity(32);
@@ -81,97 +82,120 @@ impl<'t> StrTokenizer<'t>
     let keep_whitespace=false;
     let keep_newline=false;
     let line = 1;
-    let line_comment = "#";
+    let line_comment = "//";
     let keep_comments=false;
-    StrTokenizer{decuint,hexnum,floatp,strlit,alphan,singletons,symbols,input,position,keep_whitespace,keep_newline,line,line_comment,keep_comments}
+    let line_start=0;
+    StrTokenizer{decuint,hexnum,floatp,strlit,alphan,nonalph,singletons,symbols,input,position,keep_whitespace,keep_newline,line,line_comment,keep_comments,line_start}
   }// new
   pub fn add_single(&mut self, c:char) { self.singletons.insert(c);}
-  pub fn add_symbol(&mut self, s:&'static str) {self.symbols.push(s); }
-  pub fn set_input(&mut self, inp:&'t str) {self.input=inp; self.position=0; self.line=1;}
-  pub fn set_line_comment(&mut self,cm:&'static str) {
+  pub fn add_symbol(&mut self, s:&'t str) {self.symbols.push(s); }
+  pub fn set_input(&mut self, inp:&'t str)
+  {
+    self.input=inp; self.position=0; self.line=1; self.line_start=0;
+  }
+  pub fn set_line_comment(&mut self,cm:&'t str) {
     if cm.len()>0 {self.line_comment=cm;}
   }
-  pub fn next_token(&mut self) -> Option<RawToken<'t>>
+  pub fn line(&self)->usize {self.line}
+  pub fn column(&self)->usize {self.position-self.line_start+1}
+
+
+  /// returns next token, along with starting line and column numbers
+  fn next_token(&mut self) -> Option<(RawToken<'t>,usize,usize)>
   {
-    let mut pi = self.position;
+    let mut pi = self.position; // should be set to start of token
     if pi>=self.input.len() {return None;}
 
+    let mut column0 = self.column();
+    let mut line0 = self.line;
+    let mut lstart0 = self.line_start;
+    
     // skip/keep whitespaces
     let mut nextchars = self.input[pi..].chars();
     let mut c = nextchars.next().unwrap();
     let mut i = pi;
-    
-    while c.is_whitespace() && c!='\n' && i <self.input.len() 
+
+    while c.is_whitespace() && i < self.input.len() 
     {
+       if c=='\n' {
+         self.line+=1; lstart0=self.line_start; self.line_start=i+1; line0=self.line;
+         if self.keep_newline { self.position = i+1; return Some((Newline,self.line-1,pi-lstart0+1)); }
+       }
        i+= 1; 
        if i<self.input.len() {c = nextchars.next().unwrap();}
     }
     if (i>pi && self.keep_whitespace) {
       self.position = i;
-      return Some(Whitespace(i-pi));}
+      return Some((Whitespace(i-pi),line0,self.column()-(i-pi)));}
     else {pi=i;}
-    let nextchar=self.input[pi..pi+1].chars().next().unwrap();
-    // look fo newline
-    if nextchar=='\n' {
-      self.line+=1; pi+=1;
-      if self.keep_newline {
-        self.position=pi; return Some(Newline);
-      }
-    }//newline
+    c=self.input[pi..pi+1].chars().next().unwrap();
+
     // look for singleton:
-    if self.singletons.contains(&nextchar) {
+    if self.singletons.contains(&c) {
       self.position=pi+1;
-      return Some(Symbol(&self.input[pi..pi+1]));
+      return Some((Symbol(&self.input[pi..pi+1]),self.line(),self.column()-1));
     }
-    let mut minpos = self.input.len();
-    // look for alphanum
+    // look for string literal, keep track of newlines
     if let Some(mat) = self.strlit.find(&self.input[pi..]) {
-      minpos = std::cmp::min(minpos,mat.start()+pi);
-      if minpos==pi {
-        self.position = mat.end()+pi;  
-        return Some(Strlit(&self.input[pi..self.position]));
-      }      
+       self.position = mat.end()+pi;
+       // find newline chars
+       let mut ci = pi;
+       while let Some(nli) = self.input[ci..self.position].find('\n')
+       {
+          self.line+=1; ci += nli+1;  self.line_start=ci;
+          // Newline token is never returned if inside string literal
+       }
+       return Some((Strlit(&self.input[pi..self.position]),line0,pi-lstart0+1));
     }//string lits are matched first, so other's aren't part of strings
-    if let Some(mat) = self.alphan.find(&self.input[pi..]) {
-      minpos = std::cmp::min(minpos,mat.start()+pi);
-      if minpos==pi {
-        self.position = mat.end()+pi;  
-        return Some(Alphanum(&self.input[pi..self.position]));
+    // look for line comment
+    
+    let clen = self.line_comment.len();
+    if clen>0 && pi+clen<=self.input.len() && self.line_comment==&self.input[pi..pi+clen] {
+      if let Some(nlpos) = self.input[pi+clen..].find("\n") {
+        self.position = nlpos+pi+clen;
+        if self.keep_comments {
+          return Some((Verbatim(&self.input[pi..pi+clen+nlpos]),self.line,pi-self.line_start+1));
+        }
+        else {pi=self.position;}
+      } else { // no newline fould
+        self.position = self.input.len(); 
+        if self.keep_comments {return Some((Verbatim(&self.input[pi..]),self.line,pi-self.line_start+1));}
+        else {pi=self.position;}
       }
-    }//alphanums
-    if let Some(mat) = self.decuint.find(&self.input[pi..]) {
-      minpos = std::cmp::min(minpos,mat.start()+pi);
-      if minpos==pi {
-        self.position = mat.end()+pi;  
-        return Some(Num(self.input[pi..self.position].parse::<i64>().unwrap()));
-      }
-    }//decuint
-    if let Some(mat) = self.floatp.find(&self.input[pi..]) {
-      minpos = std::cmp::min(minpos,mat.start()+pi);
-      if minpos==pi {
-        self.position = mat.end()+pi;
-	println!("HEERRE: {}",&self.input[pi..self.position]);
-        return Some(Float(self.input[pi..self.position].parse::<f64>().unwrap()));
-      }
-    }//floatp
+    }// line comment
+    
+    // hex
     if let Some(mat) = self.hexnum.find(&self.input[pi..]) {
-      minpos = std::cmp::min(minpos,mat.start()+pi);
-      if minpos==pi {
-        self.position = mat.end()+pi;  
-        return Some(Hex(self.input[pi..self.position].parse::<u64>().unwrap()));
-      }
+        self.position = mat.end()+pi;
+        return Some((Hex(u64::from_str_radix(&self.input[pi+2..self.position],16).unwrap()),self.line,pi+3-self.line_start));        
     }//hexnum
-    //at this point, minpos is still > pi, so what's left must be a symbol
+    // look for alphanum    
+    if let Some(mat) = self.alphan.find(&self.input[pi..]) {
+        self.position = mat.end()+pi;  
+        return Some((Alphanum(&self.input[pi..self.position]),self.line,pi-self.line_start+1));
+    }//alphanums
+    // decimal ints
+    if let Some(mat) = self.decuint.find(&self.input[pi..]) {
+        self.position = mat.end()+pi;  
+        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
+    }//decuint
+    // floats
+    if let Some(mat) = self.floatp.find(&self.input[pi..]) {
+        self.position = mat.end()+pi;
+        return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
+    }//floatp
+    // at this point, what remains must be a symbol, match longest symbols first
     for sym in &self.symbols
     {
-      println!("LOOKING FOR sym {}, pi {}, minpos {}",sym,pi,minpos);
-      if let Some(0) = self.input[pi..minpos].find(sym) {
-         self.position = pi+sym.len();
-	 return Some(Symbol(&self.input[pi..self.position]));	 
+      let symlen = sym.len();
+      if pi+symlen<=self.input.len() && &&self.input[pi..pi+symlen] == sym {
+         self.position = pi+symlen;
+	 return Some((Symbol(&self.input[pi..self.position]),self.line,pi-self.line_start+1));	 
       }
     }
-    self.position=minpos;
-    return Some(Verbatim(&self.input[pi..minpos]));
+    self.position = self.input.len();
+    if pi<self.position {return Some((Verbatim(&self.input[pi..]),self.line,pi-self.line_start+1));}
+    else {return None;}
   }//next  
 }//impl StrTokenizer
 
@@ -179,7 +203,9 @@ impl<'t> Iterator for StrTokenizer<'t>
 {
   type Item = RawToken<'t>;
   fn next(&mut self) -> Option<RawToken<'t>>
-  {  self.next_token() }
+  {
+     if let Some((tok,_,_)) = self.next_token() {Some(tok)} else {None}
+  }
 }//Iterator
 
 //////////////////////////
@@ -222,36 +248,52 @@ ere\""));
   for x in ["==","=","+",";",",",":","!","*","/","-","<=","<"] {
     stk.add_symbol(x);
   }
-  stk.set_input("while (1==3-2) fork(x_y);");
+  stk.keep_comments=true;
+  stk.keep_newline=true;
+  stk.keep_whitespace=true;
+  stk.set_input("{while (1==3.5-.7101*0x7E6) fork(x_y); //don't run
+printf(\"%d hello
+ there!
+hello!\");
+x = x==      y;
+return 0;
+}");
+  let mut coln = stk.column();
+  let mut linen = stk.line();
   while let Some(token) = stk.next_token()
-  {  
+  {
      println!("Token: {:?}",&token);
+     coln = stk.column();
+     linen = stk.line();
   }
-  
 }//main
+
 
 //// overloading test
 
 struct St(i32);
-impl St
+trait STS
+{
+  fn f(&self, i:i32);
+}
+impl STS for St
 {
    fn f(&self,i:i32) {println!("i32 {}",i==self.0);}
 }
-trait STT
+trait STT // need different module for overloading, can't be in same scope
 {
-   fn f(&self,i:&str);
+   fn f1(&self,i:&str);
 }
 impl STT for St
 {
-  fn f(&self, i:&str) {println!("str, {} and {}",i,self.0);}
+  fn f1(&self, i:&str) {println!("str, {} and {}",i,self.0);}
 }
-
 
 impl<'t> Tokenizer<i64> for StrTokenizer<'t>
 {
    fn nextsym(&mut self) -> Option<LexToken<'t,i64>>
    {
-     match self.next_token() {
+     match self.next() {
        Some(Alphanum(s)) => Some(LexToken::new(s,0)),
        Some(Num(x)) => Some(LexToken::new("num",x)),
        Some(Strlit(s)) => Some(LexToken::new("strlit",2)),
@@ -263,3 +305,8 @@ impl<'t> Tokenizer<i64> for StrTokenizer<'t>
    fn current_line(&self) -> &str {self.input}
    fn linenum(&self) -> usize {self.line}
 }
+
+// to do, recognize doublesyms before single sims. using hashset
+// doublesyms
+// single syms
+// other syms
