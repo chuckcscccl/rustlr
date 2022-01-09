@@ -29,7 +29,7 @@ pub mod generic_absyn;
 pub use generic_absyn::*;
 //mod enhancements;
 //pub use enhancements::*;
-
+extern crate regex;
 
 fn main() 
 {

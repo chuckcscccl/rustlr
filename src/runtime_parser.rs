@@ -226,16 +226,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     /// *this function is equivalent to [RuntimeParser::parse_stdio_train]*.
     pub fn parse_train(&mut self, tokenizer:&mut dyn Lexer<AT>, parserfile:&str) -> AT
     {
-    /*
-      self.training = true;
-      let result = self.parse(tokenizer);
-      if let Err(m) = augment_file(filename,self) {
-        eprintln!("Error in augmenting parser: {:?}",m)
-      }
-      self.training = false;
-      return result;
-    */
-     self.parse_stdio_train(tokenizer,parserfile)
+      self.parse_stdio_train(tokenizer,parserfile)
     }//parse_train
 
     /// creates a [LBox] smart pointer that includes line/column/src information;
@@ -501,7 +492,6 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
   /// is equivalent to [RuntimeParser::parse_stdio]*.
   pub fn parse(&mut self, tokenizer:&mut dyn Lexer<AT>) -> AT
   {
-     //self.parse_core(tokenizer,err_report_train)
      self.parse_stdio(tokenizer)
   }
 

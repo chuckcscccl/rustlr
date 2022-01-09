@@ -54,6 +54,8 @@ pub struct Stackelement<AT:Default>
 {
    pub si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
+   //pub line: usize,  // line and column
+   //pub column: usize, 
 }
 
 /// this is the structure created by the generated parser.  The generated parser
@@ -147,14 +149,22 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     pub fn report(&mut self, errmsg:&str)  
     {      // linenum must be set prior to call
        if (self.report_line != self.linenum || self.linenum==0)  {
-//         print!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-         print!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
+         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
          self.report_line = self.linenum;
        }
        else {
-         print!(" {} ",errmsg);
+         eprint!(" {} ",errmsg);
        }
        self.err_occurred = true;
+    }// report
+
+    /// this function is only exported to support the generated code
+    pub fn bad_pattern(&mut self,pattern:&str) -> AT
+    {
+       let msg = format!("pattern {} failed to bind to stacked values\n",pattern);
+       self.report(&msg);
+       AT::default()
     }
 
     /// sets an index that index source information, such as the source file
@@ -261,6 +271,7 @@ impl Statemachine
 #![allow(unused_mut)]
 #![allow(unused_imports)]
 #![allow(unused_assignments)]
+#![allow(irrefutable_let_patterns)]
 extern crate rustlr;
 use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
 
@@ -314,7 +325,45 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       write!(fd," rule = RProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,self.Gmr.Rules[i].lhs.sym)?;      
       write!(fd," rule.Ruleaction = |parser|{{ ")?;
       let mut k = self.Gmr.Rules[i].rhs.len();
+
+      //form if-let labels and patterns as we go...
+      let mut labels = String::from("(");
+      let mut patterns = String::from("(");
       while k>0
+      {
+        let gsym = &self.Gmr.Rules[i].rhs[k-1];
+	if gsym.label.len()>1 && gsym.label.find('@').is_some() { // if-let pattern
+	  let atindex = gsym.label.find('@').unwrap();
+	  let varlab = if atindex>0 {gsym.label[0..atindex].to_string()} 
+	      else {format!("_vflab_{}",k-1)};
+ 	  if atindex>0 {labels.push_str("&mut ");}
+	  labels.push_str(&varlab); labels.push(',');
+	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push_str(",");
+	  write!(fd," let mut {}=",&varlab)?;	  
+	}
+	else if gsym.label.len()>0 { // simple pattern, no need for if-let
+	  if gsym.rusttype.len()>=3 && &gsym.rusttype[0..3]=="mut" {
+	    write!(fd," let mut {}:{}=",&gsym.label,absyn)?;
+	  }
+          else {write!(fd," let {}:{}=",&gsym.label,absyn)?;}
+	}
+        write!(fd,"parser.stack.pop()")?; 
+        if gsym.label.len()>0 { write!(fd,".unwrap().value;  ")?;}
+        else {write!(fd,";  ")?;}
+        k -= 1;      
+      }// for each symbol on right hand side of rule
+      // form if-let clause
+      let defaultaction = format!("return <{}>::default();}}",absyn);
+      let mut semaction = &self.Gmr.Rules[i].action; //string that ends with }
+      if semaction.len()<=1 {semaction = &defaultaction;}
+      if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; } //empty pattern
+      else { // write an if-let
+        labels.push(')');  patterns.push(')');
+	write!(fd,"\n  if let {}={} {{ {}  else {{parser.bad_pattern(\"{}\")}} }};\n",&patterns,&labels,semaction.trim_end(),&patterns)?;
+      }// if-let semantic action
+
+/*
+      while k>0 // k-1 indexes backwards rhs of grammar rule
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
         if gsym.label.len()>0 && &gsym.rusttype[0..3]=="mut"
@@ -327,10 +376,10 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
         k -= 1;
       } // for each symbol on right hand side of rule  
       let mut semaction = &self.Gmr.Rules[i].action; //this is a string
-      //if semaction.len()<1 {semaction = "}}";}
-      //if al>1 {semaction = semaction.substring(0,al-1);}
       if semaction.len()>1 {write!(fd,"{};\n",semaction.trim_end())?;}
       else {write!(fd," return <{}>::default();}};\n",absyn)?;}
+*/
+
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// for each rule
     write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
@@ -893,7 +942,8 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 
   ///Parses in interactive training mode with provided path to parserfile.
   ///The parser file will be modified and a training script file will be
-  ///created for future retraining after grammar is modified.
+  ///created for future retraining after grammar is modified. This function
+  ///is equivalent to [RuntimeParser::parse_train].
   ///
   /// When an error occurs, the parser will
     /// ask the human trainer for an appropriate error message: it will
