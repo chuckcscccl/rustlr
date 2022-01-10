@@ -1,3 +1,12 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+#![allow(unused_parens)]
+#![allow(unused_mut)]
+#![allow(unused_assignments)]
+#![allow(unused_doc_comments)]
+#![allow(unused_imports)]
 use regex::Regex;
 use std::collections::{HashSet};
 use crate::RawToken::*;
@@ -87,7 +96,7 @@ pub struct StrTokenizer<'t>
    nonalph:Regex,
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
-   other_syms: Vec<&'t str>,
+   //other_syms: Vec<&'t str>,
    input: &'t str,
    position: usize,
    /// flag to toggle whether whitespaces should be returned as Whitespace tokens,
@@ -116,13 +125,13 @@ impl<'t> StrTokenizer<'t>
     let decuint = Regex::new(r"^\d+").unwrap();
     let hexnum = Regex::new(r"^0x[\dABCDEFabcdef]+").unwrap();
     let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
-    let strlit = Regex::new(r"^\x22(?s)(.*)\x22").unwrap();
+    let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
     let mut doubles = HashSet::with_capacity(16);    
     let mut singles = HashSet::with_capacity(16);
     for c in ['(',')','[',']','{','}'] {singles.insert(c);}
-    let mut other_syms = Vec::with_capacity(32);
+    //let mut other_syms = Vec::with_capacity(32);
     let input = "";
     let position = 0;
     let keep_whitespace=false;
@@ -133,28 +142,31 @@ impl<'t> StrTokenizer<'t>
     let ml_comment_end="*/";    
     let keep_comment=false;
     let line_start=0;
-    StrTokenizer{decuint,hexnum,floatp,strlit,alphan,nonalph,doubles,singles,other_syms,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start}
+    StrTokenizer{decuint,hexnum,floatp,strlit,alphan,nonalph,doubles,singles,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
-  /// leading whitespaces and line comment markers, e.g. "//" will have precedence
-  /// over "/"
+  /// leading whitespaces and comments markers, e.g. "//" will have precedence
+  /// over "/" and "==" will have precedence over "=".
   pub fn add_double(&mut self, s:&'t str)
   {
     if s.len()==2 { self.doubles.insert(s); }
   }
   /// add a single-character symbol.  The type of the symbol overrides other
-  /// types except for whitespaces and line comments.
+  /// types except for whitespaces, comments and double-character symbols.
   pub fn add_single(&mut self, c:char) { self.singles.insert(c);}
+  /*
   /// add symbol of length greater than two. Symbols that are prefixes of
   /// other symbols should be added after the longer symbols.
   pub fn add_symbol(&mut self, s:&'t str) {
     if s.len()>2 {self.other_syms.push(s); }
   }
-  /// sets the input to be parsed, resets position information
+  */
+  /// sets the input str to be parsed, resets position information.  Note:
+  /// trailing whitespaces are always trimmed from the input.
   pub fn set_input(&mut self, inp:&'t str)
   {
-    self.input=inp; self.position=0; self.line=1; self.line_start=0;
+    self.input=inp.trim_end(); self.position=0; self.line=1; self.line_start=0;
   }
   /// sets the symbol that begins a single-line comment. The default is
   /// "//".  If this is set to the empty string then no line-comments are
@@ -184,7 +196,7 @@ impl<'t> StrTokenizer<'t>
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along
   /// with a message printed to stderr if a tokenizer error occured.
-  fn next_token(&mut self) -> Option<(RawToken<'t>,usize,usize)>
+  pub fn next_token(&mut self) -> Option<(RawToken<'t>,usize,usize)>
   {
     let mut pi = self.position; // should be set to start of token
     if pi>=self.input.len() {return None;}
@@ -267,6 +279,28 @@ impl<'t> StrTokenizer<'t>
     }
 
     // look for string literal, keep track of newlines
+
+    if c=='\"' {
+      let mut ci = pi+1;
+      while ci<self.input.len()
+      {
+         if &self.input[ci..ci+1]=="\"" {
+            self.position = ci+1;
+            return Some((Strlit(&self.input[pi..self.position]),line0,pi-lstart0+1));
+         }
+         else if &self.input[ci..ci+1] == "\n" {
+           self.line+=1; self.line_start=ci+1;
+         }
+         // else need to try again!
+         else if &self.input[ci..ci+1] == "\\" {ci+=1}; // extra skip
+         ci+=1;
+      }// while ci < input.len()
+      // terminated without finding end of string
+      self.position = self.input.len();
+        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
+        return Some((LexError,line0,pi-lstart0+1)); 
+    }//strlit
+    /*
     if let Some(mat) = self.strlit.find(&self.input[pi..]) {
        self.position = mat.end()+pi;
        // find newline chars
@@ -278,7 +312,8 @@ impl<'t> StrTokenizer<'t>
        }
        return Some((Strlit(&self.input[pi..self.position]),line0,pi-lstart0+1));
     }//string lits are matched first, so other's aren't part of strings
-
+    */
+    
     // look for hex
     if let Some(mat) = self.hexnum.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
@@ -343,12 +378,63 @@ impl<'t> StrTokenizer<'t>
 
 impl<'t> Iterator for StrTokenizer<'t>
 {
-  type Item = RawToken<'t>;
-  fn next(&mut self) -> Option<RawToken<'t>>
+  type Item = (RawToken<'t>,usize,usize);
+  fn next(&mut self) -> Option<(RawToken<'t>,usize,usize)>
   {
-     if let Some((tok,_,_)) = self.next_token() {Some(tok)} else {None}
+     if let Some(tok) = self.next_token() {Some(tok)} else {None}
   }
 }//Iterator
+
+/// Structure to hold contents of a source (such as contents of file).
+pub struct LexSource<'t>
+{
+   pathname:&'t str,
+   contents:String,
+   id:usize,
+}
+impl<'t> LexSource<'t>
+{
+  /// creates a new LexSource struct with given source path,
+  /// reads contents into struct using [std::fs::read_to_string]
+  pub fn new(path:&'t str) -> std::io::Result<LexSource<'t>>
+  {
+     let tryread=std::fs::read_to_string(path);
+     //println!("READTHIS: {:?}",&tryread);
+     match tryread {
+       Ok(st) => {
+         Ok(LexSource {
+           pathname:path,
+           id:0,
+           contents:st,
+         })
+       },
+       Err(e) => {Err(e)}
+     }//match
+  }//new
+  /// sets the numerical id of this source: can be used in conjunction with
+  /// [RuntimeParser::set_src_id]
+  pub fn set_id(&mut self, id:usize) {self.id=id;}
+  pub fn get_id(&self)->usize {self.id}
+}//impl LexSource
+impl<'t> StrTokenizer<'t>
+{
+   /// creates a StrTokenizer from a [LexSource] structure that contains
+   /// a string representing the contents of the source, and
+   /// calls [StrTokenizer::set_input] to reference that string.
+   /// The proper way to create a tokenizer that reads from a file is therefore:
+   ///   ```ignore
+   ///   let source = LexSource::new(source_path).unwrap();
+   ///   let mut tokenizer = StrTokenizer::from_source(&source);
+   ///   ```
+   pub fn from_source(ls:&'t LexSource<'t>) ->StrTokenizer<'t>
+   {
+      let mut stk = StrTokenizer::new();
+      stk.set_input(ls.contents.as_str());
+      stk
+   }
+}// impl StrTokenizer
+
+
 
 //////////////////////////
 fn main()
@@ -390,14 +476,17 @@ ere\""));
   for x in ['=','+',';',',','!','*','/','-','<'] {
     stk.add_single(x);
   }
-  for x in ["==","<=","+="] { stk.add_double(x); }
+  for x in ["==","<=","+=","**"] { stk.add_double(x); }
   stk.keep_comment=true;
   stk.keep_newline=true;
-  stk.keep_whitespace=true;
-  stk.set_input("{while (1==3.5-.7101*0x7E6) fork(x_y); //don't run
+  //stk.keep_whitespace=true;
+  stk.set_input("int main(int argc, char** argv)
+{while (1==3.5-.7101*0x7E6) fork(x_y); //don't run
 printf(\"%d hello
  there!
-hello!);
+hello!\");
+a = \"he\\\"llo\\\" \";
+b = \"hello again\";
 ::*- abcd @@&&
 
 x = x==      y;
@@ -414,6 +503,21 @@ return 0;
      coln = stk.column();
      linen = stk.line();
   }
+
+//// source test
+ let source = LexSource::new("Cargo.toml").unwrap();
+ let mut tokenizer = StrTokenizer::from_source(&source);
+  tokenizer.set_line_comment("#");
+  tokenizer.keep_comment=true;
+  tokenizer.keep_newline=true;
+  //tokenizer.keep_whitespace=true; 
+ println!("FROM SOURCE....");
+ while let Some(token) = tokenizer.next_token()
+  {
+     println!("Token: {:?}",&token);
+     coln = stk.column();
+     linen = stk.line();
+  } 
 }//main
 
 
