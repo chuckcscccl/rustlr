@@ -207,13 +207,8 @@ impl<'t> StrTokenizer<'t>
   /// with a message printed to stderr if a tokenizer error occured.
   pub fn next_token(&mut self) -> Option<(RawToken<'t>,usize,usize)>
   {
-   let mut pi = 0;
-   let clen = self.line_comment.len();
-   let (cms,cme) = (self.ml_comment_start,self.ml_comment_end);
-   while self.position<self.input.len()
-   {
-    pi = self.position;
-    //if pi>=self.input.len() {return None;}
+    let mut pi = self.position;
+    if pi>=self.input.len() {return None;}
     let mut column0 = self.column();
     let mut line0 = self.line;
     let mut lstart0 = self.line_start;
@@ -221,7 +216,6 @@ impl<'t> StrTokenizer<'t>
     // skip/keep whitespaces
     let mut nextchars = self.input[pi..].chars();
     let mut c = nextchars.next().unwrap();
-    //println!("NEXTCHAR is ({}), position {}",c,self.position);
     let mut i = pi;
     while c.is_whitespace() && i < self.input.len() 
     {
@@ -232,28 +226,30 @@ impl<'t> StrTokenizer<'t>
        i+= 1; 
        if i<self.input.len() {c = nextchars.next().unwrap();}
     }
-    self.position = i;
     if (i>pi && self.keep_whitespace) {
+      self.position = i;
       return Some((Whitespace(i-pi),line0,self.column()-(i-pi)));}
-    else if i>pi {continue;}
-    //if pi>=self.input.len() {return None;}
+    else {pi=i;}
+    if pi>=self.input.len() {return None;}
 
     // look for line comment
+    let clen = self.line_comment.len();
     if clen>0 && pi+clen<=self.input.len() && self.line_comment==&self.input[pi..pi+clen] {
       if let Some(nlpos) = self.input[pi+clen..].find("\n") {
         self.position = nlpos+pi+clen;
         if self.keep_comment {
           return Some((Verbatim(&self.input[pi..pi+clen+nlpos]),self.line,pi-self.line_start+1));
         }
-        else {continue;}
+        else {pi=self.position;}
       } else { // no newline fould
         self.position = self.input.len(); 
         if self.keep_comment {return Some((Verbatim(&self.input[pi..]),self.line,pi-self.line_start+1));}
-        else {break;}
+        else {pi=self.position;}
       }
     }// line comment
 
     // look for multi-line comment (similar to string literals)
+    let (cms,cme) = (self.ml_comment_start,self.ml_comment_end);
     if cms.len()>0 && pi+cms.len()<=self.input.len() && &self.input[pi..pi+cms.len()] == cms {
        if let Some(endpos) = self.input[pi+cms.len()..].find(cme) {
          self.position = pi+cms.len()+endpos+cme.len();
@@ -272,7 +268,7 @@ impl<'t> StrTokenizer<'t>
        if self.keep_comment {
          return Some((Verbatim(&self.input[pi..self.position]),line0,pi-lstart0+1));
        }
-       else {continue;}
+       else {pi=self.position;}
     }//multi-line comments
 
 
@@ -366,9 +362,7 @@ impl<'t> StrTokenizer<'t>
       eprintln!("Tokenizer error: unrecognized symbols starting on line {}, column {}",line0,pi-self.line_start+1);
      return Some((LexError,line0,pi-self.line_start+1));
     }
-    //else { return None; }
-   } //while
-   return None;
+    else { return None; }
   }//next_token
   
 }//impl StrTokenizer
@@ -509,7 +503,7 @@ return 0;
  let mut tokenizer = StrTokenizer::from_source(&source);
   tokenizer.set_line_comment("#");
   tokenizer.keep_comment=true;
-  //tokenizer.keep_newline=true;
+  tokenizer.keep_newline=true;
   //tokenizer.keep_whitespace=true; 
  println!("FROM SOURCE....");
  while let Some(token) = tokenizer.next_token()
