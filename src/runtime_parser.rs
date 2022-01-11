@@ -611,7 +611,7 @@ pub trait ErrHandler<AT:Default,ET:Default> // not same as error recovery
   fn report_err(&self, parser:&mut RuntimeParser<AT,ET>, msg:&str) { parser.report(msg) }
 //  fn training_mode(&self, parser:&RuntimeParser<AT,ET>) -> bool {false}
 //  fn interactive_mode(&self, parser:&RuntimeParser<AT,ET>) -> bool {false}
-}// ErrReporter trait
+}// ErrHandler trait
 
 /*
 The structure here is a bit strange.  The script file is written to in

@@ -20,7 +20,7 @@ use grammar_processor::*;
 mod lr_statemachine;
 use lr_statemachine::*;
 pub mod lexer_interface;
-use lexer_interface::*;
+pub use lexer_interface::*;
 pub mod runtime_parser;
 use runtime_parser::*;
 mod augmenter;
@@ -29,16 +29,13 @@ pub mod generic_absyn;
 pub use generic_absyn::*;
 //mod enhancements;
 //pub use enhancements::*;
+pub mod zc_parser;
+use zc_parser::*;
 
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
   rustle(&args);
-  /*
-  let grammar_name = if args.len()>1 {&args[1]} else {"test1"};
-  let option = if args.len()==3 {&args[2]} else {"lr1"}; // lr1 or lalr
-  rustler(grammar_name,option);
-  */
 }//main
 
 
@@ -49,9 +46,10 @@ fn rustle(args:&Vec<String>) // called from main
   let filepath = &args[1];
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
-  let mut lalr = false;
+  let mut lalr = true;  // changed from false in version 0.2.0
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
+  let mut zc = true;
   while argi<argc
   {
      match &args[argi][..] {
@@ -65,6 +63,8 @@ fn rustle(args:&Vec<String>) // called from main
           }
        },
        "verbose" | "-verbose" => { verbose=true; },
+       "-zc" | "zero_copy" => {zc=true;},
+       "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {
           argi+=1;
@@ -74,6 +74,10 @@ fn rustle(args:&Vec<String>) // called from main
      }//match directive
      argi+=1;
   }//while there are command-line args
+  if zc && verbose {
+     println!("verbose mode not compatible with -zc option");
+     return;
+  }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
   let mut grammar1 = Grammar::new();
@@ -95,14 +99,22 @@ fn rustle(args:&Vec<String>) // called from main
   fsm0.lalr = lalr;
   if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
   if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
-  fsm0.generatefsm();
+  fsm0.generatefsm(); //GENERATE THE FSM
   if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
   else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 {parserfile = format!("{}parser.rs",&gramname);}
-  let write_result = 
-    if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
-    else if fsm0.States.len()<=65536 {fsm0.writeparser(&parserfile)}
-    else {println!("too many states: {} execeeds limit of 65536",fsm0.States.len()); return;};
+  if fsm0.States.len()>65536  {
+    println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
+    return;
+  }
+  let write_result =
+    if zc {  // write zero-copy parser
+      fsm0.writezcparser(&parserfile)
+    }
+    else {  // non-zc, original before version 0.2.0
+      if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
+      else {fsm0.writeparser(&parserfile)}
+    }; // write_result =
   if tracelev>0 {eprintln!("{} total states",fsm0.States.len());}
   if let Ok(_) = write_result {
      if tracelev>0 {println!("written parser to {}",&parserfile);}

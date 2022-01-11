@@ -5,11 +5,11 @@ nonterminals E T F
 terminals + * ( ) num
 topsym E
 
-E --> E:e + T:t { return e+t; }
-E --> T:t { return t; }
-T --> T:t * F:f { return t*f; }
-T --> F:f { return f; }
-F --> ( E:e )  { return e; }
-F --> num:n { return n; }
+E --> E:e + T:t { e+t }
+E --> T:t { t }
+T --> T:t * F:f { t*f }
+T --> F:f { f }
+F --> ( E:e )  { e }
+F --> num:n { n }
 
 EOF

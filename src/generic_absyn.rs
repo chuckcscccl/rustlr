@@ -74,22 +74,14 @@ pub struct LBox<T:?Sized>
   pub exp:Box<T>,
   pub line:usize,
   pub column:usize,
-  pub src_id:usize,   // must refer to info kept externally
+  /// must refer to information kept externally  
+  pub src_id:usize,   
 }
-/*
-struct Lexbox<T:?Sized>
-{
-  exp: T,
-  line:usize,
-  column:usize,
-  src_id:usize,
-}
-*/
 impl<T> LBox<T>
 {
   pub fn new(e:T,ln:usize,col:usize,src:usize) -> LBox<T>
   { LBox { exp:Box::new(e), line:ln, column:col, src_id:src } }
-  //pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
+  ///pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
   pub fn transfer<U>(&self,e:U) -> LBox<U>
@@ -484,6 +476,16 @@ macro_rules! lbget {
   };
 }
 
+/// macro for creating an [LBox] from a [crate::StackedItem] popped from
+/// the parse stack; should be called from within the semantics actions of
+/// a grammar to accurately encode lexical information.  The src_id must
+/// be set separately
+#[macro_export]
+macro_rules! makelbox {
+  ($si:expr, $e:expr) => {
+    LBox::new($e,$si.line,$si.column,0)
+  };
+}
 
 /*
 // just to see if it compiles

@@ -64,7 +64,7 @@ use grammar_processor::*;
 mod lr_statemachine;
 use lr_statemachine::*;
 pub mod lexer_interface;
-use lexer_interface::*;
+pub use lexer_interface::*;
 pub mod runtime_parser;
 use runtime_parser::*;
 mod augmenter;
@@ -72,14 +72,15 @@ use augmenter::*;
 pub mod generic_absyn;
 pub use generic_absyn::*;
 pub mod zc_parser;
-//mod enhancements;
-//pub use enhancements::*;
+use zc_parser::*;
+
 
 pub use lr_statemachine::{Stateaction,decode_action};
-pub use lexer_interface::{Lexer,Lextoken,charlexer};
-pub use lexer_interface::{TerminalToken,Tokenizer,RawToken,StrTokenizer,LexSource};
-//pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 pub use runtime_parser::{RuntimeParser,RProduction};
+pub use zc_parser::{ZCParser,ZCRProduction};
+//pub use lexer_interface::{Lexer,Lextoken,charlexer};
+//pub use lexer_interface::{TerminalToken,Tokenizer,RawToken,StrTokenizer,LexSource};
+//pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
 ////// main function, called from main with command-line args
 

@@ -18,7 +18,6 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 use std::str::Chars;
-//use crate::{ParseResult,ParseValue};
 use regex::Regex;
 use std::collections::{HashSet};
 use crate::RawToken::*;
@@ -184,7 +183,7 @@ impl<'t,AT:Default> TerminalToken<'t,AT>
 /// This trait is intended to replace Lexer, and won't use owned strings
 pub trait Tokenizer<'t,AT:Default>
 {
-  /// retrieves the next Lextoken, or None at end-of-stream. 
+  /// retrieves the next [TerminalToken], or None at end-of-stream. 
   fn nextsym(&mut self) -> Option<TerminalToken<'t,AT>>;
   /// returns the current line number.  The default implementation
   /// returns 0.
@@ -192,10 +191,23 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the current column (character position) on the current line.
   /// The default implementation returns 0;
   fn column(&self) -> usize { 0 }
+  /// returns the absolute character position of the tokenizer.  The
+  /// default implementation returns 0;
+  fn position(&self) -> usize { 0 }
   /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
-}
+  /// returns next [TerminalToken].  This provided function calls nextsym but
+  /// will return a TerminalToken with sym="EOF" at end of stream, with
+  /// value=AT::default()
+  fn next_tt(&mut self) -> TerminalToken<'t,AT>
+  {
+    match self.nextsym() {
+      Some(tok) => tok,
+      None => TerminalToken::new("EOF",AT::default(),self.linenum(),self.column()),
+    }//match
+  }//next_tt
+}// Trait Tokenizer
 
 ///////////////// Basic Tokenizer
 
@@ -641,5 +653,6 @@ impl<'t> Tokenizer<'t,i64> for StrTokenizer<'t>
    }
    fn current_line(&self) -> &str {self.input}
    fn linenum(&self) -> usize {self.line}
+   fn position(&self) -> usize {self.position}
 }
 */

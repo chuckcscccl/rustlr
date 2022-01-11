@@ -76,7 +76,12 @@ releases.
  Abilities for using LBox were also extended, which allows *`LBox<dyn Any>`* to
  be used as the abstract syntax type, with functions and macros for
  up/downcasting.
-  
+
+### Version 2.0:
+
+A "zero-copy" lexical analyzer has been added as a built-in to rustlr, and
+depends on Regex.  The zero-copy version of the runtimeparser lives side-by-side
+with the previous one.
 
 [1]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse_train
 [2]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse
