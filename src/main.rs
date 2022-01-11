@@ -20,7 +20,7 @@ use grammar_processor::*;
 mod lr_statemachine;
 use lr_statemachine::*;
 pub mod lexer_interface;
-pub use lexer_interface::*;
+use lexer_interface::*;
 pub mod runtime_parser;
 use runtime_parser::*;
 mod augmenter;
@@ -29,7 +29,6 @@ pub mod generic_absyn;
 pub use generic_absyn::*;
 //mod enhancements;
 //pub use enhancements::*;
-extern crate regex;
 
 fn main() 
 {

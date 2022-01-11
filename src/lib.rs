@@ -64,20 +64,20 @@ use grammar_processor::*;
 mod lr_statemachine;
 use lr_statemachine::*;
 pub mod lexer_interface;
-pub use lexer_interface::*;
+use lexer_interface::*;
 pub mod runtime_parser;
 use runtime_parser::*;
 mod augmenter;
 use augmenter::*;
 pub mod generic_absyn;
 pub use generic_absyn::*;
+pub mod zc_parser;
 //mod enhancements;
 //pub use enhancements::*;
-extern crate regex;
 
 pub use lr_statemachine::{Stateaction,decode_action};
-//pub use lexer_interface::{Lexer,Lextoken,charlexer};
-//pub use lexer_interface::{LexToken,Tokenizer,RawToken,StrTokenizer,LexSource};
+pub use lexer_interface::{Lexer,Lextoken,charlexer};
+pub use lexer_interface::{TerminalToken,Tokenizer,RawToken,StrTokenizer,LexSource};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 pub use runtime_parser::{RuntimeParser,RProduction};
 
