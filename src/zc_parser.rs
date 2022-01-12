@@ -116,6 +116,7 @@ pub struct ZCParser<'t, AT:Default,ET:Default>
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
   pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
+  popped : Vec<(usize,usize)>,
 }//struct ZCParser
 
 
@@ -145,6 +146,7 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
          //trained : HashMap::new(),
          Symset : HashSet::with_capacity(64),
          tokenizer:tk,
+         popped: Vec::with_capacity(8),
        };
        for _ in 0..slen {
          p.RSM.push(HashMap::with_capacity(16));
@@ -222,8 +224,9 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
     /// the base parser.
     pub fn popstack(&mut self) -> StackedItem<AT>
     {
-       let item = self.stack.pop().expect("PARSER STATE MACHINE CORRUPTED");
+       let item = self.stack.pop().expect("PARSER STATE MACHINE/STACK CORRUPTED");
        self.linenum = item.line; self.column=item.column;
+       self.popped.push((item.line,item.column));
        item
     }//popstack
     
@@ -277,7 +280,22 @@ This is correct because linenum/column will again reflect start of tos item
     /// similar to [ZCParser::lb], but creates a [LRc] instead of [LBox]
     pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// similar to [ZCParser::lba] but creates a [LRc]
-    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column /*,self.src_id*/)) }        
+    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column /*,self.src_id*/)) }
+
+    /// creates LBox enclosing e using line/column information associated
+    /// with right-hand side symbols, numbered left-to-right starting at 0
+    pub fn lbox<T>(&self,i:usize,e:T) -> LBox<T>
+    {
+       let (mut ln,mut cl) = (self.linenum,self.column);
+       if i<self.popped.len() {
+         let index = self.popped.len() - 1 - i;
+         let lc = self.popped[index];
+         ln = lc.0; cl=lc.1;
+       }
+       LBox::new(e,ln,cl)
+    }//lbox
+    
+
 }// impl ZCParser
 
 

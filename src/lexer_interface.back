@@ -191,6 +191,9 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the current column (character position) on the current line.
   /// The default implementation returns 0;
   fn column(&self) -> usize { 0 }
+  /// returns the absolute character position of the tokenizer.  The
+  /// default implementation returns 0;
+  fn position(&self) -> usize { 0 }
   /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
@@ -650,5 +653,6 @@ impl<'t> Tokenizer<'t,i64> for StrTokenizer<'t>
    }
    fn current_line(&self) -> &str {self.input}
    fn linenum(&self) -> usize {self.line}
+   fn position(&self) -> usize {self.position}
 }
 */

@@ -60,8 +60,9 @@ pub trait Tokenizer<AT:Default>
 
 
 ///////////////////////////////////// Basic Tokenizer
-#[derive(Debug)]
+
 /// structure produced by [StrTokenizer]
+#[derive(Debug)]
 pub enum RawToken<'t>
 {
   /// an unsigned integer, though for convenience it is interpreted as
@@ -72,6 +73,8 @@ pub enum RawToken<'t>
 //  Hex(u64),
   /// floating point number
   Float(f64),
+  /// single character inside single quotes.
+  Char(char), 
   /// String literal, allows for nested quotes
   Strlit(&'t str),
   /// Alphanumeric sequence, staring with an alphabetical character or '_',
@@ -290,8 +293,14 @@ impl<'t> StrTokenizer<'t>
       return Some((Symbol(&self.input[pi..pi+1]),self.line,self.column()-1));
     }
 
-    // look for string literal, keep track of newlines
+    // look for char literal
+    if c=='\'' && pi+2<self.input.len() && &self.input[pi+2..pi+3]=="\'" {
+      self.position = pi+3;
+      let thechar = self.input[pi+1..pi+2].chars().next().unwrap();
+      return Some((Char(thechar),self.line,self.column()-3));
+    }
 
+    // look for string literal, keep track of newlines
     if c=='\"' {
       let mut ci = pi+1;
       while ci<self.input.len()
@@ -412,6 +421,10 @@ impl<'t> LexSource<'t>
   /// [RuntimeParser::set_src_id]
   pub fn set_id(&mut self, id:usize) {self.id=id;}
   pub fn get_id(&self)->usize {self.id}
+  /// retrieves entire contents of lexsource
+  pub fn get_contents(&self)->&str {&self.contents}
+  /// retrieves original path (such as filename) of this source
+  pub fn get_path(&self)->&str {self.pathname}  
 }//impl LexSource
 impl<'t> StrTokenizer<'t>
 {
@@ -429,6 +442,13 @@ impl<'t> StrTokenizer<'t>
       stk.set_input(ls.contents.as_str());
       stk
    }
+   /// creates a string tokenizer and sets input to give str.
+   pub fn from_str(s:&'t str) -> StrTokenizer<'t>
+   {
+      let mut stk = StrTokenizer::new();
+      stk.set_input(s);
+      stk
+   }   
 }// impl StrTokenizer
 
 
@@ -493,7 +513,12 @@ x = x==      y;
 /* this is a test
   of the emergency
   broadcast system.  buzzz.. */
+char c ='x'; \" second
+                multiline string \"
 return 0;
+/* another multiline comment
+   right here
+*/
 }");
   let mut coln = stk.column();
   let mut linen = stk.line();
@@ -503,7 +528,7 @@ return 0;
      coln = stk.column();
      linen = stk.line();
   }
-
+/*
 //// source test
  let source = LexSource::new("blcargo").unwrap();
  let mut tokenizer = StrTokenizer::from_source(&source);
@@ -512,12 +537,19 @@ return 0;
   //tokenizer.keep_newline=true;
   //tokenizer.keep_whitespace=true; 
  println!("FROM SOURCE....");
- while let Some(token) = tokenizer.next_token()
-  {
+ while let Some(token) = tokenizer.next() {
      println!("Token: {:?}",&token);
-     coln = stk.column();
-     linen = stk.line();
-  } 
+ }
+
+println!("---------------------------------");
+let mut scanner = StrTokenizer::from_str("while (1) fork();//run at your own risk");
+scanner.set_line_comment("//");
+scanner.keep_comment=true;
+scanner.add_single(';');
+while let Some(token) = scanner.next() {
+     println!("Token,line,column: {:?}",&token);
+}
+*/
 }//main
 
 
