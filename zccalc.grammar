@@ -25,11 +25,18 @@ E --> E:e1 * E:e2 { Times(makelbox!(_e1_,e1),makelbox!(_e2_,e2)) }
 E --> - E:e { Negative(makelbox!(_e_,e)) }
 E --> ( E:e )  { e }
 ES --> E:n ; { Seq(vec![parser.lb(n)]) }
-ES ==> ES:@Seq(mut v)@  E:e ;  {
+ES ==> ES:es@Seq(ref mut v)@  E:e ;  {
    v.push( makelbox!(_e_,e) );
-   Seq(v)
+   es
  } <==
 
 # ==> and <== are required for rules spanning multiple lines
 
 EOF
+
+What could be better syntax than makelbox! ?
+Plus(parser.lbox(0,e1), parser.lbox(2,e2)) ??
+
+ZCParser can have a vector of (line,col) values popped off from the
+stack in a separate vector that's clearly before each reduce. - the vector
+will be in reverse.

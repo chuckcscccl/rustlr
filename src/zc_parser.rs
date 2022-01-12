@@ -233,6 +233,7 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
 
     fn reduce(&mut self, ri:&usize)
     {
+       self.popped.clear();
        let rulei = &self.Rules[*ri];
        let ruleilhs = rulei.lhs; // &'static : Copy
        //let mut dummy = RuntimeParser::new(1,1);
@@ -284,7 +285,7 @@ This is correct because linenum/column will again reflect start of tos item
 
     /// creates LBox enclosing e using line/column information associated
     /// with right-hand side symbols, numbered left-to-right starting at 0
-    pub fn lbox<T>(&self,i:usize,e:T) -> LBox<T>
+    pub fn lbx<T>(&self,i:usize,e:T) -> LBox<T>
     {
        let (mut ln,mut cl) = (self.linenum,self.column);
        if i<self.popped.len() {
@@ -293,8 +294,20 @@ This is correct because linenum/column will again reflect start of tos item
          ln = lc.0; cl=lc.1;
        }
        LBox::new(e,ln,cl)
-    }//lbox
-    
+    }//lbx
+
+    /// Like lbx but creates an LRc
+    pub fn lrcn<T>(&self,i:usize,e:T) -> LRc<T>
+    {
+       let (mut ln,mut cl) = (self.linenum,self.column);
+       if i<self.popped.len() {
+         let index = self.popped.len() - 1 - i;
+         let lc = self.popped[index];
+         ln = lc.0; cl=lc.1;
+       }
+       LRc::new(e,ln,cl)
+    }//lbx
+
 
 }// impl ZCParser
 
@@ -316,6 +329,7 @@ impl Statemachine
 #![allow(unused_mut)]
 #![allow(unused_imports)]
 #![allow(unused_assignments)]
+#![allow(dead_code)]
 #![allow(irrefutable_let_patterns)]
 extern crate rustlr;
 use rustlr::{{Tokenizer,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
@@ -508,7 +522,7 @@ impl<'t,AT:Default,ET:Default> ZCParser<'t,AT,ET>
       while let Some(Reduce(ri)) = erraction // keep reducing
       {
        //self.reduce(ri); // borrow error- only need mut self.stack
-       
+              self.popped.clear();
               let rulei = &self.Rules[*ri];
               let ruleilhs = rulei.lhs; // &'static : Copy
               //let mut dummy = RuntimeParser::new(1,1);

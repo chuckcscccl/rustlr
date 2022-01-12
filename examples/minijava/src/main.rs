@@ -1,19 +1,31 @@
 #![allow(unused_imports)]
+#![allow(dead_code)]
 extern crate rustlr;
 extern crate basic_lexer;
+use rustlr::{StrTokenizer,LexSource};
 mod absyntax;
 use absyntax::*;
 mod mjparser;
 use mjparser::*;
 mod mjlexer;
 use mjlexer::*;
+mod zcmjparser;
+use zcmjparser::*;
 fn main() {
   let args:Vec<String> = std::env::args().collect(); // command-line args
   let mut srcfile = "";
   if args.len()>1 {srcfile = &args[1];}
+/*
   let mut scanner = Mjscanner::new(srcfile);
-
   let mut parser1 = make_parser();
   let absyntree = parser1.parse(&mut scanner);
-  println!("abstract syntax tree after parse: {:?}\n",absyntree);
+  println!("abstract syntax tree after parse: {:?}\n",absyntree);  
+*/
+  let source = LexSource::new(srcfile).unwrap();
+  let mut scanner2 = Mjlexer::new(StrTokenizer::from_source(&source));
+  let mut parser2 = new_parser(&mut scanner2);
+  //let absyntree2 = parser2.parse_train("zcmjparser.rs");
+  let absyntree2 = parser2.parse();
+  println!("Parser Error? : {}",parser2.error_occurred());
+  println!("abstract syntax tree after parse: {:?}\n",absyntree2);  
 }
