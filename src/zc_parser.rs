@@ -71,7 +71,7 @@ impl<AT:Default> StackedItem<AT>
   /// converts the information in a stacked item to an [LBox] enclosing
   /// line and column numbers and with source_id set to 0.
   pub fn to_lbox(self) -> LBox<AT>
-  {  LBox::new(self.value,self.line,self.column,0) }
+  {  LBox::new(self.value,self.line,self.column) }
 }
 
 /// this is the structure created by the generated parser.  The generated parser
@@ -204,13 +204,6 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
        }
        else {false}
     }
-/*
-  fn nexttoken(&mut self) -> TerminalToken<'t,AT>
-    {
-       if let Some(tok) = self.tokenizer.nextsym() {tok}
-        else { TerminalToken::new("EOF",AT::default(),self.linenum,self.column) }
-    }
-*/
 
   // this is the LR parser shift action: push the next state, along with the
   // value of the current lookahead token onto the parse stack, returns the
@@ -272,19 +265,19 @@ This is correct because linenum/column will again reflect start of tos item
     /// there may need to be other lb functions, perhaps from terminalToken
     /// or stackedItem (at least for transfer)
 
-    /// creates a [LBox] smart pointer that includes line/column/src information;
+    /// creates a [LBox] smart pointer that includes line/column information;
     /// should be called from the semantic actions of a grammar rule, e.g.
     ///```ignore
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
     ///```
-    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.linenum,self.column,self.src_id) }
+    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// creates a `LBox<dyn Any>`, which allows attributes of different types to
     /// be associated with grammar symbols.  Use in conjuction with [LBox::downcast], [LBox::upcast] and the [lbdown], [lbup] macros.
-    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.linenum,self.column,self.src_id)) }
+    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.linenum,self.column /*,self.src_id*/)) }
     /// similar to [ZCParser::lb], but creates a [LRc] instead of [LBox]
-    pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column,self.src_id) }
+    pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// similar to [ZCParser::lba] but creates a [LRc]
-    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column,self.src_id)) }        
+    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column /*,self.src_id*/)) }        
 }// impl ZCParser
 
 

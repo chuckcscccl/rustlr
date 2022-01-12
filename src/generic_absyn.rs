@@ -3,8 +3,8 @@
 //! Rustlr allows any type that implements the Default trait to be used as
 //! the abstract syntax type (grammar directive absyntype).  However, this
 //! module defines custom smart pointers [LBox] and [LRc] that simplify the
-//! construction of abstract syntax trees. LBox/LRc keep the line, column
-//! and source id numbers of each syntatic construct, as these are often
+//! construction of abstract syntax trees. LBox/LRc keep the line and column
+//! numbers of each syntatic construct, as these are often
 //! needed during later stages of code analysis post-parsing.
 //!
 //! For example, an abstract syntax type can be defined by
@@ -29,9 +29,6 @@
 //! to create LBoxed-values that include line/column information.  LBox<T>
 //! implements the Default trait if T does, so an LBox type can also serve
 //! as the absyntract syntax type for a grammar.
-//! The src_id field of LBox can be used to point to externally kept
-//! information about the source being compiled, such as the source file
-//! name when mulitple files are compiled together.
 //! It is also possible to use `LBox<dyn Any>` as the abstract syntax type
 //! along with the [LBox::upcast] and [LBox::downcast] functions and
 //! convenience macros [lbup] and [lbdown].
@@ -65,8 +62,9 @@ use std::any::Any;
 use crate::RuntimeParser;
 //use crate::GenAbsyn::*;
 
-/// custom smart pointer that encapsulates line number, column and other information
-/// for warnings and error messages after the parsing stage.  Implements
+/// custom smart pointer that encapsulates line number and column.  Source
+/// ID information is kept at the parser (RuntimeParser or ZCParser) level (since version 0.2.0).
+/// For warnings and error messages after the parsing stage.  Implements
 /// [Deref] and [DerefMut] so the encapsulated expression can be accessed as
 /// in a standard Box.  
 pub struct LBox<T:?Sized>
@@ -74,19 +72,18 @@ pub struct LBox<T:?Sized>
   pub exp:Box<T>,
   pub line:usize,
   pub column:usize,
-  /// must refer to information kept externally  
-  pub src_id:usize,   
+  // must refer to information kept externally  
+  //pub src_id:usize,   
 }
 impl<T> LBox<T>
 {
-  pub fn new(e:T,ln:usize,col:usize,src:usize) -> LBox<T>
-  { LBox { exp:Box::new(e), line:ln, column:col, src_id:src } }
-  ///pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
+  pub fn new(e:T,ln:usize,col:usize /*,src:usize*/) -> LBox<T>
+  { LBox { exp:Box::new(e), line:ln, column:col, /*src_id:src*/ } }
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
   pub fn transfer<U>(&self,e:U) -> LBox<U>
   {
-     LBox::new(e,self.line,self.column,self.src_id)
+     LBox::new(e,self.line,self.column /*,self.src_id*/)
   }
 }//impl LBox
 impl<T> Deref for LBox<T>
@@ -104,7 +101,7 @@ impl<T> DerefMut for LBox<T>
 }
 impl<T:Default> Default for LBox<T>
 {
-  fn default() -> Self {LBox::new(T::default(),0,0,0)}
+  fn default() -> Self {LBox::new(T::default(),0,0/*,0*/)}
 }
 impl<T:Clone> Clone for LBox<T>
 {
@@ -114,7 +111,7 @@ impl<T:Clone> Clone for LBox<T>
         exp : self.exp.clone(),
         line: self.line,
         column: self.column,
-        src_id: self.src_id,
+        //src_id: self.src_id,
       }
    }//clone
 }
@@ -132,33 +129,31 @@ impl LBox<dyn Any+'static>
        exp : boxdown.unwrap(),
        line: self.line,
        column: self.column,
-       src_id: self.src_id,
+       //src_id: self.src_id,
      })
   }
   /// do not try to create a `LBox<dyn Any>` structure with something like
   ///```
-  /// let lb:LBox<dyn Any> = LBox::new(String::from("abc"),0,0,0);
+  /// let lb:LBox<dyn Any> = LBox::new(String::from("abc"),0,0);
   ///```  
   /// This does not work as LBox is simply borrowing the underlying mechanics of
   /// [Box] instead of re-creating them.  Do instead:
   ///```
-  /// let lb:LBox<dyn Any> = LBox::upcast(LBox::new(String::from("abc"),0,0,0));
+  /// let lb:LBox<dyn Any> = LBox::upcast(LBox::new(String::from("abc"),0,0));
   ///```
   /// upcast always returns a `LBox<dyn Any>`.
   pub fn upcast<T:'static>(lb:LBox<T>) -> Self
   {
      let bx:Box<dyn Any> = lb.exp;
-     LBox { exp:bx, line:lb.line, column:lb.column, src_id:lb.src_id, }
+     LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
   }
-//  pub fn frombox(e:Box<dyn Any>,ln:usize,col:usize,src:usize) -> Self
-//  { LBox { exp:e, line:ln, column:col, src_id:src } }  
 }// downcast for LBox
 
 ///this is provided so `LBox<dyn Any>` can be used for the abstract syntax type.
 /// the default is a Lbox containing a static string.
 impl Default for LBox<dyn Any+'static>
 {
-  fn default() -> Self {LBox::upcast(LBox::new("LBox<dyn Any> defaults to this string",0,0,0))}
+  fn default() -> Self {LBox::upcast(LBox::new("LBox<dyn Any> defaults to this string",0,0/*,0*/))}
 }
 
 impl<T:std::fmt::Debug> std::fmt::Debug for LBox<T> {
@@ -172,17 +167,6 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LBox<T> {
 }
 
 
-/*  // probably won't help
-impl<U:'static> LBox<U>
-{ 
-  pub fn upcast<T:'static>(lb:LBox<T>) -> Self
-  {
-     let bxany:Box<dyn Any> = lb.exp;  // this casts Box<T> to Box<Any>
-     let bx = bxany.downcast::<U>().unwrap(); // use carefully!
-     LBox { exp:bx, line:lb.line, column:lb.column, src_id:lb.src_id, }
-  }
-}
-*/
 
 ///Like LBox but encapsulates an Rc. Implements [Deref] and emulates the
 ///[Rc::clone] function.
@@ -191,18 +175,18 @@ pub struct LRc<T:?Sized>
   pub exp:Rc<T>,
   pub line:usize,
   pub column:usize,
-  pub src_id:usize,
+  //pub src_id:usize,
 }
 impl<T> LRc<T>
 {
-  pub fn new(e:T,ln:usize,col:usize,src:usize) -> LRc<T>
-  { LRc { exp:Rc::new(e), line:ln, column:col, src_id:src } }
-  pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
+  pub fn new(e:T,ln:usize,col:usize /*,src:usize*/) -> LRc<T>
+  { LRc { exp:Rc::new(e), line:ln, column:col, /*src_id:src*/ } }
+  //pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
   ///should be used to create a new LRc-expression that inherits
   /// lexical information from existing LRc
   pub fn transfer<U>(&self,e:U) -> LRc<U>
   {
-     LRc::new(e,self.line,self.column,self.src_id)
+     LRc::new(e,self.line,self.column /*,self.src_id*/)
   }
   ///uses [Rc::clone] to increase reference count of encapsulated Rc,
   ///copies line, column and source_id information.
@@ -212,7 +196,7 @@ impl<T> LRc<T>
         exp: Rc::clone(&lrc.exp),
         line: lrc.line,
         column: lrc.column,
-        src_id: lrc.src_id,
+        //src_id: lrc.src_id,
      }
   }//clone
 }
@@ -242,7 +226,7 @@ impl<T> DerefMut for LRc<T>
 */
 impl<T:Default> Default for LRc<T>
 {
-  fn default() -> Self {LRc::new(T::default(),0,0,0)}
+  fn default() -> Self {LRc::new(T::default(),0,0/*,0*/)}
 }
 
 impl LRc<dyn Any+'static>
@@ -257,21 +241,21 @@ impl LRc<dyn Any+'static>
        exp : rcdown.unwrap(),
        line: self.line,
        column: self.column,
-       src_id: self.src_id,
+       //src_id: self.src_id,
      })
   }
   /// upcasts `LRc<T>` to `LRc<dyn Any>`
   pub fn upcast<T:'static>(lb:LRc<T>) -> Self
   {
      let bx:Rc<dyn Any> = lb.exp;
-     LRc { exp:bx, line:lb.line, column:lb.column, src_id:lb.src_id, }
+     LRc { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
   }
 }// downcast/upcast for LRc
 
 ///this is required if `LRc<dyn Any>` is used for the abstract syntax type
 impl Default for LRc<dyn Any+'static>
 {
-  fn default() -> Self {LRc::upcast(LRc::new("LRc<dyn Any> defaults to this string",0,0,0))}
+  fn default() -> Self {LRc::upcast(LRc::new("LRc<dyn Any> defaults to this string",0,0 /*,0*/))}
 }
 
 impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
@@ -284,32 +268,6 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
 // unlike a generic LBox
 type ABox = LBox<GenAbsyn>;
 
-/*
-impl std::fmt::Debug for ABox
-{
-fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ABox")
-         .field("exp", &self.exp)
-         .field("line", &self.line)
-         .field("column", &self.column)         
-         .finish()
-    }
-}// impl Debug for ABox
-*/
-/*
-impl Clone for ABox
-{
-  fn clone(&self) -> Self
-  {
-     LBox {
-       exp: self.exp.clone(),
-       line: self.line,
-       column: self.column,
-       src_id: self.src_id,
-     }
-  }
-}// impl Clone for ABox
-*/
 
 /// Generic Abstract Syntax type: Rustlr offers the user the option
 /// of using a ready-made abstract syntax type that should be suitable for
@@ -476,14 +434,22 @@ macro_rules! lbget {
   };
 }
 
-/// macro for creating an [LBox] from a [crate::StackedItem] popped from
+/// macro for creating an [LBox] from a [crate::StackedItem] ($si) popped from
 /// the parse stack; should be called from within the semantics actions of
-/// a grammar to accurately encode lexical information.  The src_id must
-/// be set separately
+/// a grammar to accurately encode lexical information. 
 #[macro_export]
 macro_rules! makelbox {
   ($si:expr, $e:expr) => {
-    LBox::new($e,$si.line,$si.column,0)
+    LBox::new($e,$si.line,$si.column)
+  };
+}
+
+/// similar to [makelbox] but creates an [LRc] from lexical information
+/// inside stack item $si
+#[macro_export]
+macro_rules! makelrc {
+  ($si:expr, $e:expr) => {
+    LRc::new($e,$si.line,$si.column)
   };
 }
 

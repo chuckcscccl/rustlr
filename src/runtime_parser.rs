@@ -234,14 +234,14 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
     ///```ignore
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
     ///```
-    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.linenum,self.column,self.src_id) }
+    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// creates a `LBox<dyn Any>`, which allows attributes of different types to
     /// be associated with grammar symbols.  Use in conjuction with [LBox::downcast], [LBox::upcast] and the [lbdown], [lbup] macros.
-    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.linenum,self.column,self.src_id)) }
+    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.linenum,self.column /*,self.src_id*/)) }
     /// similar to [RuntimeParser::lb], but creates a [LRc] instead of [LBox]
-    pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column,self.src_id) }
+    pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// similar to [RuntimeParser::lba] but creates a [LRc]
-    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column,self.src_id)) }        
+    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column /*,self.src_id*/)) }        
 }// impl RuntimeParser
 
 
