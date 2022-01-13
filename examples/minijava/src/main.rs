@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 extern crate rustlr;
 extern crate basic_lexer;
+use basic_lexer::*;
 use rustlr::{StrTokenizer,LexSource};
 mod absyntax;
 use absyntax::*;
@@ -27,5 +28,19 @@ fn main() {
   //let absyntree2 = parser2.parse_train("zcmjparser.rs");
   let absyntree2 = parser2.parse();
   println!("Parser Error? : {}",parser2.error_occurred());
-  println!("abstract syntax tree after parse: {:?}\n",absyntree2);  
+  println!("abstract syntax tree after parse: {:?}\n",absyntree2);
+ // main2();
+}
+
+fn main2()// just testing
+{
+let source = LexSource::new("Cargo.toml").unwrap();
+let mut tokenizer = StrTokenizer::from_source(&source);
+tokenizer.set_line_comment("#");
+tokenizer.keep_comment=true;
+tokenizer.keep_newline=false;
+tokenizer.keep_whitespace=false; 
+while let Some(token) = tokenizer.next() {
+   println!("Token: {:?}",&token);
+} 
 }

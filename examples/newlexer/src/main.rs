@@ -345,16 +345,16 @@ impl<'t> StrTokenizer<'t>
         self.position = mat.end()+pi;  
         return Some((Alphanum(&self.input[pi..self.position]),self.line,pi-self.line_start+1));
     }//alphanums
-    // decimal ints
-    if let Some(mat) = self.decuint.find(&self.input[pi..]) {
-        self.position = mat.end()+pi;  
-        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
-    }//decuint
     // floats
     if let Some(mat) = self.floatp.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
         return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
     }//floatp
+    // decimal ints
+    if let Some(mat) = self.decuint.find(&self.input[pi..]) {
+        self.position = mat.end()+pi;  
+        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
+    }//decuint
 
     //check for unclosed string
     if pi<self.input.len() && &self.input[pi..pi+1]=="\"" {

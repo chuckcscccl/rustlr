@@ -111,7 +111,7 @@ pub struct ZCParser<'t, AT:Default,ET:Default>
   /// topmost StackedItem.
   pub linenum : usize,
   pub column : usize,
-  pub src_id : usize,
+//  pub src_id : usize,
   report_line : usize,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
@@ -138,7 +138,7 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
          err_occurred : false,
          linenum : 0,
          column : 0,
-         src_id : 0,
+//         src_id : 0,
          report_line : 0,
          resynch : HashSet::new(),
          //added for training
@@ -188,12 +188,14 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
        AT::default()
     }
 
+/*
     /// sets an index that index source information, such as the source file
     /// when compiling multiple sources. This information must be maintained externally.
     /// The source id will also be passed on to the [LBox] and [LRc] smartpointers by
     /// the [ZCParser::lb] function.
     pub fn set_src_id(&mut self, id:usize)
     { self.src_id =id; }
+*/
 
     //called to simulate a shift
     fn errshift(&mut self, sym:&str) -> bool
@@ -332,7 +334,7 @@ impl Statemachine
 #![allow(dead_code)]
 #![allow(irrefutable_let_patterns)]
 extern crate rustlr;
-use rustlr::{{Tokenizer,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
+use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
 
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses
 
