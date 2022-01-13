@@ -233,7 +233,7 @@ impl Grammar
                   tokentype.push(' ');
                }
 	       if stokens.len()>2 && stokens[2]!="mut" {
-	         let rtype = format!("Priv_Variant_Default({})",&self.Absyntype);
+	         let rtype = format!("Priv_Variant_{}({})",self.Symbols.len(),&self.Absyntype);
 		 newterm.settype(&rtype);
                  //newterm.settype(tokentype.trim());
                }

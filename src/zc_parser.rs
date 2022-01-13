@@ -171,7 +171,8 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
     {      // linenum must be set prior to call
        if (self.report_line != self.linenum || self.linenum==0)  {
 //         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+//         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
+         eprintln!("PARSER ERROR: {}",errmsg);
          self.report_line = self.linenum;
        }
        else {
@@ -654,8 +655,8 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
      actionopt = parser.RSM[cstate].get("ANY_ERROR");
   }// lookahead is not a grammar sym
   let errmsg = if let Some(Error(em)) = &actionopt {
-    format!("unexpected symbol {}, ** {} ** ..",lksym,em.trim())
-  } else {format!("unexpected symbol {} .. ",lksym)};
+    format!("unexpected symbol {} on line {}, column {}: ** {} ** ..",lksym,lookahead.line,lookahead.column,em.trim())
+  } else {format!("unexpected symbol {} on line {}, column {} .. ",lksym,lookahead.line,lookahead.column)};
 
   parser.report(&errmsg);
 
