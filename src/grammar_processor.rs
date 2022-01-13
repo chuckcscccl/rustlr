@@ -233,7 +233,7 @@ impl Grammar
                   tokentype.push(' ');
                }
 	       if stokens.len()>2 && stokens[2]!="mut" {
-	         let rtype = format!("Priv_Variant_{}({})",self.Symbols.len(),&self.Absyntype);
+	         let rtype = format!("PE_Variant_{}({})",self.Symbols.len(),&self.Absyntype);
 		 newterm.settype(&rtype);
                  //newterm.settype(tokentype.trim());
                }
@@ -249,7 +249,7 @@ impl Grammar
                   tokentype.push(' ');
                }
 	       if stokens.len()>2 && stokens[2]!="mut" {
-	         let rtype = format!("Priv_Variant_{}({})",self.Symbols.len(),tokentype.trim());
+	         let rtype = format!("PE_Variant_{}({})",self.Symbols.len(),tokentype.trim());
 		 newterm.settype(&rtype);
                  //newterm.settype(tokentype.trim());
                }
