@@ -103,6 +103,8 @@ pub struct Grammar
   pub Errsym : String,        // error recovery terminal symbol
   pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
+  pub sametype: bool,  // determine if absyntype is only valuetype
+  pub tracelev:usize,
 }
 
 impl Grammar
@@ -125,6 +127,8 @@ impl Grammar
        Errsym : String::new(),
        Lexnames : HashMap::new(),
        Extras: String::new(),
+       sametype:true,
+       tracelev:1,
      }
   }//new grammar
 
@@ -232,28 +236,23 @@ impl Grammar
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-	       if stokens.len()>2 && stokens[2]!="mut" {
-	         let rtype = format!("PE_Variant_{}({})",self.Symbols.len(),&self.Absyntype);
-		 newterm.settype(&rtype);
-                 //newterm.settype(tokentype.trim());
-               }
-               else {newterm.settype(&self.Absyntype);}
+               newterm.settype(&self.Absyntype);
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);           
 	    }, //typed terminals
-	    "nonterminal" if stage==0 => {
+	    "nonterminal" if stage==0 => {   // with type
 	       let mut newterm = Gsym::new(stokens[1],false);
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-	       if stokens.len()>2 && stokens[2]!="mut" {
-	         let rtype = format!("PE_Variant_{}({})",self.Symbols.len(),tokentype.trim());
-		 newterm.settype(&rtype);
-                 //newterm.settype(tokentype.trim());
-               }
-               else {newterm.settype(&self.Absyntype);}
+//	       if stokens.len()>2 && stokens[2]!="mut" {
+//	         let rtype = format!("PE_Variant_{}({})",self.Symbols.len(),tokentype.trim());
+//		 newterm.settype(&rtype);
+               newterm.settype(tokentype.trim());
+//               }
+//               else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
@@ -467,8 +466,18 @@ impl Grammar
 //        Ruleaction: |p|{AT::default()}, //{p.Parsestack.pop().unwrap().value},
      };
      self.Rules.push(startrule);  // last rule is start rule
-     if TRACE>0 {println!("{} rules in grammar",self.Rules.len());}
-     if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();} ////***
+     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
+     if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
+     // compute sametype value (default true)
+     for ri in 0..self.Symbols.len()
+     {
+        if self.Symbols[ri].rusttype.len()<2 {
+          self.Symbols[ri].settype(&self.Absyntype);
+        }
+        else if &self.Symbols[ri].rusttype!=&self.Absyntype {
+          self.sametype = false;
+        }
+     }//compute sametype
   }//parse_grammar
 }// impl Grammar
 // last rule is always start rule and first state is start state
