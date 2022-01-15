@@ -1,0 +1,49 @@
+# Simplified grammar for testing LBox capabilities.
+# LBox<dyn Any> can be used as the abstract syntax type, which effectively
+# allows attributes of different types to be associated with grammar symbols.
+
+!use rustlr::{lbup,lbdown,lbget,LBox};
+!use crate::Expr::*;
+!use std::any::Any;
+!
+!#[derive(Debug)]
+!pub enum Expr {
+! Var(String),
+! Val(i32),
+! Binop(&'static str,LBox<Expr>,LBox<Expr>),
+!}
+
+
+absyntype LBox<dyn Any>
+nonterminal E
+nonterminal ES mut
+terminals num var + ( ) ;
+topsym ES
+
+E --> E:a + E:b {parser.lba(Binop("+",lbdown!(a,Expr),lbdown!(b,Expr)))}
+E --> ( E:e ) {e}
+E --> num:n {parser.lba(Val(*lbdown!(n,i32)))}
+E --> var:v {parser.lba(Var(lbget!(v,String)))}
+ES -->  {parser.lba(Vec::<LBox<Expr>>::new())}
+ES ==> ES:es  E:e ; {
+   let mut down = lbdown!(es,Vec<LBox<Expr>>);
+   down.push(lbdown!(e,Expr));
+   lbup!(down)
+  } <==
+
+!
+! fn main() {
+!   let e = Val(30);
+!   let lbe = LBox::new(e,1,1);
+!   let lba = lbup!(lbe);
+!   //let lbd = lbdown!(lba,Expr);
+!     if let Val(x) = lbget!(lba,Expr) {
+!     println!("x is {}",x);
+!   }
+! } //just so it compiles
+!
+
+EOF
+
+parser.lba takes any expression and places it inside a LBox<dyn Any> along
+with the line, column and source_id numbers that are

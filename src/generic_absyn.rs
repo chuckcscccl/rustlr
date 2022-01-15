@@ -147,7 +147,7 @@ impl LBox<dyn Any+'static>
      let bx:Box<dyn Any> = lb.exp;
      LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
   }
-}// downcast for LBox
+}// downcast/upcast for LBox
 
 ///this is provided so `LBox<dyn Any>` can be used for the abstract syntax type.
 /// the default is a Lbox containing a static string.
@@ -426,11 +426,12 @@ macro_rules! lbdown {
 }
 
 /// similar to [lbdown], but also extracts the boxed expression, should
-/// use for non-copiable LBoxed values.
+/// use for non-copiable LBoxed values. can only return reference
+//    $x.downcast::<$t>().unwrap().exp
 #[macro_export]
 macro_rules! lbget {
   ( $x:expr,$t:ty ) => {
-    $x.downcast::<$t>().unwrap().exp
+    *$x.downcast::<$t>().unwrap().exp
   };
 }
 
