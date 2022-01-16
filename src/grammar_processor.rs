@@ -236,7 +236,7 @@ impl Grammar
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-               newterm.settype(&self.Absyntype);
+               newterm.settype(tokentype.trim());
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);           
 	    }, //typed terminals

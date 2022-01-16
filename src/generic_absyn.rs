@@ -415,7 +415,8 @@ macro_rules! lbup {
   };
 }
 
-/// macro for downcasting `LBox<dyn Any>` to a concrete type. Must be called
+/// macro for downcasting `LBox<dyn Any>` to `LBox<A>` for some 
+/// concrete type A. Must be called
 /// from within the semantic actions of grammar productions.  **Warning:**
 /// **unwrap** is called within the macro
 #[macro_export]
@@ -425,13 +426,18 @@ macro_rules! lbdown {
   };
 }
 
-/// similar to [lbdown], but also extracts the boxed expression, should
-/// use for non-copiable LBoxed values. can only return reference
-//    $x.downcast::<$t>().unwrap().exp
+/// similar to [lbdown], but also extracts the boxed expression
 #[macro_export]
 macro_rules! lbget {
   ( $x:expr,$t:ty ) => {
     *$x.downcast::<$t>().unwrap().exp
+  };
+}
+/// just extract value from LBox
+#[macro_export]
+macro_rules! unbox {
+  ( $x:expr ) => {
+    *$x.exp
   };
 }
 

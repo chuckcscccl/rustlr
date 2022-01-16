@@ -2,9 +2,7 @@
 # LBox<dyn Any> can be used as the abstract syntax type, which effectively
 # allows attributes of different types to be associated with grammar symbols.
 
-!use rustlr::{lbup,lbdown,lbget,LBox};
 !use crate::Expr::*;
-!use std::any::Any;
 !
 !#[derive(Debug)]
 !pub enum Expr {
@@ -12,13 +10,61 @@
 ! Val(i32),
 ! Binop(&'static str,LBox<Expr>,LBox<Expr>),
 !}
-
+!
 
 absyntype LBox<dyn Any>
-nonterminal E
-nonterminal ES mut
-terminals num var + ( ) ;
+nonterminal E Expr
+nonterminal ES Vec<LBox<Expr>>
+typedterminal num i32
+typedterminal var String
+terminals + ( ) ;
 topsym ES
+
+E --> E:a + E:b {Binop("+",a,b)}
+E --> ( E:e ) {unbox!(e)}
+E --> num:n {Val(unbox!(n))}
+E --> var:v {Var(unbox!(v))}
+ES -->  {Vec::new()}
+ES ==> ES:es@v@  E:e ; {
+   /*es.push(e);*/
+   v.push(e);
+   /*v*/
+   unbox!(es)
+  } <==
+
+!
+! fn main() {
+!   let e = Val(30);
+!   let s = Var(String::from("abc"));
+!   let lbe = LBox::new(e,1,1);
+!   let lba = lbup!(lbe);
+!   let lbs = lbup!(LBox::new(s,1,1));
+!   //let lbd = lbdown!(lba,Expr);
+!   if let Val(ref mut x) = lbget!(lba,Expr) {
+!     *x += 1;
+!     println!("x is {}",x);
+!   }
+!   if let Var(mut y) = lbget!(lbs,Expr) {
+!     y.push_str(" and xyz");
+!     println!("y is now {},",&y);
+!   }
+!   let mut e2 = Var(String::from("aaa"));
+!   if let Var(ref mut s2) = e2 {s2.push_str("bbb");}
+!   println!("e2 is now {:?}",&e2);
+!   let mut zb = LBox::new(String::from("hello"),0,0);
+!   let zm = &mut zb;
+!   zm.push_str(" world");
+!   println!("zb is now {:?}",&zb);
+!
+! } //just so it compiles
+!
+
+EOF
+
+parser.lba takes any expression and places it inside a LBox<dyn Any> along
+with the line, column and source_id numbers that are
+
+old grammar, before writelbaparser function:
 
 E --> E:a + E:b {parser.lba(Binop("+",lbdown!(a,Expr),lbdown!(b,Expr)))}
 E --> ( E:e ) {e}
@@ -30,20 +76,4 @@ ES ==> ES:es  E:e ; {
    down.push(lbdown!(e,Expr));
    lbup!(down)
   } <==
-
-!
-! fn main() {
-!   let e = Val(30);
-!   let lbe = LBox::new(e,1,1);
-!   let lba = lbup!(lbe);
-!   //let lbd = lbdown!(lba,Expr);
-!     if let Val(x) = lbget!(lba,Expr) {
-!     println!("x is {}",x);
-!   }
-! } //just so it compiles
-!
-
-EOF
-
-parser.lba takes any expression and places it inside a LBox<dyn Any> along
-with the line, column and source_id numbers that are
+  

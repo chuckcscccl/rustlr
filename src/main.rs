@@ -81,6 +81,7 @@ fn rustle(args:&Vec<String>) // called from main
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
   let mut grammar1 = Grammar::new();
+  grammar1.tracelev = tracelev;
   grammar1.parse_grammar(filepath);
   if tracelev>2 {println!("computing Nullable set");}
   grammar1.compute_NullableRf();
@@ -109,7 +110,8 @@ fn rustle(args:&Vec<String>) // called from main
   }
   let write_result =
     if zc {  // write zero-copy parser
-      fsm0.writezcparser(&parserfile)
+      //fsm0.writezcparser(&parserfile)
+      fsm0.writelbaparser(&parserfile)      
     }
     else {  // non-zc, original before version 0.2.0
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}

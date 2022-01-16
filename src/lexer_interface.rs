@@ -21,6 +21,8 @@ use std::str::Chars;
 use regex::Regex;
 use std::collections::{HashSet};
 use crate::RawToken::*;
+use crate::{LBox,LRc};
+use std::any::Any;
 
 /// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
@@ -177,7 +179,18 @@ impl<'t,AT:Default> TerminalToken<'t,AT>
   /// sym s and value v.
   pub fn from_raw(rt:(RawToken<'t>,usize,usize),s:&'t str,v:AT) -> TerminalToken<'t,AT>
   { TerminalToken{sym:s, value:v, line:rt.1, column:rt.2} }
-}
+
+    /// creates an [LBox] vale  using lexical information contained in
+    /// the token.
+    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.line,self.column /*,self.src_id*/) }
+    /// creates a `LBox<dyn Any>`, which allows attributes of different types to
+    /// be associated with grammar symbols.
+    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.line,self.column /*,self.src_id*/)) }
+    /// similar to [crate::ZCParser::lb], but creates a [LRc] instead of [LBox]
+    pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.line,self.column /*,self.src_id*/) }
+    /// similar to [crate::ZCParser::lba] but creates a [LRc]
+    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.line,self.column /*,self.src_id*/)) }
+}// impl TerminalToken
 
 ///////////
 /// This trait is intended to replace Lexer, and won't use owned strings
