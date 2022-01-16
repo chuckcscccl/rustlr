@@ -52,7 +52,7 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
   {
      ZCRProduction {
        lhs : lh,
-       Ruleaction : |p|{<AT>::default()},
+       Ruleaction : |p|{/*println!("EXECUTING DEFAULT!!");*/ <AT>::default()},
      }
   }
 }//impl ZCRProduction
@@ -186,6 +186,7 @@ impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
     {
        let msg = format!("pattern {} failed to bind to stacked values\n",pattern);
        self.report(&msg);
+       //println!("FROM BAD PATTERN:");
        AT::default()
     }
 
@@ -476,7 +477,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
   {
     let ref absyn = self.Gmr.Absyntype; // must be type of topsym
 
-    if absyn!="LBox<dyn Any>" && absyn!="LBox<Any>" {
+    if !is_lba(absyn) /*absyn!="LBox<dyn Any>" && absyn!="LBox<Any>"*/ {
        return self.writezcparser(filename);
     }
 
@@ -574,7 +575,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     let mut encode:u64 = 0;
     for i in 0..self.FSM.len() // for each state index i
     {
-      let row = &self.FSM[i];
+      let row = &self.FSM[i];                          ////////LBA VERSION
       for key in row.keys()
       { // see function decode for opposite translation
         let k = *self.Gmr.Symhash.get(key).unwrap(); // index of symbol
@@ -609,7 +610,13 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     // write code to call action function, then enclose in lba
       let lhsi = self.Gmr.Symhash.get(&self.Gmr.Rules[i].lhs.sym).expect("GRAMMAR REPRESENTATION CORRUPTED");
       let fnname = format!("_semaction_for_{}_",i);
-      write!(fd," lbup!( LBox::new({}(parser),parser.linenum,parser.column)) }};\n",&fnname)?;
+      let typei = &self.Gmr.Symbols[*lhsi].rusttype;
+      if is_lba(typei) {
+        write!(fd," {}(parser) }};\n",&fnname)?;
+      }
+      else {
+        write!(fd," lbup!( LBox::new({}(parser),parser.linenum,parser.column)) }};\n",&fnname)?;
+      }
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// write each rule action
     
@@ -641,7 +648,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
 //write-verbose no longer supported
 } // impl Statemachine
 
-//// independent function
+////// independent function
     fn iserror(actionopt:&Option<&Stateaction>) -> bool
     {
        match actionopt {
@@ -651,8 +658,12 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
          }
     }//iserror
 
-
-
+////// independent function
+  fn is_lba(t:&str) -> bool {
+    for s in ["", "LBox<dyn Any>","LBox<Any>","LBox< dyn Any>","LBox<dyn Any >",
+              "LBox< dyn Any >"] { if s==t {return true;}}
+    return false;
+  }//is_lba to check type
 
 
 ///////////////////////////////////////////////////////////////////////////

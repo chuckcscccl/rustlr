@@ -21,7 +21,7 @@ use std::str::Chars;
 use regex::Regex;
 use std::collections::{HashSet};
 use crate::RawToken::*;
-use crate::{LBox,LRc};
+use crate::{LBox,LRc,lbup};
 use std::any::Any;
 
 /// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
@@ -191,6 +191,20 @@ impl<'t,AT:Default> TerminalToken<'t,AT>
     /// similar to [crate::ZCParser::lba] but creates a [LRc]
     pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.line,self.column /*,self.src_id*/)) }
 }// impl TerminalToken
+
+impl<'t,AT:Default+'static> TerminalToken<'t,AT>
+{
+  /// creates a [TerminalToken] from a [RawToken] with value of type
+  /// `LBox<dyn Any>`
+  pub fn raw_to_lba(rt:(RawToken<'t>,usize,usize),s:&'t str,v:AT) -> TerminalToken<'t,LBox<dyn Any>> {
+   TerminalToken {
+     sym:s,
+     value: lbup!(LBox::new(v,rt.1,rt.2)),
+     line:rt.1, column:rt.2,
+   }
+ }
+}//impl for AT:'static
+
 
 ///////////
 /// This trait is intended to replace Lexer, and won't use owned strings

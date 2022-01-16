@@ -1,0 +1,45 @@
+# ambiguous grammar for online calculator, enum Expr defined in exprtrees.rs
+# version using LBox<Any>
+
+!use crate::exprtrees::*;
+!use crate::exprtrees::Expr::*;
+#!use rustlr::{LBox,makelbox};
+
+absyntype LBox<dyn Any>
+externtype i64
+nonterminal E Expr
+nonterminal ES Vec<LBox<Expr>>
+terminal + - * / ( ) ;
+typedterminal int Expr
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+
+E --> int:m { unbox!(m) } 
+E --> E:e1 + E:e2 { Plus(e1,e2) }
+E --> E:e1 - E:e2 { Minus(e1,e2) }
+E --> E:e1 / E:e2 { Divide(e1,e2) }
+E --> E:e1 * E:e2 { Times(e1,e2) }
+E --> - E:e { Negative(e) }
+E --> ( E:e )  { *e.exp }
+ES --> E:n ; { vec![n] }
+ES ==> ES:v E:e ;  {
+   v.push(e);
+   println!("v len {}",v.len());
+   unbox!(v)
+   } <==
+
+# ==> and <== are required for rules spanning multiple lines
+
+EOF
+
+What could be better syntax than makelbox! ?
+Plus(parser.lbox(0,e1), parser.lbox(2,e2)) ??
+
+ZCParser can have a vector of (line,col) values popped off from the
+stack in a separate vector that's clearly before each reduce. - the vector
+will be in reverse.

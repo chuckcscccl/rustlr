@@ -463,7 +463,6 @@ impl Grammar
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
         action: String::default(),
         precedence : 0,
-//        Ruleaction: |p|{AT::default()}, //{p.Parsestack.pop().unwrap().value},
      };
      self.Rules.push(startrule);  // last rule is start rule
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
