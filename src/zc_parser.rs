@@ -377,7 +377,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     // must know what absyn type is when generating code.
     let ref absyn = self.Gmr.Absyntype;
     let ref extype = self.Gmr.Externtype;
-    write!(fd,"pub fn new_parser<'t>(tokenizer:&'t mut dyn Tokenizer<'t,{}>) -> ZCParser<'t,{},{}>",absyn,absyn,extype)?; 
+    write!(fd,"pub fn new_parser<'parser_lt>(tokenizer:&'parser_lt mut dyn Tokenizer<'parser_lt,{}>) -> ZCParser<'parser_lt,{},{}>",absyn,absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
     write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{},tokenizer);\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
@@ -462,7 +462,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// Augment!
-    write!(fd,"fn load_extras(parser:&mut ZCParser<{},{}>)\n{{\n",absyn,extype)?;
+    write!(fd,"fn load_extras<'parser_lt>(parser:&'parser_lt mut ZCParser<{},{}>)\n{{\n",absyn,extype)?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writezcparser
@@ -490,7 +490,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
       let lhs = &self.Gmr.Rules[ri].lhs.sym;
       let lhsi = self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
       let rettype = &self.Gmr.Symbols[*lhsi].rusttype; // return type
-      let mut fndef = format!("fn _semaction_for_{}_(parser:&mut ZCParser<{},{}>) -> {} {{\n",ri,absyn,extype,rettype);
+      let mut fndef = format!("fn _semaction_for_{}_<'parser_lt>(parser:&'parser_lt mut ZCParser<{},{}>) -> {} {{\n",ri,absyn,extype,rettype);
 
       let mut k = self.Gmr.Rules[ri].rhs.len();
       //form if-let labels and patterns as we go...
@@ -596,7 +596,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     for deffn in &actions { write!(fd,"{}",deffn)?; }
 
     // must know what absyn type is when generating code.
-    write!(fd,"\npub fn create_parser<'t>(tokenizer:&'t mut dyn Tokenizer<'t,{}>) -> ZCParser<'t,{},{}>",absyn,absyn,extype)?; 
+    write!(fd,"\npub fn create_parser<'parser_lt>(tokenizer:&'parser_lt mut dyn Tokenizer<'parser_lt,{}>) -> ZCParser<'parser_lt,{},{}>",absyn,absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
     write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{},tokenizer);\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
@@ -639,7 +639,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// Augment!
-    write!(fd,"fn load_extras(parser:&mut ZCParser<{},{}>)\n{{\n",absyn,extype)?;
+    write!(fd,"fn load_extras<'parser_lt>(parser:&'parser_lt mut ZCParser<{},{}>)\n{{\n",absyn,extype)?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writelbaparser

@@ -27,14 +27,13 @@ use crate::Expr::*;
 use crate::Stat::*;
 
 #[derive(Debug)]
-pub enum Construct
+pub enum Construct<'t>
 {
-   Id(String),
-   Stm(Stat),
-   Stms(Vec<LBox<Stat>>),
-   //Tyexpr(String),
-   Exp(Expr),
-   Exps(Vec<LBox<Expr>>),
+   Id(&'t st),
+   Stm(Stat<'t>),
+   Stms(Vec<LBox<Stat<'t>>>),
+   Exp(Expr<'t>),
+   Exps(Vec<LBox<Expr<'t>>>),
    Vdec(VarDec),
    Vdecs(Vec<LBox<VarDec>>),
    Method(MethodDec),
@@ -45,89 +44,89 @@ pub enum Construct
    Maincl(Mainclass),
    Program(LBox<Mainclass>,Vec<LBox<ClassDec>>),
 }
-impl Default for Construct // required for Construct to be grammar absyntype
+impl<'t> Default for Construct<'t> // required for Construct to be grammar absyntype
 {
   fn default() -> Self { Exp(Nothing) }
 }
 
 #[derive(Debug)]
-pub enum Expr
+pub enum Expr<'t>
 {
    Int(i32),
-   Strlit(String),
+   Strlit(&'t str),
    Bool(bool),
-   Var(String),
+   Var(&'t str),
    Thisptr,
-   Binop(&'static str,LBox<Expr>,LBox<Expr>), // includes index,
-   Notexp(LBox<Expr>),
-   Field(String,LBox<Expr>),
-   Newarray(LBox<Expr>),
-   Newobj(String),  // String is the class name
-   Callexp(LBox<Expr>,String,Vec<LBox<Expr>>), //expr version
+   Binop(&'static str,LBox<Expr<'t>>,LBox<Expr<'t>>), // includes index,
+   Notexp(LBox<Expr<'t>>),
+   Field(&'t str,LBox<Expr<'t>>),
+   Newarray(LBox<Expr<'t>>),
+   Newobj(&'t str),  // String is the class name
+   Callexp(LBox<Expr<'t>>,&'t str,Vec<LBox<Expr<'t>>>), //expr version
    Nothing,
 }
 impl Default for Expr { fn default()->Self {Nothing} }
 
 #[derive(Debug)]
-pub enum Stat
+pub enum Stat<'t>
 {
-  Whilest(LBox<Expr>,LBox<Stat>),
-  Ifstat(LBox<Expr>,LBox<Stat>,LBox<Stat>),
-  Vardecst(String,String,LBox<Expr>),  //name, type, initial val
-  Returnst(LBox<Expr>),
-  Assignst(String,LBox<Expr>),
-  ArAssignst(LBox<Expr>,LBox<Expr>,LBox<Expr>), //a[i]=e
-  Callstat(LBox<Expr>,String,Vec<LBox<Expr>>), //stat version  
+  Whilest(LBox<Expr<'t>>,LBox<Stat<'t>>),
+  Ifstat(LBox<Expr<'t>>,LBox<Stat<'t>>,LBox<Stat<'t>>),
+  Vardecst(LBox<VarDec>),
+  Returnst(LBox<Expr<'t>>),
+  Assignst(&'t str,LBox<Expr<'t>>),
+  ArAssignst(LBox<Expr<'t>>,LBox<Expr<'t>>,LBox<Expr<'t>>), //a[i]=e
+  Callstat(LBox<Expr<'t>>,&'t str,Vec<LBox<Expr<'t>>>), //stat version  
   Nopst,  // nop
-  Blockst(Vec<LBox<Stat>>),
+  Blockst(Vec<LBox<Stat<'t>>>),
 }
 impl Default for Stat {fn default()->Self {Nopst} }
 
 #[derive(Debug)]
-pub struct VarDec  // variable declaration
+pub struct VarDec<'t>  // variable declaration
 {
-   pub dname:String,
-   pub dtype:String,
-   pub initval:Expr,
+   pub dname:&'t str,
+   pub dtype:&'t str,
+   pub initval:Expr<'t>,
 }
 impl Default for VarDec {
- fn default() -> Self { VarDec{dname:String::new(),dtype:String::new(),initval:Nothing} }
+ fn default() -> Self { VarDec{dname:"",dtype:"",initval:Nothing} }
 }
 
 #[derive(Debug)]
-pub struct MethodDec   // method declaration
+pub struct MethodDec<'t>   // method declaration
 {
    pub formals:Vec<LBox<VarDec>>,  // formal args
-   pub body: Vec<LBox<Stat>>,  // should be a Blockst
-   pub classname: String, // added later
-   pub methodname: String,
+   pub body: Vec<LBox<Stat<'t>>>,  // should be a Blockst
+   pub classname: &'t str, // added later
+   pub methodname: &'t str,
 }
 impl Default for MethodDec {
- fn default() -> Self { MethodDec{formals:Vec::new(),classname:String::new(),methodname:String::new(),body:Vec::new()} }
+ fn default() -> Self { MethodDec{formals:Vec::new(),classname:"",methodname:"",body:Vec::new()} }
 }
 
 #[derive(Debug)]
-pub struct ClassDec // class declaration
+pub struct ClassDec<'t> // class declaration
 {
-  pub superclass:String,
-  pub classname:String,
+  pub superclass:&'t str,
+  pub classname:&'t str,
   pub vars: Vec<LBox<VarDec>>,
   pub methods: Vec<LBox<MethodDec>>,
 }
 impl Default for ClassDec {
- fn default()->Self { ClassDec{superclass:String::from("Object"),classname:String::new(),vars:Vec::new(),methods:Vec::new()}}
+ fn default()->Self { ClassDec{superclass:"Object",classname:"",vars:Vec::new(),methods:Vec::new()}}
 }
 
 
 #[derive(Debug)]
-pub struct Mainclass  // main class can only contain a main
+pub struct Mainclass<'t>  // main class can only contain a main
 {
-  pub classname:String,
-  pub argvname: String,  // name of String[] arg to main
-  pub body : Stat,       // body of main
+  pub classname:&'t str,
+  pub argvname: &'t str,  // name of String[] arg to main
+  pub body : Stat<'t>,       // body of main
 }
 impl Default for Mainclass {
-  fn default()->Self { Mainclass {classname:String::new(),argvname:String::new(),body:Stat::default(),}}
+  fn default()->Self { Mainclass {classname:"",argvname:"",body:Stat::default(),}}
 }
 
 // separates a list containing both variable and method declarations as 

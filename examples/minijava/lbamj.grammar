@@ -1,0 +1,180 @@
+# Grammar for minijava+ (adopted from MYOCC version 2014)
+# This package includes this grammar, absyntax.rs, mjlexer.rs and main.rs
+# There are also several "minijava" programs that can be parsed including
+# QuickSort.mj and BinaryTree.mj
+
+# The grammar defines a scaled-down version of Java similar to the "Tiger"
+# language in Andrew Appel's compiler textbooks.  This language was originally
+# used in a compilers class taught at Hofstra University in 2014, during which
+# students wrote their own LR(1) parser generator in Java. It's easier to
+# implement full LR(1) as opposed to LALR(1), which is all that's needed for
+# this grammar.
+
+# This grammar does not really introduce many more features compared to
+# what's already covered in the advanced calculator grammar, but it serves as
+# a larger, more realistic example of how rustlr can be used to build ASTs and
+# parsers for languages.
+
+# This version uses LBox<dyn Any>
+
+!use crate::lbasyntax::*;
+!use crate::lbasyntax::Construct::*;
+!use crate::lbasyntax::Expr::*;
+!use crate::lbasyntax::Stat::*;
+
+absyntype LBox<dyn Any>
+typedterminal ID &'parser_lt str
+typedterminal STRING &'parser_lt str
+typedterminal BOOL bool
+typedterminal INTEGER i32
+terminal class public static void main String extends return length
+terminal ( ) [ ] ; DOT ! , new this
+terminal LBR RBR OROR
+terminal int boolean if else while == = + - * / < && MOD
+nonterminal Program Construct<'parser_lt>
+nonterminal MainCl Mainclass<'parser_lt>
+nonterminal ClassDec ClassDec<'parser_lt>
+nonterminal ClassDecl Vec<ClassDec<'parser_lt>>
+nonterminal Extension &'parser_lt str
+nonterminal VarDec VarDec<'parser_lt>
+nonterminal MethodDec MethodDec<'parser_lt>
+nonterminal Decl Vec<Construct<'parser_lt>>
+nonterminal FormalLst Vec<VarDec<'parser_lt>>
+nonterminal FormalRst Vec<VarDec<'parser_lt>>
+nonterminal Type &'parser_lt str
+nonterminal Stat Stat<'parser_lt>
+nonterminal Stats Vec<Stat<'parser_lt>>
+nonterminal Exp Expr<'parser_lt>
+nonterminal ExpLst Vec<Expr<'parser_lt>>
+nonterminal ExpRst Vec<Expr<'parser_lt>>
+topsym Program
+resync ;
+
+left + 500
+left - 510
+left * 700
+left / 710
+left && 400
+left OROR 350
+left ! 450
+left == 310
+left = 800
+left < 300
+left MOD 705
+left DOT 810
+# to deal with the dangling-else problem, else is given higher precedence
+# than if. Reduction by (Stat --> if (Exp) Stat) will be delayed if the
+# the lookahead symbol is 'else'.
+left if 30
+left else 40
+
+
+Program --> MainCl:mc  ClassDecl:cs  { Program(mc,cs) }
+   
+MainCl ==> class ID:@Id(cn)@ LBR public static void main ( String [ ] ID:@Id(an)@ ) LBR Stats:@Stms(thebody)@ RBR RBR  {
+   Maincl(Mainclass{classname:cn,
+             argvname:an,
+             body: Blockst(thebody),
+	    })
+  } <==
+
+ClassDecl --> { Classes(Vec::new()) }
+ClassDecl ==> ClassDecl:@Classes(mut cs)@  ClassDec:@Class(cl)@  {
+  cs.push(makelbox!(_item1_,cl)); Classes(cs)
+  } <==
+ClassDec ==> class ID:@Id(name)@ Extension:@Id(sup)@ LBR Decl:@Decs(mut ds)@ RBR {
+  let mut vdecs=Vec::new();
+  let mut mdecs=Vec::new();
+  separatedecs(ds,&mut vdecs,&mut mdecs); /*split var and method declarations*/
+  Class(ClassDec {superclass:sup,
+                  classname:name,
+		  vars:vdecs,
+		  methods:mdecs})
+  } <==
+  
+Extension --> extends ID:sup { sup }
+Extension --> { Id("Object".to_owned()) }
+VarDec --> Type:@Id(t)@ ID:@Id(v)@ ;  { Vdec(VarDec{dname:v,dtype:t,initval:Nothing,}) }
+VarDec ==> Type:@Id(t)@ ID:@Id(v)@ = Exp:@Exp(e)@ ; {
+  Vdec(VarDec{dname:v,dtype:t,initval:e})
+  } <==
+  
+MethodDec ==> public Type:@Id(ty)@ ID:@Id(name)@ ( FormalLst:@Vdecs(args)@ ) LBR Stats:@Stms(mbody)@ RBR {
+  Method(MethodDec{ formals:args,
+                    body: mbody,
+		    classname:ty,
+		    methodname:name, })
+  } <==
+Decl -->  { Decs(Vec::new()) }
+Decl --> Decl:@Decs(mut ds)@ VarDec:v { ds.push(makelbox!(_v_,v)); Decs(ds) }
+Decl --> Decl:@Decs(mut ds)@ MethodDec:m { ds.push(makelbox!(_m_,m)); Decs(ds) }
+FormalLst --> { Vdecs(Vec::new()) }
+
+# warning: list constructed backwards:
+FormalLst ==> Type:@Id(ty)@ ID:@Id(a)@ FormalRst:@Vdecs(mut frs)@ {
+  frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
+  Vdecs(frs) 
+  } <==
+FormalRst --> { Vdecs(Vec::new()) }
+FormalRst ==> , Type:@Id(ty)@ ID:@Id(a)@ FormalRst:@Vdecs(mut frs)@ {
+  frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
+  Vdecs(frs) 
+  } <==
+Type --> int [ ] { return Id("int[]".to_owned()); }
+Type --> boolean { return Id("boolean".to_owned()); }
+Type --> String  { return Id("String".to_owned()); }
+Type --> int     { return Id("int".to_owned()); }
+Type --> void     { return Id("void".to_owned()); }
+Type --> ID:c    { c }    
+Stats --> { Stms(Vec::new()) }
+Stats --> Stats:@Stms(mut sv)@ Stat:@Stm(s)@ { sv.push(makelbox!(_item1_,s)); Stms(sv) }
+Stat --> LBR Stats:@Stms(sv)@ RBR { Stm(Blockst(sv)) }
+Stat ==> if ( Exp:@Exp(c)@ ) Stat:@Stm(a)@ else Stat:@Stm(b)@ {
+  Stm(Ifstat(makelbox!(_item2_,c), makelbox!(_item4_,a), makelbox!(_item6_,b)))
+  } <==
+Stat --> if ( Exp:@Exp(c)@ ) Stat:@Stm(a)@ { Stm(Ifstat(makelbox!(_item2_,c),makelbox!(_item4_,a),parser.lbx(5,Nopst))) }
+Stat --> while ( Exp:@Exp(c)@ ) Stat:@Stm(s)@ { Stm(Whilest(parser.lbx(2,c),parser.lbx(4,s))) }
+Stat --> ID:@Id(v)@ = Exp:@Exp(e)@ ; { Stm(Assignst(v,parser.lbx(2,e))) }
+
+### either change both leading Exp to ID or keep both as Exp
+
+Stat ==> Exp:@Exp(v)@ [ Exp:@Exp(i)@ ] = Exp:@Exp(e)@ ; {
+  Stm(ArAssignst(parser.lbx(0,v),parser.lbx(2,i),parser.lbx(5,e)))
+  } <==
+Stat ==> Exp:@Exp(obj)@ DOT ID:@Id(m)@ ( ExpLst:@Exps(args)@ ) ; {
+  Stm(Callstat(parser.lb(obj),m,args))
+  } <==
+
+Stat --> return Exp:@Exp(e)@ ; { Stm(Returnst(parser.lbx(1,e))) }
+Stat --> VarDec:@Vdec(v)@  {Stm(Vardecst(v.dname,v.dtype,parser.lb(v.initval)))}
+
+Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> ! Exp:@Exp(a)@  { Exp(Notexp(parser.lbx(1,a))) }
+Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lb(a),parser.lbx(2,i)))} 
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lb(obj))) }
+
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Exp(Callexp(parser.lb(obj),f,args)) }
+Exp --> INTEGER:i { i }
+Exp --> STRING:s { s }
+Exp --> BOOL:b { unbox!{b} }
+Exp --> ID:@Id(x)@ { Exp(Var(x)) }
+Exp --> this { Exp(Thisptr) }
+Exp --> new int [ Exp:@Exp(s)@ ] { Exp(Newarray(parser.lbx(3,s))) }
+Exp --> new ID:@Id(x)@ ( ) { Exp(Newobj(x)) }
+Exp --> ( Exp:e ) { e }
+
+# warning: backwards list:
+ExpLst --> { Exps(Vec::new()) }
+ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lb(e)); Exps(er) }
+ExpRst --> { Exps(Vec::new()) }
+ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(1,e)); Exps(er) }
+
+EOF

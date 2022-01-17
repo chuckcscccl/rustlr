@@ -422,6 +422,9 @@ impl<'t> StrTokenizer<'t>
   pub fn get_source(&self) -> &str {self.src}
   pub fn set_source<'u:'t>(&mut self, s:&'u str) {self.src=s;}
 
+  /// reset tokenizer to parse from beginning of input
+  pub fn reset(&mut self) {self.position=0; self.line=0; self.line_start=0;}
+
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along
   /// with a message printed to stderr if a tokenizer error occured.
