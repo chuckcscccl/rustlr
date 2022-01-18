@@ -144,14 +144,14 @@ impl<'t> LBox<dyn Any+'t>
   /// upcast always returns a `LBox<dyn Any>`.
   pub fn upcast<T:'t>(lb:LBox<T>) -> Self
   {
-     let bx:Box<dyn Any> = lb.exp;
+     let bx:Box<dyn Any> = lb.exp; // this requires Any+'static
      LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
   }
 }// downcast/upcast for LBox
 
 ///this is provided so `LBox<dyn Any>` can be used for the abstract syntax type.
 /// the default is a Lbox containing a static string.
-impl Default for LBox<dyn Any+'static>
+impl Default for LBox<dyn Any>
 {
   fn default() -> Self {LBox::upcast(LBox::new("LBox<dyn Any> defaults to this string",0,0/*,0*/))}
 }

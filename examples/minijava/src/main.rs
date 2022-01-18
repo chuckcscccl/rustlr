@@ -24,9 +24,9 @@ fn main() {
 */
   let source = LexSource::new(srcfile).unwrap();
   let mut scanner2 = Mjlexer::new(StrTokenizer::from_source(&source));
-  let mut parser2 = new_parser(&mut scanner2);
+  let mut parser2 = new_parser();
   //let absyntree2 = parser2.parse_train("zcmjparser.rs");
-  let absyntree2 = parser2.parse();
+  let absyntree2 = parser2.parse(&mut scanner2);
   println!("Parser Error? : {}",parser2.error_occurred());
   println!("abstract syntax tree after parse: {:?}\n",absyntree2);
  // main2();

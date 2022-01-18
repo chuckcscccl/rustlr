@@ -86,7 +86,7 @@ impl<'t> Tokenizer<'t,Construct> for Mjlexer<'t>
 {
    fn linenum(&self) -> usize {self.stk.line()}
    fn column(&self) -> usize {self.stk.column()}
-   fn position(&self) -> usize {self.stk.position()}
+   fn position(&self) -> usize {self.stk.current_position()}
    fn nextsym(&mut self) -> Option<TerminalToken<'t,Construct>>
    {
       let tokopt = self.stk.next_token();

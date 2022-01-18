@@ -34,15 +34,15 @@ pub enum Construct<'t>
    Stms(Vec<LBox<Stat<'t>>>),
    Exp(Expr<'t>),
    Exps(Vec<LBox<Expr<'t>>>),
-   Vdec(VarDec),
+   Vdec(VarDec<'t>),
    Vdecs(Vec<LBox<VarDec>>),
    Method(MethodDec),
    Methods(Vec<LBox<MethodDec>>),
-   Decs(Vec<LBox<Construct>>),
-   Class(ClassDec),
-   Classes(Vec<LBox<ClassDec>>),
-   Maincl(Mainclass),
-   Program(LBox<Mainclass>,Vec<LBox<ClassDec>>),
+   Decs(Vec<LBox<Construct<'t>>>),
+   Class(ClassDec<'t>),
+   Classes(Vec<LBox<ClassDec<'t>>>),
+   Maincl(Mainclass<'t>),
+   Program(LBox<Mainclass<'t>>,Vec<LBox<ClassDec<'t>>>),
 }
 impl<'t> Default for Construct<'t> // required for Construct to be grammar absyntype
 {
