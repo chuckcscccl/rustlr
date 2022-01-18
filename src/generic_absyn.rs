@@ -116,12 +116,12 @@ impl<T:Clone> Clone for LBox<T>
    }//clone
 }
 
-impl LBox<dyn Any+'static>
+impl<'t> LBox<dyn Any+'t>
 {
   /// emulates [Box::downcast] function, when `LBox<dyn Any>` is used as
   /// the abstract syntax type.  Note that unlike Box::downcast, an Option
   /// is returned here instead of a result.
-  pub fn downcast<U:'static>(self) -> Option<LBox<U>>
+  pub fn downcast<U:'t>(self) -> Option<LBox<U>>
   {
      let boxdown = self.exp.downcast::<U>();
      if let Err(_) = boxdown {return None;}
@@ -142,7 +142,7 @@ impl LBox<dyn Any+'static>
   /// let lb:LBox<dyn Any> = LBox::upcast(LBox::new(String::from("abc"),0,0));
   ///```
   /// upcast always returns a `LBox<dyn Any>`.
-  pub fn upcast<T:'static>(lb:LBox<T>) -> Self
+  pub fn upcast<T:'t>(lb:LBox<T>) -> Self
   {
      let bx:Box<dyn Any> = lb.exp;
      LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }

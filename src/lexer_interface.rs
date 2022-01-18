@@ -417,7 +417,7 @@ impl<'t> StrTokenizer<'t>
   /// the current column of the tokenizer
   pub fn column(&self)->usize {self.position-self.line_start+1}
   /// returns the current absolute byte position of the Tokenizer
-  pub fn position(&self)-> usize {self.position}
+  pub fn current_position(&self)-> usize {self.position}
   /// returns the source of the tokenizer such as URL or filename
   pub fn get_source(&self) -> &str {self.src}
   pub fn set_source<'u:'t>(&mut self, s:&'u str) {self.src=s;}
