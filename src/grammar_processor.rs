@@ -104,6 +104,7 @@ pub struct Grammar
   pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
   pub sametype: bool,  // determine if absyntype is only valuetype
+  pub lifetime: String,
   pub tracelev:usize,
 }
 
@@ -128,6 +129,7 @@ impl Grammar
        Lexnames : HashMap::new(),
        Extras: String::new(),
        sametype:true,
+       lifetime:String::new(), // empty means inferred
        tracelev:1,
      }
   }//new grammar
@@ -307,6 +309,11 @@ impl Grammar
                   }
                   self.Resynch.insert(stokens[i].trim().to_owned());
                } // for each subsequent token
+            },
+            "lifetime" if stokens.len()==2 && stokens[1].len()>0 => {
+               
+               self.lifetime = if &stokens[1][0..1]=="'" && stokens[1].len()>1 
+                 {String::from(stokens[1])} else {format!("'{}",stokens[1])};
             },
             "absyntype" | "valuetype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();

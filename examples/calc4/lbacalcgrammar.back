@@ -3,15 +3,14 @@
 
 !use crate::exprtrees::*;
 !use crate::exprtrees::Expr::*;
-#!use rustlr::{LBox,makelbox}; # automatically included for this absyntype
+#!use rustlr::{LBox,makelbox};
 
 lifetime 'src_lt
 absyntype LBox<dyn Any+'src_lt>
 externtype i64
 nonterminal E Expr<'src_lt>
 nonterminal ES Vec<LBox<Expr<'src_lt>>>
-terminal + - * / ( ) = ;
-terminals let in
+terminal + - * / ( ) ;
 typedterminal int i64
 typedterminal var &'src_lt str
 topsym ES
@@ -24,7 +23,6 @@ left - 400
 
 E --> int:m { Val(unbox!(m)) }
 E --> var:v { Var(unbox!(v)) }
-E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e,b)}
 E --> E:e1 + E:e2 { Plus(e1,e2) }
 E --> E:e1 - E:e2 { Minus(e1,e2) }
 E --> E:e1 / E:e2 { Divide(e1,e2) }

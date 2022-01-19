@@ -20,26 +20,30 @@ fn main()
   let args:Vec<String> = std::env::args().collect(); // command-line args
   let mut input =
 "-5-(4-2)*5;
-3-;
+#3-;   # syntax (parsing) error
 5-7- -9 ; 
 4*3-9; 
-2+1/(2-1-1);
-2+x;
+2+1/(2-1-1);  # division by 0 (semantic) error
+let x = 10 in 2+x;
+let x = 1 in (x+ (let x=10 in x+x) + x);
+(let x = 2 in x+x) + x;  # unbound variable (semantic) error
+(let x = 4 in x/2) + (let x=10 in x*x);
 ";
   //if args.len()>1 {input = &args[1];}
   println!("------------LBA---------------------------\n");
   let mut stk2 = StrTokenizer::from_str(input);
+  stk2.set_line_comment("#");
   let mut scanner2 = Zcscannerlba::new(stk2);
   let mut parser3 = create_parser();
-  let result = parser3.parse(&mut scanner2);  
-  //let result = parser3.parse_train("src/lbacalcparser.rs");
+  //let result = parser3.parse(&mut scanner2);  
+  let result = parser3.parse_train(&mut scanner2,"src/lbacalcparser.rs");
   let abtree2 = Expr::Seq(lbget!(result,Vec<LBox<Expr>>));
-
+  let bindings = newenv();
    println!("LBA expression tree after parse: {:?}",abtree2);
    if !parser3.error_occurred() {
-     println!("LBA final result after evaluation: {}", eval(&abtree2));
+     println!("Final result after evaluation: {:?}", eval(&bindings,&abtree2));
    } else {
-     println!("LBA parser error, best effort after recovery: {}", eval(&abtree2));
+     println!("Parser error, best effort after recovery: {:?}", eval(&bindings,&abtree2));
    }
 
 }//main

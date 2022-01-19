@@ -8,8 +8,38 @@ extern crate rustlr;
 use rustlr::{Lextoken,Lexer,LBox};
 use rustlr::{TerminalToken,Tokenizer,RawToken,StrTokenizer}; // for zc version
 use std::any::Any;
+use std::rc::Rc;
+use crate::exprtrees::Env::*;
 
-#[derive(Clone,Debug)]
+//// simple linked list with non-destructive cons to represent scoped
+//// environment.
+pub enum Env<'t> {
+  Nil,
+  Cons(&'t str, i64, Rc<Env<'t>>)
+}
+pub fn newenv<'t>() -> Rc<Env<'t>>
+{ Rc::new(Nil) }
+fn push<'t>(var:&'t str, val:i64, env:&Rc<Env<'t>>) -> Rc<Env<'t>>
+{ Rc::new(Cons(var,val,Rc::clone(env))) }
+fn pop<'t>(env:Rc<Env<'t>>) ->  Rc<Env<'t>> //not used here, just being complete
+{
+   match &*env {
+      Nil => env,
+      Cons(x,v,e) => Rc::clone(e),
+   }
+}//push
+fn lookup<'t>(x:&'t str, env:&Rc<Env<'t>>) -> Option<i64>
+{
+    let mut current = env;
+    while let Cons(y,v,e) = &**current {
+      if &x==y {return Some(*v);}
+      else {current = e;}
+    }
+    return None;
+}//lookup
+
+
+#[derive(Debug)]
 pub enum Expr<'t>
 {
    Var(&'t str),
@@ -19,55 +49,59 @@ pub enum Expr<'t>
    Divide(LBox<Expr<'t>>,LBox<Expr<'t>>),
    Minus(LBox<Expr<'t>>,LBox<Expr<'t>>),
    Negative(LBox<Expr<'t>>),
+   Letexp(&'t str,LBox<Expr<'t>>,LBox<Expr<'t>>),
    Seq(Vec<LBox<Expr<'t>>>),
    Nothing,                    // for integration into lexer/parser
 } 
-
 
 impl Default for Expr<'_>
 {
   fn default() -> Self { Nothing }
 }//impl Default
 
-pub fn eval(e:&Expr) -> i64
+
+pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 {
-   match e {
+   match exp {
      Var(x) => {
-        println!("evaluating {} gets you 1000",x); 1000
+       if let Some(v) = lookup(x,env) {Some(v)}
+       else { eprint!("UNBOUND VARIABLE {} ... ",x);  None}
      },
-     Val(x) => *x,  // x is a ref because e is
-     Plus(x,y) => eval(x) + eval(y), // deref coercion works nicely here
-     Times(x,y) => eval(x) * eval(y),
+     Val(x) => Some(*x),
+     Plus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a+b})}).flatten(),
+     Times(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a*b})}).flatten(),
+     Minus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a-b})}).flatten(),
+     Negative(x) => eval(env,x).map(|a|{-1*a}),     
      Divide(x,y) => {
-       let yval = eval(y);
-       if yval==0 {
-         eprintln!("Division by zero (expression starting at column {}) on line {} of {:?} at column {}, returning 0 as default",y.column,y.line,x,x.column);
-	 0// returns default
-       } else {eval(x) / yval}
+       eval(env,y)
+       .map(|yval|{if yval==0 {
+          eprint!("Division by zero (expression starting at column {}) on line {} of {:?} at column {} ... ",y.column,y.line,x,x.column);
+	  None
+         } else {eval(env,x).map(|xval|{Some(xval/yval)})}
+       })
+       .flatten().flatten()
      },
-     Minus(x,y) => eval(x) - eval(y), 
-     Negative(x) => -1 * eval(x),
+     Letexp(x,e,b) => {
+       eval(env,e).map(|ve|{
+         let newenv = push(x,ve,env);
+         eval(&newenv,b) }).flatten()
+     }
      Seq(V) => {
-       let mut ev = 0;
+       let mut ev = None;
        for x in V
        {
-         ev = eval(x);
-	 println!("result for line {}: {} ;",x.line,&ev);
-       }
+         ev = eval(env,x);
+         if let Some(val) = ev {
+	   println!("result for line {}: {} ;",x.line,&val);
+         } else {
+           println!("Error evaluating line {};",x.line);
+         }
+       }//for
        ev
      },
-     Nothing => 0,
+     Nothing => None,
    }//match
 }//eval
-
-pub fn getint(e:&Expr) -> i64
-{
-   match e {
-     Val(n) => *n,
-     _ => 0,  // behaves like perl
-   }
-}
-
 
 
 ///////////////// lexer adapter
@@ -78,7 +112,7 @@ impl<'t> Zcscannerlba<'t>
 {
   pub fn new(mut stk:StrTokenizer<'t>) -> Zcscannerlba<'t>
   {
-     for x in ['+','-','*','/'] {stk.add_single(x)}
+     for x in ['+','-','*','/','=',':'] {stk.add_single(x)}
      Zcscannerlba(stk)
   }
 }// impl Zcscannerlba
@@ -93,6 +127,8 @@ impl<'t> Tokenizer<'t,LBox<dyn Any+'t>> for Zcscannerlba<'t>
      match token.0 {
        RawToken::Num(n) => Some(TerminalToken::raw_to_lba(token,"int",n)),
        RawToken::Symbol(s) => Some(TerminalToken::raw_to_lba(token,s,Nothing)),
+       RawToken::Alphanum(s) if s=="let" => Some(TerminalToken::raw_to_lba(token,"let",Nothing)),
+       RawToken::Alphanum(s) if s=="in" => Some(TerminalToken::raw_to_lba(token,"in",Nothing)),       
        RawToken::Alphanum(a) => Some(TerminalToken::raw_to_lba(token,"var",a)),
        _ => Some(TerminalToken::raw_to_lba(token,"<<Lexical Error>>",Nothing)),
      }//match

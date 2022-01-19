@@ -15,77 +15,83 @@ use rustlr::{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_a
 use crate::exprtrees::*;
 use crate::exprtrees::Expr::*;
 
-const SYMBOLS:[&'static str;13] = ["E","ES","+","-","*","/","(",")",";","int","var","START","EOF"];
+const SYMBOLS:[&'static str;16] = ["E","ES","+","-","*","/","(",")","=",";","let","in","int","var","START","EOF"];
 
-const TABLE:[u64;115] = [12885032960,65537,42949935104,25770000384,4295360513,38655033344,281487862202368,281496452071424,281483567366144,281492157235200,281509336907776,562949954207745,562992903356416,562962838454272,562975723421696,562988608454656,844450700132352,844463585165312,844467880067072,844424930983937,844437815164928,1125917086777346,1125912791810050,1125921381744642,1125908496842754,1125934266646530,1125929971679234,1407392063422466,1407396358389762,1407387768455170,1407383473487874,1407409243291650,1407404948324354,1688862745296896,1688901399871491,1688849861181441,1688875630264320,1688892810199040,1688888515297280,1970367787171842,1970337722400770,1970363492204546,1970376377106434,1970350607302658,2251838468718592,2251799814668289,2251812698718208,2251842763620352,2251825583685632,2533317740331008,2533313445429248,2533287675428864,2533274791444481,2533300560396288,2814775537106944,2814788422139904,2814762652139520,2814792717041664,2814749768220673,3096224744996865,3096267693752320,3096250513817600,3096237628850176,3096263398850560,3377734080659458,3377729785692162,3377708310855682,3377712605822978,3377721195888640,3377716901052416,3659191877763072,3659204763254784,3659183287894016,3659196172599296,3659187582730240,3940658264604672,3940666854473728,3940662559440896,3940671149309952,3940684034998272,4222154715693058,4222141830791170,4222146125758466,4222133240856578,4222137535823874,4222159010660354,4503633987305474,4503612512468994,4503608217501698,4503629692338178,4503616807895040,4503621102731264,4785096079245314,4785108964147202,4785087489310722,4785091784278018,4785083194343426,4785104669179906,5066571056152576,5066558170857474,5066579645693954,5066566761316352,5066583940661250,5066562465824770,5348058917699586,5348046032797698,5348037442863106,5348033147895810,5348041737830402,5348054622732290,5629512419704834,5629525304606722,5629542484475906,5629551074410498,5629538189508610,];
+const TABLE:[u64;177] = [4295360513,25770131456,65537,55835033600,42949935104,12885032960,51539804160,281487862398976,281492157235200,281513631940608,281483567235072,281496452268032,562949954273281,562975723552768,563005788454912,562992903356416,563001493225472,562962838454272,844433520066562,844454994903042,844442110001154,844459289870338,844463584837634,844437815033858,844472174772226,844446404968450,1125899907760129,1125955741876224,1125912791875584,1125925676974080,1125942856777728,1125951446646784,1407417833488384,1407387768586240,1407400653684736,1407430718586880,1407426423357440,1407374884536321,1688849861312513,1688901400068096,1688892810199040,1688862745296896,1688905695297536,1688914284773379,1688875630395392,1970333426974722,1970346311876610,1970359196778498,1970337721942018,1970372081680386,1970363491745794,1970354901811202,1970342016909314,2251851353882626,2251812699176962,2251825584078850,2251842763948034,2251864238784514,2251855648849922,2533287675428864,2533274791510017,2533330625429504,2533300560527360,2533317740331008,2533326330200064,2814762652139520,2814749768286209,2814775537238016,2814792717041664,2814805602140160,2814801306910720,3096267693752320,3096280578850816,3096250513948672,3096237628850176,3096276283621376,3096224745062401,3377742670462976,3377751260332032,3377755555561472,3377712605560832,3377725490659328,3377699721838593,3659196172795904,3659183287631874,3659191877763072,3659209057435650,3659187582599170,3659204762468354,3659213352402946,3659221942337538,3940662559637504,3940671149506560,3940684035063808,3940658264473600,3940666854473728,4222141831184384,4222137536348160,4222146126217216,4222154716872704,4222133241184256,4503608217894912,4503621102927872,4503616807895040,4503612513058816,4503638283583488,4785096079638528,4785083194212354,4785113258983426,4785121848918018,4785091784605696,4785087489179650,4785104669048834,4785108964016130,5066566761054210,5066583940923394,5066562466086914,5066558171119618,5066596825825282,5066579645956098,5066588235890690,5066571056021506,5348063212535810,5348033147764738,5348058917568514,5348054622601218,5348071802470402,5348046032666626,5348041737699330,5348037442732034,5629516714737664,5629512419377154,5629533894213634,5629538189180930,5629529599246338,5629546779115522,5629508124409858,5629521009770496,5910987395956736,5911017460858880,5911030345957376,5911000281055232,5911026050727936,5910974512496641,6192479552929794,6192458078093314,6192462373060610,6192488142864386,6192466668027906,6192496732798978,6192483847897090,6192470962995202,6473988889509890,6473980299575298,6473937349902338,6473976004608002,6473950234804226,6473967414673410,6755416621580288,6755412326744064,6755420916613120,6755408031580160,6755446687334400,7036874419470337,7036900187897856,7036887302799360,7036925957570560,7036930252800000,7036917367701504,7318396639248386,7318370870034432,7318362280165376,7318388049313794,7318379459379202,7318357985001472,7318383754346498,7318366575001600,];
 
-fn _semaction_for_0_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
+fn _semaction_for_0_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
 let mut m = lbdown!(parser.popstack().value,i64);  Val(unbox!(m)) }
-fn _semaction_for_1_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut v = lbdown!(parser.popstack().value,&'parser_lt str);  Var(unbox!(v)) }
-fn _semaction_for_2_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut e2 = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'parser_lt>);  Plus(e1,e2) }
-fn _semaction_for_3_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut e2 = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'parser_lt>);  Minus(e1,e2) }
-fn _semaction_for_4_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut e2 = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'parser_lt>);  Divide(e1,e2) }
-fn _semaction_for_5_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut e2 = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'parser_lt>);  Times(e1,e2) }
-fn _semaction_for_6_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut e = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut _item0_ = parser.popstack().value;  Negative(e) }
-fn _semaction_for_7_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Expr<'parser_lt> {
-let mut _item2_ = parser.popstack().value; let mut e = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut _item0_ = parser.popstack().value;  *e.exp }
-fn _semaction_for_8_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Vec<LBox<Expr<'parser_lt>>> {
-let mut _item1_ = parser.popstack().value; let mut n = lbdown!(parser.popstack().value,Expr<'parser_lt>);  vec![n] }
-fn _semaction_for_9_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> Vec<LBox<Expr<'parser_lt>>> {
-let mut _item2_ = parser.popstack().value; let mut e = lbdown!(parser.popstack().value,Expr<'parser_lt>); let mut v = lbdown!(parser.popstack().value,Vec<LBox<Expr<'parser_lt>>>); 
+fn _semaction_for_1_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut v = lbdown!(parser.popstack().value,&'src_lt str);  Var(unbox!(v)) }
+fn _semaction_for_2_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut b = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item4_ = parser.popstack().value; let mut e = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item2_ = parser.popstack().value; let mut _item1_ = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item0_ = parser.popstack().value; 
+  if let (Var(x),)=(&mut *_item1_,) { Letexp(x,e,b)}  else {parser.report("(Var(x),)"); <Expr<'src_lt>>::default()} }
+fn _semaction_for_3_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut e2 = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'src_lt>);  Plus(e1,e2) }
+fn _semaction_for_4_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut e2 = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'src_lt>);  Minus(e1,e2) }
+fn _semaction_for_5_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut e2 = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'src_lt>);  Divide(e1,e2) }
+fn _semaction_for_6_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut e2 = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item1_ = parser.popstack().value; let mut e1 = lbdown!(parser.popstack().value,Expr<'src_lt>);  Times(e1,e2) }
+fn _semaction_for_7_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut e = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item0_ = parser.popstack().value;  Negative(e) }
+fn _semaction_for_8_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Expr<'src_lt> {
+let mut _item2_ = parser.popstack().value; let mut e = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut _item0_ = parser.popstack().value;  *e.exp }
+fn _semaction_for_9_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Vec<LBox<Expr<'src_lt>>> {
+let mut _item1_ = parser.popstack().value; let mut n = lbdown!(parser.popstack().value,Expr<'src_lt>);  vec![n] }
+fn _semaction_for_10_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> Vec<LBox<Expr<'src_lt>>> {
+let mut _item2_ = parser.popstack().value; let mut e = lbdown!(parser.popstack().value,Expr<'src_lt>); let mut v = lbdown!(parser.popstack().value,Vec<LBox<Expr<'src_lt>>>); 
    v.push(e);
    unbox!(v)
    }
-fn _semaction_for_10_<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>) -> LBox<dyn Any+'parser_lt> {
-let mut _item0_ = lbdown!(parser.popstack().value,Vec<LBox<Expr<'parser_lt>>>); <LBox<dyn Any+'parser_lt>>::default()}
+fn _semaction_for_11_<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>) -> LBox<dyn Any+'src_lt> {
+let mut _item0_ = lbdown!(parser.popstack().value,Vec<LBox<Expr<'src_lt>>>); <LBox<dyn Any+'src_lt>>::default()}
 
-pub fn create_parser<'parser_lt>() -> ZCParser<LBox<dyn Any+'parser_lt>,i64>
+pub fn create_parser<'src_lt>() -> ZCParser<LBox<dyn Any+'src_lt>,i64>
 {
- let mut parser1:ZCParser<LBox<dyn Any+'parser_lt>,i64> = ZCParser::new(11,21);
- let mut rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("start");
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ let mut parser1:ZCParser<LBox<dyn Any+'src_lt>,i64> = ZCParser::new(12,27);
+ let mut rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("start");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_0_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_1_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_2_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_3_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_4_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_5_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_6_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("E");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_7_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("ES");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("E");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_8_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("ES");
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("ES");
  rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_9_(parser),parser.linenum,parser.column)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<LBox<dyn Any+'parser_lt>,i64>::new_skeleton("START");
- rule.Ruleaction = |parser|{  _semaction_for_10_(parser) };
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("ES");
+ rule.Ruleaction = |parser|{  lbup!( LBox::new(_semaction_for_10_(parser),parser.linenum,parser.column)) };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<LBox<dyn Any+'src_lt>,i64>::new_skeleton("START");
+ rule.Ruleaction = |parser|{  _semaction_for_11_(parser) };
  parser1.Rules.push(rule);
  parser1.Errsym = "";
  parser1.resynch.insert(";");
 
- for i in 0..115 {
+ for i in 0..177 {
    let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;
    let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;
    parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));
@@ -97,6 +103,6 @@ pub fn create_parser<'parser_lt>() -> ZCParser<LBox<dyn Any+'parser_lt>,i64>
  return parser1;
 } //make_parser
 
-fn load_extras<'parser_lt>(parser:&mut ZCParser<LBox<dyn Any+'parser_lt>,i64>)
+fn load_extras<'src_lt>(parser:&mut ZCParser<LBox<dyn Any+'src_lt>,i64>)
 {
 }//end of load_extras: don't change this line as it affects augmentation
