@@ -208,7 +208,7 @@ impl<'t,AT:Default+'static> TerminalToken<'t,AT>
 
 ///////////
 /// This trait is intended to replace Lexer, and won't use owned strings
-pub trait Tokenizer<'t,AT:Default>
+pub trait Tokenizer<'t,AT:Default> 
 {
   /// retrieves the next [TerminalToken], or None at end-of-stream. 
   fn nextsym(&mut self) -> Option<TerminalToken<'t,AT>>;

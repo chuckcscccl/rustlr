@@ -59,7 +59,7 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
 
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
-   pub si : usize, // state index
+   si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
    pub line: usize,  // line and column
    pub column: usize, 
@@ -70,7 +70,7 @@ impl<AT:Default> StackedItem<AT>
   { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
   /// line and column numbers and with source_id set to 0.
-  pub fn to_lbox(self) -> LBox<AT>
+  pub fn lbox(self) -> LBox<AT>
   {  LBox::new(self.value,self.line,self.column) }
 }
 
@@ -264,14 +264,8 @@ This is correct because linenum/column will again reflect start of tos item
     /// will not panic.
     pub fn error_occurred(&self) -> bool {self.err_occurred}
 
-    /// *this function is equivalent to [ZCParser::parse_stdio_train]*.
-    pub fn parse_train<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>,parserfile:&str) -> AT
-    {
-      self.parse_stdio_train(tokenizer,parserfile)
-    }//parse_train
-
-    /// there may need to be other lb functions, perhaps from terminalToken
-    /// or stackedItem (at least for transfer)
+    // there may need to be other lb functions, perhaps from terminalToken
+    // or stackedItem (at least for transfer)
 
     /// creates a [LBox] smart pointer that includes line/column information;
     /// should be called from the semantic actions of a grammar rule, e.g.
@@ -403,38 +397,35 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
-          None if gsym.label.len()>0 => {plab = format!("_{}_",&gsym.label);},
-          Some(ati) if *ati>0 => {plab=format!("_{}_",&gsym.label[0..*ati]);},
+          None if gsym.label.len()>0 && !gsym.label.contains('(') => {
+             plab=format!("{}",gsym.label.trim());
+          },
+          Some(ati) if *ati>0 => {plab=format!("{}",&gsym.label[0..*ati]);},
           _ => {},
         }//match
-//        let plab = if gsym.label.len()>0 && !ispattern
-//          {format!("_{}_",&gsym.label)} else {format!("_item_{}",k-1)};
         let poppedlab = plab.as_str();
-        write!(fd,"let {} = parser.popstack(); ",poppedlab)?;
+        write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
+        
 	if gsym.label.len()>1 && findat.is_some() { // if-let pattern
 	  let atindex = findat.unwrap();
           if atindex>0 { // label like es:@Exp(..)@
-            let varlab = &gsym.label[0..atindex];
+            //let varlab = &gsym.label[0..atindex];   //es before @: es:@..@
             labels.push_str("&mut "); // for if-let
-            labels.push_str(varlab); labels.push(',');
-            write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
-            // this may cause borrow error. may need to store, ln,cl in
-            // separate vars/struct.
-            // RuntimeParser must allocate another vector:
-            // popped:Vec<(usize,usize)> that stores popped line/column info
-            // popped.clear() before every reduce
+            labels.push_str(poppedlab); labels.push_str(".value,");
+            //write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
           }
           else { // non-labeled pattern: E:@..@
             labels.push_str(poppedlab); labels.push_str(".value,");
           }
 	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
 	} // @@ pattern exists, with or without label
-	else if gsym.label.len()>0 { // label exists but only simple pattern
+	else if gsym.label.len()>0 && (gsym.label.contains(',') || gsym.label.contains('(')) // simple label like E:(a,b)
+        { // label exists but only simple pattern
           labels.push_str(poppedlab); labels.push_str(".value,");
           patterns.push_str(&gsym.label[..]); // non-mutable
           patterns.push(',')
         }// simple label
-        // else no label - do nothing
+        // else simple label is not a pattern, so do nothing
         k -= 1;      
       }// for each symbol on right hand side of rule
       // form if let pattern=labels ...
@@ -522,7 +513,8 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
         let ref symtype = gsym.rusttype;
         let mut stat = format!("let mut {} = lbdown!(parser.popstack().value,{}); ",poppedlab,symtype);  // no longer stackitem but lbdown!
         if symtype.len()<2 || symtype=="LBox<dyn Any>" || symtype=="LBox<Any>" {
-           stat = format!("let mut {} = parser.popstack().value; ",poppedlab);  // no longer stackitem but lbdown!           
+           stat = format!("let mut {} = parser.popstack().value; ",poppedlab);
+           // no need for lbdown if type is already LBA
         }           
         fndef.push_str(&stat);
         // poppedlab now bound to lbdown!
@@ -687,14 +679,6 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
 
 impl<AT:Default,ET:Default> ZCParser<AT,ET>
 {
-  /// this function is used to invoke the generated parser returned by
-  /// the generated parser program's make_parser function.  *This function
-  /// is equivalent to [ZCParser::parse_stdio]*.
-  pub fn parse<'t>(&mut self,tokenizer:&mut dyn Tokenizer<'t,AT>) -> AT
-  {
-     self.parse_stdio(tokenizer)
-  }
-
   /// Error recovery routine of rustlr, separate from error_reporter.
   /// This function will modify the parser and lookahead symbol and return
   /// either the next action the parser should take (if recovery succeeded)
@@ -924,7 +908,7 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
 //////////////// parse_core replaced: now uses zc tokenizer
 impl<AT:Default,ET:Default> ZCParser<AT,ET>
 {
-  pub fn parse_core<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>, err_handler:&mut dyn ErrReporter<AT,ET>) -> AT
+  pub fn parse_core<'u,'t:'u>(&mut self, tokenizer:&'u mut dyn Tokenizer<'t,AT>, err_handler:&mut dyn ErrReporter<AT,ET>) -> AT
   {
     self.stack.clear();
     self.err_occurred = false;
@@ -976,9 +960,8 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     return result;
   }//parse_core
 
-  ///provided generic parsing function that reports errors on std::io. This
-  ///function is equivalent to [ZCParser::parse].
-  pub fn parse_stdio<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>) -> AT
+  ///provided generic parsing function that reports errors on std::io. 
+  pub fn parse<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>) -> AT
   {
     let mut stdeh = StandardReporter::new();
     self.parse_core(tokenizer,&mut stdeh) 
@@ -986,8 +969,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
 
   ///Parses in interactive training mode with provided path to parserfile.
   ///The parser file will be modified and a training script file will be
-  ///created for future retraining after grammar is modified. This function
-  ///is equivalent to [ZCParser::parse_train].
+  ///created for future retraining after grammar is modified. 
   ///
   /// When an error occurs, the parser will
     /// ask the human trainer for an appropriate error message: it will
@@ -1023,7 +1005,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     /// Parsing in interactive training mode also produces a [training script file](http://cs.hofstra.edu/~cscccl/rustlr_project/cpmparser.rs_script.txt) which can
     /// be used to re-train a parser using [ZCParser::train_from_script]. 
     /// This is useful after a grammar is modified with extensions to a language.
-  pub fn parse_stdio_train<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>, parserfile:&str) -> AT
+  pub fn parse_train<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>, parserfile:&str) -> AT
     {
       let mut stdtrainer = StandardReporter::new_interactive_training(parserfile);
       let result = self.parse_core(tokenizer,&mut stdtrainer);
@@ -1051,7 +1033,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   /// user examines the "load_extras" function that appears at the end of
   /// the [augmented parser](https://cs.hofstra.edu/~cscccl/rustlr_project/cpmparser.rs).
   /// The train_from_script function does not return
-  /// a value, unlike [ZCParser::parse_stdio] and [ZCParser::parse_stdio_train].
+  /// a value, unlike [ZCParser::parse] and [ZCParser::parse_train].
   pub fn train_from_script<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>,parserfile:&str, scriptfile:&str)
   {
       let mut stdtrainer = StandardReporter::new_script_training(parserfile,scriptfile);

@@ -9,7 +9,7 @@ nonterminals A B C AB S
 terminals a b c
 topsym S
 
-S --> AB:ok C { let (an,bn)=parser.exstate; println!("counters at end: an {}, bn {}",an,bn); ok && bn==0 }
+S --> AB:@ok@ C { let (an,bn)=parser.exstate; println!("counters at end: an {}, bn {}",an,bn); ok && bn==0 }
 
 AB --> A B { let (an,bn)=parser.exstate; if an!=bn {parser.abort("different numbers of a's and b's");} an==bn }
 

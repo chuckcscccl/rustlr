@@ -144,7 +144,7 @@ impl<'t> LBox<dyn Any+'t>
   /// upcast always returns a `LBox<dyn Any>`.
   pub fn upcast<T:'t>(lb:LBox<T>) -> Self
   {
-     let bx:Box<dyn Any> = lb.exp; // this requires Any+'static
+     let bx:Box<dyn Any+'t> = lb.exp; // this requires Any+'static ??
      LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
   }
 }// downcast/upcast for LBox

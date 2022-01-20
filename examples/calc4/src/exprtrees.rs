@@ -107,34 +107,39 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 ///////////////// lexer adapter
 //////////////////// LBA VERSION
 ///////////// Zero-copy tokenizer
-pub struct Zcscannerlba<'t>(StrTokenizer<'t>);
+//pub struct Zcscannerlba<'t>(StrTokenizer<'t>);
+pub struct Zcscannerlba<'t>
+{
+  stk:StrTokenizer<'t>,
+}
 impl<'t> Zcscannerlba<'t>
 {
   pub fn new(mut stk:StrTokenizer<'t>) -> Zcscannerlba<'t>
   {
-     for x in ['+','-','*','/','=',':'] {stk.add_single(x)}
-     Zcscannerlba(stk)
+     for x in ['+','-','*','/','='] {stk.add_single(x)}
+     stk.set_line_comment("#");
+     Zcscannerlba{stk}
   }
 }// impl Zcscannerlba
 
-impl<'t> Tokenizer<'t,LBox<dyn Any+'t>> for Zcscannerlba<'t>
+impl<'t> Tokenizer<'t,Expr<'t>> for Zcscannerlba<'t>
 {
-   fn nextsym(&mut self) -> Option<TerminalToken<'t,LBox<dyn Any+'t>>>
+   fn nextsym(&mut self) -> Option<TerminalToken<'t,Expr<'t>>>
    {
-     let tokopt = self.0.next_token();
+     let tokopt = self.stk.next_token();
      if let None = tokopt {return None;}
      let token = tokopt.unwrap();
      match token.0 {
-       RawToken::Num(n) => Some(TerminalToken::raw_to_lba(token,"int",n)),
-       RawToken::Symbol(s) => Some(TerminalToken::raw_to_lba(token,s,Nothing)),
-       RawToken::Alphanum(s) if s=="let" => Some(TerminalToken::raw_to_lba(token,"let",Nothing)),
-       RawToken::Alphanum(s) if s=="in" => Some(TerminalToken::raw_to_lba(token,"in",Nothing)),       
-       RawToken::Alphanum(a) => Some(TerminalToken::raw_to_lba(token,"var",a)),
-       _ => Some(TerminalToken::raw_to_lba(token,"<<Lexical Error>>",Nothing)),
+       RawToken::Num(n) => Some(TerminalToken::from_raw(token,"int",Val(n))),
+       RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,Nothing)),
+       RawToken::Alphanum(s) if s=="let" => Some(TerminalToken::from_raw(token,"let",Nothing)),
+       RawToken::Alphanum(s) if s=="in" => Some(TerminalToken::from_raw(token,"in",Nothing)),       
+       RawToken::Alphanum(a) => Some(TerminalToken::from_raw(token,"var",Var(a))),
+       _ => Some(TerminalToken::from_raw(token,"<<Lexical Error>>",Nothing)),
      }//match
    }//nextsym
-   fn linenum(&self) -> usize {self.0.line()}
-   fn column(&self) -> usize {self.0.column()}
-   fn position(&self) -> usize {self.0.current_position()}
+   fn linenum(&self) -> usize {self.stk.line()}
+   fn column(&self) -> usize {self.stk.column()}
+   fn position(&self) -> usize {self.stk.current_position()}
 }//impl Tokenizer
 
