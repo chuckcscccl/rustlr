@@ -174,3 +174,5 @@ ExpRst --> { Exps(Vec::new()) }
 ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(1,e)); Exps(er) }
 
 EOF
+
+parser.lbx(1,e) and makelbox(m,m.value) are the same?
