@@ -57,6 +57,12 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
   }
 }//impl ZCRProduction
 
+/// these structures are what's on the parse stack.  When writing a
+/// grammar rule such as `E --> E:a + E:b`, the variables a and b will
+/// be bound to values of this type, and thus inside the semantic actions
+/// one would need to use `a.value` to extract the value, which is of the
+/// declared 'absyntype' of the grammar.  Alternatively, one can use a
+/// pattern:  `E:@a@ + E:@b@` to bind a and b directly to the values.
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
    si : usize, // state index
@@ -69,7 +75,7 @@ impl<AT:Default> StackedItem<AT>
   pub fn new(si:usize,value:AT,line:usize,column:usize) -> StackedItem<AT>
   { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
-  /// line and column numbers and with source_id set to 0.
+  /// the line and column numbers
   pub fn lbox(self) -> LBox<AT>
   {  LBox::new(self.value,self.line,self.column) }
 }
