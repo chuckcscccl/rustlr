@@ -21,6 +21,8 @@ use std::str::Chars;
 use regex::Regex;
 use std::collections::{HashSet};
 use crate::RawToken::*;
+use crate::{LBox,LRc,lbup};
+use std::any::Any;
 
 /// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
@@ -177,7 +179,32 @@ impl<'t,AT:Default> TerminalToken<'t,AT>
   /// sym s and value v.
   pub fn from_raw(rt:(RawToken<'t>,usize,usize),s:&'t str,v:AT) -> TerminalToken<'t,AT>
   { TerminalToken{sym:s, value:v, line:rt.1, column:rt.2} }
-}
+
+    /// creates an [LBox] vale  using lexical information contained in
+    /// the token.
+    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.line,self.column /*,self.src_id*/) }
+    /// creates a `LBox<dyn Any>`, which allows attributes of different types to
+    /// be associated with grammar symbols.
+    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.line,self.column /*,self.src_id*/)) }
+    /// similar to [crate::ZCParser::lb], but creates a [LRc] instead of [LBox]
+    pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.line,self.column /*,self.src_id*/) }
+    /// similar to [crate::ZCParser::lba] but creates a [LRc]
+    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.line,self.column /*,self.src_id*/)) }
+}// impl TerminalToken
+
+impl<'t,AT:Default+'static> TerminalToken<'t,AT>
+{
+  /// creates a [TerminalToken] from a [RawToken] with value of type
+  /// `LBox<dyn Any>`
+  pub fn raw_to_lba(rt:(RawToken<'t>,usize,usize),s:&'t str,v:AT) -> TerminalToken<'t,LBox<dyn Any>> {
+   TerminalToken {
+     sym:s,
+     value: lbup!(LBox::new(v,rt.1,rt.2)),
+     line:rt.1, column:rt.2,
+   }
+ }
+}//impl for AT:'static
+
 
 ///////////
 /// This trait is intended to replace Lexer, and won't use owned strings
@@ -197,9 +224,13 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
+  /// retrieves the source (such as filename or URL) of the tokenizer.  The
+  /// default implementation returns the empty string.
+  fn source(&self) -> &str {""}
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
-  /// value=AT::default()
+  /// value=AT::default().  The is the only provided function that should *not*
+  /// be re-implemented.
   fn next_tt(&mut self) -> TerminalToken<'t,AT>
   {
     match self.nextsym() {
@@ -307,6 +338,7 @@ pub struct StrTokenizer<'t>
    /// default is false.
    pub keep_comment:bool,
    line_start:usize, // keep starting position of line, for column info
+   src:&'t str, // source name
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -333,7 +365,8 @@ impl<'t> StrTokenizer<'t>
     let ml_comment_end="*/";    
     let keep_comment=false;
     let line_start=0;
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start}
+    let src = "";
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -384,8 +417,13 @@ impl<'t> StrTokenizer<'t>
   /// the current column of the tokenizer
   pub fn column(&self)->usize {self.position-self.line_start+1}
   /// returns the current absolute byte position of the Tokenizer
-  pub fn position(&self)-> usize {self.position}
+  pub fn current_position(&self)-> usize {self.position}
+  /// returns the source of the tokenizer such as URL or filename
+  pub fn get_source(&self) -> &str {self.src}
+  pub fn set_source<'u:'t>(&mut self, s:&'u str) {self.src=s;}
 
+  /// reset tokenizer to parse from beginning of input
+  pub fn reset(&mut self) {self.position=0; self.line=0; self.line_start=0;}
 
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along
@@ -527,16 +565,16 @@ impl<'t> StrTokenizer<'t>
         self.position = mat.end()+pi;  
         return Some((Alphanum(&self.input[pi..self.position]),self.line,pi-self.line_start+1));
     }//alphanums
-    // decimal ints
-    if let Some(mat) = self.decuint.find(&self.input[pi..]) {
-        self.position = mat.end()+pi;  
-        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
-    }//decuint
     // floats
     if let Some(mat) = self.floatp.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
         return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
     }//floatp
+    // decimal ints
+    if let Some(mat) = self.decuint.find(&self.input[pi..]) {
+        self.position = mat.end()+pi;  
+        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
+    }//decuint
 
     //check for unclosed string
     if pi<self.input.len() && &self.input[pi..pi+1]=="\"" {
@@ -578,7 +616,7 @@ pub struct LexSource<'t>
 {
    pathname:&'t str,
    contents:String,
-   id:usize,
+   //id:usize,
 }
 impl<'t> LexSource<'t>
 {
@@ -592,17 +630,17 @@ impl<'t> LexSource<'t>
        Ok(st) => {
          Ok(LexSource {
            pathname:path,
-           id:0,
+           //id:0,
            contents:st,
          })
        },
        Err(e) => {Err(e)}
      }//match
   }//new
-  /// sets the numerical id of this source: can be used in conjunction with
-  /// [crate::RuntimeParser::set_src_id]
-  pub fn set_id(&mut self, id:usize) {self.id=id;}
-  pub fn get_id(&self)->usize {self.id}
+//  /// sets the numerical id of this source: can be used in conjunction with
+//  /// [crate::RuntimeParser::set_src_id]
+//  pub fn set_id(&mut self, id:usize) {self.id=id;}
+//  pub fn get_id(&self)->usize {self.id}
   /// retrieves entire contents of lexsource
   pub fn get_contents(&self)->&str {&self.contents}
   /// retrieves original path (such as filename) of this source
@@ -621,6 +659,7 @@ impl<'t> StrTokenizer<'t>
    pub fn from_source(ls:&'t LexSource<'t>) ->StrTokenizer<'t>
    {
       let mut stk = StrTokenizer::new();
+      stk.set_source(ls.get_path());
       stk.set_input(ls.contents.as_str());
       stk
    }
@@ -654,5 +693,76 @@ impl<'t> Tokenizer<'t,i64> for StrTokenizer<'t>
    fn current_line(&self) -> &str {self.input}
    fn linenum(&self) -> usize {self.line}
    fn position(&self) -> usize {self.position}
+   fn source(&self) -> &str {self.get_source()}
 }
 */
+
+
+/// This is a sample Lexer implementation designed to return every character in a
+/// string as a separate token, and is used in small grammars for testing and
+/// illustration purposes.  It is assumed that the characters read are defined as
+/// terminal symbols in the grammar.  This replaces [charlexer] using
+/// [Tokenizer] and [RawToken].  
+pub struct charscanner<'t>
+{
+   contents: &'t str,
+   index: usize,
+   line:usize,
+   keep_ws: bool,  // keep whitespace chars
+   /// function to modify char returned by nextsym, can be changed.
+   /// [charscanner::new] sets this function
+   /// initially to `|x|{x.to_str()}`.  For example, some characters such
+   /// as '{' and '}' cannot be used as terminal symbols of a grammar and must
+   /// be translated into something like "LBRACE" and "RBRACE"
+   pub modify: fn(&'t str)->&'t str
+}
+impl<'t> charscanner<'t>
+{
+  /// creates a charscanner with the option of keeping whitespace chars if kws=true
+  pub fn new(input:&'t str, kws:bool) -> charscanner<'t>
+  { charscanner {
+       contents:input,
+       index:0,
+       line:1,
+       keep_ws:kws,
+       modify:|x|{x},
+     }
+  }
+}
+
+/// The source code of this implementation of the [Tokenizer] trait also serves
+/// as an illustration of how the trait should be implemented.
+impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
+{
+   fn nextsym(&mut self) -> Option<TerminalToken<'t,AT>>
+   {
+      let mut res = None;
+      let mut stop = false;
+      let mut i = self.index;
+      while !stop && i<self.contents.len()
+      {
+        let c = self.contents[i..i+1].chars().next().unwrap();
+        if c=='\n' {self.line+=1;}
+        if c.is_whitespace() && !self.keep_ws {
+            i+=1; continue;
+        }
+        else if c.is_whitespace() && self.keep_ws {
+          stop = true;
+          res = Some(TerminalToken::new(&self.contents[i..i+1],AT::default(),self.line,i));
+        }
+        else {
+            stop=true;
+            let mc = (self.modify)(&self.contents[i..i+1]);
+            res =Some(TerminalToken::new(mc,AT::default(),self.line,i));
+          }
+      }//while
+      self.index = i+1;
+      return res;
+   }//nextsym
+   /// returns current line number starting from 1
+   fn linenum(&self) -> usize { self.line }
+   /// returns the index of the current char, starting from 1
+   fn column(&self) -> usize { self.index }
+   /// returns slice of underlying data using [std::str::Chars::as_str]
+   fn current_line(&self) -> &str  {self.contents}   
+}//impl Tokenizer for charscanner

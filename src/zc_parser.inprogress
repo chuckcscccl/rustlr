@@ -59,7 +59,7 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
 
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
-   si : usize, // state index
+   pub si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
    pub line: usize,  // line and column
    pub column: usize, 
@@ -70,7 +70,7 @@ impl<AT:Default> StackedItem<AT>
   { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
   /// line and column numbers and with source_id set to 0.
-  pub fn lbox(self) -> LBox<AT>
+  pub fn to_lbox(self) -> LBox<AT>
   {  LBox::new(self.value,self.line,self.column) }
 }
 
@@ -264,8 +264,15 @@ This is correct because linenum/column will again reflect start of tos item
     /// will not panic.
     pub fn error_occurred(&self) -> bool {self.err_occurred}
 
-    // there may need to be other lb functions, perhaps from terminalToken
-    // or stackedItem (at least for transfer)
+/*
+    /// *this function is equivalent to [ZCParser::parse_train]*.
+    pub fn parse_train<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>,parserfile:&str) -> AT
+    {
+      self.parse_stdio_train(tokenizer,parserfile)
+    }//parse_train
+*/
+    /// there may need to be other lb functions, perhaps from terminalToken
+    /// or stackedItem (at least for transfer)
 
     /// creates a [LBox] smart pointer that includes line/column information;
     /// should be called from the semantic actions of a grammar rule, e.g.
@@ -681,6 +688,15 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
 
 impl<AT:Default,ET:Default> ZCParser<AT,ET>
 {
+/*
+  /// this function is used to invoke the generated parser returned by
+  /// the generated parser program's make_parser function.  *This function
+  /// is equivalent to [ZCParser::parse_stdio]*.
+  pub fn parse<'t>(&mut self,tokenizer:&mut dyn Tokenizer<'t,AT>) -> AT
+  {
+     self.parse_stdio(tokenizer)
+  }
+*/
   /// Error recovery routine of rustlr, separate from error_reporter.
   /// This function will modify the parser and lookahead symbol and return
   /// either the next action the parser should take (if recovery succeeded)
@@ -910,7 +926,7 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
 //////////////// parse_core replaced: now uses zc tokenizer
 impl<AT:Default,ET:Default> ZCParser<AT,ET>
 {
-  pub fn parse_core<'u,'t:'u>(&mut self, tokenizer:&'u mut dyn Tokenizer<'t,AT>, err_handler:&mut dyn ErrReporter<AT,ET>) -> AT
+  pub fn parse_core<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>, err_handler:&mut dyn ErrReporter<AT,ET>) -> AT
   {
     self.stack.clear();
     self.err_occurred = false;

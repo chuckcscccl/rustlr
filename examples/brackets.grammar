@@ -33,19 +33,19 @@ WS -->
 WS --> WS Whitespace
 
 
-!use rustlr::charlexer;
+!use rustlr::charscanner;
 !//anything on a ! line is injected verbatim into the generated parser
 !
 !fn main() {
 !  let argv:Vec<String> = std::env::args().collect(); // command-line args
 !  let input = &argv[1];
 !  let mut parser1 = make_parser();
-!  let mut lexer1 = charlexer::make(input.as_str(),true);
-!  lexer1.modify = |c| { match c { //modify char to grammar terminal names
-!    '{' => String::from("LBRACE"), 
-!    '}' => String::from("RBRACE"),
-!    _ if c.is_whitespace() => String::from("Whitespace"),
-!    _ => c.to_string(),
+!  let mut lexer1 = charscanner::new(input,true);
+!  lexer1.modify = |c| { match c { //modify symbols to grammar terminal names
+!    "{" => "LBRACE", 
+!    "}" => "RBRACE",
+!    _ if c.chars().next().unwrap().is_whitespace() => "Whitespace",
+!    _ => c
 !  }};
 !     
 !  let result = parser1.parse(&mut lexer1);

@@ -35,10 +35,10 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
   if args.len()>1 {input = args[1].as_str();}
   let src = LexSource::new("input1.txt").unwrap();
   //let mut stk2 = StrTokenizer::from_str(src.get_contents());
-  //let mut stk2 = StrTokenizer::from_source(&src);  
-  let mut stk2 = StrTokenizer::from_str(input);
+  let stk2 = StrTokenizer::from_source(&src);  
+  //let stk2 = StrTokenizer::from_str(input);
   let ref mut scanner2 = Zcscannerlba::new(stk2);
-  let mut parser3 = new_parser();
+  let mut parser3 = make_parser();
 
   let result = parser3.parse(scanner2);
   //let result = parser3.parse_train(&mut scanner2,"src/lbacalcparser.rs");

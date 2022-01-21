@@ -10,27 +10,34 @@
 //! appropriate error message. The augmented parser is automatically saved
 //! along with a training script that can be used to retrain a new parser after
 //! a grammar has been modified.
-//! See the [RuntimeParser::parse_stdio_train] and [RuntimeParser::train_from_script] functions.
+//! See the [ZCParser::parse_train] and [ZCParser::train_from_script] functions.
 //!
 //! The parser can generate a full
 //! LR(1) parser given the ANSI C grammar in
 //! approximately 2-4 seconds on contemporary processors.
 //!
+//! The user needs to provide a grammar and a lexical analyzer that implements
+//! the [Tokenizer] trait.
+//! Since Version **0.2.0**, rustlr contains a general-purpose lexical scanner,
+//! [StrTokenizer], that implements this trait and is good enough to "get the
+//! job done" in many cases.  However, the user can choose any tokenizer by
+//! adopting it to the [Tokenizer] trait. Please note that, although there
+//! is nothing that prevents it, rustlr was not designed to create parsers
+//! for binary formatted data.  Rather, it is designed to parse text, and specifically
+//! programming language syntax for compilation and analysis.
+//!
 //! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is being prepared that will explain the
-//! format of grammars and how to generate and use parsers for several sample
-//! languages.
+//! format of grammars and how to generate and deploy parsers for several 
+//! examples.
 //!
 //! Rustlr should be installed as an executable (cargo install rustlr).
 //! Many of the items exported by this crate are only required by the parsers
 //! that are generated, and are not intended to be used in other programs.
-//! The user needs to provide a grammar and a lexical analyzer that implements
-//! the [Lexer] trait.  Only a simple lexer that returns individual characters
-//! in a string ([charlexer]) is provided.
-//! The examples in the tutorial use
-//! [basic_lexer](<https://docs.rs/basic_lexer/0.1.2/basic_lexer/>), which was written by
-//! the same author but other tokenizers can be easily adopted
-//! as well, such as [scanlex](<https://docs.rs/scanlex/0.1.4/scanlex/>).
+//! However, rustlr uses traits and trait objects to loosely couple the 
+//! various components of the runtime parser so that custom interfaces, such as
+//! those for graphical IDEs, can built around a basic [ZCParser::parse_core]
+//! function.
 //!
 //! As a simplified, **self-contained example** of how to use rustlr,
 //! given **[this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar>)** with file name "brackets.grammar",

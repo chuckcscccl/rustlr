@@ -44,7 +44,7 @@ use crate::{StandardReporter};
 pub struct ZCRProduction<AT:Default,ET:Default>  // runtime rep of grammar rule
 {
   pub lhs: &'static str, // left-hand side nonterminal of rule
-  pub Ruleaction : fn(&mut ZCParser<AT,ET>) -> AT, //parser as arg
+  pub Ruleaction : fn(&mut ZCParser<'_,AT,ET>) -> AT, //parser as arg
 }
 impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
 {
@@ -59,7 +59,7 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
 
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
-   si : usize, // state index
+   pub si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
    pub line: usize,  // line and column
    pub column: usize, 
@@ -70,7 +70,7 @@ impl<AT:Default> StackedItem<AT>
   { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
   /// line and column numbers and with source_id set to 0.
-  pub fn lbox(self) -> LBox<AT>
+  pub fn to_lbox(self) -> LBox<AT>
   {  LBox::new(self.value,self.line,self.column) }
 }
 
@@ -82,7 +82,7 @@ impl<AT:Default> StackedItem<AT>
 /// and [ZCParser::error_occurred] should be called directly 
 /// from user programs.  Only the field [ZCParser::exstate] should be accessed
 /// by user programs.
-pub struct ZCParser<AT:Default,ET:Default>  
+pub struct ZCParser<'t, AT:Default,ET:Default>  
 {
   /// this is the "external state" structure, with type ET defined by the grammar.
   /// The semantic actions associated with each grammar rule, which are written
@@ -115,17 +115,17 @@ pub struct ZCParser<AT:Default,ET:Default>
   report_line : usize,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
-  //pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
+  pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
   popped : Vec<(usize,usize)>,
 }//struct ZCParser
 
 
-impl<AT:Default,ET:Default> ZCParser<AT,ET>
+impl<'t, AT:Default,ET:Default> ZCParser<'t, AT,ET>
 {
     /// this is only called by the make_parser function in the machine-generated
     /// parser program.  *Do not call this function in other places* as it
     /// only generates a skeleton.
-    pub fn new(rlen:usize, slen:usize/*,tk:&'t mut dyn Tokenizer<'t,AT>*/) -> ZCParser<AT,ET>
+    pub fn new(rlen:usize, slen:usize,tk:&'t mut dyn Tokenizer<'t,AT>) -> ZCParser<'t,AT,ET>
     {  // given number of rules and number states
        let mut p = ZCParser {
          RSM : Vec::with_capacity(slen),
@@ -145,7 +145,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          //training : false,
          //trained : HashMap::new(),
          Symset : HashSet::with_capacity(64),
-         //tokenizer:tk,
+         tokenizer:tk,
          popped: Vec::with_capacity(8),
        };
        for _ in 0..slen {
@@ -214,13 +214,13 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   // this is the LR parser shift action: push the next state, along with the
   // value of the current lookahead token onto the parse stack, returns the
   // next token
-  fn shift<'t>(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> TerminalToken<'t, AT>
+  fn shift(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>) -> TerminalToken<'t, AT>
   {
      //self.stack.push(Stackelement{si:nextstate,value:lookahead.value});
      self.linenum = lookahead.line;  self.column=lookahead.column;
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
      //self.nexttoken()
-     tokenizer.next_tt()
+     self.tokenizer.next_tt()
   }
 
     /// this function is called from the generated semantic actions and should
@@ -264,8 +264,14 @@ This is correct because linenum/column will again reflect start of tos item
     /// will not panic.
     pub fn error_occurred(&self) -> bool {self.err_occurred}
 
-    // there may need to be other lb functions, perhaps from terminalToken
-    // or stackedItem (at least for transfer)
+    /// *this function is equivalent to [ZCParser::parse_stdio_train]*.
+    pub fn parse_train(&mut self, parserfile:&str) -> AT
+    {
+      self.parse_stdio_train(parserfile)
+    }//parse_train
+
+    /// there may need to be other lb functions, perhaps from terminalToken
+    /// or stackedItem (at least for transfer)
 
     /// creates a [LBox] smart pointer that includes line/column information;
     /// should be called from the semantic actions of a grammar rule, e.g.
@@ -318,15 +324,8 @@ impl Statemachine
 {  /////// zc version
   pub fn writezcparser(&self, filename:&str)->Result<(),std::io::Error>
   {
-    let ref absyn = self.Gmr.Absyntype;
-    let ref extype = self.Gmr.Externtype;
-    let ref lifetime = self.Gmr.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
-    let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
-
     let mut fd = File::create(filename)?;
-    write!(fd,"//Parser generated by rustlr for grammar {}",&self.Gmr.name)?;
-    write!(fd,"\n
+    write!(fd,"//Parser generated by rustlr\n
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
@@ -376,10 +375,12 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd,"];\n\n")?;
 
     // must know what absyn type is when generating code.
-    write!(fd,"pub fn new_parser{}() -> ZCParser<{},{}>",&ltopt,absyn,extype)?; 
+    let ref absyn = self.Gmr.Absyntype;
+    let ref extype = self.Gmr.Externtype;
+    write!(fd,"pub fn new_parser<'parser_lt>(tokenizer:&'parser_lt mut dyn Tokenizer<'parser_lt,{}>) -> ZCParser<'parser_lt,{},{}>",absyn,absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{},tokenizer);\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
     // generate rules and Ruleaction delegates, must pop values from runtime stack
     write!(fd," let mut rule = ZCRProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,"start")?;
     for i in 0..self.Gmr.Rules.len() 
@@ -461,30 +462,26 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// Augment!
-    write!(fd,"fn load_extras{}(parser:&mut ZCParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;
+    write!(fd,"fn load_extras<'parser_lt>(parser:&'parser_lt mut ZCParser<{},{}>)\n{{\n",absyn,extype)?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writezcparser
 
 
 
-/////////////////////LBA VERSION//////////////////////////////////////
+
    ///// semantic acition fn is _semaction_for_{rule index}
 ////////////////////////////////////////////////
   //////////////////////////// write parser for LBox<dyn Any>
   pub fn writelbaparser(&self, filename:&str)->Result<(),std::io::Error>
   {
-    let ref absyn = self.Gmr.Absyntype;
+    let ref absyn = self.Gmr.Absyntype; // must be type of topsym
 
     if !is_lba(absyn) /*absyn!="LBox<dyn Any>" && absyn!="LBox<Any>"*/ {
        return self.writezcparser(filename);
     }
-    
-    let ref extype = self.Gmr.Externtype;
-    let ref lifetime = self.Gmr.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
-    let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
 
+    let ref extype = self.Gmr.Externtype;
     let rlen = self.Gmr.Rules.len();
     // generate action fn's from strings stored in gen-time grammar
     let mut actions:Vec<String> = Vec::with_capacity(rlen);    
@@ -493,9 +490,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
       let lhs = &self.Gmr.Rules[ri].lhs.sym;
       let lhsi = self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
       let rettype = &self.Gmr.Symbols[*lhsi].rusttype; // return type
-      let ltoptr = if has_lt || (lifetime.len()>0 && rettype.contains(lifetime))
-        {format!("<{}>",lifetime)} else {String::from("")};
-      let mut fndef = format!("fn _semaction_for_{}_{}(parser:&mut ZCParser<{},{}>) -> {} {{\n",ri,&ltoptr,absyn,extype,rettype);
+      let mut fndef = format!("fn _semaction_for_{}_<'parser_lt>(parser:&'parser_lt mut ZCParser<{},{}>) -> {} {{\n",ri,absyn,extype,rettype);
 
       let mut k = self.Gmr.Rules[ri].rhs.len();
       //form if-let labels and patterns as we go...
@@ -547,8 +542,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     ////// write to file
 
     let mut fd = File::create(filename)?;
-    write!(fd,"//Parser generated by rustlr for grammar {}",&self.Gmr.name)?;
-    write!(fd,"\n    
+    write!(fd,"//Parser generated by rustlr\n
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
@@ -602,10 +596,10 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     for deffn in &actions { write!(fd,"{}",deffn)?; }
 
     // must know what absyn type is when generating code.
-    write!(fd,"\npub fn create_parser{}() -> ZCParser<{},{}>",&ltopt,absyn,extype)?; 
+    write!(fd,"\npub fn create_parser<'parser_lt>(tokenizer:&'parser_lt mut dyn Tokenizer<'parser_lt,{}>) -> ZCParser<'parser_lt,{},{}>",absyn,absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{},tokenizer);\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
     // generate rules and Ruleaction delegates to call action fns
      write!(fd," let mut rule = ZCRProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,"start")?; // dummy for init
     for i in 0..self.Gmr.Rules.len() 
@@ -645,7 +639,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// Augment!
-    write!(fd,"fn load_extras{}(parser:&mut ZCParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;
+    write!(fd,"fn load_extras<'parser_lt>(parser:&'parser_lt mut ZCParser<{},{}>)\n{{\n",absyn,extype)?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writelbaparser
@@ -666,11 +660,9 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
 
 ////// independent function
   fn is_lba(t:&str) -> bool {
-   t.contains("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
-  
-//    for s in ["", "LBox<dyn Any>","LBox<Any>","LBox< dyn Any>","LBox<dyn Any >",
-//              "LBox< dyn Any >"] { if s==t {return true;}}
-//    return false;
+    for s in ["", "LBox<dyn Any>","LBox<Any>","LBox< dyn Any>","LBox<dyn Any >",
+              "LBox< dyn Any >"] { if s==t {return true;}}
+    return false;
   }//is_lba to check type
 
 
@@ -679,13 +671,21 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
 ////// allowing custom parsers
 //////////// errors should compile a report
 
-impl<AT:Default,ET:Default> ZCParser<AT,ET>
+impl<'t,AT:Default,ET:Default> ZCParser<'t,AT,ET>
 {
+  /// this function is used to invoke the generated parser returned by
+  /// the generated parser program's make_parser function.  *This function
+  /// is equivalent to [ZCParser::parse_stdio]*.
+  pub fn parse(&mut self) -> AT
+  {
+     self.parse_stdio()
+  }
+
   /// Error recovery routine of rustlr, separate from error_reporter.
   /// This function will modify the parser and lookahead symbol and return
   /// either the next action the parser should take (if recovery succeeded)
   /// or None if recovery failed.
-  pub fn error_recover<'t>(&mut self, lookahead:&mut TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> Option<Stateaction>
+  pub fn error_recover(&mut self, lookahead:&mut TerminalToken<'t,AT>) -> Option<Stateaction>
   {
     let mut erraction = None;
     ///// prefer to ue Errsym method
@@ -734,7 +734,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
           // the error production is not a good idea
           while let None = self.RSM[*i].get(lookahead.sym) {
             if lookahead.sym=="EOF" {break;}
-            *lookahead = tokenizer.next_tt();
+            *lookahead = self.tokenizer.next_tt();
           }//while let
           // either at end of input or found action on next symbol
           erraction = self.RSM[*i].get(lookahead.sym);
@@ -747,12 +747,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       while lookahead.sym!="EOF" &&
         !self.resynch.contains(lookahead.sym) {
         self.linenum = lookahead.line; self.column = lookahead.column;
-        *lookahead = tokenizer.next_tt();
+        *lookahead = self.tokenizer.next_tt();
       }//while
       if lookahead.sym!="EOF" {
         // look for state on stack that has action defined on next symbol
         self.linenum = lookahead.line; self.column = lookahead.column;
-        *lookahead = tokenizer.next_tt();
+        *lookahead = self.tokenizer.next_tt();
       }
       let mut k = self.stack.len()-1; // offset by 1 because of usize
       let mut position = 0;
@@ -773,7 +773,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
    let mut eofcx = 0;
    while iserror(&erraction) && eofcx<1 { //skip input
       self.linenum = lookahead.line; self.column = lookahead.column;
-      *lookahead = tokenizer.next_tt();
+      *lookahead = self.tokenizer.next_tt();
       //*lookahead = self.nexttoken();
       if lookahead.sym=="EOF" {eofcx+=1;}
       let csi =self.stack[self.stack.len()-1].si;
@@ -908,9 +908,13 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
 
 /////////////////////////////////////////////////////////////
 //////////////// parse_core replaced: now uses zc tokenizer
-impl<AT:Default,ET:Default> ZCParser<AT,ET>
+impl<'t,AT:Default,ET:Default> ZCParser<'t,AT,ET>
 {
-  pub fn parse_core<'u,'t:'u>(&mut self, tokenizer:&'u mut dyn Tokenizer<'t,AT>, err_handler:&mut dyn ErrReporter<AT,ET>) -> AT
+  /// Core parser (temporarily lives side by side with parse_core) that
+  /// takes dynamic trait objects for lexical scanning and err_reporting.
+  /// This design makes it possible to create a custom error reporting
+  /// interface.
+  pub fn parse_core(&mut self, err_handler:&mut dyn ErrReporter<AT,ET>) -> AT
   {
     self.stack.clear();
     self.err_occurred = false;
@@ -921,7 +925,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     let mut action = Stateaction::Error("");
     let mut lookahead = TerminalToken::new("EOF",AT::default(),0,0); //just init
     // nextsym() should only be called here
-    if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
+    if let Some(tok) = self.tokenizer.nextsym() {lookahead=tok;}
     else {self.stopparsing=true;}
 
     while !self.stopparsing
@@ -940,7 +944,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
         err_handler.err_reporter(self,&lookahead,&actclone);
         //err_reporter(self,&lookahead,&actclone);
         
-        match self.error_recover(&mut lookahead,tokenizer) {
+        match self.error_recover(&mut lookahead) {
           None => { self.stopparsing=true; break; }
           Some(act) => {action = act;}, // lookahead=la;},
         }//match
@@ -948,7 +952,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       else { action = actclone.unwrap(); }
       match &action {
         Shift(nextstate) => {
-           lookahead = self.shift(*nextstate,lookahead,tokenizer);
+           lookahead = self.shift(*nextstate,lookahead);
         },
         Reduce(rulei) => { self.reduce(rulei); },
         Accept => {
@@ -962,16 +966,18 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     return result;
   }//parse_core
 
-  ///provided generic parsing function that reports errors on std::io. 
-  pub fn parse<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>) -> AT
+  ///provided generic parsing function that reports errors on std::io. This
+  ///function is equivalent to [ZCParser::parse].
+  pub fn parse_stdio(&mut self) -> AT
   {
     let mut stdeh = StandardReporter::new();
-    self.parse_core(tokenizer,&mut stdeh) 
+    self.parse_core(&mut stdeh) 
   }//parse_stdio
 
   ///Parses in interactive training mode with provided path to parserfile.
   ///The parser file will be modified and a training script file will be
-  ///created for future retraining after grammar is modified. 
+  ///created for future retraining after grammar is modified. This function
+  ///is equivalent to [ZCParser::parse_train].
   ///
   /// When an error occurs, the parser will
     /// ask the human trainer for an appropriate error message: it will
@@ -1007,10 +1013,10 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     /// Parsing in interactive training mode also produces a [training script file](http://cs.hofstra.edu/~cscccl/rustlr_project/cpmparser.rs_script.txt) which can
     /// be used to re-train a parser using [ZCParser::train_from_script]. 
     /// This is useful after a grammar is modified with extensions to a language.
-  pub fn parse_train<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>, parserfile:&str) -> AT
+  pub fn parse_stdio_train(&mut self, parserfile:&str) -> AT
     {
       let mut stdtrainer = StandardReporter::new_interactive_training(parserfile);
-      let result = self.parse_core(tokenizer,&mut stdtrainer);
+      let result = self.parse_core(&mut stdtrainer);
       if let Err(m) = stdtrainer.augment_training(parserfile) {
         eprintln!("Error in augmenting parser: {:?}",m)
       }
@@ -1035,11 +1041,11 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   /// user examines the "load_extras" function that appears at the end of
   /// the [augmented parser](https://cs.hofstra.edu/~cscccl/rustlr_project/cpmparser.rs).
   /// The train_from_script function does not return
-  /// a value, unlike [ZCParser::parse] and [ZCParser::parse_train].
-  pub fn train_from_script<'t>(&mut self, tokenizer:&mut dyn Tokenizer<'t,AT>,parserfile:&str, scriptfile:&str)
+  /// a value, unlike [ZCParser::parse_stdio] and [ZCParser::parse_stdio_train].
+  pub fn train_from_script(&mut self, parserfile:&str, scriptfile:&str)
   {
       let mut stdtrainer = StandardReporter::new_script_training(parserfile,scriptfile);
-      let result = self.parse_core(tokenizer,&mut stdtrainer);
+      let result = self.parse_core(&mut stdtrainer);
       if let Err(m) = stdtrainer.augment_training(parserfile) {
         eprintln!("Error in augmenting parser: {:?}",m)
       }

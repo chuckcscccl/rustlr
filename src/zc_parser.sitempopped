@@ -57,6 +57,12 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
   }
 }//impl ZCRProduction
 
+/// these structures are what's on the parse stack.  When writing a
+/// grammar rule such as `E --> E:a + E:b`, the variables a and b will
+/// be bound to values of this type, and thus inside the semantic actions
+/// one would need to use `a.value` to extract the value, which is of the
+/// declared 'absyntype' of the grammar.  Alternatively, one can use a
+/// pattern:  `E:@a@ + E:@b@` to bind a and b directly to the values.
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
    si : usize, // state index
@@ -69,7 +75,7 @@ impl<AT:Default> StackedItem<AT>
   pub fn new(si:usize,value:AT,line:usize,column:usize) -> StackedItem<AT>
   { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
-  /// line and column numbers and with source_id set to 0.
+  /// the line and column numbers
   pub fn lbox(self) -> LBox<AT>
   {  LBox::new(self.value,self.line,self.column) }
 }
@@ -397,38 +403,35 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
-          None if gsym.label.len()>0 => {plab = format!("_{}_",&gsym.label);},
-          Some(ati) if *ati>0 => {plab=format!("_{}_",&gsym.label[0..*ati]);},
+          None if gsym.label.len()>0 && !gsym.label.contains('(') => {
+             plab=format!("{}",gsym.label.trim());
+          },
+          Some(ati) if *ati>0 => {plab=format!("{}",&gsym.label[0..*ati]);},
           _ => {},
         }//match
-//        let plab = if gsym.label.len()>0 && !ispattern
-//          {format!("_{}_",&gsym.label)} else {format!("_item_{}",k-1)};
         let poppedlab = plab.as_str();
-        write!(fd,"let {} = parser.popstack(); ",poppedlab)?;
+        write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
+        
 	if gsym.label.len()>1 && findat.is_some() { // if-let pattern
 	  let atindex = findat.unwrap();
           if atindex>0 { // label like es:@Exp(..)@
-            let varlab = &gsym.label[0..atindex];
+            //let varlab = &gsym.label[0..atindex];   //es before @: es:@..@
             labels.push_str("&mut "); // for if-let
-            labels.push_str(varlab); labels.push(',');
-            write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
-            // this may cause borrow error. may need to store, ln,cl in
-            // separate vars/struct.
-            // RuntimeParser must allocate another vector:
-            // popped:Vec<(usize,usize)> that stores popped line/column info
-            // popped.clear() before every reduce
+            labels.push_str(poppedlab); labels.push_str(".value,");
+            //write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
           }
           else { // non-labeled pattern: E:@..@
             labels.push_str(poppedlab); labels.push_str(".value,");
           }
 	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
 	} // @@ pattern exists, with or without label
-	else if gsym.label.len()>0 { // label exists but only simple pattern
+	else if gsym.label.len()>0 && gsym.label.contains('(') // simple label like E:(a,b)
+        { // label exists but only simple pattern
           labels.push_str(poppedlab); labels.push_str(".value,");
           patterns.push_str(&gsym.label[..]); // non-mutable
           patterns.push(',')
         }// simple label
-        // else no label - do nothing
+        // else simple label is not a pattern, so do nothing
         k -= 1;      
       }// for each symbol on right hand side of rule
       // form if let pattern=labels ...
@@ -516,7 +519,8 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
         let ref symtype = gsym.rusttype;
         let mut stat = format!("let mut {} = lbdown!(parser.popstack().value,{}); ",poppedlab,symtype);  // no longer stackitem but lbdown!
         if symtype.len()<2 || symtype=="LBox<dyn Any>" || symtype=="LBox<Any>" {
-           stat = format!("let mut {} = parser.popstack().value; ",poppedlab);  // no longer stackitem but lbdown!           
+           stat = format!("let mut {} = parser.popstack().value; ",poppedlab);
+           // no need for lbdown if type is already LBA
         }           
         fndef.push_str(&stat);
         // poppedlab now bound to lbdown!

@@ -1,0 +1,49 @@
+# ambiguous grammar for online calculator, enum Expr defined in exprtrees.rs
+# version using LBox<Any>
+
+!use crate::exprtrees::*;
+!use crate::exprtrees::Expr::*;
+!use rustlr::{LBox,makelbox};
+
+lifetime 'src_lt
+absyntype Expr<'src_lt>
+externtype i64
+nonterminal E Expr<'src_lt>
+nonterminal ES Vec<LBox<Expr<'src_lt>>>
+terminal + - * / ( ) = ;
+terminals let in
+typedterminal int i64
+typedterminal var &'src_lt str
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+
+E --> int:m { m }
+E --> var:v { v }
+E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,parser.lbx(2,e),parser.lbx(4,b))}
+E --> E:e1 + E:e2 { Plus(parser.lbx(0,e1),parser.lbx(2,e2)) }
+E --> E:e1 - E:e2 { Minus(parser.lbx(0,e1),parser.lbx(2,e2)) }
+E --> E:e1 / E:e2 { Divide(parser.lbx(0,e1),parser.lbx(2,e2)) }
+E --> E:e1 * E:e2 { Times(parser.lbx(0,e1),parser.lbx(2,e2)) }
+E --> - E:e { Negative(parser.lbx(1,e)) }
+E --> ( E:e )  { e }
+ES --> E:n ; { Seq(vec![parser.lbx(0,n)]) }
+ES ==> ES:@Seq(mut v)@ E:e ;  {
+   v.push(parser.lbx(1,e));
+   Seq(v)
+   } <==
+
+# ==> and <== are required for rules spanning multiple lines
+
+EOF
+
+What could be better syntax than makelbox! ?
+Plus(parser.lbox(0,e1), parser.lbox(2,e2)) ??
+
+ZCParser can have a vector of (line,col) values popped off from the
+stack in a separate vector that's clearly before each reduce. - the vector
+will be in reverse.
