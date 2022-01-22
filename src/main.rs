@@ -53,8 +53,8 @@ fn rustle(args:&Vec<String>) // called from main
   while argi<argc
   {
      match &args[argi][..] {
-       "lr1" | "LR1" => { lalr=false; },
-       "lalr" | "LALR" => {lalr=true; },
+       "lr1" | "LR1" | "-lr1" => { lalr=false; },
+       "lalr" | "LALR" | "-lalr" => {lalr=true; },
        "-trace" => {
           argi+=1;
           if argi<argc {

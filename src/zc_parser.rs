@@ -117,7 +117,7 @@ pub struct ZCParser<AT:Default,ET:Default>
   /// topmost StackedItem.
   pub linenum : usize,
   pub column : usize,
-//  pub src_id : usize,
+  pub src_id : usize,
   report_line : usize,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
@@ -144,7 +144,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          err_occurred : false,
          linenum : 0,
          column : 0,
-//         src_id : 0,
+         src_id : 0,
          report_line : 0,
          resynch : HashSet::new(),
          //added for training

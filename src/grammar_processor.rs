@@ -203,6 +203,7 @@ impl Grammar
          let stokens:Vec<&str> = toksplit.collect();
          if stokens.len()<1 {continue;}
          match stokens[0] {
+         /*  deprecated by !
             "use" => {
               self.Extras.push_str("use ");
               self.Extras.push_str(stokens[1]);
@@ -213,12 +214,13 @@ impl Grammar
               self.Extras.push_str(stokens[2]);
               self.Extras.push_str("\n");              
             },
+         */            
             "!" => {
                let pbi = line.find('!').unwrap();
                self.Extras.push_str(&line[pbi+1..]);
                self.Extras.push_str("\n");                             
             },
-            "grammarname" | "grammar_name" => {
+            "grammarname" => {
                self.name = String::from(stokens[1]);
             },
             "EOF" => {atEOF=true},
