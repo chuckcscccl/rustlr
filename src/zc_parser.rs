@@ -860,17 +860,17 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
         let mut inp2 = String::new();
         if let Ok(n) = io::stdin().read_line(&mut inp2) {
             if inp2.trim()=="no" || inp2.trim()=="No" {
-               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,&csym,inp.trim());
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",lookahead.line,lookahead.column,&csym,inp.trim());
                self.trained.insert((cstate,csym),inp);
             }
             else  {// insert for any error
-               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",inp.trim());
+               wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",lookahead.line,lookahead.column,"ANY_ERROR",inp.trim());
                self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
             }
         }// read ok
        }// unexpected symbol is grammar sym
        else if inp.len()>5 && !parser.Symset.contains(lksym) {
-         wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",parser.linenum,parser.column,"ANY_ERROR",inp.trim());
+         wresult = write!(outfd,"{}\t{}\t{} ::: {}\n",lookahead.line,lookahead.column,"ANY_ERROR",inp.trim());
          self.trained.insert((cstate,String::from("ANY_ERROR")),inp);
        }
     }// process user response
