@@ -1,13 +1,33 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
 **LR(1) and LALR(1) parser generator by Chuck Liang.**
 
-**A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) is being prepared.**
+**A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
 The project grew out of the author's compiler construction and
-programming languages classes over the years.  It has been used for
-implmentating modestly scaled, experimental programming languages.  It
-will be become more robust, with enhanced features, in future
-releases.
+programming languages classes over the years and has been mainly used
+for implmentating modestly scaled, experimental programming languages.
+But it is becoming sophisticated enough to be more than just a project and
+will continue to improve over time.
+
+
+#### Version 0.2.0:
+
+Significant improvements required that several components
+are now renamed, while the older ones are retained for compatibility with
+parsers already created.  
+
+  -  A new, "zero-copy" lexer interface has been created
+  -  A general purpose lexical analyzer is now included, although it is still
+     possible to use any lexer due to the use of trait objects.
+  -  Improved support for using **`LBox<dyn Any>`** as abstract syntax type by
+     automatically generating runtime type casting.  This means that
+     semantic actions for grammar productions no longer need to return values of the same
+     type. However, this also means that abstract syntax representations
+     cannot contain non-static references due to the Rust restriction that
+     such types cannot impl Any.  An alternative approach would be to generate
+     a enum type that includes all possible return types, but this approach is
+     not compatible with allowing the lexical analyzer to be decoupled from
+     the parser.  
 
 #### Version 0.1.1:
 
@@ -77,11 +97,6 @@ releases.
  be used as the abstract syntax type, with functions and macros for
  up/downcasting.
 
-### Version 2.0:
-
-A "zero-copy" lexical analyzer has been added as a built-in to rustlr, and
-depends on Regex.  The zero-copy version of the runtimeparser lives side-by-side
-with the previous one.
 
 [1]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse_train
 [2]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse

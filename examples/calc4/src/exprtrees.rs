@@ -5,14 +5,12 @@
 #![allow(unused_parens)]
 use crate::Expr::*;
 extern crate rustlr;
-use rustlr::{Lextoken,Lexer,LBox};
-use rustlr::{TerminalToken,Tokenizer,RawToken,StrTokenizer}; // for zc version
-use std::any::Any;
+use rustlr::{LBox,TerminalToken,Tokenizer,RawToken,StrTokenizer};
 use std::rc::Rc;
-use crate::exprtrees::Env::*;
+use crate::Env::*;
 
 //// simple linked list with non-destructive cons to represent scoped
-//// environment.
+//// environment. (used during evaluation, not parsing)
 pub enum Env<'t> {
   Nil,
   Cons(&'t str, i64, Rc<Env<'t>>)
@@ -38,7 +36,7 @@ fn lookup<'t>(x:&'t str, env:&Rc<Env<'t>>) -> Option<i64>
     return None;
 }//lookup
 
-
+// main abstract syntax type
 #[derive(Debug)]
 pub enum Expr<'t>
 {
@@ -54,12 +52,12 @@ pub enum Expr<'t>
    Nothing,                    // for integration into lexer/parser
 } 
 
-impl Default for Expr<'_>
+impl Default for Expr<'_>  // required for absyntypes of grammar
 {
   fn default() -> Self { Nothing }
 }//impl Default
 
-
+// evaluation/interpretation
 pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 {
    match exp {
@@ -71,7 +69,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
      Plus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a+b})}).flatten(),
      Times(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a*b})}).flatten(),
      Minus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a-b})}).flatten(),
-     Negative(x) => eval(env,x).map(|a|{-1*a}),     
+     Negative(x) => eval(env,x).map(|a|{-1*a}), //no need for bind here    
      Divide(x,y) => {
        eval(env,y)
        .map(|yval|{if yval==0 {
@@ -93,9 +91,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
          ev = eval(env,x);
          if let Some(val) = ev {
 	   println!("result for line {}: {} ;",x.line,&val);
-         } else {
-           println!("Error evaluating line {};",x.line);
-         }
+         } else { eprintln!("Error evaluating line {};",x.line); }
        }//for
        ev
      },
@@ -104,29 +100,23 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 }//eval
 
 
-///////////////// lexer adapter
-//////////////////// LBA VERSION
 ///////////// Zero-copy tokenizer
-//pub struct Zcscannerlba<'t>(StrTokenizer<'t>);
-pub struct Zcscannerlba<'t>
+pub struct Calcscanner<'t>(StrTokenizer<'t>);
+impl<'t> Calcscanner<'t>
 {
-  stk:StrTokenizer<'t>,
-}
-impl<'t> Zcscannerlba<'t>
-{
-  pub fn new(mut stk:StrTokenizer<'t>) -> Zcscannerlba<'t>
+  pub fn new(mut stk:StrTokenizer<'t>) -> Calcscanner<'t>
   {
-     for x in ['+','-','*','/','='] {stk.add_single(x)}
+     for x in ['+','-','*','/','=',';'] {stk.add_single(x)}
      stk.set_line_comment("#");
-     Zcscannerlba{stk}
+     Calcscanner(stk)
   }
-}// impl Zcscannerlba
+}// impl Calcscanner
 
-impl<'t> Tokenizer<'t,Expr<'t>> for Zcscannerlba<'t>
+impl<'t> Tokenizer<'t,Expr<'t>> for Calcscanner<'t>
 {
    fn nextsym(&mut self) -> Option<TerminalToken<'t,Expr<'t>>>
    {
-     let tokopt = self.stk.next_token();
+     let tokopt = self.0.next_token();
      if let None = tokopt {return None;}
      let token = tokopt.unwrap();
      match token.0 {
@@ -138,8 +128,7 @@ impl<'t> Tokenizer<'t,Expr<'t>> for Zcscannerlba<'t>
        _ => Some(TerminalToken::from_raw(token,"<<Lexical Error>>",Nothing)),
      }//match
    }//nextsym
-   fn linenum(&self) -> usize {self.stk.line()}
-   fn column(&self) -> usize {self.stk.column()}
-   fn position(&self) -> usize {self.stk.current_position()}
+   fn linenum(&self) -> usize {self.0.line()}
+   fn column(&self) -> usize {self.0.column()}
+   fn position(&self) -> usize {self.0.current_position()}
 }//impl Tokenizer
-

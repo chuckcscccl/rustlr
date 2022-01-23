@@ -1,4 +1,8 @@
-//! rustlr is a parser generator that can create LALR(1) as well as full
+//! **Rustlr** is a Yacc-style parser generator in and for Rust, designed for the
+//! creation of parsers for programming language analysis.  **Version 0.2.0**
+//! introduces signficant improvements, although older parsers are still supported.
+//!
+//! Rustlr can create LALR(1) as well as full
 //! LR(1) parsers.  It is also capable of recognizing operator precedence and
 //! associativity declarations that allows the use of some ambiguous grammars.
 //! Parsers also have optional access to *external state* information that allows
@@ -18,7 +22,7 @@
 //!
 //! The user needs to provide a grammar and a lexical analyzer that implements
 //! the [Tokenizer] trait.
-//! Since Version **0.2.0**, rustlr contains a general-purpose lexical scanner,
+//! Since **Version 0.2.0**, rustlr contains a general-purpose lexical scanner,
 //! [StrTokenizer], that implements this trait and is good enough to "get the
 //! job done" in many cases.  However, the user can choose any tokenizer by
 //! adopting it to the [Tokenizer] trait. Please note that, although there

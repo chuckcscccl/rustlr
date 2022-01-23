@@ -1,0 +1,63 @@
+# types Expr, Calcscanner defined in exprtrees.rs
+!use crate::exprtrees::*; /* ! lines are injected verbatim into parser */
+!use crate::exprtrees::Expr::*;
+!use rustlr::{LBox,makelbox};
+
+lifetime 'src_lt
+absyntype Expr<'src_lt>
+externtype i64
+nonterminals E ES
+terminals + - * / ( ) = ;
+terminals let in int var
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+
+E --> int:m { m.value }
+E --> var:s@Var(v)@ { s.value }
+E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
+E --> E:e1 + E:e2 { Plus(e1.lbox(), e2.lbox()) }
+E --> E:e1 - E:e2 { Minus(e1.lbox(), parser.lbx(2,e2.value))}
+E --> E:e1 / E:e2 { Divide(e1.lbox(), e2.lbox())}
+E --> E:e1 * E:e2 { Times(e1.lbox(), e2.lbox())}
+E --> - E:e { Negative(e.lbox()) }
+E --> ( E:e )  { e.value }
+ES --> E:n ; { Seq(vec![n.lbox()]) }
+ES ==> ES:@Seq(mut v)@  E:e ;  {
+   v.push(e.lbox());
+   Seq(v)
+   } <==
+
+# ==> and <== are required for rules spanning multiple lines
+
+EOF
+
+alternatives:
+E --> var:@Var(v)@ { Var(v) }
+ES ==> ES:es@Seq(v)@  E:e ;  {
+   v.push(e.lbox());
+   es.value
+   } <==
+
+
+
+What could be better syntax than makelbox! ?
+Plus(parser.lbox(0,e1), parser.lbox(2,e2)) ??
+
+ZCParser can have a vector of (line,col) values popped off from the
+stack in a separate vector that's clearly before each reduce. - the vector
+will be in reverse.
+
+---
+Different kinds of patterns:
+
+E:a  Simple label,  a is the StackItem popped off stack, a.value is absyn value
+E:(a,b)  Simple, irrefutable pattern, _item0_ is StackItem, (a,b) is .value
+E:@pat@: Pattern without label,  _item0_ is StackItem, pat is bound to .value
+E:v@pat@: labeled pattern.  _v_ is Stackitem, v is .value, pat is &mut v
+   In this situation, v is moved out of _v_, which becomes useless.
+   
