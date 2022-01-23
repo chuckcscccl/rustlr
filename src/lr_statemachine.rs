@@ -339,9 +339,9 @@ impl Statemachine
        }
      }// lalr or lr1
 
-     if TRACE>3 {println!("transition to state {} from state {}, symbol {}..",toadd,psi,&nextsym);}
+     if self.Gmr.tracelev>3 {println!("Transition to state {} from state {}, symbol {}..",toadd,psi,&nextsym);}
      if toadd==newstateindex {  // add new state
-       if TRACE>2 {printstate(&state,&self.Gmr);}
+       //if TRACE>2 {printstate(&state,&self.Gmr);}
        indices.insert(newstateindex); // add to StateLookup index hashset
        self.States.push(state);
        self.FSM.push(HashMap::with_capacity(64)); // always add row to fsm at same time
@@ -361,7 +361,8 @@ impl Statemachine
          let prec1 = gsymbol.precedence;
          if prec1==prec2 && prec1>0 {changefsm=false;} // assume left-associative
          else if prec2.abs()>prec1.abs() {changefsm=false;} // still reduce
-         if TRACE>0 {println!("shift-reduce conflict resolved by operator precedence/associativity:"); printrulela(*ri2,&self.Gmr,&nextsym); /*printstate(&self.States[psi],&self.Gmr);*/}
+         if self.Gmr.tracelev>1 {println!("Shift-Reduce conflict in state {} resolved by operator precedence/associativity:",psi); printrulela(*ri2,&self.Gmr,&nextsym);
+         /*printstate(&self.States[psi],&self.Gmr);*/}
        },
        _ => {},
      }// match for conflict detection
@@ -423,7 +424,7 @@ impl Statemachine
 
            if prec1==prec2 && prec1<0 {changefsm=false;} // assume right-associative
            else if prec2.abs()>prec1.abs() {changefsm=false;} // still shift 
-           if TRACE>0 {println!("Shift-Reduce conflict resolved by operator precedence/associativity:"); printrulela(*ri1,Gmr,&item.la); }
+           if Gmr.tracelev>1 {println!("Shift-Reduce conflict in state {} resolved by operator precedence/associativity:",si); printrulela(*ri1,Gmr,&item.la); }
         },
        _ => {},
      }//match to detect conflict

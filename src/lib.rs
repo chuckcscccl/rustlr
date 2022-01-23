@@ -1,10 +1,11 @@
-//! **Rustlr** is a Yacc-style parser generator in and for Rust, designed for the
+//! Rustlr is a Yacc-style parser generator in and for Rust, designed for the
 //! creation of parsers for programming language analysis.  **Version 0.2.0**
-//! introduces signficant improvements, although older parsers are still supported.
+//! introduces signficant improvements, although older parsers are still
+//! supported.
 //!
 //! Rustlr can create LALR(1) as well as full
 //! LR(1) parsers.  It is also capable of recognizing operator precedence and
-//! associativity declarations that allows the use of some ambiguous grammars.
+//! associativity declarations that allow the use of some ambiguous grammars.
 //! Parsers also have optional access to *external state* information that allows
 //! them to recognize more than just context-free languages.  Rustlr implements
 //! methods of error recovery similar to those found in other LR generators.
@@ -112,7 +113,7 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 /// Since this grammar is small enought (requiring less than 16 LALR states), the
 /// generated parser is readable, which is appropriate for testing.  For larger
 /// grammars, the parser generator switches to a binary representation.
-pub fn rustler(grammarname:&str, option:&str) {
+fn rustler(grammarname:&str, option:&str) {
   let mut gram1 = Grammar::new();
   let grammarfile = format!("{}.grammar",&grammarname);
 

@@ -83,7 +83,7 @@ pub fn printrule(rule:&Grule)  //independent function
       if s.label.len()>0 {print!(":{}",s.label);}
       print!(" ");
    }
-   println!("{{ {}, preclevel {}",rule.action,rule.precedence);  // {{ is \{
+   println!("{{ {}, preclevel {}",rule.action.trim(),rule.precedence);  // {{ is \{
 }
 
 /////main global class, roughly corresponds to "metaparser"
@@ -230,7 +230,7 @@ impl Grammar
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
                   self.Symbols.push(newterm);
                   //self.Symbols.insert(stokens[i].to_owned(),newterm);
-		  if TRACE>2 {println!("terminal {}",stokens[i]);}
+		  //if self.tracelev>3 {println!("terminal {}",stokens[i]);}
                }
             }, //terminals
 	    "typedterminal" if stage==0 => {
@@ -267,7 +267,7 @@ impl Grammar
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
                   self.Symbols.push(newterm);
                   self.Rulesfor.insert(stokens[i].to_owned(),HashSet::new());
-		  if TRACE>2 {println!("nonterminal {}",stokens[i]);}
+		  //if TRACE>2 {println!("nonterminal {}",stokens[i]);}
                }
             },
 	    "topsym" | "startsymbol" if stage==0 => {
@@ -437,7 +437,7 @@ impl Grammar
 		action: semaction.to_owned(),
 		precedence : maxprec,
 	      };
-	      if TRACE>2 {printrule(&rule);}
+	      if self.tracelev>3 {printrule(&rule);}
 	      self.Rules.push(rule);
               // Add rules to Rulesfor map
               if let None = self.Rulesfor.get(LHS) {
