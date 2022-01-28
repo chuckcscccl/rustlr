@@ -21,29 +21,28 @@
 !use crate::absyntax::Expr::*;
 !use crate::absyntax::Stat::*;
 
-lifetime 'lt
-absyntype Construct<'lt>
+absyntype Construct
 terminal ID INTEGER STRING BOOL
 terminal class public static void main String extends return length
 terminal ( ) [ ] ; DOT ! , new this
 terminal LBR RBR OROR
 terminal int boolean if else while == = + - * / < && MOD
-nonterminal Program
-nonterminal MainCl
-nonterminal ClassDec
+nonterminal Program program
+nonterminal MainCl mainclass
+nonterminal ClassDec classdec
 nonterminal ClassDecl 
-nonterminal Extension
-nonterminal VarDec
-nonterminal MethodDec
-nonterminal Decl
-nonterminal FormalLst
-nonterminal FormalRst
-nonterminal Type
-nonterminal Stat
-nonterminal Stats
-nonterminal Exp
-nonterminal ExpLst
-nonterminal ExpRst
+nonterminal Extension String
+nonterminal VarDec vardec
+nonterminal MethodDec mthdec
+nonterminal Decl Vec<declaration>
+nonterminal FormalLst Vec<formal>
+nonterminal FormalRst Vec<formal>
+nonterminal Type typ
+nonterminal Stat stat
+nonterminal Stats Vec<stat>
+nonterminal Exp expr
+nonterminal ExpLst Vec<expr>
+nonterminal ExpRst Vec<expr>
 topsym Program
 resync ;
 
@@ -90,7 +89,7 @@ ClassDec ==> class ID:@Id(name)@ Extension:@Id(sup)@ LBR Decl:@Decs(mut ds)@ RBR
   } <==
   
 Extension --> extends ID:sup { sup.value }
-Extension --> { Id("Object") }
+Extension --> { Id("Object".to_owned()) }
 VarDec --> Type:@Id(t)@ ID:@Id(v)@ ;  { Vdec(VarDec{dname:v,dtype:t,initval:Nothing,}) }
 VarDec ==> Type:@Id(t)@ ID:@Id(v)@ = Exp:@Exp(e)@ ; {
   Vdec(VarDec{dname:v,dtype:t,initval:e})
@@ -117,11 +116,11 @@ FormalRst ==> , Type:@Id(ty)@ ID:@Id(a)@ FormalRst:@Vdecs(mut frs)@ {
   frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
   Vdecs(frs) 
   } <==
-Type --> int [ ] { return Id("int[]"); }
-Type --> boolean { return Id("boolean"); }
-Type --> String  { return Id("String"); }
-Type --> int     { return Id("int"); }
-Type --> void     { return Id("void"); }
+Type --> int [ ] { return Id("int[]".to_owned()); }
+Type --> boolean { return Id("boolean".to_owned()); }
+Type --> String  { return Id("String".to_owned()); }
+Type --> int     { return Id("int".to_owned()); }
+Type --> void     { return Id("void".to_owned()); }
 Type --> ID:c    { c.value }    
 Stats --> { Stms(Vec::new()) }
 Stats --> Stats:@Stms(mut sv)@ Stat:@Stm(s)@ { sv.push(makelbox!(_item1_,s)); Stms(sv) }
@@ -145,18 +144,18 @@ Stat ==> Exp:@Exp(obj)@ DOT ID:@Id(m)@ ( ExpLst:@Exps(args)@ ) ; {
 Stat --> return Exp:@Exp(e)@ ; { Stm(Returnst(parser.lbx(1,e))) }
 Stat --> VarDec:@Vdec(v)@  {Stm(Vardecst(v.dname,v.dtype,parser.lb(v.initval)))}
 
-Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("+",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("/",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("-",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("&&",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("OROR",parser.lbx(0,a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
 Exp --> ! Exp:@Exp(a)@  { Exp(Notexp(parser.lbx(1,a))) }
-Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lbx(0,a),parser.lbx(2,i)))} 
-Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lbx(0,obj))) }
+Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lb(a),parser.lbx(2,i)))} 
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lb(obj))) }
 
 Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Exp(Callexp(parser.lb(obj),f,args)) }
 Exp --> INTEGER:@i@ { i }
@@ -170,8 +169,10 @@ Exp --> ( Exp:e ) { e.value }
 
 # warning: backwards list:
 ExpLst --> { Exps(Vec::new()) }
-ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(0,e)); Exps(er) }
+ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lb(e)); Exps(er) }
 ExpRst --> { Exps(Vec::new()) }
 ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(1,e)); Exps(er) }
 
 EOF
+
+parser.lbx(1,e) and makelbox(m,m.value) are the same?

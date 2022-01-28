@@ -15,35 +15,34 @@
 # a larger, more realistic example of how rustlr can be used to build ASTs and
 # parsers for languages.
 
-!use rustlr::{LBox,makelbox};
+!use rustlr::LBox;
 !use crate::absyntax::*;
 !use crate::absyntax::Construct::*;
 !use crate::absyntax::Expr::*;
 !use crate::absyntax::Stat::*;
 
-lifetime 'lt
-absyntype Construct<'lt>
+absyntype Construct
 terminal ID INTEGER STRING BOOL
 terminal class public static void main String extends return length
 terminal ( ) [ ] ; DOT ! , new this
 terminal LBR RBR OROR
 terminal int boolean if else while == = + - * / < && MOD
-nonterminal Program
-nonterminal MainCl
-nonterminal ClassDec
+nonterminal Program program
+nonterminal MainCl mainclass
+nonterminal ClassDec classdec
 nonterminal ClassDecl 
-nonterminal Extension
-nonterminal VarDec
-nonterminal MethodDec
-nonterminal Decl
-nonterminal FormalLst
-nonterminal FormalRst
-nonterminal Type
-nonterminal Stat
-nonterminal Stats
-nonterminal Exp
-nonterminal ExpLst
-nonterminal ExpRst
+nonterminal Extension String
+nonterminal VarDec vardec
+nonterminal MethodDec mthdec
+nonterminal Decl Vec<declaration>
+nonterminal FormalLst Vec<formal>
+nonterminal FormalRst Vec<formal>
+nonterminal Type typ
+nonterminal Stat stat
+nonterminal Stats Vec<stat>
+nonterminal Exp expr
+nonterminal ExpLst Vec<expr>
+nonterminal ExpRst Vec<expr>
 topsym Program
 resync ;
 
@@ -77,7 +76,7 @@ MainCl ==> class ID:@Id(cn)@ LBR public static void main ( String [ ] ID:@Id(an)
 
 ClassDecl --> { Classes(Vec::new()) }
 ClassDecl ==> ClassDecl:@Classes(mut cs)@  ClassDec:@Class(cl)@  {
-  cs.push(parser.lbx(1,cl)); Classes(cs)
+  cs.push(parser.lb(cl)); Classes(cs)
   } <==
 ClassDec ==> class ID:@Id(name)@ Extension:@Id(sup)@ LBR Decl:@Decs(mut ds)@ RBR {
   let mut vdecs=Vec::new();
@@ -89,8 +88,8 @@ ClassDec ==> class ID:@Id(name)@ Extension:@Id(sup)@ LBR Decl:@Decs(mut ds)@ RBR
 		  methods:mdecs})
   } <==
   
-Extension --> extends ID:sup { sup.value }
-Extension --> { Id("Object") }
+Extension --> extends ID:sup { sup }
+Extension --> { Id("Object".to_owned()) }
 VarDec --> Type:@Id(t)@ ID:@Id(v)@ ;  { Vdec(VarDec{dname:v,dtype:t,initval:Nothing,}) }
 VarDec ==> Type:@Id(t)@ ID:@Id(v)@ = Exp:@Exp(e)@ ; {
   Vdec(VarDec{dname:v,dtype:t,initval:e})
@@ -103,8 +102,8 @@ MethodDec ==> public Type:@Id(ty)@ ID:@Id(name)@ ( FormalLst:@Vdecs(args)@ ) LBR
 		    methodname:name, })
   } <==
 Decl -->  { Decs(Vec::new()) }
-Decl --> Decl:@Decs(mut ds)@ VarDec:v { ds.push(parser.lbx(1,v.value)); Decs(ds) }
-Decl --> Decl:@Decs(mut ds)@ MethodDec:m { ds.push(makelbox!(m,m.value)); Decs(ds) }
+Decl --> Decl:@Decs(mut ds)@ VarDec:v { ds.push(parser.lb(v)); Decs(ds) }
+Decl --> Decl:@Decs(mut ds)@ MethodDec:m { ds.push(parser.lb(m)); Decs(ds) }
 FormalLst --> { Vdecs(Vec::new()) }
 
 # warning: list constructed backwards:
@@ -117,61 +116,61 @@ FormalRst ==> , Type:@Id(ty)@ ID:@Id(a)@ FormalRst:@Vdecs(mut frs)@ {
   frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
   Vdecs(frs) 
   } <==
-Type --> int [ ] { return Id("int[]"); }
-Type --> boolean { return Id("boolean"); }
-Type --> String  { return Id("String"); }
-Type --> int     { return Id("int"); }
-Type --> void     { return Id("void"); }
-Type --> ID:c    { c.value }    
+Type --> int [ ] { return Id("int[]".to_owned()); }
+Type --> boolean { return Id("boolean".to_owned()); }
+Type --> String  { return Id("String".to_owned()); }
+Type --> int     { return Id("int".to_owned()); }
+Type --> void     { return Id("void".to_owned()); }
+Type --> ID:c    { c }    
 Stats --> { Stms(Vec::new()) }
-Stats --> Stats:@Stms(mut sv)@ Stat:@Stm(s)@ { sv.push(makelbox!(_item1_,s)); Stms(sv) }
+Stats --> Stats:@Stms(mut sv)@ Stat:@Stm(s)@ { sv.push(parser.lb(s)); Stms(sv) }
 Stat --> LBR Stats:@Stms(sv)@ RBR { Stm(Blockst(sv)) }
 Stat ==> if ( Exp:@Exp(c)@ ) Stat:@Stm(a)@ else Stat:@Stm(b)@ {
-  Stm(Ifstat(makelbox!(_item2_,c), makelbox!(_item4_,a), makelbox!(_item6_,b)))
+  Stm(Ifstat(parser.lb(c), parser.lb(a), parser.lb(b)))
   } <==
-Stat --> if ( Exp:@Exp(c)@ ) Stat:@Stm(a)@ { Stm(Ifstat(makelbox!(_item2_,c),makelbox!(_item4_,a),parser.lbx(5,Nopst))) }
-Stat --> while ( Exp:@Exp(c)@ ) Stat:@Stm(s)@ { Stm(Whilest(parser.lbx(2,c),parser.lbx(4,s))) }
-Stat --> ID:@Id(v)@ = Exp:@Exp(e)@ ; { Stm(Assignst(v,parser.lbx(2,e))) }
+Stat --> if ( Exp:@Exp(c)@ ) Stat:@Stm(a)@ { Stm(Ifstat(parser.lb(c),parser.lb(a),parser.lb(Nopst))) }
+Stat --> while ( Exp:@Exp(c)@ ) Stat:@Stm(s)@ { Stm(Whilest(parser.lb(c),parser.lb(s))) }
+Stat --> ID:@Id(v)@ = Exp:@Exp(e)@ ; { Stm(Assignst(v,parser.lb(e))) }
 
 ### either change both leading Exp to ID or keep both as Exp
 
 Stat ==> Exp:@Exp(v)@ [ Exp:@Exp(i)@ ] = Exp:@Exp(e)@ ; {
-  Stm(ArAssignst(parser.lbx(0,v),parser.lbx(2,i),parser.lbx(5,e)))
+  Stm(ArAssignst(parser.lb(v),parser.lb(i),parser.lb(e)))
   } <==
 Stat ==> Exp:@Exp(obj)@ DOT ID:@Id(m)@ ( ExpLst:@Exps(args)@ ) ; {
   Stm(Callstat(parser.lb(obj),m,args))
   } <==
 
-Stat --> return Exp:@Exp(e)@ ; { Stm(Returnst(parser.lbx(1,e))) }
+Stat --> return Exp:@Exp(e)@ ; { Stm(Returnst(parser.lb(e))) }
 Stat --> VarDec:@Vdec(v)@  {Stm(Vardecst(v.dname,v.dtype,parser.lb(v.initval)))}
 
-Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("+",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("/",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("-",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("&&",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("OROR",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> ! Exp:@Exp(a)@  { Exp(Notexp(parser.lbx(1,a))) }
-Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lbx(0,a),parser.lbx(2,i)))} 
-Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lbx(0,obj))) }
+Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lb(b)))}
+Exp --> ! Exp:@Exp(a)@  { Exp(Notexp(parser.lb(a))) }
+Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lb(a),parser.lb(b)))}
+Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lb(a),parser.lb(i)))} 
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lb(obj))) }
 
 Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Exp(Callexp(parser.lb(obj),f,args)) }
-Exp --> INTEGER:@i@ { i }
-Exp --> STRING:s { s.value }
-Exp --> BOOL:@b@ { b }
+Exp --> INTEGER:i { i }
+Exp --> STRING:s { s }
+Exp --> BOOL:b { b }
 Exp --> ID:@Id(x)@ { Exp(Var(x)) }
 Exp --> this { Exp(Thisptr) }
-Exp --> new int [ Exp:@Exp(s)@ ] { Exp(Newarray(parser.lbx(3,s))) }
+Exp --> new int [ Exp:@Exp(s)@ ] { Exp(Newarray(parser.lb(s))) }
 Exp --> new ID:@Id(x)@ ( ) { Exp(Newobj(x)) }
-Exp --> ( Exp:e ) { e.value }
+Exp --> ( Exp:e ) { e }
 
 # warning: backwards list:
 ExpLst --> { Exps(Vec::new()) }
-ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(0,e)); Exps(er) }
+ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lb(e)); Exps(er) }
 ExpRst --> { Exps(Vec::new()) }
-ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(1,e)); Exps(er) }
+ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lb(e)); Exps(er) }
 
 EOF
