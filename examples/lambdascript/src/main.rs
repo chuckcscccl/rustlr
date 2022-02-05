@@ -8,6 +8,9 @@ extern crate rustlr;
 use rustlr::*;
 mod abstmachine;
 use crate::abstmachine::*;
+
+mod untyped;
+
 //mod 
 //use crate::calculatorparser::*; 
 
