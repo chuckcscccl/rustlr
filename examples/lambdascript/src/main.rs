@@ -7,14 +7,24 @@
 extern crate rustlr;
 use rustlr::*;
 mod abstmachine;
-use crate::abstmachine::*;
+//use crate::abstmachine::*;
 
 mod untyped;
-
-//mod 
-//use crate::calculatorparser::*; 
+use untyped::*;
+mod untypedparser;
 
 fn main()
 {
+  let args:Vec<String> = std::env::args().collect(); // command-line args
+  let mut srcfile = "";
+  if args.len()>1 {srcfile = &args[1];}
+  let source = LexSource::new(srcfile).unwrap();
+  let mut lexer = LamLexer::new(StrTokenizer::from_source(&source));
+  let mut parser = untypedparser::make_parser();
+  parser.parse(&mut lexer);
+  println!("Parser Error? : {}",parser.error_occurred());
+  let program = parser.exstate;
+  println!("program lines after parse: {}\n",program.len());
+  eval_prog(&program);
 }//main
 

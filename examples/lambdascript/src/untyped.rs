@@ -9,48 +9,67 @@
 
 extern crate rustlr;
 extern crate fixedstr;
-use fixedstr::fstr;
-use rustlr::{Tokenizer,RawToken,StrTokenizer,LBox};
+use fixedstr::{fstr,str8};
+use rustlr::{Tokenizer,RawToken,TerminalToken,StrTokenizer,LBox,LexSource,unbox};
 use crate::untyped::Term::*;
 use std::collections::{HashMap,HashSet,BTreeSet};
 use std::mem::swap;
 ///// straightforward lambda calculus, with step by step reductions.
 
-pub type str4 = fstr<4>; // vars are at most 4 chars long
+const lowerlam:&'static str = "\u{03bb}"; // unicode 03bb is lower case lambda
+const LAM:&'static str = "lambda "; // unicode 03bb is lower case lambda
 
 #[derive(Debug,Clone)]
 pub enum Term
 {
-  Var(str4),
+  Var(str8),
   Const(i64),
-  Abs(str4,Box<Term>),
-  App(Box<Term>,Box<Term>),
+  Abs(str8,LBox<Term>),
+  App(LBox<Term>,LBox<Term>),
+  Def(bool,str8,LBox<Term>),  // true bool means eval to weak-head form
+  Seq(Vec<LBox<Term>>), // there won't be nested seqs
+  Nothing,
 }
+impl Default for Term { fn default()->Self {Nothing} }
 impl Term
 {
-  pub fn to_string(&self) -> String
+  pub fn to_string(&self) -> String { self.format(lowerlam) }
+  pub fn format(&self,lam:&str) -> String
   {
     match self {
       Var(x) => format!("{}",x),
       Const(n) =>format!("{}",n),
       App(a,b) => {
+        let mut a2 = a.to_string();
+        if let Abs(_,_) = &**a {a2 = format!("({})",a2);}
         let mut bs = b.to_string();
         if let App(_,_) = &**b {bs = format!("({})",bs);}
-        format!("{} {}",a.to_string(), bs)
+        else if let Abs(_,_) = &**b {bs = format!("({})",bs);}
+        format!("{} {}",a2, bs)
       },
-      Abs(x,a) => format!("(Lam {}.{})",x,a.to_string()),
+      Abs(x,a) =>  {
+        let a2 = a.to_string();
+        let mut an = format!("{}{}",lam,x);
+        if let Abs(_,_) = &**a  { if lam!=lowerlam {an.push(' ');} }
+        else { an.push('.'); }
+        an.push_str(&a2);
+        an
+      },
+      x => format!("RAW({:?})",x),
     }//match
   }
 }//impl Term
+/*
 // for convenience
 pub fn app(a:Term, b:Term) -> Term
 { 
    App(Box::new(a),Box::new(b))
 }
-pub fn abs(x:str4, a:Term) -> Term { Abs(x,Box::new(a)) }
+pub fn abs(x:str8, a:Term) -> Term { Abs(x,Box::new(a)) }
+*/
 
 ///// determine if v appears free in t
-fn isfree(v:&str4, t:&Term) -> bool
+fn isfree(v:&str8, t:&Term) -> bool
 {
    match t {
      Var(y) => {v==y},
@@ -65,22 +84,23 @@ fn isfree(v:&str4, t:&Term) -> bool
 pub struct BetaReducer
 {
    cx:u16,  // index for alpha-conversion
+   trace:u8,
 }
 impl BetaReducer
 {
    pub fn new() -> BetaReducer
-   { BetaReducer {cx:0} }
-   pub fn newvar(&mut self, x:&str4) -> str4
+   { BetaReducer {cx:0, trace:0} }
+   pub fn newvar(&mut self, x:&str8) -> str8
    {
       self.cx += 1;
       let xs = format!("{}{}",x,self.cx);
-      return str4::from(xs);
+      return str8::from(xs);
    }
 
   // alpha-convert t apart from free vars in alpha-map.
   // always alpha-convert apart from free vars in N
   // map x->x by default, inserted into and checked for each var.
-  pub fn alpha(&mut self, amap:&mut HashMap<str4,str4>, t:&mut Term, N:&Term)
+  pub fn alpha(&mut self, amap:&mut HashMap<str8,str8>, t:&mut Term, N:&Term)
   {
      match t {
        Var(x) => {
@@ -114,7 +134,7 @@ impl BetaReducer
   }//alpha_apart
 
   // destructive substitution  M[N/x]
-  fn subst(&mut self,M:&mut Term,x:&str4,N:&Term)
+  fn subst(&mut self,M:&mut Term,x:&str8,N:&Term)
   {
      match M {
        Var(y) if y==x => {
@@ -122,7 +142,7 @@ impl BetaReducer
          swap(M,&mut N2);
        },
        App(a,b) => {self.subst(a,x,N); self.subst(b,x,N);},
-       Abs(y,a) => {
+       Abs(y,a) if x!=y => {
          let mut alphamap = HashMap::new();
          self.alpha(&mut alphamap, M,N);
          if let Abs(y2,a2) = M {self.subst(a2,x,N);}
@@ -132,29 +152,170 @@ impl BetaReducer
   }//subst
 
   // 1-step beta reduction, normal order, returns true if reduction occurred
-  pub fn beta1(&mut self, t:&mut Term) -> bool
+  // expands defs only when necessary.  MOST CRUCIAL FUNCTION
+  pub fn beta1(&mut self, t:&mut Term,defs:&HashMap<str8,Term>) -> bool
   {
     match t {
       App(A,B) =>  {
+         if let Var(id) = &mut **A {
+           if let Some(iddef) = defs.get(id) {
+             //println!("= ({}) {}",iddef.to_string(),unbox!(B).to_string());
+             let mut def2 = iddef.clone();
+             swap(&mut **A, &mut def2);
+           }
+         }// expand def  - then do again
          if let Abs(x,C) = &mut **A {
             self.subst(C,x,B);
             let mut C2 = C.clone();
             swap(t,&mut C2);
             true
          }//redex
-         else  { self.beta1(A) || self.beta1(B)}
+         else { self.beta1(A,defs) || self.beta1(B,defs) }
       }, //app case
-      Abs(x,B) => {  self.beta1(B) },
+      Abs(x,B) => {  self.beta1(B,defs) },
       _ => false,
     }//match
   }//beta1
 
-  pub fn reduce_to_norm(&mut self, t:&mut Term)
+  pub fn reduce_to_norm(&mut self, t:&mut Term, defs:&HashMap<str8,Term>)
   {
+     if self.trace>0 {println!("{}",t.to_string());}
      let mut reducible = true;
-     while reducible { reducible = self.beta1(t); }
-  }
-  
+     while reducible {
+       if self.trace>0 && expand(t,defs) {
+         println!("= {}",t.to_string());
+       }
+       reducible = self.beta1(t,defs);
+       if reducible && self.trace>0 {
+           println!(" =>  {}",t.to_string());
+       }
+     }
+  }// reduce to beta normal form (strong norm via CBN)
+
+// weak head reduction, CBV
+pub fn weak_beta(&mut self, t:&mut Term, defs:&HashMap<str8,Term>)
+{
+  match t {
+    App(a,b) => {
+      if let Abs(x,body) = &**a {
+        // reduce b first:
+        self.weak_beta(b,defs);
+        self.beta1(t,defs);
+        self.weak_beta(t,defs); // do it again if another app(abs(x,a),b)
+      }//redex found
+    },
+    _ => {},
+  }//match
+}//weak beta
+
 }//impl BetaReducer
 
 //////////////
+
+pub fn getvar(t:&Term) -> str8 {if let Var(x)=t {*x} else {str8::default()}}
+
+//// replace all defined terms with their definitions
+
+
+////// evaluation of a program
+////// given hashmap of definitions
+
+// expand definitions lazily
+fn expand(t:&mut Term, defs:&HashMap<str8,Term>) -> bool
+{
+   match t {
+     Var(x) => {
+       if let Some(xdef) = defs.get(x) {
+         let ref mut xdef2 = xdef.clone();
+         swap(t,xdef2);
+         true
+       }
+       else {false}
+     }, // var
+     App(a,b) => {
+       expand(a,defs) || expand(b,defs)
+     },
+     Abs(x,a) => {
+       if let Some(xdef) = defs.get(x) {
+          panic!("BOUND VARIABLE {} CONFLICTS WITH GLOBAL DEFINITION",x);
+       }
+       expand(a,defs)
+     },
+     _ => false,
+   }//match
+}//expand , returns true if something was expanded
+
+
+pub fn eval_prog(prog:&Vec<LBox<Term>>)
+{
+  let mut reducer = BetaReducer::new();
+  let mut defs = HashMap::<str8,Term>::new();
+  for line in prog
+  {
+     match &**line {
+       Def(weak,x,xdef) => {
+         let mut xdef2 = unbox!(xdef).clone(); //*xdef.exp.clone();
+         if *weak {
+            reducer.trace=0; reducer.cx=0;
+            reducer.weak_beta(&mut xdef2,&defs);
+         }
+         defs.insert(*x,xdef2);
+       },
+       t => {
+         reducer.trace=1; reducer.cx=0;
+         let ref mut t2 = t.clone();
+         reducer.reduce_to_norm(t2,&defs);
+         //eval(&mut defs,&mut reducer, t);
+         println!();
+       },
+//       _ => {
+//         eprintln!("unable to evaulate ({:?})",line);
+//       },
+     }//match line
+  }// for each line in prog
+}//eval_prog
+
+
+
+/////////////////// lexer
+pub struct LamLexer<'t>
+{
+  stk:StrTokenizer<'t>,
+  keywords:HashSet<&'static str>,
+}
+impl<'t> LamLexer<'t>
+{
+  pub fn new(s:StrTokenizer<'t>) -> LamLexer<'t>
+  {
+    let mut kwh = HashSet::with_capacity(16);
+    for kw in ["define","lambda","let","in","lazy","weak","strong"]
+    { kwh.insert(kw);}
+    LamLexer {
+      stk: s,
+      keywords : kwh,
+    }
+  }//new
+}//impl LamLexer
+impl<'t> Tokenizer<'t,Term> for LamLexer<'t>
+{
+   fn linenum(&self) -> usize {self.stk.line()}
+   fn column(&self) -> usize {self.stk.column()}
+   fn position(&self) -> usize {self.stk.current_position()}
+   fn nextsym(&mut self) -> Option<TerminalToken<'t,Term>>
+   {
+      let tokopt = self.stk.next_token();
+      if let None = tokopt { return None; }
+      let tok = tokopt.unwrap();
+      let tt =  match tok.0 {
+        RawToken::Symbol(".") => TerminalToken::from_raw(tok,"DOT",Nothing),
+        RawToken::Symbol(s) => TerminalToken::from_raw(tok,s,Nothing),
+        RawToken::Alphanum(a) if self.keywords.contains(a) => {
+          TerminalToken::from_raw(tok,a,Nothing)
+        },
+        RawToken::Alphanum(a) => TerminalToken::from_raw(tok,"ID",Var(str8::from(a))),
+        RawToken::Num(n) => TerminalToken::from_raw(tok,"INTEGER",Const(n)),
+        _ => TerminalToken::from_raw(tok,"<<UNRECOGNIZED>>",Nothing),
+      };//match
+      Some(tt)
+   }//nextsym
+}
