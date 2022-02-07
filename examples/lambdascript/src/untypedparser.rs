@@ -122,4 +122,10 @@ pub fn make_parser() -> ZCParser<Term,Vec<LBox<Term>>>
 
 fn load_extras(parser:&mut ZCParser<Term,Vec<LBox<Term>>>)
 {
+  parser.RSM[7].insert("EOF",Stateaction::Error("maybe you forgot a ; at the end of a line"));
+  parser.RSM[31].insert("ANY_ERROR",Stateaction::Error("a dot (.) is required to separate a sequence of lambda-bound variables from the body of the lambda-abstraction"));
+  parser.RSM[10].insert("lambda",Stateaction::Error("a lambda-abstraction as part of an application should have ()'s around it"));
+  parser.RSM[21].insert("ANY_ERROR",Stateaction::Error("maybe you didn't close a ( with a )"));
+  parser.RSM[21].insert("ANY_ERROR",Stateaction::Error("maybe you didn't close a ( with a )"));
+  parser.RSM[1].insert(")",Stateaction::Error("unmatched )"));
 }//end of load_extras: don't change this line as it affects augmentation

@@ -1,7 +1,11 @@
-//! Rustlr is a Yacc-style parser generator in and for Rust, designed for the
-//! creation of parsers for programming language analysis.  **Version 0.2.0**
-//! introduces signficant improvements, although older parsers are still
+//! Rustlr is a Yacc-style parser generator for Rust. Versions 0.2.0
+//! introduced signficant improvements, although older parsers are still
 //! supported.
+//!
+//! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
+//! is being prepared that will explain the
+//! format of grammars and how to generate and deploy parsers for several 
+//! examples.
 //!
 //! Rustlr can create LALR(1) as well as full
 //! LR(1) parsers.  It is also capable of recognizing operator precedence and
@@ -31,10 +35,6 @@
 //! for binary formatted data.  Rather, it is designed to parse text, and specifically
 //! programming language syntax for compilation and analysis.
 //!
-//! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
-//! is being prepared that will explain the
-//! format of grammars and how to generate and deploy parsers for several 
-//! examples.
 //!
 //! Rustlr should be installed as an executable (cargo install rustlr).
 //! Many of the items exported by this crate are only required by the parsers

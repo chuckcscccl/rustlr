@@ -121,7 +121,12 @@ impl BetaReducer
               let mut x2 = *x;
               while isfree(&x2,N) { x2=self.newvar(x) };
               amap.insert(*x,x2);
-              if x!=&x2 { swap(x,&mut x2); }
+              if x!=&x2 {
+                if self.trace>1 {
+                  println!(" < alpha conversion of {} to {} >",x,&x2);
+                }
+                swap(x,&mut x2);
+              }
               self.alpha(amap,a,N);
            },
            Some(y) => {
