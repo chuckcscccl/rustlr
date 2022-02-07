@@ -12,7 +12,7 @@ extern crate fixedstr;
 use fixedstr::{fstr,str8};
 use rustlr::{Tokenizer,RawToken,TerminalToken,StrTokenizer,LBox,LexSource,unbox};
 use crate::untyped::Term::*;
-use std::collections::{HashMap,HashSet,BTreeSet};
+use std::collections::{HashMap,HashSet};
 use std::mem::swap;
 ///// straightforward lambda calculus, with step by step reductions.
 
@@ -120,14 +120,16 @@ impl BetaReducer
            None => {
               let mut x2 = *x;
               while isfree(&x2,N) { x2=self.newvar(x) };
-              amap.insert(*x,x2);
+              let mut amap2 = amap.clone(); // not efficient!
+              amap2.insert(*x,x2);
               if x!=&x2 {
-                if self.trace>1 {
+                if self.trace>0 {
                   println!(" < alpha conversion of {} to {} >",x,&x2);
                 }
                 swap(x,&mut x2);
               }
-              self.alpha(amap,a,N);
+              self.alpha(&mut amap2,a,N);
+              //amap.remove(x); // didn't work.
            },
            Some(y) => {
              let mut y2 = y.clone();
@@ -151,7 +153,7 @@ impl BetaReducer
        App(a,b) => {self.subst(a,x,N); self.subst(b,x,N);},
        Abs(y,a) if x!=y => {
          let mut alphamap = HashMap::new();
-         self.alpha(&mut alphamap, M,N);
+         self.alpha(&mut alphamap, M,N);  // rename M away from N
          if let Abs(y2,a2) = M {self.subst(a2,x,N);}
        },
        _ => {},
@@ -266,10 +268,10 @@ fn expand(t:&mut Term, defs:&HashMap<str8,Term>) -> bool
 }//expand , returns true if something was expanded
 
 
-pub fn eval_prog(prog:&Vec<LBox<Term>>)
+pub fn eval_prog(prog:&Vec<LBox<Term>>, defs:&mut HashMap<str8,Term>)
 {
   let mut reducer = BetaReducer::new();
-  let mut defs = HashMap::<str8,Term>::new();
+  //let mut defs = HashMap::<str8,Term>::new();
   for line in prog
   {
      match &**line {
@@ -277,29 +279,20 @@ pub fn eval_prog(prog:&Vec<LBox<Term>>)
          let mut xdef2 = unbox!(xdef).clone(); //*xdef.exp.clone();
          if *weak {
             reducer.trace=0; reducer.cx=0;
-            reducer.weak_beta(&mut xdef2,&defs);
+            reducer.reduce_to_norm(&mut xdef2,defs);            
+            //reducer.weak_beta(&mut xdef2,defs);
          }
          defs.insert(*x,xdef2);
        },
        Weak(t) => {
          reducer.trace=1; reducer.cx=0;
-         reducer.weak_beta(t,&mut defs);
-         /*
-         println!("weak {}",t.to_string());
-         let mut t2 = t.clone();
-         while expand(&mut t2,&defs) {
-           println!("= {}",t2.to_string()); 
-         }
-         while reducer.weak_beta(&mut t2,&mut defs) {
-           println!(" =>  {}",t2.to_string());
-         }
-         */
+         reducer.weak_beta(t,defs);
          println!();         
        },
        t => {
          reducer.trace=1; reducer.cx=0;
          let ref mut t2 = t.clone();
-         reducer.reduce_to_norm(t2,&defs);
+         reducer.reduce_to_norm(t2,defs);
          println!();
        },
 //       _ => {

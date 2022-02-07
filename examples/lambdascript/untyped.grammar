@@ -21,7 +21,8 @@ resync ;
 Ts --> T:x ;  { parser.exstate.push(x.lbox()); Nothing }
 Ts --> Ts T:x ;  { parser.exstate.push(x.lbox()); Nothing }
 
-# precedence T > Fs > F, Fs defines application, left-associative
+# precedence order: T > Fs > F, Fs defines left-associative application.
+# application binds tighter than abstraction.
 Fs --> F:@a@ { a }
 Fs --> Fs:a F:b { App(a.lbox(), b.lbox()) }
 
@@ -66,6 +67,10 @@ LAMSYM --> lambda | lam | Lam
 
 EOF
 
+
+Everything after EOF is ignored ... alternate productions below are not
+part of the grammar.
+
 F ==> F:a Moreargs:@Seq(mut ts)@  {
   if ts.len()<1 {return a.value;}
   let mut apterm = App(a.lbox(), ts.pop().unwrap());
@@ -88,5 +93,4 @@ Moreargs --> F:b Moreargs:ms@Seq(ts)@ { ts.push(b.lbox()); ms.value }
 
 Vars --> ID:x { Seq(vec![x.lbox()]) }
 Vars --> Vars:@Seq(mut vs)@ ID:y { vs.push(y.lbox()); Seq(vs) }
-
 

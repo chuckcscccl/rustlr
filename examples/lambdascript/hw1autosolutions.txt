@@ -1,0 +1,294 @@
+Beta-Reducer for Untyped Lambda Calculus, by Chuck Liang.
+For educational reasons this program may be temporarily disabled during certain time periods
+2
+
+(λxλy.y x) u (λx.x)
+ =>  (λy.y u) (λx.x)
+ =>  (λx.x) u
+ =>  u
+
+3
+
+K I I
+= (λxλy.x) I I
+ =>  (λy.I) I
+= (λyλx.x) I
+ =>  λx.x
+
+S I K
+= (λxλyλz.x z (y z)) I K
+ =>  (λyλz.I z (y z)) K
+= (λyλz.(λx.x) z (y z)) K
+ =>  λz.(λx.x) z (K z)
+= λz.(λx.x) z ((λxλy.x) z)
+ =>  λz.z ((λxλy.x) z)
+ =>  λz.z (λy.z)
+
+S K (K I)
+= (λxλyλz.x z (y z)) K (K I)
+ =>  (λyλz.K z (y z)) (K I)
+= (λyλz.(λxλy.x) z (y z)) (K I)
+ =>  λz.(λxλy.x) z (K I z)
+= λz.(λxλy.x) z ((λxλy.x) I z)
+ =>  λz.(λy.z) ((λxλy.x) I z)
+= λz.(λy.z) ((λxλy.x) (λx.x) z)
+ =>  λz.z
+
+S (K I)
+= (λxλyλz.x z (y z)) (K I)
+ =>  λyλz.K I z (y z)
+= λyλz.(λxλy.x) I z (y z)
+ =>  λyλz.(λy.I) z (y z)
+= λyλz.(λyλx.x) z (y z)
+ =>  λyλz.(λx.x) (y z)
+ =>  λyλz.y z
+
+weak S (K I)
+= (λxλyλz.x z (y z)) (K I)
+= (λxλyλz.x z (y z)) ((λxλy.x) I)
+= (λxλyλz.x z (y z)) ((λxλy.x) (λx.x))
+ =>  (λxλyλz.x z (y z)) (λyλx.x)
+ =>  λyλz.(λyλx.x) z (y z)
+
+4
+
+PLUS TWO ONE
+= (λmλnλfλx.m f (n f x)) TWO ONE
+ =>  (λnλfλx.TWO f (n f x)) ONE
+= (λnλfλx.(λfλx.f (f x)) f (n f x)) ONE
+ =>  λfλx.(λfλx.f (f x)) f (ONE f x)
+= λfλx.(λfλx.f (f x)) f ((λfλx.f x) f x)
+ =>  λfλx.(λx.f (f x)) ((λfλx.f x) f x)
+ =>  λfλx.f (f ((λfλx.f x) f x))
+ =>  λfλx.f (f ((λx.f x) x))
+ =>  λfλx.f (f (f x))
+
+TIMES ZERO TWO
+= (λmλnλfλx.m (n f) x) ZERO TWO
+ =>  (λnλfλx.ZERO (n f) x) TWO
+= (λnλfλx.(λy.I) (n f) x) TWO
+ =>  λfλx.(λy.I) (TWO f) x
+= λfλx.(λyλx.x) (TWO f) x
+ =>  λfλx.(λx.x) x
+ =>  λfλx.x
+
+4 b
+
+EXPT TREE TWO
+= (λmλn.n m) TREE TWO
+ =>  (λn.n TREE) TWO
+= (λn.n (λfλx.f (f (f x)))) TWO
+ =>  TWO (λfλx.f (f (f x)))
+= (λfλx.f (f x)) (λfλx.f (f (f x)))
+ =>  λx.(λfλx.f (f (f x))) ((λfλx.f (f (f x))) x)
+ < alpha conversion of x to x1 >
+ =>  λxλx1.(λfλx.f (f (f x))) x ((λfλx.f (f (f x))) x ((λfλx.f (f (f x))) x x1))
+ < alpha conversion of x to x2 >
+ =>  λxλx1.(λx2.x (x (x x2))) ((λfλx.f (f (f x))) x ((λfλx.f (f (f x))) x x1))
+ =>  λxλx1.x (x (x ((λfλx.f (f (f x))) x ((λfλx.f (f (f x))) x x1))))
+ < alpha conversion of x to x3 >
+ =>  λxλx1.x (x (x ((λx3.x (x (x x3))) ((λfλx.f (f (f x))) x x1))))
+ =>  λxλx1.x (x (x (x (x (x ((λfλx.f (f (f x))) x x1))))))
+ < alpha conversion of x to x4 >
+ =>  λxλx1.x (x (x (x (x (x ((λx4.x (x (x x4))) x1))))))
+ =>  λxλx1.x (x (x (x (x (x (x (x (x x1))))))))
+
+5
+
+OR
+= λaλb.a TRUE b
+
+OR FALSE FALSE
+= (λaλb.a TRUE b) FALSE FALSE
+ =>  (λb.FALSE TRUE b) FALSE
+= (λb.(λy.I) TRUE b) FALSE
+ =>  (λy.I) TRUE FALSE
+= (λyλx.x) TRUE FALSE
+ =>  (λx.x) FALSE
+= (λx.x) (λy.I)
+ =>  λy.I
+= λyλx.x
+
+OR FALSE TRUE
+= (λaλb.a TRUE b) FALSE TRUE
+ =>  (λb.FALSE TRUE b) TRUE
+= (λb.(λy.I) TRUE b) TRUE
+ =>  (λy.I) TRUE TRUE
+= (λyλx.x) TRUE TRUE
+ =>  (λx.x) TRUE
+= (λx.x) K
+ =>  K
+= λxλy.x
+
+OR TRUE FALSE
+= (λaλb.a TRUE b) TRUE FALSE
+ =>  (λb.TRUE TRUE b) FALSE
+= (λb.K TRUE b) FALSE
+ =>  K TRUE FALSE
+= (λxλy.x) TRUE FALSE
+ =>  (λy.TRUE) FALSE
+= (λy.K) FALSE
+ =>  K
+= λxλy.x
+
+OR TRUE TRUE
+= (λaλb.a TRUE b) TRUE TRUE
+ =>  (λb.TRUE TRUE b) TRUE
+= (λb.K TRUE b) TRUE
+ =>  K TRUE TRUE
+= (λxλy.x) TRUE TRUE
+ =>  (λy.TRUE) TRUE
+= (λy.K) TRUE
+ =>  K
+= λxλy.x
+
+6
+
+NOT
+= λn.n FALSE TRUE
+
+NOT FALSE
+= (λn.n FALSE TRUE) FALSE
+ =>  FALSE FALSE TRUE
+= (λy.I) FALSE TRUE
+ =>  I TRUE
+= (λx.x) TRUE
+ =>  TRUE
+= K
+
+NOT TRUE
+= (λn.n FALSE TRUE) TRUE
+ =>  TRUE FALSE TRUE
+= K FALSE TRUE
+ =>  (λy.FALSE) TRUE
+= (λyλy.I) TRUE
+ =>  λy.I
+= λyλx.x
+
+NOT (NOT TRUE)
+= (λn.n FALSE TRUE) (NOT TRUE)
+ =>  NOT TRUE FALSE TRUE
+= (λn.n FALSE TRUE) TRUE FALSE TRUE
+ =>  TRUE FALSE TRUE FALSE TRUE
+= K FALSE TRUE FALSE TRUE
+ =>  (λy.FALSE) TRUE FALSE TRUE
+= (λyλy.I) TRUE FALSE TRUE
+ =>  (λy.I) FALSE TRUE
+= (λyλx.x) FALSE TRUE
+ =>  (λx.x) TRUE
+= (λx.x) K
+ =>  K
+= λxλy.x
+
+7
+
+IF TRUE 1 2
+= (λbλxλy.b x y) TRUE 1 2
+ =>  (λxλy.TRUE x y) 1 2
+= (λxλy.K x y) 1 2
+ =>  (λy.K 1 y) 2
+= (λy.(λxλy.x) 1 y) 2
+ =>  (λxλy.x) 1 2
+ =>  (λy.1) 2
+ =>  1
+
+IF FALSE 1 2
+= (λbλxλy.b x y) FALSE 1 2
+ =>  (λxλy.FALSE x y) 1 2
+= (λxλy.(λy.I) x y) 1 2
+ =>  (λy.(λy.I) 1 y) 2
+= (λy.(λyλx.x) 1 y) 2
+ =>  (λyλx.x) 1 2
+ =>  (λx.x) 2
+ =>  2
+
+8
+
+M
+= λc1.c1 a (λc3.c3 b c)
+
+FST M
+= (λc.c TRUE) M
+ =>  M TRUE
+= (λc1.c1 a (λc3.c3 b c)) TRUE
+ =>  TRUE a (λc3.c3 b c)
+= K a (λc3.c3 b c)
+ =>  (λy.a) (λc3.c3 b c)
+ =>  a
+
+SND M
+= (λc.c FALSE) M
+ =>  M FALSE
+= (λc1.c1 a (λc3.c3 b c)) FALSE
+ =>  FALSE a (λc3.c3 b c)
+= (λy.I) a (λc3.c3 b c)
+ =>  I (λc3.c3 b c)
+= (λx.x) (λc3.c3 b c)
+ =>  λc3.c3 b c
+
+SND (SND M)
+= (λc.c FALSE) (SND M)
+ =>  SND M FALSE
+= (λc.c FALSE) M FALSE
+ =>  M FALSE FALSE
+= (λc1.c1 a (λc3.c3 b c)) FALSE FALSE
+ =>  FALSE a (λc3.c3 b c) FALSE
+= (λy.I) a (λc3.c3 b c) FALSE
+ =>  I (λc3.c3 b c) FALSE
+= (λx.x) (λc3.c3 b c) FALSE
+ =>  (λc3.c3 b c) FALSE
+= (λc3.c3 b c) (λy.I)
+ =>  (λy.I) b c
+= (λyλx.x) b c
+ =>  (λx.x) c
+ =>  c
+
+9
+
+ISZERO
+= λn.n (λz.FALSE) TRUE
+
+ISZERO (TIMES ONE ZERO)
+= (λn.n (λz.FALSE) TRUE) (TIMES ONE ZERO)
+ =>  TIMES ONE ZERO (λz.FALSE) TRUE
+= (λmλnλfλx.m (n f) x) ONE ZERO (λz.FALSE) TRUE
+ =>  (λnλfλx.ONE (n f) x) ZERO (λz.FALSE) TRUE
+= (λnλfλx.(λfλx.f x) (n f) x) ZERO (λz.FALSE) TRUE
+ =>  (λfλx.(λfλx.f x) (ZERO f) x) (λz.FALSE) TRUE
+= (λfλx.(λfλx.f x) ((λy.I) f) x) (λz.FALSE) TRUE
+ =>  (λx.(λfλx.f x) ((λy.I) (λz.FALSE)) x) TRUE
+= (λx.(λfλx.f x) ((λyλx.x) (λz.FALSE)) x) TRUE
+ =>  (λfλx.f x) ((λyλx.x) (λz.FALSE)) TRUE
+= (λfλx.f x) ((λyλx.x) (λzλy.I)) TRUE
+ =>  (λx.(λyλx.x) (λzλy.I) x) TRUE
+= (λx.(λyλx.x) (λzλyλx.x) x) TRUE
+ =>  (λyλx.x) (λzλyλx.x) TRUE
+= (λyλx.x) (λzλyλx.x) K
+ =>  (λx.x) K
+= (λx.x) (λxλy.x)
+ =>  λxλy.x
+
+ISZERO (PLUS ONE ZERO)
+= (λn.n (λz.FALSE) TRUE) (PLUS ONE ZERO)
+ =>  PLUS ONE ZERO (λz.FALSE) TRUE
+= (λmλnλfλx.m f (n f x)) ONE ZERO (λz.FALSE) TRUE
+ =>  (λnλfλx.ONE f (n f x)) ZERO (λz.FALSE) TRUE
+= (λnλfλx.(λfλx.f x) f (n f x)) ZERO (λz.FALSE) TRUE
+ =>  (λfλx.(λfλx.f x) f (ZERO f x)) (λz.FALSE) TRUE
+= (λfλx.(λfλx.f x) f ((λy.I) f x)) (λz.FALSE) TRUE
+ =>  (λx.(λfλx.f x) (λz.FALSE) ((λy.I) (λz.FALSE) x)) TRUE
+= (λx.(λfλx.f x) (λzλy.I) ((λy.I) (λz.FALSE) x)) TRUE
+ =>  (λfλx.f x) (λzλy.I) ((λy.I) (λz.FALSE) TRUE)
+= (λfλx.f x) (λzλyλx.x) ((λy.I) (λz.FALSE) TRUE)
+ =>  (λx.(λzλyλx.x) x) ((λy.I) (λz.FALSE) TRUE)
+= (λx.(λzλyλx.x) x) ((λyλx.x) (λz.FALSE) TRUE)
+ =>  (λzλyλx.x) ((λyλx.x) (λz.FALSE) TRUE)
+= (λzλyλx.x) ((λyλx.x) (λzλy.I) TRUE)
+ =>  λyλx.x
+
+10
+
+still working on it
+
+Entering interactive mode, enter 'exit' to quit...
+<<< 

@@ -128,4 +128,7 @@ fn load_extras(parser:&mut ZCParser<Term,Vec<LBox<Term>>>)
   parser.RSM[21].insert("ANY_ERROR",Stateaction::Error("maybe you didn't close a ( with a )"));
   parser.RSM[21].insert("ANY_ERROR",Stateaction::Error("maybe you didn't close a ( with a )"));
   parser.RSM[1].insert(")",Stateaction::Error("unmatched )"));
+  parser.RSM[26].insert("ANY_ERROR",Stateaction::Error("a '=' symbol is required for definitions"));
+  parser.RSM[10].insert("EOF",Stateaction::Error("maybe you forgot the ; at the end of a line"));
+  parser.RSM[10].insert("DOT",Stateaction::Error("if I have to guess, maybe you misspelled lambda?"));
 }//end of load_extras: don't change this line as it affects augmentation

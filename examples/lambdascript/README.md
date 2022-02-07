@@ -5,7 +5,7 @@ terms.  It is not a high-performance implementation of lambda
 calculus. Rather, the tool serves three primary purposes, all of which
 are illustrational or educational in nature:
 
-  1. It demonstrates the usage of the **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)** *parser generator*.  The LALR(1) grammar, in rustlr format,
+  1. It demonstrates the usage of the **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)** *parser generator*.  The LALR(1) grammar for lambdascript in rustlr format
   is given [here](https://cs.hofstra.edu/~cscccl/rustlr_project/lambdascript/untyped.grammar).
 
   2. For introductory level students in a programming languages class, the
@@ -51,6 +51,9 @@ the last line of the file was replaced with `weak (K I INFINITY x)`, then
 weak-head reduction using CBV will take place, 
 resulting in an infinite loop.  There will likewise be an infinite loop if
 `lazy` was missing from the definition of `INFINITY`.
+
+After a script is executed, the interpreter automatically enters interactive
+mode with the definitions from the script still available.
 
 As this tool is used actively in the classroom, each release will have
 a **limited lifetime**: after a certain period it will cease to work until
