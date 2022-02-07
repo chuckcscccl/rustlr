@@ -2,7 +2,7 @@
 name = "rustlr"
 version = "0.2.1"
 authors = ["Chuck Liang"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "LR(1)/LALR(1) parser generator for rust"
 repository = "https://github.com/chuckcscccl/rustlr/"
