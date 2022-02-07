@@ -784,8 +784,8 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       erraction = self.RSM[csi].get(lookahead.sym);
    }// skip ahead
    match erraction {
-     None => None,
-     Some(act) => Some(*act),
+     Some(act) if eofcx<1 => Some(*act),
+     _ => None,
    }//return match
   }//error_recover function
 
@@ -922,6 +922,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     self.stack.clear();
     self.err_occurred = false;
     let mut result = AT::default();
+    self.exstate = ET::default();
     self.stack.push(StackedItem::new(0,AT::default(),0,0));
     //self.stack.push(Stackelement {si:0, value:AT::default()});
     self.stopparsing = false;

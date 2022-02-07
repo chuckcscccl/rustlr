@@ -40,6 +40,8 @@ define M = (CONS 2 (CONS 3 (CONS 5 (CONS 7 NULL))));
 (CAR (CDR (CDR M)));  // 5
 
 // arithmetic
+(PLUS One One);  // 2 in church numeral
+
 (TIMES (PLUS One One) Zero 1 0); // 0: 2*0=0!
 
 // static scoping: 

@@ -15,13 +15,13 @@ use rustlr::{LBox,unbox};
 use crate::untyped::*;
 use crate::untyped::Term::*;
 
-const SYMBOLS:[&'static str;20] = ["lambda","(",")","[","]","DOT","let","=","in","define","lazy",";","INTEGER","ID","T","Vars","Moreargs","Ts","START","EOF"];
+const SYMBOLS:[&'static str;26] = ["lambda","lam","Lam","(",")","[","]","DOT","let","=","in","define","lazy","weak","CBV",";","INTEGER","ID","T","F","Fs","Vars","LAMSYM","Ts","START","EOF"];
 
-const TABLE:[u64;154] = [60129607681,38655033344,262144,4295360512,51540131840,55835033600,73014640641,25769934848,281522221940736,563005788651520,844506534510595,844485060395009,844429225492480,844480765165568,844463585165312,844476470263808,844450700066816,844424930394112,1125955742269440,1125964332138497,1407430719045632,1688888515297280,1688875630198784,1688849860526080,1688854155624448,1688905695297536,1688909990789121,1688901400395776,1970380671680514,1970333427040258,1970324837105666,1970363491811330,1970376376713218,1970350606909442,1970329132072962,1970372081745922,1970359196844034,2251851353489410,2251838468587522,2251808403816450,2251799813881858,2251847058522114,2251834173620226,2251855648456706,2251804108849154,2251825583685634,2533330624970754,2533274790395906,2533279085363202,2533356394774530,2533300560199682,2533313445101570,2533326330003458,2814779832926208,3096271989571584,3377721196609536,3377755556282368,3659230532468738,3659196172730370,3940679740030976,4222180485693440,4222184781643777,4222193371512833,4222176190791680,4222150420594688,4222163305693184,4222128946020352,4222124650921984,4222133241118722,4503659758419969,4503638282403840,4503625397305344,4503603922731008,4503655462404096,4503651167502336,4503599627632640,4785113258852354,4785126143754242,4785074604146690,4785078899113986,4785130438721538,4785156208525314,4785100373950466,5066605416087554,5066571056349186,5348080392536064,5348063212535808,5348084688617473,5348050327437312,5348024557764608,5348076097634304,5348028852862976,5629551074344960,5629503829573632,5629538189246464,5629525304147968,5629555369246720,5629559665393665,5629499534475264,5910983102562304,6192501027766272,6192458078093314,6192509618618369,6192449487896576,6192505322668032,6192453782994944,6192518208880641,6192475257569280,6192488142667776,6473958825918464,6755408031318018,6755450980990978,6755438096089090,6755455275958274,6755399441383426,6755433801121794,6755446686023682,6755403736350722,6755425211187202,7036913072930818,7036908777963522,7036878713192450,7036930252800002,7036883008159746,7036925957832706,7036921662865410,7036900188028930,7036874418225154,7318388049444866,7318353689706498,7318400934346754,7318349394739202,7318383754477570,7318396639379458,7318357984673794,7318375164542978,7318405229314050,7599832961712130,7881350888030208,7881303643258880,7881355182931968,7881359479341057,7881299348160512,7881325117833216,7881338002931712,8162800094806018,8162825864609794,8162778619969538,8162830159577090,8162821569642498,8162812979707906,8162782914936834,8162808684740610,8162774325002242,];
+const TABLE:[u64;221] = [73015099392,81605099521,60130394112,94490066945,4295950336,68719935488,34360000512,55834705920,589824,98784444417,85899673601,8590327808,77309476865,47245557760,12885426176,281539402268672,563018673356800,562962838847488,563022968520704,563031558914049,844497945231360,844433520459776,844424930721792,844485060526080,844532304314371,844506535231489,844519420198913,844493650067456,844502240722945,844429226082304,844459290132480,844480764837888,844437815558144,844472175689728,844510829805569,1125972922531840,1407447898652672,1407443603488768,1407392063815682,1407417833619458,1407456489242625,1407387768979456,1407439308455938,1688922875887618,1970367786975234,1970342017171458,1970393556779010,1970337722204162,1970397851746306,1970389261811714,2251834173685760,2251881418784769,2251885713358849,2251855648391168,2251799814275072,2251868533620736,2251812699111424,2251808404013056,2251894303752193,2251877124472833,2251804109635584,2251847059243008,2251859944079360,2251872828784640,2533347805888514,2814762652270594,2814766947237890,2814814191878146,2814818486845442,2814792717041666,2814822781812738,3096293463425026,3096237628850178,3096241923817474,3096297758392322,3096267693621250,3096289168457730,3377772736479232,3377789916282881,3659243417174016,3659247712337920,3659256303190017,3659187582664704,3940722690097152,3940701215195136,4222197666217986,4503608217305090,4503668346847234,4503672641814530,4503707001552898,4503603922337794,4503659756912642,4503655461945346,4503633987108866,4503599627370498,4503646872010754,4503612512272386,4785091784540162,4785117554343938,4785139029180418,5066614007070720,5348063214043136,5629572548853762,5629563958919170,5629512419311618,5629516714278914,5629542484082690,5629568253886466,5910991692693504,6192479554371584,6192522504110080,6473954529837058,6473997479510018,6755416621449218,6755442391252994,6755463866089474,7036947434307584,7318388051345408,7599884500795394,7599832961187842,7599893090729986,7599828666220546,7599897385697282,7599871615893506,7599931745435650,7599858730991618,7599837256155138,7599824371253250,7599880205828098,7881376659537921,7881372362997760,7881368067833856,7881299348488192,7881393837965313,7881355182604288,7881385247571969,7881307938226176,7881303643848704,7881346593456128,7881333707898880,7881380952997889,7881312233324544,7881359478292480,8162791504936962,8162843044544514,8162787209969666,8162817274740738,8162847339511810,8162838749577218,8444318021255168,8444253597270016,8444262186745856,8444249301909504,8444305136025600,8444335200993281,8444257891647488,8444296546877440,8444309431713792,8444326613024769,8444343791386625,8444330906419201,8444283661320192,8444322316419072,8725797293260802,8725754343587842,9007237911805952,9288751543287809,9288747246551040,9288708591452160,9288687116877824,9288760131125249,9288682821779456,9288742951387136,9288734361845760,9288721477009408,9288730066157568,9288674232041472,9288768721518593,9288678527401984,9288755836551169,9570192160325632,9851688610037762,9851667135201282,9851641365397506,10133193651650561,10133103457533952,10133167881519104,10133176473550849,10133185061257217,10133133521584128,10133159291977728,10133146407141376,10133180766683137,10133107751911424,10133112047009792,10133099162173440,10133172176683008,10133154996289536,10414591319080962,10414617088884738,10414638563721218,10696122130104320,10696117834940416,10696062000431104,10696096360562688,10696109245399040,10696053410955264,10696130720104449,10696126427037697,10696135014678529,10696049115594752,10696104949710848,10696083475005440,10696057705332736,10696143605071873,10977567042371586,10977541272567810,10977588517208066,11259016249147394,11259042018951170,11259063493787650,];
 
 pub fn make_parser() -> ZCParser<Term,Vec<LBox<Term>>>
 {
- let mut parser1:ZCParser<Term,Vec<LBox<Term>>> = ZCParser::new(13,30);
+ let mut parser1:ZCParser<Term,Vec<LBox<Term>>> = ZCParser::new(20,41);
  let mut rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("start");
  rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Ts");
  rule.Ruleaction = |parser|{ let mut _item1_ = parser.popstack(); let mut x = parser.popstack();  parser.exstate.push(x.lbox()); Nothing };
@@ -29,23 +29,34 @@ pub fn make_parser() -> ZCParser<Term,Vec<LBox<Term>>>
  rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Ts");
  rule.Ruleaction = |parser|{ let mut _item2_ = parser.popstack(); let mut x = parser.popstack(); let mut _item0_ = parser.popstack();  parser.exstate.push(x.lbox()); Nothing };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Fs");
+ rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); 
+  if let (a,)=(_item0_.value,) {  a }  else {parser.bad_pattern("(a,)")} };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Fs");
+ rule.Ruleaction = |parser|{ let mut b = parser.popstack(); let mut a = parser.popstack();  App(a.lbox(), b.lbox()) };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("F");
  rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); 
   if let ((x),)=(_item0_.value,) {  x } /* var */  else {parser.bad_pattern("((x),)")} };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("F");
  rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); 
   if let ((x),)=(_item0_.value,) {  x } /* const*/  else {parser.bad_pattern("((x),)")} };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
- rule.Ruleaction = |parser|{ let mut _item3_ = parser.popstack(); let mut _item2_ = parser.popstack(); let mut a = parser.popstack(); let mut _item0_ = parser.popstack(); 
-  if let (Seq(mut ts),)=(_item2_.value,) { 
-  if ts.len()<1 {return a.value;}
-  let mut apterm = App(a.lbox(), ts.pop().unwrap());
-  while ts.len()>0 {
-    apterm = App(parser.lbx(0,apterm), ts.pop().unwrap());
-  }
-  apterm }  else {parser.bad_pattern("(Seq(mut ts),)")} };
+ rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); 
+  if let (a,)=(_item0_.value,) {  a }  else {parser.bad_pattern("(a,)")} };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("F");
+ rule.Ruleaction = |parser|{ let mut _item2_ = parser.popstack(); let mut _item1_ = parser.popstack(); let mut _item0_ = parser.popstack(); 
+  if let (a,)=(_item1_.value,) {  a }  else {parser.bad_pattern("(a,)")} };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
+ rule.Ruleaction = |parser|{ let mut x = parser.popstack(); let mut _item0_ = parser.popstack();  CBV(x.lbox()) };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
+ rule.Ruleaction = |parser|{ let mut x = parser.popstack(); let mut _item0_ = parser.popstack();  Weak(x.lbox()) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
  rule.Ruleaction = |parser|{ let mut b = parser.popstack(); let mut _item2_ = parser.popstack(); let mut _item1_ = parser.popstack(); let mut _item0_ = parser.popstack(); 
@@ -55,6 +66,13 @@ pub fn make_parser() -> ZCParser<Term,Vec<LBox<Term>>>
     t = Abs(getvar(&unbox!(vs.pop().unwrap())),parser.lbx(0,t));
   }
   return t; }  else {parser.bad_pattern("(Seq(mut vs),)")} };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Vars");
+ rule.Ruleaction = |parser|{ let mut x = parser.popstack();  Seq(vec![x.lbox()]) };
+ parser1.Rules.push(rule);
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Vars");
+ rule.Ruleaction = |parser|{ let mut y = parser.popstack(); let mut _item0_ = parser.popstack(); 
+  if let (Seq(mut vs),)=(_item0_.value,) {  vs.push(y.lbox()); Seq(vs) }  else {parser.bad_pattern("(Seq(mut vs),)")} };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
  rule.Ruleaction = |parser|{ let mut b = parser.popstack(); let mut _item4_ = parser.popstack(); let mut v = parser.popstack(); let mut _item2_ = parser.popstack(); let mut _item1_ = parser.popstack(); let mut _item0_ = parser.popstack(); 
@@ -68,26 +86,29 @@ pub fn make_parser() -> ZCParser<Term,Vec<LBox<Term>>>
   nv 
  }  else {parser.bad_pattern("(Var(x),)")} };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Moreargs");
- rule.Ruleaction = |parser|{  Seq(Vec::new()) };
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("T");
+ rule.Ruleaction = |parser|{ let mut v = parser.popstack(); let mut _item3_ = parser.popstack(); let mut _item2_ = parser.popstack(); let mut _item1_ = parser.popstack(); let mut _item0_ = parser.popstack(); 
+  if let (Var(x),)=(_item2_.value,) { 
+  let nv = Def(false,x,v.lbox());
+  nv 
+ }  else {parser.bad_pattern("(Var(x),)")} };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Moreargs");
- rule.Ruleaction = |parser|{ let mut ms = parser.popstack(); let mut b = parser.popstack(); 
-  if let (Seq(ts),)=(&mut ms.value,) {  ts.push(b.lbox()); ms.value }  else {parser.bad_pattern("(Seq(ts),)")} };
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("LAMSYM");
+ rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); <Term>::default()};
  parser1.Rules.push(rule);
- rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Vars");
- rule.Ruleaction = |parser|{ let mut x = parser.popstack();  Seq(vec![x.lbox()]) };
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("LAMSYM");
+ rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); <Term>::default()};
  parser1.Rules.push(rule);
- rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("Vars");
- rule.Ruleaction = |parser|{ let mut y = parser.popstack(); let mut _item0_ = parser.popstack(); 
-  if let (Seq(mut vs),)=(_item0_.value,) {  vs.push(y.lbox()); Seq(vs) }  else {parser.bad_pattern("(Seq(mut vs),)")} };
+ rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("LAMSYM");
+ rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); <Term>::default()};
  parser1.Rules.push(rule);
  rule = ZCRProduction::<Term,Vec<LBox<Term>>>::new_skeleton("START");
  rule.Ruleaction = |parser|{ let mut _item0_ = parser.popstack(); <Term>::default()};
  parser1.Rules.push(rule);
  parser1.Errsym = "";
+ parser1.resynch.insert(";");
 
- for i in 0..154 {
+ for i in 0..221 {
    let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;
    let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;
    parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));

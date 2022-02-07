@@ -27,6 +27,8 @@ pub enum Term
   Abs(str8,LBox<Term>),
   App(LBox<Term>,LBox<Term>),
   Def(bool,str8,LBox<Term>),  // true bool means eval to weak-head form
+  Weak(LBox<Term>),  // eval into weak head normal form
+  CBV(LBox<Term>),   // call-by-value instead of default CBN
   Seq(Vec<LBox<Term>>), // there won't be nested seqs
   Nothing,
 }
@@ -105,7 +107,7 @@ impl BetaReducer
      match t {
        Var(x) => {
           amap.get(x).map(|y| {
-            if y==x {
+            if y!=x {
               let mut y2 = y.clone();
               swap(x,&mut y2);
             }
@@ -157,12 +159,12 @@ impl BetaReducer
   {
     match t {
       App(A,B) =>  {
-         if let Var(id) = &mut **A {
+         while let Var(id) = &mut **A {
            if let Some(iddef) = defs.get(id) {
              //println!("= ({}) {}",iddef.to_string(),unbox!(B).to_string());
              let mut def2 = iddef.clone();
              swap(&mut **A, &mut def2);
-           }
+           } else {break;}
          }// expand def  - then do again
          if let Abs(x,C) = &mut **A {
             self.subst(C,x,B);
@@ -193,18 +195,31 @@ impl BetaReducer
   }// reduce to beta normal form (strong norm via CBN)
 
 // weak head reduction, CBV
-pub fn weak_beta(&mut self, t:&mut Term, defs:&HashMap<str8,Term>)
+pub fn weak_beta(&mut self, t:&Term, defs:&HashMap<str8,Term>)
 {
+   if self.trace>0 {  println!("weak {}",t.to_string());  }
+   let mut t2 = t.clone();
+   while expand(&mut t2,&defs) {
+       if self.trace>0 {println!("= {}",t2.to_string());}
+   }
+   while self.weak_beta1(&mut t2,defs) {
+       if self.trace>0 {println!(" =>  {}",t2.to_string());}
+   }
+}//weak_beta
+fn weak_beta1(&mut self, t:&mut Term, defs:&HashMap<str8,Term>) -> bool
+{ 
   match t {
     App(a,b) => {
       if let Abs(x,body) = &**a {
         // reduce b first:
-        self.weak_beta(b,defs);
-        self.beta1(t,defs);
-        self.weak_beta(t,defs); // do it again if another app(abs(x,a),b)
+        self.weak_beta1(b,defs) || 
+        self.beta1(t,defs) 
+//        let wt =self.weak_beta(t,defs); // do it again
+//        wb || bt || wt
       }//redex found
+      else {self.weak_beta1(a,defs)}
     },
-    _ => {},
+    _ => {false},
   }//match
 }//weak beta
 
@@ -261,11 +276,25 @@ pub fn eval_prog(prog:&Vec<LBox<Term>>)
          }
          defs.insert(*x,xdef2);
        },
+       Weak(t) => {
+         reducer.trace=1; reducer.cx=0;
+         reducer.weak_beta(t,&mut defs);
+         /*
+         println!("weak {}",t.to_string());
+         let mut t2 = t.clone();
+         while expand(&mut t2,&defs) {
+           println!("= {}",t2.to_string()); 
+         }
+         while reducer.weak_beta(&mut t2,&mut defs) {
+           println!(" =>  {}",t2.to_string());
+         }
+         */
+         println!();         
+       },
        t => {
          reducer.trace=1; reducer.cx=0;
          let ref mut t2 = t.clone();
          reducer.reduce_to_norm(t2,&defs);
-         //eval(&mut defs,&mut reducer, t);
          println!();
        },
 //       _ => {
@@ -278,6 +307,7 @@ pub fn eval_prog(prog:&Vec<LBox<Term>>)
 
 
 /////////////////// lexer
+
 pub struct LamLexer<'t>
 {
   stk:StrTokenizer<'t>,
@@ -288,7 +318,7 @@ impl<'t> LamLexer<'t>
   pub fn new(s:StrTokenizer<'t>) -> LamLexer<'t>
   {
     let mut kwh = HashSet::with_capacity(16);
-    for kw in ["define","lambda","let","in","lazy","weak","strong"]
+    for kw in ["define","lambda","lam","Lam","λ","let","in","lazy","weak","CBV","strong"]
     { kwh.insert(kw);}
     LamLexer {
       stk: s,
