@@ -1,0 +1,11 @@
+# Rustlr training script for src/untypedparser.rs
+
+5	13	) ::: this ) does not have a matching (
+6	10	DOT ::: if I had to guess, you misspelled lambda; you can use lambda, lam or Lam
+7	3	lambda ::: a lambda-expression in an application term should be placed inside ()'s
+8	10	ANY_ERROR ::: a '=' is required in a definition
+9	12	ANY_ERROR ::: invalid expression inside ()s.  sometimes this is caused by forgetting the DOT (.) after lambda
+11	3	Liang ::: MAKING FUN OF PROFESSOR LIANG IS FORBIDDEN! REPENT!
+12	8	Liang ::: there's no such thing as lambda-liang calculus; although I did invent an extention of lambda calculus, I didn't name it after myself. maybe someday somebody will name it after me.
+13	16	Liang ::: MAKING FUN OF PROFESSOR LIANG WILL BRING YOU BAD LUCK AND REALLY BAD GRADES
+15	1	ANY_ERROR ::: maybe you forgot a ; at the end of the previous line

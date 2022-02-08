@@ -6,19 +6,26 @@ define K = lambda x.lambda y.x;
 define S = lambda x.lambda y.lambda z.x z (y z);
 
 // Booleans and if-else
-define TRUE = K;     // K A B = A
-define FALSE = K I;  // (K I) A B = B
+define TRUE = lambda x.lambda y.x;     // K A B = A
+define FALSE = lambda x.lambda y.y;  // (K I) A B = B
 define IF = lambda b.lambda x.lambda y.b x y;
 define NOT = lambda b.IF b FALSE TRUE;
 define OR = lambda a.lambda b.IF a TRUE b;
 define AND = lambda a.lambda b.IF a b FALSE;
 
 // Arithmetic
-define ZERO = FALSE;
+define ZERO = lambda f.lambda x.x;
 define ISZERO = lambda n.n (lambda z.FALSE) TRUE;
 define ONE = lambda f.lambda x.f x;
 define PLUS = lambda m.lambda n.lambda f.lambda x.m f (n f x);
 define TIMES = lambda m.lambda n.lambda f.lambda x.m (n f) x;
+define PRED = lambda n.lambda f.lambda x.n (lambda g.lambda h.h (g f)) (lambda u.x) (lambda u.u);
+define SUBTRACT = lambda m.lambda n. n PRED m;
+define LEQ = lambda m.lambda n. ISZERO (SUBTRACT m n);  // <=
+define EQUALS = lambda m.lambda n.AND (LEQ m n) (LEQ n m);
+LEQ ONE (PLUS ONE ONE);   //true
+LEQ (PLUS ONE ONE) ONE;  // false
+EQUALS ONE (TIMES ONE ONE); // true
 
 // Data structure (pairs, linked-list = nested pairs)
 define CONS = lambda a.lambda b.lambda c.IF c a b; //pair constructor
@@ -36,6 +43,8 @@ define TWO = PLUS ONE ONE;
 define THREE = PLUS TWO ONE;
 define FIVE = PLUS TWO THREE;
 define P = (CONS TWO (CONS THREE (CONS FIVE NIL)));
+
+SUBTRACT FIVE THREE;
 
 I 1;
 K 1;     // lambda y.1

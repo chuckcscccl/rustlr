@@ -6,7 +6,7 @@
 
 absyntype Term
 externtype Vec<LBox<Term>>
-terminals lambda lam Lam ( ) [ ] DOT let = in define lazy weak CBV ;
+terminals lambda lam Lam ( ) [ ] DOT let = in define lazy weak CBV Liang ;
 terminal INTEGER
 terminal ID
 nonterminals T F Fs

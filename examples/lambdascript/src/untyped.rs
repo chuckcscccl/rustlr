@@ -337,6 +337,9 @@ impl<'t> Tokenizer<'t,Term> for LamLexer<'t>
       let tt =  match tok.0 {
         RawToken::Symbol(".") => TerminalToken::from_raw(tok,"DOT",Nothing),
         RawToken::Symbol(s) => TerminalToken::from_raw(tok,s,Nothing),
+        RawToken::Alphanum(a) if a=="Liang" || a=="liang" || a=="LIANG" => {
+          TerminalToken::from_raw(tok,"Liang",Nothing)
+        },
         RawToken::Alphanum(a) if self.keywords.contains(a) => {
           TerminalToken::from_raw(tok,a,Nothing)
         },

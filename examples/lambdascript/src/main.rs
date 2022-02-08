@@ -43,6 +43,7 @@ fn main()
     let source = LexSource::new(srcfile).unwrap();
     let mut lexer = LamLexer::new(StrTokenizer::from_source(&source));
     parser.parse(&mut lexer);
+    //parser.parse_train(&mut lexer,"src/untypedparser.rs");        
     eval_prog(&parser.exstate,defs);
     if parser.error_occurred() {
       println!("\nPARSER ERRORS OCCURRED, RESULTS NOT GUARANTEED");
