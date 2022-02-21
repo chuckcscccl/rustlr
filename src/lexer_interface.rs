@@ -272,11 +272,11 @@ pub enum RawToken<'t>
 }//RawToken
 
 /// General-purpose, zero-copy lexical analyzer that produces [RawToken]s from an str.  This tokenizer uses
-/// [regex](https://docs.rs/regex/latest/regex), although not always.  For
-/// example, to allow for string literals that contains escaped quotations,
+/// [regex](https://docs.rs/regex/latest/regex), although for everything.  For
+/// example, to allow for string literals that contain escaped quotations,
 /// a direct loop is implemented.
 /// The tokenizer gives the option of returning newlines, whitespaces (with
-/// count) and comments are special tokens.  It recognizes mult-line
+/// count) and comments as special tokens.  It recognizes mult-line
 /// string literals, multi-line as well as single-line comments, and returns
 /// the starting line and column positions of each token.
 ///

@@ -23,30 +23,30 @@
 !use crate::lbasyntax::Stat::*;
 
 absyntype LBox<dyn Any>
-typedterminal ID String
-typedterminal STRING String
+typedterminal ID &'parser_lt str
+typedterminal STRING &'parser_lt str
 typedterminal BOOL bool
 typedterminal INTEGER i32
 terminal class public static void main String extends return length
 terminal ( ) [ ] ; DOT ! , new this
 terminal LBR RBR OROR
 terminal int boolean if else while == = + - * / < && MOD
-nonterminal Program Construct 
-nonterminal MainCl Mainclass 
-nonterminal ClassDec ClassDec 
-nonterminal ClassDecl Vec<ClassDec>
-nonterminal Extension String
-nonterminal VarDec VarDec 
-nonterminal MethodDec MethodDec 
-nonterminal Decl Vec<Construct>
-nonterminal FormalLst Vec<VarDec>
-nonterminal FormalRst Vec<VarDec>
-nonterminal Type String
-nonterminal Stat Stat 
-nonterminal Stats Vec<Stat>
-nonterminal Exp Expr 
-nonterminal ExpLst Vec<Expr>
-nonterminal ExpRst Vec<Expr>
+nonterminal Program Construct<'parser_lt>
+nonterminal MainCl Mainclass<'parser_lt>
+nonterminal ClassDec ClassDec<'parser_lt>
+nonterminal ClassDecl Vec<ClassDec<'parser_lt>>
+nonterminal Extension &'parser_lt str
+nonterminal VarDec VarDec<'parser_lt>
+nonterminal MethodDec MethodDec<'parser_lt>
+nonterminal Decl Vec<Construct<'parser_lt>>
+nonterminal FormalLst Vec<VarDec<'parser_lt>>
+nonterminal FormalRst Vec<VarDec<'parser_lt>>
+nonterminal Type &'parser_lt str
+nonterminal Stat Stat<'parser_lt>
+nonterminal Stats Vec<Stat<'parser_lt>>
+nonterminal Exp Expr<'parser_lt>
+nonterminal ExpLst Vec<Expr<'parser_lt>>
+nonterminal ExpRst Vec<Expr<'parser_lt>>
 topsym Program
 resync ;
 
@@ -142,26 +142,26 @@ Stat ==> Exp:@Exp(v)@ [ Exp:@Exp(i)@ ] = Exp:@Exp(e)@ ; {
   Stm(ArAssignst(parser.lbx(0,v),parser.lbx(2,i),parser.lbx(5,e)))
   } <==
 Stat ==> Exp:@Exp(obj)@ DOT ID:@Id(m)@ ( ExpLst:@Exps(args)@ ) ; {
-  Stm(Callstat(parser.lbx(0,obj),m,args))
+  Stm(Callstat(parser.lb(obj),m,args))
   } <==
 
 Stat --> return Exp:@Exp(e)@ ; { Stm(Returnst(parser.lbx(1,e))) }
-Stat --> VarDec:@Vdec(v)@  {Stm(Vardecst(v.dname,v.dtype,parser.lbx(0,v.initval)))}
+Stat --> VarDec:@Vdec(v)@  {Stm(Vardecst(v.dname,v.dtype,parser.lb(v.initval)))}
 
-Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("*",parser.lbx(0,a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ * Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ + Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ / Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ - Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ && Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ OROR Exp:@Exp(b)@  {Exp(Binop("*",parser.lb(a),parser.lbx(2,b)))}
 Exp --> ! Exp:@Exp(a)@  { Exp(Notexp(parser.lbx(1,a))) }
-Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lbx(0,a),parser.lbx(2,b)))}
-Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lbx(0,a),parser.lbx(2,i)))} 
-Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lbx(0,obj))) }
+Exp --> Exp:@Exp(a)@ < Exp:@Exp(b)@  {Exp(Binop("<",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ MOD Exp:@Exp(b)@ {Exp(Binop("%",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ == Exp:@Exp(b)@  {Exp(Binop("==",parser.lb(a),parser.lbx(2,b)))}
+Exp --> Exp:@Exp(a)@ [ Exp:@Exp(i)@ ] {Exp(Binop("[]",parser.lb(a),parser.lbx(2,i)))} 
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(field)@ { Exp(Field(field,parser.lb(obj))) }
 
-Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Exp(Callexp(parser.lbx(0,obj),f,args)) }
+Exp --> Exp:@Exp(obj)@ DOT ID:@Id(f)@ ( ExpLst:@Exps(args)@ ) { Exp(Callexp(parser.lb(obj),f,args)) }
 Exp --> INTEGER:i { i }
 Exp --> STRING:s { s }
 Exp --> BOOL:b { unbox!{b} }
@@ -173,7 +173,7 @@ Exp --> ( Exp:e ) { e }
 
 # warning: backwards list:
 ExpLst --> { Exps(Vec::new()) }
-ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(0,e)); Exps(er) }
+ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lb(e)); Exps(er) }
 ExpRst --> { Exps(Vec::new()) }
 ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(1,e)); Exps(er) }
 

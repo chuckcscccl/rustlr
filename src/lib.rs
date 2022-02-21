@@ -30,11 +30,7 @@
 //! Since **Version 0.2.0**, rustlr contains a general-purpose lexical scanner,
 //! [StrTokenizer], that implements this trait and is good enough to "get the
 //! job done" in many cases.  However, the user can choose any tokenizer by
-//! adopting it to the [Tokenizer] trait. Please note that, although there
-//! is nothing that prevents it, rustlr was not designed to create parsers
-//! for binary formatted data.  Rather, it is designed to parse text, and specifically
-//! programming language syntax for compilation and analysis.
-//!
+//! adopting it to the [Tokenizer] trait.
 //!
 //! Rustlr should be installed as an executable (cargo install rustlr).
 //! Many of the items exported by this crate are only required by the parsers
