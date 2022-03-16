@@ -296,8 +296,65 @@ impl Statemachine
        }
   }//new
 
+
+  // reslove shift-reduce conflict, returns true if reduce, but defaults
+  // to false (shift) so parsing will always continue and terminate.
+  fn sr_resolve(Gmr:&Grammar, ri:&usize, la:&str) -> bool
+  {
+     let lasym = Gmr.getsym(la).expect("GRAMMAR CORRUPT, UNKOWN SYMBOL");
+     let lapred = lasym.precedence;
+     let rulepred = Gmr.Rules[*ri].precedence;
+     if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
+        return false;
+     } // right-associative lookahead, return shift
+     if (lapred==rulepred) && lapred>0 { // left associative
+        return true;
+     } // right-associative lookahead, return shift     
+     else if (lapred.abs()>rulepred.abs()) {return false;} // shift
+     else if (lapred.abs()<rulepred.abs()) { return true;} // reduce
+     // report unclear case
+     println!("Shift-Reduce conflict between lookahead {} and rule {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",la,ri);
+     printrulela(*ri,Gmr,la);
+     false
+  }//sr_resolve
+  
+
+  // add_action unifies elements of previous addstate and addreduce 3/22
+  fn add_action(FSM: &mut Vec<HashMap<String,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:&str)
+  {
+     let currentaction = FSM[si].get(la);
+     let mut changefsm = true; // add or keep current
+     match (currentaction, &newaction) {
+       //(_ Accept) | (_,Gotonext(_)) => {},  //part of default
+       (Some(Accept),_) => { changefsm = false; },
+       (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
+       (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
+         let winner = if (cri<nri) {cri} else {nri};
+         println!("Reduce-Reduce conflict between rules {} and {} with lookahead {} resolved in favor of {} ",cri,nri,la,winner);
+         printrule(&Gmr.Rules[*cri]);
+         printrule(&Gmr.Rules[*nri]);
+         if winner==cri {changefsm=false;}
+       },
+       (Some(Shift(_)), Reduce(rsi)) => {
+         if Gmr.tracelev>1 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,la,si);
+         }
+         if !Statemachine::sr_resolve(Gmr,rsi,la) {changefsm = false; }
+       },
+       (Some(Reduce(rsi)), Shift(_)) => {
+         if Gmr.tracelev>1 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,la,si);
+         }       
+         if Statemachine::sr_resolve(Gmr,rsi,la) {changefsm = false; }
+       },       
+       _ => {}, // default add newstate
+     }// match currentaction
+     if changefsm { FSM[si].insert(la.to_owned(),newaction); }
+  }//add_action
+
+
   // psi is previous state index, nextsym is next symbol (may do lalr)
-  fn addstate(&mut self, mut state:LR1State, psi:usize, nextsym:String)
+  fn addstate(&mut self, mut state:LR1State, psi:usize, nextsym:&str)
   {  
      let newstateindex = self.States.len(); // index of new state
      state.index = newstateindex;
@@ -339,7 +396,7 @@ impl Statemachine
        }
      }// lalr or lr1
 
-     if self.Gmr.tracelev>3 {println!("Transition to state {} from state {}, symbol {}..",toadd,psi,&nextsym);}
+     if self.Gmr.tracelev>3 {println!("Transition to state {} from state {}, symbol {}..",toadd,psi,nextsym);}
      if toadd==newstateindex {  // add new state
        //if TRACE>2 {printstate(&state,&self.Gmr);}
        indices.insert(newstateindex); // add to StateLookup index hashset
@@ -349,6 +406,15 @@ impl Statemachine
      }// add new state
 
      // add to- or change FSM TABLE ...  only Shift or Gotnext added here.
+     let gsymbol = self.Gmr.getsym(nextsym).expect("GRAMMAR CORRUPTION, UNKOWN SYMBOL");
+     let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
+        else {Stateaction::Gotonext(toadd)};
+     Statemachine::add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsym);
+     // reduce rules are only added with . at end, nextsymbol terminal,
+     // so a "reduce-gotonext" conflict is not possible
+     
+     
+     /*
      let gsymbol = &self.Gmr.Symbols[*self.Gmr.Symhash.get(&nextsym).unwrap()];
      let mut newaction = Stateaction::Gotonext(toadd);
      if gsymbol.terminal {newaction=Stateaction::Shift(toadd);}
@@ -357,94 +423,24 @@ impl Statemachine
      match currentaction {   // detect shift-reduce conflict
        Some(Accept) => { changefsm=false; },
        Some(Reduce(ri2)) =>  {
-         let prec2 = self.Gmr.Rules[*ri2].precedence;
-         let prec1 = gsymbol.precedence;
+         let prec2 = self.Gmr.Rules[*ri2].precedence; // reduce pred
+         let prec1 = gsymbol.precedence;              // shift pred
          if prec1==prec2 && prec1>0 {changefsm=false;} // assume left-associative
          else if prec2.abs()>prec1.abs() {changefsm=false;} // still reduce
          if self.Gmr.tracelev>1 {println!("Shift-Reduce conflict in state {} resolved by operator precedence/associativity:",psi); printrulela(*ri2,&self.Gmr,&nextsym);
-         /*printstate(&self.States[psi],&self.Gmr);*/}
+         //printstate(&self.States[psi],&self.Gmr);
+         }
        },
        _ => {},
      }// match for conflict detection
+     
      if changefsm {self.FSM[psi].insert(nextsym,newaction);}
      // set fsm
+     */
   }  //addstate
 
-/*
- // LALR only: si is from makegoto&addstate, fsi is state to merge into 
-    fn merge_states(FSM: &mut Vec<HashMap<String,Stateaction>>, States:&mut Vec<LR1State>, Gmr:&Grammar, si:usize, state2:&LR1State)
-    {
-       for item in &state2.items
-       {
-          //print!("LALR-checking if state {} contains {:?}: ",si,item);
-          if !States[si].items.contains(item) {
-              //println!("NO");
-              // determine if this is a reduce item
-              if item.pi >= Gmr.Rules[item.ri].rhs.len() {
-                 if TRACE>1 {print!("LALR MERGE: ");}
-                 Statemachine::aditdreduce(FSM,Gmr,item,si);
-              }
-              States[si].items.insert(item.clone());
-          }// new item needs to be inserted
-          //else {println!("yes");}
-       }
-       //for item in &state2.items {self.items.insert(item.clone());}
-    }//merge_states
-*/    
 
-  // called by addstate and makegotos, only for reduce/accept situation
-  // it assumes that the . is at the right end of the rule
-  fn addreduce(FSM: &mut Vec<HashMap<String,Stateaction>>, Gmr:&Grammar, item:&LRitem, si:usize)
-  {
-     let isaccept = (item.ri == Gmr.Rules.len()-1 && item.la=="EOF");
-     let currentaction = FSM[si].get(&item.la);
-     let mut changefsm = true;
-     let ri1 = &item.ri;
-     /// detect CONFLICT HERE
-     match currentaction {
-        Some(Accept) => {
-          changefsm = false;
-          //if !isaccept {println!("Reduce({})-Accept conflict resolved in favor of Accept",ri1)}
-        },
-        Some(Reduce(ri2)) if ri2<ri1 && !isaccept => {
-           changefsm=false;
-           println!("Reduce-Reduce Conflict conflicted detected between rules {} and {}, resolved in favor of {}",ri2,ri1,ri2);
-           printrulela(*ri1,Gmr,&item.la);  printrulela(*ri2,Gmr,&item.la);
-           //printstate(&self.States[si],Gmr);
-        },
-        Some(Reduce(ri2)) if ri2>ri1 => {
-           println!("Reduce-Reduce Conflict conflicted detected between rules {} and {}, resolved in favor of {}",ri2,ri1,ri1);
-           printrulela(*ri1,Gmr,&item.la);  printrulela(*ri2,Gmr,&item.la); 
-           //printstate(&self.States[si],Gmr);            
-        },
-        Some(Reduce(ri2)) if ri2==ri1 && !isaccept => {changefsm=false;},
-        Some(Shift(_)) if !isaccept => {   // shift-reduce conflict
-           let prec1 = Gmr.Rules[item.ri].precedence;
-           let prec2 = Gmr.Symbols[*Gmr.Symhash.get(&item.la).unwrap()].precedence;
-
-           if prec1==prec2 && prec1<0 {changefsm=false;} // assume right-associative
-           else if prec2.abs()>prec1.abs() {changefsm=false;} // still shift 
-           if Gmr.tracelev>1 {println!("Shift-Reduce conflict in state {} resolved by operator precedence/associativity:",si); printrulela(*ri1,Gmr,&item.la); }
-        },
-       _ => {},
-     }//match to detect conflict
-     // special case: current action should be Accept:
-     if changefsm {   // only Reduce/Accept added here
-        // accept or reduce
-        if isaccept /*item.ri==Gmr.Rules.len()-1 && item.la=="EOF"*/  {
-           if let None = &currentaction {}
-           else {println!("Accept has precedence over {:?}",&currentaction);}
-           FSM[si].insert(item.la.clone(),Stateaction::Accept);
-        }
-        else {
-           if TRACE>1 {println!("++adding Reduce({}) at state {}, lookahead {}",item.ri,si,&item.la);}
-        
-           FSM[si].insert(item.la.clone(),Stateaction::Reduce(item.ri));
-        }
-     }// add reduce action
-  }//addreduce
-
-  // generate the GOTO sets of a state with index si, creates new states
+// generate the GOTO sets of a state with index si, creates new states
   fn makegotos(&mut self, si:usize)
   {
      let ref /*mut*/ state = self.States[si];
@@ -473,7 +469,15 @@ impl Statemachine
        }//can goto
        else // . at end of production, this is a reduce situation
        {
-          Statemachine::addreduce(&mut self.FSM,&self.Gmr,item,si);
+          let isaccept = (item.ri == self.Gmr.Rules.len()-1 && item.la=="EOF");
+          if isaccept {
+            Statemachine::add_action(&mut self.FSM,&self.Gmr,Accept,si,&item.la);
+          }
+          else {
+            Statemachine::add_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,&item.la);
+          }
+          // only place addreduce is called
+          //Statemachine::addreduce(&mut self.FSM,&self.Gmr,item,si);
        } // set reduce action
      }// for each item 
      // form closures for all new states and add to self.States list
@@ -481,7 +485,7 @@ impl Statemachine
      {
         let kernel = newstates.remove(&key).unwrap();
         let fullstate = stateclosure(kernel,&self.Gmr);
-        self.addstate(fullstate,si,key);
+        self.addstate(fullstate,si,&key); //only place addstate called
      }
   }//makegotos
 

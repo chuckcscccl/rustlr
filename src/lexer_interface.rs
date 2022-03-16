@@ -261,6 +261,10 @@ pub enum RawToken<'t>
   /// non-alphanumeric characters, either identified as doubles, singles, or
   /// unrecognized sequences.
   Symbol(&'t str),
+  /// a single byte (intended for binary data)
+  Byte(u8),
+  /// slice of bytes (intended for binary data)
+  Bytes(&'t [u8]),
   /// newline, returned optionally
   Newline,
   /// number of consecutive whitespaces, returned optionally
@@ -272,7 +276,7 @@ pub enum RawToken<'t>
 }//RawToken
 
 /// General-purpose, zero-copy lexical analyzer that produces [RawToken]s from an str.  This tokenizer uses
-/// [regex](https://docs.rs/regex/latest/regex), although for everything.  For
+/// [regex](https://docs.rs/regex/latest/regex), although not for everything.  For
 /// example, to allow for string literals that contain escaped quotations,
 /// a direct loop is implemented.
 /// The tokenizer gives the option of returning newlines, whitespaces (with

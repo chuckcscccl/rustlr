@@ -1,9 +1,9 @@
-//! Rustlr is a Yacc-style parser generator for Rust. Versions 0.2.0
+//! Rustlr is a Yacc-style parser generator for Rust. Versions 0.2
 //! introduced signficant improvements, although older parsers are still
 //! supported.
 //!
 //! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
-//! is being prepared that will explain the
+//! is separately available that will explain the
 //! format of grammars and how to generate and deploy parsers for several 
 //! examples.
 //!
@@ -14,7 +14,7 @@
 //! them to recognize more than just context-free languages.  Rustlr implements
 //! methods of error recovery similar to those found in other LR generators.
 //! For error reporting, however, rustlr parsers can run in
-//! *training mode*, in which, when a parse error is encountered, the human 
+//! *training mode*: when a parse error is encountered, the human 
 //! trainer can augment the parser's state transition table with an
 //! appropriate error message. The augmented parser is automatically saved
 //! along with a training script that can be used to retrain a new parser after
@@ -43,7 +43,7 @@
 //! As a simplified, **self-contained example** of how to use rustlr,
 //! given **[this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar>)** with file name "brackets.grammar",
 //!```\ignore
-//! rustlr brackets.grammar lalr
+//! rustlr brackets.grammar
 //!```
 //! generates a LALR parser as 
 //! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/bracketsparser.rs>).

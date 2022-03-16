@@ -1,4 +1,6 @@
-// grammar processing module
+//! Grammar processing module.  The exported elements of this module are
+//! only intended for re-implementing rustlr within rustlr.
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
@@ -17,7 +19,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 
-pub const DEFAULTPRECEDENCE:i32 = 20;
+pub const DEFAULTPRECEDENCE:i32 = 0;   // 20
 pub const TRACE:usize = 0;
 
 #[derive(Clone)]
@@ -83,7 +85,7 @@ pub fn printrule(rule:&Grule)  //independent function
       if s.label.len()>0 {print!(":{}",s.label);}
       print!(" ");
    }
-   println!("{{ {}, preclevel {}",rule.action.trim(),rule.precedence);  // {{ is \{
+   println!("{{ {}, precedence {}",rule.action.trim(),rule.precedence);  // {{ is \{
 }
 
 /////main global class, roughly corresponds to "metaparser"
@@ -106,6 +108,10 @@ pub struct Grammar
   pub sametype: bool,  // determine if absyntype is only valuetype
   pub lifetime: String,
   pub tracelev:usize,
+}
+
+impl Default for Grammar {
+  fn default() -> Self { Grammar::new() }
 }
 
 impl Grammar
@@ -133,6 +139,14 @@ impl Grammar
        tracelev:1,
      }
   }//new grammar
+
+  pub fn getsym(&self,s:&str) -> Option<&Gsym>
+  {
+     match self.Symhash.get(s) {
+       Some(symi) => Some(&self.Symbols[*symi]),
+       _ => None,
+     }//match
+  }
 
   pub fn nonterminal(&self,s:&str) -> bool
   {
@@ -330,13 +344,14 @@ impl Grammar
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
                if stokens.len()<3 {continue;}
-	       let mut preclevel:i32 = 0;
+	       let mut preclevel:i32 = DEFAULTPRECEDENCE;
 	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
                else {panic!("did not read precedence level on line {}",linenum);}
 	       if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
                if let Some(index) = self.Symhash.get(stokens[1]) {
-	         //let gsym = self.Symbols.get_mut(index);
-	         //if let Some(sym)=gsym { sym.precedence = preclevel; }
+                 if preclevel.abs()<=DEFAULTPRECEDENCE {
+                   println!("WARNING: precedence of {} is non-positive",stokens[1]);
+                 }
                  self.Symbols[*index].precedence = preclevel;
                }
 	    }, // precedence and associativity

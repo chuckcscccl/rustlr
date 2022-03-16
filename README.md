@@ -9,6 +9,8 @@ for implmentating modestly scaled, experimental programming languages.
 But it is becoming sophisticated enough to be more than just a project and
 will continue to improve over time.
 
+#### Version 0.2.2: internal changes, better reporting of grammar conflicts
+
 #### Version 0.2.1: minor fixes
 
 #### Version 0.2.0:
