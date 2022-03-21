@@ -29,7 +29,6 @@ use std::any::Any;
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
 /// symbol specified in the grammar.
 pub struct Lextoken<AT:Default> // now separated from Gsym
-
 {
    pub sym: String, // must correspond to terminal symbol
    pub value: AT,         // value of terminal symbol, if any
@@ -767,3 +766,21 @@ impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
    /// returns slice of underlying data using [std::str::Chars::as_str]
    fn current_line(&self) -> &str  {self.contents}   
 }//impl Tokenizer for charscanner
+
+
+fn is_alphanum(x:&str) -> bool
+{
+/*
+  let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();
+  alphan.is_match(x)
+*/
+  if x.len()<1 {return false};
+  let mut chars = x.chars();
+  let first = chars.next().unwrap();
+  if !(first=='_' || first.is_alphabetic()) {return false;}
+  for c in chars
+  {
+    if !(c=='_' || c.is_alphanumeric()) {return false;}
+  }
+  true
+}//is_alphanum
