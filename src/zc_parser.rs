@@ -344,8 +344,13 @@ impl Statemachine
 #![allow(unused_assignments)]
 #![allow(dead_code)]
 #![allow(irrefutable_let_patterns)]
+#![allow(unreachable_patterns)]
 extern crate rustlr;
-use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action,StrTokenizer,RawToken,LexSource}};\n")?;
+use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
+    if self.Gmr.genlex {
+      write!(fd,"use rustlr::{{StrTokenizer,RawToken,LexSource}};
+use std::collections::{{HashMap,HashSet}};\n")?;
+    }
 
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses and such
 
@@ -466,92 +471,7 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// WRITE LEXER
-    if self.Gmr.genlex {
-      write!(fd,"\n// Lexical Scanner using RawToken, StrTokenizer
-use std::collections::{{HashMap,HashSet}};\n")?;
-      let lexername = format!("{}lexer",&self.Gmr.name);
-      let mut keywords:Vec<&str> = Vec::new();
-      let mut singles:Vec<char> = Vec::new();
-      let mut doubles:Vec<&str> = Vec::new();
-      // collect symbols from grammar
-      for symbol in &self.Gmr.Symbols
-      {
-        if !symbol.terminal {continue;}
-        if is_alphanum(&symbol.sym) && &symbol.sym!="EOF" && &symbol.sym!="ANY_ERROR" && self.Gmr.Lexvals.get(&symbol.sym).is_none() {
-	   keywords.push(&symbol.sym);
-	}
-	else if symbol.sym.len()==1 {
-	   singles.push(symbol.sym.chars().next().unwrap());
-	}
-	else if symbol.sym.len()==2 {
-	   doubles.push(&symbol.sym);
-	}
-      }//for each symbol
-      for sym in self.Gmr.Lexnames.keys()
-      {
-	if sym.len()==1 {
-	   singles.push(sym.chars().next().unwrap());
-	}
-	else if sym.len()==2 {
-	   doubles.push(&sym);
-	}      
-      }// for symbols in lexnames such as "||" --> OROR
-      write!(fd,"pub struct {0}<'t> {{
-   stk: StrTokenizer<'t>,
-   keywords: HashSet<&'static str>,
-}}
-impl<'t> {0}<'t> 
-{{
-  pub fn from_str(s:&'t str) -> {0}<'t>  {{
-    Self::new(StrTokenizer::from_str(s))
-  }}
-  pub fn from_source(s:&'t LexSource<'t>) -> {0}<'t>  {{
-    Self::new(StrTokenizer::from_source(s))
-  }}
-  pub fn new(mut stk:StrTokenizer<'t>) -> {}<'t> {{
-    let mut keywords = HashSet::with_capacity(10);
-    for kw in [",&lexername)?; // end of write
-
-      for kw in keywords {write!(fd,"\"{}\",",kw)?;}
-      write!(fd,"] {{keywords.insert(kw);}}
-    for c in [")?;
-      for c in singles {write!(fd,"'{}',",c)?;}
-      write!(fd,"] {{stk.add_single(c);}}
-    for d in [")?;
-      for d in doubles {write!(fd,"\"{}\",",d)?;}
-      write!(fd,"] {{stk.add_double(d);}}\n")?;
-    for attr in &self.Gmr.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords}}\n  }}\n}}\n",&lexername)?;
-      // end of impl lexername
-      write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
-{{
-   fn nextsym(&mut self) -> Option<TerminalToken<{0},{1}>> {{
-",&self.Gmr.lifetime,absyn,&lexername)?;
-      write!(fd,"    let tokopt = self.stk.next_token();
-    if let None = tokopt {{return None;}}
-    let token = tokopt.unwrap();
-    match token.0 {{
-")?;
-      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::from_raw(token,sym,<{}>::default())),\n",absyn)?;
-      // write special alphanums first - others might be "var" form
-      // next - write the Lexvals hexmap int -> (Num(n),Val(n))
-      for (tname,(raw,val)) in self.Gmr.Lexvals.iter()
-      {  
-        write!(fd,"      RawToken::{} => Some(TerminalToken::from_raw(token,\"{}\",{})),\n",raw,tname,val)?;
-      }
-      for (lform,tname) in self.Gmr.Lexnames.iter()
-      {
-        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::from_raw(token,\"{}\",<{}>::default())),\n",lform,tname,absyn)?;
-      }
-      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;
-      write!(fd,"      _ => Some(TerminalToken::from_raw(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",absyn)?;
-      write!(fd,"
-   fn linenum(&self) -> usize {{self.stk.line()}}
-   fn column(&self) -> usize {{self.stk.column()}}
-   fn position(&self) -> usize {{self.stk.current_position()}}
-}}//impl Tokenizer
-\n")?;
-    }//genlex segment of writezcparser
+    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd)?; }
 
     ////// AUGMENT!
     write!(fd,"fn load_extras{}(parser:&mut ZCParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;
@@ -1146,13 +1066,14 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
 
 }// 3rd impl ZCParser
 
+/*
 // used by genlex routines
 fn is_alphanum(x:&str) -> bool
 {
-/*
-  let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();
-  alphan.is_match(x)
-*/
+
+//  let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();
+//  alphan.is_match(x)
+
   if x.len()<1 {return false};
   let mut chars = x.chars();
   let first = chars.next().unwrap();
@@ -1163,3 +1084,4 @@ fn is_alphanum(x:&str) -> bool
   }
   true
 }//is_alphanum
+*/

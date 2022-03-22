@@ -9,6 +9,11 @@ for implmentating modestly scaled, experimental programming languages.
 But it is becoming sophisticated enough to be more than just a project and
 will continue to improve over time.
 
+#### Version 0.2.3: The ability to automatically generate a usable lexical
+scanner from a minimal set of grammar declarations has been added, using
+the built-in RawToken and StrTokenizer.  Other tokenizers can still be used
+in the previous way, by adopting them to the Tokenizer interface.
+
 #### Version 0.2.2: internal changes, better reporting of grammar conflicts
 
 #### Version 0.2.1: minor fixes
@@ -104,4 +109,3 @@ parsers already created.
 [1]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse_train
 [2]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse
 [3]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.train_from_script
-
