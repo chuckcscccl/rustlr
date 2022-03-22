@@ -477,7 +477,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       for symbol in &self.Gmr.Symbols
       {
         if !symbol.terminal {continue;}
-        if is_alphanum(&symbol.sym) && &symbol.sym!="EOF" && &symbol.sym!="ANY_ERROR" {
+        if is_alphanum(&symbol.sym) && &symbol.sym!="EOF" && &symbol.sym!="ANY_ERROR" && self.Gmr.Lexvals.get(&symbol.sym).is_none() {
 	   keywords.push(&symbol.sym);
 	}
 	else if symbol.sym.len()==1 {
