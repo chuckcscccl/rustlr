@@ -467,6 +467,8 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
 
     ////// WRITE LEXER
     if self.Gmr.genlex {
+      write!(fd,"\n// Lexical Scanner using RawToken, StrTokenizer
+use std::collections::{{HashMap,HashSet}};\n")?;
       let lexername = format!("{}lexer",&self.Gmr.name);
       let mut keywords:Vec<&str> = Vec::new();
       let mut singles:Vec<char> = Vec::new();
@@ -517,8 +519,8 @@ impl<'t> {0}<'t>
       write!(fd,"] {{stk.add_single(c);}}
     for d in [")?;
       for d in doubles {write!(fd,"\"{}\",",d)?;}
-      write!(fd,"] {{stk.add_double(d)}}\n")?;
-    for attr in &self.Gmr.Lexextras {write!(fd,"  stk.{}\n",attr)?;}
+      write!(fd,"] {{stk.add_double(d);}}\n")?;
+    for attr in &self.Gmr.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
       write!(fd,"    {} {{stk,keywords}}\n  }}\n}}\n",&lexername)?;
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
@@ -530,15 +532,19 @@ impl<'t> {0}<'t>
     let token = tokopt.unwrap();
     match token.0 {{
 ")?;
-      write!(fd,"      RawToken::Alphanum(sym) if keywords.contains(sym) => Some(TerminalToken::from_raw(token,sym,<{}>::default())),\n",absyn)?;
+      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::from_raw(token,sym,<{}>::default())),\n",absyn)?;
       // write special alphanums first - others might be "var" form
       // next - write the Lexvals hexmap int -> (Num(n),Val(n))
       for (tname,(raw,val)) in self.Gmr.Lexvals.iter()
-      {
+      {  
         write!(fd,"      RawToken::{} => Some(TerminalToken::from_raw(token,\"{}\",{})),\n",raw,tname,val)?;
       }
-      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,{})),\n",absyn)?;
-      write!(fd,"      _ => Some(TerminalToken::from_raw(token,\"<LexicalError>\",{})),\n    }}\n  }}",absyn)?;
+      for (lform,tname) in self.Gmr.Lexnames.iter()
+      {
+        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::from_raw(token,\"{}\",<{}>::default())),\n",lform,tname,absyn)?;
+      }
+      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;
+      write!(fd,"      _ => Some(TerminalToken::from_raw(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",absyn)?;
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}

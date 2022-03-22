@@ -17,6 +17,10 @@ left / 500
 left + 400
 left - 400
 
+lexvalue int Num(n) Val(n)
+lexvalue var Alphanum(x) Var(x)
+lexattribute set_line_comment("#")
+
 E --> int:m { m.value }
 E --> var:s@Var(v)@ { s.value }
 E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
