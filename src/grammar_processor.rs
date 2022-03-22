@@ -108,6 +108,9 @@ pub struct Grammar
   pub sametype: bool,  // determine if absyntype is only valuetype
   pub lifetime: String,
   pub tracelev:usize,
+  pub Lexvals: HashMap<String,(String,String)>,  //"int" -> ("Num(n)","Val(n)")
+  pub Lexextras: Vec<String>,
+  pub genlex: bool,
 }
 
 impl Default for Grammar {
@@ -137,6 +140,9 @@ impl Grammar
        sametype:true,
        lifetime:String::new(), // empty means inferred
        tracelev:1,
+       Lexvals:HashMap::new(),
+       Lexextras:Vec::new(),
+       genlex: false,
      }
   }//new grammar
 
@@ -355,10 +361,25 @@ impl Grammar
                  self.Symbols[*index].precedence = preclevel;
                }
 	    }, // precedence and associativity
-	    "flexname" | "lexname"  => {
-               if stokens.len()<3 {continue;}
-               self.Lexnames.insert(stokens[1].to_string(),stokens[2].to_string());
+	    "lexname"  => {
+               if stokens.len()<3 {continue;}  // "||" -> "OROR"
+               self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
+	       self.genlex = true;
             },
+	    "lexvalue" => {
+	       if stokens.len()<4 {continue;}  // "int" -> ("Num(n)","Val(n)")
+	       self.Lexvals.insert(stokens[1].to_string(),(stokens[2].to_string(),stokens[3].to_string()));
+	       self.genlex = true;
+	    },
+	    "lexset" | "lexattribute" => {
+	       let mut prop = String::new();
+	       for i in 1 .. stokens.len()
+	       {
+	          prop.push_str(stokens[i]); prop.push(' ');
+	       }
+	       self.Lexextras.push(prop);
+	       self.genlex = true;
+	    },
 //////////// case for grammar production:            
 	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}

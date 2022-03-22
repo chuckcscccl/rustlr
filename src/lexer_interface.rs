@@ -767,20 +767,3 @@ impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
    fn current_line(&self) -> &str  {self.contents}   
 }//impl Tokenizer for charscanner
 
-
-fn is_alphanum(x:&str) -> bool
-{
-/*
-  let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();
-  alphan.is_match(x)
-*/
-  if x.len()<1 {return false};
-  let mut chars = x.chars();
-  let first = chars.next().unwrap();
-  if !(first=='_' || first.is_alphabetic()) {return false;}
-  for c in chars
-  {
-    if !(c=='_' || c.is_alphanumeric()) {return false;}
-  }
-  true
-}//is_alphanum

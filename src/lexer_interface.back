@@ -24,13 +24,10 @@ use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
 
-/// This structure is expected to be returned by the lexical analyzer ([Lexer] objects).
+/// **This structure is deprecated by [TerminalToken]**.
+/// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
-/// symbol specified in the grammar that defines the language.  AT is the type of the
-/// *value* attached to the token, which is usually some enum that distinguishes between
-/// numbers, keywords, alphanumeric symbols and other symbols.  See the [tutorial and examples](<https://cs.hofstra.edu/~cscccl/rustlr_project>)
-/// on how to define the right kind of AT type.
-
+/// symbol specified in the grammar.
 pub struct Lextoken<AT:Default> // now separated from Gsym
 {
    pub sym: String, // must correspond to terminal symbol
@@ -48,9 +45,8 @@ impl<AT:Default> Lextoken<AT>
   }//new Lextoken
 }//impl Lextoken
 
-/// This trait defines the interace that any lexical analyzer must be adopted
-/// to.  The default implementations for linenum, column and
-/// current_line *should be replaced.* They're provided only for compatibility.
+/// **This trait is deprecated by [Tokenizer]** and is only retained for
+/// compatibility.
 pub trait Lexer<AT:Default>
 {
   /// retrieves the next Lextoken, or None at end-of-stream. 
@@ -81,10 +77,8 @@ pub trait Lexer<AT:Default>
 }//trait Lexer
 
 
-/// This is a sample Lexer implementation designed to return every character in a
-/// string as a separate token, and is used in small grammars for testing and
-/// illustration purposes.  It is assumed that the characters read are defined as
-/// terminal symbols in the grammar.
+/// **This struct is deprecated by [charscanner]**.  It is compatible with
+/// [Lexer] and [Lextoken], which are also deprecated.
 pub struct charlexer<'t>
 {
    chars: Chars<'t>,
@@ -208,7 +202,7 @@ impl<'t,AT:Default+'static> TerminalToken<'t,AT>
 
 ///////////
 /// This trait is intended to replace Lexer, and won't use owned strings
-pub trait Tokenizer<'t,AT:Default>
+pub trait Tokenizer<'t,AT:Default> 
 {
   /// retrieves the next [TerminalToken], or None at end-of-stream. 
   fn nextsym(&mut self) -> Option<TerminalToken<'t,AT>>;
@@ -266,6 +260,10 @@ pub enum RawToken<'t>
   /// non-alphanumeric characters, either identified as doubles, singles, or
   /// unrecognized sequences.
   Symbol(&'t str),
+  /// a single byte (intended for binary data)
+  Byte(u8),
+  /// slice of bytes (intended for binary data)
+  Bytes(&'t [u8]),
   /// newline, returned optionally
   Newline,
   /// number of consecutive whitespaces, returned optionally
@@ -276,12 +274,12 @@ pub enum RawToken<'t>
   LexError,
 }//RawToken
 
-/// Generic str tokenizer that produces [RawToken]s.  This tokenizer uses
-/// [regex](https://docs.rs/regex/latest/regex), although no always.  For
-/// example, to allow for string literals that contains escaped quotations,
+/// General-purpose, zero-copy lexical analyzer that produces [RawToken]s from an str.  This tokenizer uses
+/// [regex](https://docs.rs/regex/latest/regex), although not for everything.  For
+/// example, to allow for string literals that contain escaped quotations,
 /// a direct loop is implemented.
 /// The tokenizer gives the option of returning newlines, whitespaces (with
-/// count) and comments are special tokens.  It recognizes mult-line
+/// count) and comments as special tokens.  It recognizes mult-line
 /// string literals, multi-line as well as single-line comments, and returns
 /// the starting line and column positions of each token.
 ///
@@ -611,7 +609,9 @@ impl<'t> Iterator for StrTokenizer<'t>
   }
 }//Iterator
 
-/// Structure to hold contents of a source (such as contents of file).
+/// Structure to hold contents of a source (such as contents of file).  A
+/// [StrTokenizer] can be created from such a struct.  It reads the contents
+/// of a file using [std::fs::read_to_string] and stores it locally.
 pub struct LexSource<'t>
 {
    pathname:&'t str,
@@ -766,3 +766,21 @@ impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
    /// returns slice of underlying data using [std::str::Chars::as_str]
    fn current_line(&self) -> &str  {self.contents}   
 }//impl Tokenizer for charscanner
+
+///checks if x is alphanumeric
+pub fn is_alphanum(x:&str) -> bool
+{
+/*
+  let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();
+  alphan.is_match(x)
+*/
+  if x.len()<1 {return false};
+  let mut chars = x.chars();
+  let first = chars.next().unwrap();
+  if !(first=='_' || first.is_alphabetic()) {return false;}
+  for c in chars
+  {
+    if !(c=='_' || c.is_alphanumeric()) {return false;}
+  }
+  true
+}//is_alphanum
