@@ -18,6 +18,7 @@ use std::collections::HashMap;
 mod untyped;
 use untyped::*;
 mod untypedparser;
+use untypedparser::*;
 
 fn main()
 {
@@ -35,13 +36,14 @@ fn main()
     return;
   }
 
-  let mut parser = untypedparser::make_parser();
+  let mut parser = make_parser();
   let ref mut defs = HashMap::<str8,Term>::new();
   let args:Vec<String> = std::env::args().collect(); // command-line args
   if args.len()>1 {
     let srcfile = &args[1];
     let source = LexSource::new(srcfile).unwrap();
-    let mut lexer = LamLexer::new(StrTokenizer::from_source(&source));
+//    let mut lexer = LamLexer::new(StrTokenizer::from_source(&source));
+    let mut lexer = untypedlexer::from_source(&source);
     parser.parse(&mut lexer);
     //parser.parse_train(&mut lexer,"src/untypedparser.rs");        
     eval_prog(&parser.exstate,defs);
@@ -58,7 +60,8 @@ fn main()
     let res2 = std::io::stdin().read_line(&mut buf);
     if buf.len()<3 {continue;}
     else if buf.trim()=="exit" || buf.trim()=="quit" {break;}
-    let mut lexer = LamLexer::new(StrTokenizer::from_str(buf.trim()));
+    //let mut lexer = LamLexer::new(StrTokenizer::from_str(buf.trim()));
+    let mut lexer = untypedlexer::from_str(buf.trim());
 
     parser.parse(&mut lexer);
     //parser.parse_train(&mut lexer,"src/untypedparser.rs");    

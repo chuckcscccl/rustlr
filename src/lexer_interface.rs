@@ -260,9 +260,11 @@ pub enum RawToken<'t>
   /// non-alphanumeric characters, either identified as doubles, singles, or
   /// unrecognized sequences.
   Symbol(&'t str),
-  /// a single byte (intended for binary data)
+  /// a single byte (intended for binary data): this variant is currently
+  /// not recognized by [StrTokenizer]
   Byte(u8),
-  /// slice of bytes (intended for binary data)
+  /// slice of bytes (intended for binary data): this variant is currently
+  /// not recognized by [StrTokenizer]
   Bytes(&'t [u8]),
   /// newline, returned optionally
   Newline,

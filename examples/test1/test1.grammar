@@ -1,0 +1,20 @@
+# Unambiguous LR grammar for simple calculator.
+
+valuetype i32
+nonterminals E T F
+terminals + * ( ) num
+topsym E
+
+E --> E:e + T:t { e.value + t.value }
+E --> T:t { t.value }
+T --> T:(t) * F:(f) { t*f }
+T --> F:(f) { f }
+F --> ( E:e )  { e.value }
+F --> num:n { n.value }
+
+# lexical scanner configuration (automatically creates test1lexer)
+lexvalue num Num(n) (n as i32)
+
+EOF
+
+Everything after EOF is ignored can be use used for more comments

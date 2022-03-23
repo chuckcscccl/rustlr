@@ -21,7 +21,7 @@ resync ;
 Ts --> T:x ;  { parser.exstate.push(x.lbox()); Nothing }
 Ts --> Ts T:x ;  { parser.exstate.push(x.lbox()); Nothing }
 
-# precedence order: T > Fs > F, Fs defines left-associative application.
+# precedence order: T < Fs < F, Fs defines left-associative application.
 # application binds tighter than abstraction.
 Fs --> F:@a@ { a }
 Fs --> Fs:a F:b { App(a.lbox(), b.lbox()) }
@@ -64,6 +64,14 @@ T ==> define lazy ID:@Var(x)@ = T:v {
  } <==
 
 LAMSYM --> lambda | lam | Lam
+
+
+## untypedlexer specs
+!use fixedstr::str8;
+lexname DOT .
+lexvalue INTEGER Num(n) Const(n)
+lexvalue Liang Alphanum("liang") Nothing
+lexvalue ID Alphanum(a) Var(str8::from(a))
 
 EOF
 

@@ -731,8 +731,7 @@ impl<'t> {0}<'t>
         write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::from_raw(token,\"{}\",<{}>::default())),\n",lform,tname,absyn)?;
       }
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;
-      // the following is left out: should be an explicit lexvalue dec
-//      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;      
+      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;      
       write!(fd,"      _ => Some(TerminalToken::from_raw(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",absyn)?;
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}

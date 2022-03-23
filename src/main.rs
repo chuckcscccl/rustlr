@@ -50,6 +50,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
+  let mut genlex = false;
   while argi<argc
   {
      match &args[argi][..] {
@@ -64,6 +65,7 @@ fn rustle(args:&Vec<String>) // called from main
        },
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
+       "genlex" | "-genlex" => {genlex=true; },
        "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {
@@ -81,6 +83,7 @@ fn rustle(args:&Vec<String>) // called from main
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
   let mut grammar1 = Grammar::new();
+  grammar1.genlex = genlex;
   grammar1.tracelev = tracelev;
   grammar1.parse_grammar(filepath);
   if tracelev>2 {println!("computing Nullable set");}
