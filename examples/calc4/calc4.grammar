@@ -47,15 +47,6 @@ ES ==> ES:es@Seq(v)@  E:e ;  {
    es.value
    } <==
 
-
-
-What could be better syntax than makelbox! ?
-Plus(parser.lbox(0,e1), parser.lbox(2,e2)) ??
-
-ZCParser can have a vector of (line,col) values popped off from the
-stack in a separate vector that's clearly before each reduce. - the vector
-will be in reverse.
-
 ---
 Different kinds of patterns:
 
