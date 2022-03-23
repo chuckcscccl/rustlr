@@ -319,13 +319,18 @@ the clause for `Plus`, for example, is equivalent to
 #### Lexical scanner and main.
 
 The directives **lexvalue**, **lexname** and **lexattribute** are used to
-configure an automatically generated parser.  lexvalue should be used for
-all terminal symbols that carry (non-default) semantic values, such as
-numerical constants and string literals.  The two lexvalue directives
+configure an automatically generated lexical tokenizer.  'lexvalue' should be used 
+for all terminal symbols that carry (non-default) semantic values, such as
+numerical constants and string literals.  The two **lexvalue** directives
 state that "int" terminal symbols ([TerminalTokens][tt]) are created
 from RawToken::Num(n) and carray semantic values Val(n), while
 "var" terminals carry values Var(x) and are formed from RawToken::Alphanum(x).  The
 [RawToken][rtk] enum defines n to be an i64 and x to be a &str.
+
+Please note that
+whitespaces are only allowed in the specification of the semantic value (in the
+future we may rewrite rustlr inside rustlr, but this is not a priority as the
+hand-coded grammar parser suffices for most cases if used a little carefully).
 
 Since no reserved symbols such as "|" or "{" are used in this grammar, the
 **lexname** directive is not used.
@@ -412,7 +417,7 @@ message is given. To print more helpful error messages, the parser can
 be trained interactively.  Interactive training also produces a script
 for future, automatic retraining when a new parser is generated.
 
-Modify [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calculator/src/main.rs) by uncommenting lines 2 and 3 in the input:
+Modify [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs) by uncommenting lines 2 and 3 in the input:
 ```
 3(1+2)   # syntax (parsing) error
 5%2;   # syntax error
