@@ -344,7 +344,6 @@ impl Statemachine
 #![allow(unused_assignments)]
 #![allow(dead_code)]
 #![allow(irrefutable_let_patterns)]
-#![allow(unreachable_patterns)]
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
     if self.Gmr.genlex {

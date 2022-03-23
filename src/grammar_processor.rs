@@ -643,7 +643,7 @@ impl Grammar
      }//while
      if nullable {Fseq.insert(la.to_owned());}
      Fseq
-  }//FirstSeq
+  }//FirstSeqb
 
 
 // procedure to generate lexical scanner from lexname, lexval and lexattribute
@@ -653,6 +653,7 @@ pub fn genlexer(&self,fd:&mut File) -> Result<(),std::io::Error>
 {
     ////// WRITE LEXER
       let ref absyn = self.Absyntype;
+      let lifetime = if (self.lifetime.len()>0) {&self.lifetime} else {"'t"};
       write!(fd,"\n// Lexical Scanner using RawToken and StrTokenizer\n")?;
       let lexername = format!("{}lexer",&self.name);
       let mut keywords:Vec<&str> = Vec::new();
@@ -712,7 +713,7 @@ impl<'t> {0}<'t>
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{
    fn nextsym(&mut self) -> Option<TerminalToken<{0},{1}>> {{
-",&self.lifetime,absyn,&lexername)?;
+",lifetime,absyn,&lexername)?;
       write!(fd,"    let tokopt = self.stk.next_token();
     if let None = tokopt {{return None;}}
     let token = tokopt.unwrap();
@@ -730,7 +731,8 @@ impl<'t> {0}<'t>
         write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::from_raw(token,\"{}\",<{}>::default())),\n",lform,tname,absyn)?;
       }
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;
-      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;      
+      // the following is left out: should be an explicit lexvalue dec
+//      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;      
       write!(fd,"      _ => Some(TerminalToken::from_raw(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",absyn)?;
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}

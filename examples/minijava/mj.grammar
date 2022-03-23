@@ -174,4 +174,17 @@ ExpLst --> Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(0,e)); Exps(e
 ExpRst --> { Exps(Vec::new()) }
 ExpRst --> , Exp:@Exp(e)@ ExpRst:@Exps(mut er)@ { er.push(parser.lbx(1,e)); Exps(er) }
 
+
+# Lexical scanner setup using StrTokenizer
+lexname DOT .
+lexname MOD %
+lexname LBR {
+lexname RBR }
+lexname OROR ||
+lexvalue BOOL Alphanum("true") Exp(Bool(true))
+lexvalue BOOL Alphanum("false") Exp(Bool(false))
+lexvalue ID Alphanum(x) Id(x)
+lexvalue INTEGER Num(n) Exp(Int(n as i32))
+lexvalue STRING Strlit(s) Exp(Strlit(s))
+
 EOF

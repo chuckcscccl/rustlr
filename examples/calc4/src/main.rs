@@ -1,10 +1,13 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
-extern crate rustlr;
-use rustlr::*;
+//extern crate rustlr;
+//use rustlr::*;
 mod exprtrees;
 use crate::exprtrees::*;
 mod calc4parser;
+use calc4parser::*;
+//mod calc4lexermodel;
+//use calc4lexermodel::*;
 
 fn main()
 {
@@ -22,11 +25,12 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
 (let x = 4 in x/2) + (let x=10 in x*(let y=100 in y/x));
 ";
   if args.len()>1 {input = args[1].as_str();}
-  let stk2 = StrTokenizer::from_str(input);
+  //let stk2 = StrTokenizer::from_str(input);
   //let src = LexSource::new("input1.txt").unwrap();
   //let stk2 = StrTokenizer::from_source(&src);  
-  let mut scanner2 = Calcscanner::new(stk2);
-  let mut parser3 = calc4parser::make_parser();
+//  let mut scanner2 = Calcscanner::new(stk2);
+  let mut scanner2 = calc4lexer::from_str(input);
+  let mut parser3 = make_parser();
   let result = parser3.parse_train(&mut scanner2,"calc4parser.rs");
   let bindings = newenv();
    println!("Expression tree from parse: {:?}",result);
