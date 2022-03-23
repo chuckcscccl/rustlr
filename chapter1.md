@@ -1,8 +1,9 @@
 ## Chapter 1: Unambiguous LR Grammar for Simple Calculator.
 
 Please note that this tutorial has been rewritten for **[Rustlr version 0.2.3][drs]**,
-which contains significant changes over previous versions, although it remains
-compatible with parsers already created.  The original version of this chapter
+which can now **automatically generate a lexical scanner from a minimal set of
+declarations.**
+Parsers created since version 0.1.3 remain compatible.  The original version of this chapter
 is available [here](https://cs.hofstra.edu/~cscccl/rustlr_project/test1grammar0.html).
 
 This tutorial is written for those with sufficient background in computer
@@ -31,7 +32,7 @@ lexvalue num Num(n) (n as i32)
 EOF
 ```
 
-These are the contents of a Rustlr grammar file, called [test1.grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar).
+These are the contents of a Rustlr grammar file, called [test1.grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/test1.grammar).
 This classic example of LR parsing is found in virtually all compiler
 textbooks.  It is an unambiguous grammar.  After you **`cargo install rustlr`**
 you can produce a LALR parser from this grammar file with:
@@ -50,7 +51,7 @@ given to the executable are:
   So it will generate some kind of parser in any case.  The next chapter will
   explain in detail how conflicts are resolved.
 - **-o filepath** : changes the default destination of the generated parser, which is
-  a file called [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs).
+  a file called [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs).
 - **-genlex** : automatically generates a lexical scanner using the built-in
 [StrTokenizer][1].  Manually constructing a scanner is also
 possible and will be the subject of a future chapter.  The genlex option is
@@ -67,7 +68,7 @@ grammar file, such as **`lexvalue`**.
   to rustlr version 0.2.0.
 
 The generated parser will be a program
-[test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs)
+[test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs)
 that contains a **`make_parser`** function.  If the `-genlex` option
 is used, it will also contain a struct `test1lexer` that implements
 the [Tokenizer][tktrait].  RustLr will derive the name of the grammar
@@ -187,8 +188,8 @@ constants, floating point constants, character literals
 such as `'a'`.  It also has the option of returning newline and
 whitespaces (with count) as tokens.  It returns the starting line and
 column numbers of each recognized token.
-But is not intended to be the best
-tokenizer for every situation.  It is not the most efficient (not DFA-based
+But it is not intended to be the best
+tokenizer for every parser.  It is not the most efficient (not DFA-based
 like Lex or Flex) although reasonably fast, and makes "zero-copy" of the
 source.  The variety of tokens recognized is limited to [RawTokens][rtk].
 For example, it 
@@ -200,7 +201,7 @@ does "get the job done" in many cases that are required in compiling and
 analyzing source code.  For larger project, it is at least capable of
 producing a usable prototype.
 
-Rustlr now has the ability to automatically generate a 
+Rustlr has the ability to automatically generate a 
 tokenizer using [StrTokenizer][1] and [RawToken][rtk] from a minimal
 set of declarations in the .grammar file:
 
@@ -208,17 +209,19 @@ set of declarations in the .grammar file:
 
 This declaration states that a token of the form RawToken::Num(n)
 should be recognized as the terminal grammar symbol "num", carrying
-semantic value (n as i32) - because in Num(n), n is of type i64 and
+semantic value (n as i32) - because in Num(n), n is of type i64 and the
 semantic value attached to each grammar symbol must be of the declared
-*absyntype* (valuetype).  The rest of the lexical scanner is derived from
-the declaration of terminal symbols in the grammar.
+*absyntype* (valuetype).  In the last production rule of the grammar, `n.value`
+refers to the i32 value attached to terminal "num".
+The rest of the lexical scanner is derived from
+the declarations of terminal symbols in the grammar.
 
 The generated lexer is a struct called test1lexer alongside the make_parser()
 function inside the generated parser file.  One creates a mutable instance
 of the lexer using the generated **`test1lexer::from_str`** and **`test1lexer::from_source`** functions.
 
 
-Here is the [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1main.rs) associated with this grammar, which forms a simple calculator.  Its
+Here is the [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) associated with this grammar, which forms a simple calculator.  Its
 principal contents creates a parser, a lexer, and invokes the parser on
 the first command-line argument.
 ```
@@ -255,7 +258,7 @@ that was returned.
 
 
 To run the program, **`cargo new`** a new crate and copy
-the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1main.rs and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
+the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
 under [dependencies]:
 ```
 rustlr = "0.2"  
@@ -273,8 +276,8 @@ The following terminal symbols are reserved and should not be used in a grammar:
 The following symbols should also NOT be used as non-terminals in your grammar:
 
 >     START valuetype absyntype grammarname resync resynch topsym errsym 
->     nonterminal terminal nonterminals terminals flexname lexname typedterminal
->     left right externtype externaltype lifetime
+>     nonterminal terminal nonterminals terminals lexvalue lexname typedterminal
+>     left right externtype externaltype lifetime lexattribute
 
 For example, if ":" is to be one of the terminal symbols of your
 language, then you should call it something like COLON inside the
