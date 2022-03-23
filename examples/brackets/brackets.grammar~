@@ -1,7 +1,7 @@
 # Sample Grammar for matching brackets (), [] and {}
 
 # the "absyntype" is the rust type of the value returned by the parse function.
-# in this example, the absyntype represents the number of pairs of matching
+# in this example, the absyntype will represent the number of pairs of matching
 # brackets of types (), [] and {}
 
 absyntype (u32,u32,u32)
@@ -32,28 +32,22 @@ S --> S:(a,b,c)  E:(p,q,r)  {(a+p,b+q,c+r)}
 WS -->
 WS --> WS Whitespace
 
-# The following declarations generate a lexical scanner "bracketslexer"
-# using the built-in StrTokenizer, which takes strings or text files as input.
-# Other tokenizers can also be used by adopting them to the Tokenizer trait.
 
-lexname LBRACE {
-lexname RBRACE }
-lexvalue Whitespace Whitespace(_) (0,0,0)
-lexattribute keep_whitespace = true
-
-# 'lexname' defines the lexical (textual) form of terminal symbols that would
-# otherwise clash with reserved symbols used in rustlr grammars.
-# 'lexvalue' defines that a "RawToken" of the form Whitespace(_) should be
-# translated to the terminal symbol 'Whitespace' with the semantic value
-# (0,0,0)). 'lexattribute' sets other options of the lexer (see tutorial for details).
-
-
+!use rustlr::charscanner;
 !//anything on a ! line is injected verbatim into the generated parser
 !
 !fn main() {
 !  let argv:Vec<String> = std::env::args().collect(); // command-line args
+!  let input = &argv[1];
 !  let mut parser1 = make_parser();
-!  let mut lexer1 = bracketslexer::from_str(&argv[1]);
+!  let mut lexer1 = charscanner::new(input,true);
+!  lexer1.modify = |c| { match c { //modify symbols to grammar terminal names
+!    "{" => "LBRACE", 
+!    "}" => "RBRACE",
+!    _ if c.chars().next().unwrap().is_whitespace() => "Whitespace",
+!    _ => c
+!  }};
+!     
 !  let result = parser1.parse(&mut lexer1);
 !  if !parser1.error_occurred() {
 !    println!("parsed successfully with result {:?}",&result);
@@ -82,14 +76,21 @@ Note that {, } and | cannot also be used as terminal symbols.  The grammar
 must specify other names such as LBRACE and RBRACE and the lexical scanner
 must translate "{" and "}" into these tokens.
 
-Rustlr defines a 'Tokenizer' trait and allows the use of any lexical
-analyzer (tokenizer) that implements the trait.  It can also generate
-a usable tokenizer automatically from the grammar and from lexname, lexvalue
-and lexattribute declarations.
+Rustlr defines a 'Lexer' trait, and allows the use of any lexical
+analyzer (tokenizer) that implements Lexer.  The only actual tokenizer
+it defines that implements lexer is charlexer.  This lexer takes a
+string and returns each character as a separate token, with the option
+to skip whitespace characters.  It also has a `modify` function that
+can itself be modified so that some characters are transformed into other
+tokens.  charlexer is adequate for simple examples.  
 
 In this example, we've used the ! lines to inject enough code into the
 generated parser so it's a self-contained program.  Normally, however,
-only a few ! lines are needed for 'use' type declarations. 
+only a few ! lines are needed for 'use' type declarations.  In the
+main() injected into this parser, we use charlexer with the option of
+keeping whitespace characters because they're used in the grammar.  We
+also change the modify function to return tokens that match the names
+of the terminal symbols in the grammar.
 
 Each grammar symbol, terminal as well as nonterminal will always have
 associated with it a value of absyntype.  When non are specified, 
@@ -105,7 +106,10 @@ To generate a parser for this grammar with the rustlr executable
 
 > rustlr brackets.grammar lalr
 
+Or, from inside a program you can call the function
+`rustlr::rustler("brackets","lalr");`
+
 This produces a file bracketsparser.rs.  Since this file contains a main, you
 can cargo build a new crate and replace main.rs with the contents of the
-parser file.  Be sure to insert rustlr = "0.2" under [dependencies] in
+parser file.  Be sure to insert rustlr = "0.1.3" under [dependencies] in
 the crate's Cargo.toml.

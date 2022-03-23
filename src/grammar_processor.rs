@@ -699,7 +699,7 @@ impl<'t> {0}<'t>
     let mut keywords = HashSet::with_capacity(16);
     for kw in [",&lexername)?; // end of write
 
-      for kw in keywords {write!(fd,"\"{}\",",kw)?;}
+      for kw in &keywords {write!(fd,"\"{}\",",kw)?;}
       write!(fd,"] {{keywords.insert(kw);}}
     for c in [")?;
       for c in singles {write!(fd,"'{}',",c)?;}
@@ -719,7 +719,9 @@ impl<'t> {0}<'t>
     let token = tokopt.unwrap();
     match token.0 {{
 ")?;
+    if keywords.len()>0 {
       write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::from_raw(token,sym,<{}>::default())),\n",absyn)?;
+    }
       // write special alphanums first - others might be "var" form
       // next - write the Lexvals hexmap int -> (Num(n),Val(n))
       for (tname,raw,val) in &self.Lexvals

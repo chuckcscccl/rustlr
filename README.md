@@ -3,16 +3,11 @@
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
-The project grew out of the author's compiler construction and
-programming languages classes over the years and has been mainly used
-for implmentating modestly scaled, experimental programming languages.
-But it is becoming sophisticated enough to be more than just a project and
-will continue to improve over time.
-
-#### Version 0.2.3: The ability to automatically generate a usable lexical
-scanner from a minimal set of grammar declarations has been added, using
-the built-in RawToken and StrTokenizer.  Other tokenizers can still be used
-in the previous way, by adopting them to the Tokenizer interface.
+#### Version 0.2.3: The ability to **automatically generate a lexical
+scanner** from a minimal set of grammar declarations has been added, using
+the built-in RawToken and StrTokenizer.  This vastly simplifies the process
+of producing a working parser.  Other tokenizers can still be used
+in the previous way, by adopting them to the Tokenizer trait.
 
 #### Version 0.2.2: internal changes, better reporting of grammar conflicts
 
@@ -104,6 +99,15 @@ parsers already created.
  Abilities for using LBox were also extended, which allows *`LBox<dyn Any>`* to
  be used as the abstract syntax type, with functions and macros for
  up/downcasting.
+
+    --------------------
+    
+This project grew out of the author's compiler construction and
+programming languages classes over the years and has been mainly used
+for implmentating modestly scaled, experimental programming languages.
+But it is becoming sophisticated enough to be more than just a project and
+will continue to improve over time.
+
 
 
 [1]:https://docs.rs/rustlr/latest/rustlr/runtime_parser/struct.RuntimeParser.html#method.parse_train

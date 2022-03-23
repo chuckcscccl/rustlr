@@ -1,6 +1,7 @@
-//! Rustlr is a Yacc-style parser generator for Rust. Versions 0.2
-//! introduced signficant improvements, although older parsers are still
-//! supported.
+//! Rustlr is a Yacc-style parser generator for Rust. **Versions 0.2.3
+//! introduced the ability to automatically generate a usable lexical
+//! scanner.** This significantly simplies the process of creating a
+//! working parser.
 //!
 //! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is separately available that will explain the
@@ -25,12 +26,12 @@
 //! LR(1) parser given the ANSI C grammar in
 //! approximately 2-4 seconds on contemporary processors.
 //!
-//! The user needs to provide a grammar and a lexical analyzer that implements
-//! the [Tokenizer] trait.
-//! Since **Version 0.2.0**, rustlr contains a general-purpose lexical scanner,
-//! [StrTokenizer], that implements this trait and is good enough to "get the
-//! job done" in many cases.  However, the user can choose any tokenizer by
-//! adopting it to the [Tokenizer] trait.
+//! The parser generator can also generate a lexical scanner using
+//! the built-in [StrTokenizer] from a minimal set 
+//! of declarations.  The generated scanner is "zero-copy" and good enough
+//! for processing most text.  However, any scanner can be used by 
+//! adopting it to the [Tokenizer] trait.  A separate chapter of the tutorial
+//! will be devoted to manually adopting a tokenizer.
 //!
 //! Rustlr should be installed as an executable (cargo install rustlr).
 //! Many of the items exported by this crate are only required by the parsers
@@ -41,22 +42,18 @@
 //! function.
 //!
 //! As a simplified, **self-contained example** of how to use rustlr,
-//! given **[this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar>)** with file name "brackets.grammar",
+//! given **[this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/brackets.grammar>)** with file name "brackets.grammar",
 //!```\ignore
 //! rustlr brackets.grammar
 //!```
 //! generates a LALR parser as 
-//! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/bracketsparser.rs>).
-//! This program includes a 'make_parser' function, which can be used as in
-//! the included main.  The program also contains a 'load_extras' function,
+//! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/src/main.rs>).
+//! This program includes a 'make_parser' function and 
+//! a 'bracketslexer' structure which represents the lexical scanner.
+//! The program also contains a 'load_extras' function,
 //! which can be modified by interactive training to give more helpful error
 //! messages other than the generic *"unexpected symbol.."*.
 //!
-//! Another self-contained example is found
-//! [here](<https://cs.hofstra.edu/~cscccl/rustlr_project/cpm.grammar>).
-//!
-//!
-
 
 #![allow(dead_code)]
 #![allow(unused_variables)]
