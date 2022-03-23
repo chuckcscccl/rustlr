@@ -324,7 +324,7 @@ all terminal symbols that carry (non-default) semantic values, such as
 numerical constants and string literals.  The two lexvalue directives
 state that "int" terminal symbols ([TerminalTokens][tt]) are created
 from RawToken::Num(n) and carray semantic values Val(n), while
-"var terminals carry values Var(x) formed from RawToken::Alphanum(x).  The
+"var" terminals carry values Var(x) and are formed from RawToken::Alphanum(x).  The
 [RawToken][rtk] enum defines n to be an i64 and x to be a &str.
 
 Since no reserved symbols such as "|" or "{" are used in this grammar, the
