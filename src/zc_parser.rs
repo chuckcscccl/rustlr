@@ -575,6 +575,10 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 use std::any::Any;
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action,LBox,lbdown,lbup,lbget,unbox}};\n")?;
+    if self.Gmr.genlex {
+      write!(fd,"use rustlr::{{StrTokenizer,RawToken,LexSource}};
+use std::collections::{{HashMap,HashSet}};\n")?;
+    }
 
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses and such
 
@@ -657,6 +661,9 @@ use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_
     write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
+
+    ////// WRITE LEXER
+    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd)?; }
 
     ////// Augment!
     write!(fd,"fn load_extras{}(parser:&mut ZCParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;

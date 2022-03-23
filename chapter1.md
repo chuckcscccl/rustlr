@@ -209,12 +209,17 @@ set of declarations in the .grammar file:
 
 This declaration states that a token of the form RawToken::Num(n)
 should be recognized as the terminal grammar symbol "num", carrying
-semantic value (n as i32) - because in Num(n), n is of type i64 and the
-semantic value attached to each grammar symbol must be of the declared
-*absyntype* (valuetype).  In the last production rule of the grammar, `n.value`
-refers to the i32 value attached to terminal "num".
-The rest of the lexical scanner is derived from
-the declarations of terminal symbols in the grammar.
+semantic value (n as i32) - because in Num(n), n is of type i64 and
+the semantic value attached to each grammar symbol must be of the
+declared *absyntype* (valuetype).  In the last production rule of the
+grammar, `n.value` refers to the i32 value attached to terminal "num".
+The rest of the lexical scanner is derived from the declarations of
+terminal symbols in the grammar.
+
+Besides **lexvalue**, there are two other lexer-generation directives,
+**lexname**, which allows the mapping of a reserved symbol such as `{`
+to a terminal, and **lexattribute** which allows the customization of
+the scanner, such as whether to ignore newline characters.
 
 The generated lexer is a struct called test1lexer alongside the make_parser()
 function inside the generated parser file.  One creates a mutable instance
@@ -280,12 +285,30 @@ The following symbols should also NOT be used as non-terminals in your grammar:
 >     left right externtype externaltype lifetime lexattribute
 
 For example, if ":" is to be one of the terminal symbols of your
-language, then you should call it something like COLON inside the
-grammar.  You will then adopt your lexical analyzer so that ":" is
-translated into a [TerminalToken][tt] with .sym="COLON" before sending the token to the parser. If you
+language, then you should call it something like COLON instead in the
+grammar. You will then adopt your lexical analyzer so that ":" is
+translated to COLON.  This can be accomplished with the directive
+(if generating a lexer automatically):
+
+>     lexname COLON :
+
+This directive is equivalent to
+
+>     lexvalue COLON Symbol(":") <valuetype>::default()
+
+where valuetype refers to the declared valuetype.
+Underneath, the ":" symbol is translated into a [TerminalToken][tt] with .sym="COLON" before sending the token to the parser. If you
 want to treat a whitespace as a token your lexer must similarly
-translate whitespaces into something like WHITESPACE. Non-terminal
-symbol START and terminal EOF will always be added as additional
+translate whitespaces.  For automatic lexer generation, use
+something like the following:
+
+>     lexvalue WHITESPACE Whitespace(n) value
+
+assuming that WHITESPACE is a declared terminal symbol and "value" is
+the value you want to be associated with the symbol (usually this is just
+the valuetype::default()).  Whitespace(n) is a variant of [RawToken][rtk].
+
+The symbol START and terminal EOF will always be added as additional
 symbols to the grammar.  The other symbols that should not be used for
 non-terminals are for avoiding clash with grammar directives.
 
@@ -315,12 +338,10 @@ about the LR state machine.
 Most rustlr projects will consist of mulitple files: the .grammar file, a module
 defining the abstract syntax type, a module defining a lexical analyzer, the
 generated parser as another module, and presumably a main to launch the program.
-In [this additional example](https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar),
+In [this additional example](https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/brackets.grammar),
 enough code has been injected into the .grammar so that rustlr can generate a
-relatively [self-contained program](https://cs.hofstra.edu/~cscccl/rustlr_project/bracketsparser.rs), that includes a lexer and a main, and illustrates a
-few extra features of Rustlr.  This example also uses charscanner, which is
-another tokenizer that comes with Rustlr, this time designed to parse one
-character at a time.
+relatively [self-contained program](https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/src/main.rs), that includes a lexer and a main, and illustrates a
+few extra features of Rustlr.
 
 -----------
 

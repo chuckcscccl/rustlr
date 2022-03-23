@@ -100,7 +100,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 }//eval
 
 
-///////////// Zero-copy tokenizer
+///////////// Zero-copy tokenizer  (now auto generated - this was hand-coded)
 pub struct Calcscanner<'t>(StrTokenizer<'t>);
 impl<'t> Calcscanner<'t>
 {

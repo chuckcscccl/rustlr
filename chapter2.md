@@ -36,6 +36,10 @@ left / 500
 left + 400
 left - 400
 
+lexvalue int Num(n) Val(n)
+lexvalue var Alphanum(x) Var(x)
+lexattribute set_line_comment("#")
+
 E --> int:m { m.value }
 E --> var:s@Var(v)@ { s.value }
 E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
@@ -314,15 +318,38 @@ the clause for `Plus`, for example, is equivalent to
 
 #### Lexical scanner and main.
 
-The file [exprtrees.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/exprtrees.rs) also contains a lexical analyzer for this language
-called `Calcscanner`, again created from the built-in [StrTokenizer][1].
-It isn't too different from the lexer for the first, [simpler calculator][chap1]
-so we will not repeat all of its code here.  However, the following setting
-was made to the StrTokenizer: **`.set_line_comment("#")`**.
-This allows the tokenizer to recognize (and by default ignore) such comments.
-Additionally, the [nextsym][nextsymfun] function must be implemented to distinguish the keywords "let" and "in" from other alphanumeric symbols such as "x", which
-are recognized as variables carrying values of the form `Var(_)`.
-The exact code (see [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs)) also shows how to set the tokenizer to read input from a some other source using [LexSource][lexsource]
+The directives **lexvalue**, **lexname** and **lexattribute** are used to
+configure an automatically generated parser.  lexvalue should be used for
+all terminal symbols that carry (non-default) semantic values, such as
+numerical constants and string literals.  The two lexvalue directives
+state that "int" terminal symbols ([TerminalTokens][tt]) are created
+from RawToken::Num(n) and carray semantic values Val(n), while
+"var terminals carry values Var(x) formed from RawToken::Alphanum(x).  The
+[RawToken][rtk] enum defines n to be an i64 and x to be a &str.
+
+Since no reserved symbols such as "|" or "{" are used in this grammar, the
+**lexname** directive is not used.
+
+The **lexattribute** directive can be used to set any attribute on the
+lexer to be generated.  Consult the docs for [StrTokenizer][1]. 
+The following samples are valid lexattribute declarations
+
+>      lexattribute keep_newline = true
+>      lexattribute keep_comment = true
+>      lexattribute keep_whitespace = true
+>      lexattribute set_multiline_comments("/* */")
+>      lexattribute set_line_comment("")
+
+Setting the line_comment or multiline_comments to the empty string will mean
+that such comments are not recognized.  The keep_flags are all false be
+default.  [StrTokenizer][1] recognizes C-style comments by default.
+
+The presence of these directives automatically enables the -genlex option.
+The lexer created is called calc4lexer and is found in with the generated
+parser.  Use the **calc4lexer::from_str** and **calc4lexer::from_source**
+functions to create instances of this zero-copy lexical scanner (consult 
+[main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs)
+for example).
 
 Generate the parser with
 
