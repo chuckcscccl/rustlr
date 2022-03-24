@@ -511,7 +511,7 @@ training from script has not yet been tested on a large scale.
 [4]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html#method.lbx
 [5]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html#method.lbox
 [sitem]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html
-[chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/test1grammar.html
+[chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter1.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html
