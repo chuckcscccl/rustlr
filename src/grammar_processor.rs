@@ -649,7 +649,7 @@ impl Grammar
 // procedure to generate lexical scanner from lexname, lexval and lexattribute
 // declarations in the grammar file.  Added for Version 0.2.3.  This procedure
 // is only used by other modules internally
-pub fn genlexer(&self,fd:&mut File) -> Result<(),std::io::Error>
+pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 {
     ////// WRITE LEXER
       let ref absyn = self.Absyntype;
@@ -720,21 +720,21 @@ impl<'t> {0}<'t>
     match token.0 {{
 ")?;
     if keywords.len()>0 {
-      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::from_raw(token,sym,<{}>::default())),\n",absyn)?;
+      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::{}(token,sym,<{}>::default())),\n",fraw,absyn)?;
     }
       // write special alphanums first - others might be "var" form
       // next - write the Lexvals hexmap int -> (Num(n),Val(n))
       for (tname,raw,val) in &self.Lexvals
       {  
-        write!(fd,"      RawToken::{} => Some(TerminalToken::from_raw(token,\"{}\",{})),\n",raw,tname,val)?;
+        write!(fd,"      RawToken::{} => Some(TerminalToken::{}(token,\"{}\",{})),\n",raw,fraw,tname,val)?;
       }
       for (lform,tname) in &self.Lexnames
       {
-        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::from_raw(token,\"{}\",<{}>::default())),\n",lform,tname,absyn)?;
+        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,absyn)?;
       }
-      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;
-      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<{}>::default())),\n",absyn)?;      
-      write!(fd,"      _ => Some(TerminalToken::from_raw(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",absyn)?;
+      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,absyn)?;
+      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,absyn)?;      
+      write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,absyn)?;
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}

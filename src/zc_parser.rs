@@ -471,7 +471,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// WRITE LEXER
-    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd)?; }
+    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
 
     ////// AUGMENT!
     write!(fd,"fn load_extras{}(parser:&mut ZCParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;
@@ -663,7 +663,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
     ////// WRITE LEXER
-    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd)?; }
+    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"raw_to_lba")?; }
 
     ////// Augment!
     write!(fd,"fn load_extras{}(parser:&mut ZCParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;
