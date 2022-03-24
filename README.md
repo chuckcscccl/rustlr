@@ -3,7 +3,9 @@
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
-#### Version 0.2.3: The ability to **automatically generate a lexical
+#### Version 0.2.3:
+
+The ability to **automatically generate a lexical
 scanner** from a minimal set of grammar declarations has been added, using
 the built-in RawToken and StrTokenizer.  This vastly simplifies the process
 of producing a working parser.  Other tokenizers can still be used
