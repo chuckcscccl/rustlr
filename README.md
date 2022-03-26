@@ -3,6 +3,20 @@
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
+Among the features that Rustlr support are the following:
+
+ 1. operator precedence and associativity declarations allow the use of
+ambiguous grammars.
+ 2. mutable external state allow the recognition of some non-context free
+    grammars.
+ 3. use of patterns in describing semantic values directly in the grammar,
+    e.g.
+```
+    E -->  let E:@Var(x)@ in E:@Expr(e)@  {  Letexp(x,e)  }
+```
+ 4. The ability to train the parser, interactively or from script,
+    for better error reporting. 
+
 #### Version 0.2.3:
 
 The ability to **automatically generate a lexical
