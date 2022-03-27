@@ -326,14 +326,20 @@ state that "int" terminal symbols ([TerminalTokens][tt]) are created
 from RawToken::Num(n) and carray semantic values Val(n), while
 "var" terminals carry values Var(x) and are formed from RawToken::Alphanum(x).  The
 [RawToken][rtk] enum defines n to be an i64 and x to be a &str.
+Generally speaking, for each value-carrying terminal symbol of the grammar,
+write a similar *lexvalue* declaration by identifying the type of RawToken
+that it corresponds to and how to construct the semantic value from the token.
 
 Please note that
 whitespaces are only allowed in the specification of the semantic value (in the
 future we may rewrite rustlr inside rustlr, but this is not a priority as the
 hand-coded grammar parser suffices for most cases if used a little carefully).
 
-Since no reserved symbols such as "|" or "{" are used in this grammar, the
-**lexname** directive is not used.
+Since no reserved symbols such as "|" or "{" are used in this language, the
+**lexname** directive is not used.  These reserved symbols cannot be used
+as terminal symbols.  One must choose names such as VBAR and write
+**`lexname VBAR |`** to define the correspondence between the grammar symbol
+and its textual form.
 
 The **lexattribute** directive can be used to set any attribute on the
 lexer to be generated.  Consult the docs for [StrTokenizer][1]. 
