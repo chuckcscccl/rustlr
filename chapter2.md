@@ -160,52 +160,48 @@ be of the following forms (two were used in the first grammar):
    associated with.  For example, the rule for `E --> E + E` can also be
    written as
 
->>   `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(1,b)) }`
+        `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(1,b)) }`
 
    
 
->   3. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
+   3. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
    bound to the **.value** popped from the stack as a mutable variable (the .value is moved to the pattern).  The
    specified semantic action is injected into the body of if-let.  A parser
    error report is generated if the pattern fails to match, in which
    case the default value of the abstract syntax type is returned.
    To be precise, the semantic action function generated for the last rule of the
    grammar is
-   
-   ```ignore
-     |parser|{ let mut _item2_ = parser.popstack();
-        let mut e = parser.popstack(); let mut _item0_ = parser.popstack(); 
-        if let (Seq(mut v),)=(_item0_.value,) { 
-          v.push(e.lbox());
-          Seq(v)
+      ```
+      |parser|{ let mut _item2_ = parser.popstack();
+         let mut e = parser.popstack(); let mut _item0_ = parser.popstack(); 
+         if let (Seq(mut v),)=(_item0_.value,) { 
+           v.push(e.lbox());
+           Seq(v)
           }  else {parser.bad_pattern("(Seq(mut v),)")} }
-   ```
-   
->>   Rustlr generates a variable of the form `_item{n}_` to hold the value of
-   the [StackedItem][sitem], if no direct label is specified.  Notice that
-   `_item0_.value` is *moved* into the pattern so generally it cannot be
-   referenced again.
+      ```
+      Rustlr generates a variable of the form `_item{n}_` to hold the
+      value of the [StackedItem][sitem], if no direct label is specified.
+      Notice that `_item0_.value` is *moved* into the pattern so generally
+      it cannot be referenced again.
 
->   4. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
+   4. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
    assigned to the StackedItem popped from the stack and an if-let is
    generated that attempts to match the pattern to **`&mut es`**.
    In particular, the last production rule of this grammar is equivalent to:
-
->>  `
-   ES --> ES:es@Seq(v)@  E:e ;  {
-     v.push(parser.lbx(1,e.value));
-     es.value
-    }   
-   `
-    
->>   In contrast to a non-named pattern, the value is **not** moved into the
-   pattern, which means we can still refer to it as `es.value`.  The call
-   to [parser.lbx][4] requires an index, starting from 0, of the grammar symbol
-   on the right-hand side of the production along with a value and forms
-   an LBox with starting line/column information.  In this case, it is
-   equivalent to `v.push(e.lbox())`: the .lbox function converts the
-   [StackedItem][sitem] to an [LBox][2].  But calling .lbox is only possible because 
-   this form of pattern does not move the .value out of the StackedItem.
+      ```
+      ES --> ES:es@Seq(v)@  E:e ;  {
+         v.push(parser.lbx(1,e.value));
+         es.value
+      }   
+      ```
+      In contrast to a non-named pattern, the value is **not** moved into the
+      pattern, which means we can still refer to it as `es.value`.  The call
+      to [parser.lbx][4] requires an index, starting from 0, of the grammar symbol
+      on the right-hand side of the production along with a value and forms
+      an LBox with starting line/column information.  In this case, it is
+      equivalent to `v.push(e.lbox())`: the .lbox function converts the
+      [StackedItem][sitem] to an [LBox][2].  But calling .lbox is only possible because 
+      this form of pattern does not move the .value out of the StackedItem.
 
 
 #### The Abstract Syntax Type **Expr**
@@ -338,7 +334,7 @@ hand-coded grammar parser suffices for most cases if used a little carefully).
 Since no reserved symbols such as "|" or "{" are used in this language, the
 **lexname** directive is not used.  These reserved symbols cannot be used
 as terminal symbols.  One must choose names such as VBAR and write
-**`lexname VBAR |`** to define the correspondence between the grammar symbol
+*`lexname VBAR |`* to define the correspondence between the grammar symbol
 and its textual form.
 
 The **lexattribute** directive can be used to set any attribute on the
@@ -407,6 +403,9 @@ UNBOUND VARIABLE x ... Error evaluating line 9;
 result for line 10: 102 ;
 Final result after evaluation: Some(102)
 ```
+
+This chapter is followed by an **[addendum](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/mj.grammar)**, which contains a larger example with further
+illustration of the techniques explained here.
 
 ----------------
 
