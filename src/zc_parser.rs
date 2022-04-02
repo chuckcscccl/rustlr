@@ -355,7 +355,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses and such
 
     // write static array of symbols
-    write!(fd,"const SYMBOLS:[&'static str;{}] = [",self.Gmr.Symbols.len())?;
+    write!(fd,"static SYMBOLS:[&'static str;{}] = [",self.Gmr.Symbols.len())?;
     for i in 0..self.Gmr.Symbols.len()-1
     {
       write!(fd,"\"{}\",",&self.Gmr.Symbols[i].sym)?;
@@ -366,7 +366,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     // record table entries in a static array
     let mut totalsize = 0;
     for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
-    write!(fd,"const TABLE:[u64;{}] = [",totalsize)?;
+    write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
     // generate table to represent FSM
     let mut encode:u64 = 0;
     for i in 0..self.FSM.len() // for each state index i
@@ -583,7 +583,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses and such
 
     // write static array of symbols
-    write!(fd,"const SYMBOLS:[&'static str;{}] = [",self.Gmr.Symbols.len())?;
+    write!(fd,"static SYMBOLS:[&'static str;{}] = [",self.Gmr.Symbols.len())?;
     for i in 0..self.Gmr.Symbols.len()-1
     {
       write!(fd,"\"{}\",",&self.Gmr.Symbols[i].sym)?;
@@ -594,7 +594,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     // record table entries in a static array
     let mut totalsize = 0;
     for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
-    write!(fd,"const TABLE:[u64;{}] = [",totalsize)?;
+    write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
     // generate table to represent FSM
     let mut encode:u64 = 0;
     for i in 0..self.FSM.len() // for each state index i
