@@ -1,25 +1,59 @@
-//! rustlr is a parser generator that can create LALR(1) as well as full
-//! LR(1) parsers.  It is also capable of recognizing operator precedence and
-//! associativity declarations that allows the use of some ambiguous grammars.
-//! Parsers also have optional access to *external state* information that allows
-//! them to recognize more than just context-free languages.  Most of the items
-//! exported by this crate are only required by the parsers that are generated,
-//! and does not form an API.  This crate does not form an API as most of the
-//! exported items are required only by the parsers that are generated.  The
-//! user needs to provide a grammar and a lexical analyzer that implements
-//! the [Lexer] trait.  Only a simple lexer that returns individual characters
-//! in a string ([charlexer]) is provided.  
+//! Rustlr is a Yacc-style parser generator for Rust. **Versions 0.2.3
+//! introduced the ability to automatically generate a usable lexical
+//! scanner.** This significantly simplies the process of creating a
+//! working parser.
 //!
-//! A tutorial is being prepared at
-//! <https://cs.hofstra.edu/~cscccl/rustlr_project/> that will explain the
-//! format of grammars and how to generate and use parsers for several sample
-//! languages.
-//! The examples in the tutorial use basic_lexer
-//! (<https://docs.rs/basic_lexer/0.1.2/basic_lexer/>), which was written by
-//! the same author but other tokenizers can be easily adopted
-//! as well, such as scanlex (<https://docs.rs/scanlex/0.1.4/scanlex/>).
-
-
+//! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
+//! is separately available that will explain the
+//! format of grammars and how to generate and deploy parsers for several 
+//! examples.
+//!
+//! Rustlr can create LALR(1) as well as full
+//! LR(1) parsers.  It is also capable of recognizing operator precedence and
+//! associativity declarations that allow the use of some ambiguous grammars.
+//! Parsers also have optional access to *external state* information that allows
+//! them to recognize more than just context-free languages.  Rustlr implements
+//! methods of error recovery similar to those found in other LR generators.
+//! For error reporting, however, rustlr parsers can run in
+//! *training mode*: when a parse error is encountered, the human 
+//! trainer can augment the parser's state transition table with an
+//! appropriate error message. The augmented parser is automatically saved
+//! along with a training script that can be used to retrain a new parser after
+//! a grammar has been modified.
+//! See the [ZCParser::parse_train] and [ZCParser::train_from_script] functions.
+//!
+//! The parser can generate a full
+//! LR(1) parser given the ANSI C grammar in
+//! approximately 2-4 seconds on contemporary processors.
+//!
+//! The parser generator can also generate a lexical scanner using
+//! the built-in [StrTokenizer] from a minimal set 
+//! of declarations.  The generated scanner is "zero-copy" and good enough
+//! for processing most text.  However, any scanner can be used by 
+//! adopting it to the [Tokenizer] trait.  A separate chapter of the tutorial
+//! will be devoted to manually adopting a tokenizer.
+//!
+//! Rustlr should be installed as an executable (cargo install rustlr).
+//! Many of the items exported by this crate are only required by the parsers
+//! that are generated, and are not intended to be used in other programs.
+//! However, rustlr uses traits and trait objects to loosely couple the 
+//! various components of the runtime parser so that custom interfaces, such as
+//! those for graphical IDEs, can built around a basic [ZCParser::parse_core]
+//! function.
+//!
+//! As a simplified, **self-contained example** of how to use rustlr,
+//! given **[this grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/brackets.grammar>)** with file name "brackets.grammar",
+//!```\ignore
+//! rustlr brackets.grammar
+//!```
+//! generates a LALR parser as 
+//! [a rust program](<https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/src/main.rs>).
+//! This program includes a 'make_parser' function and 
+//! a 'bracketslexer' structure which represents the lexical scanner.
+//! The program also contains a 'load_extras' function,
+//! which can be modified by interactive training to give more helpful error
+//! messages other than the generic *"unexpected symbol.."*.
+//!
 
 #![allow(dead_code)]
 #![allow(unused_variables)]
@@ -34,32 +68,45 @@ mod grammar_processor;
 use grammar_processor::*;
 mod lr_statemachine;
 use lr_statemachine::*;
-mod lexer_interface;
+pub mod lexer_interface;
 pub use lexer_interface::*;
-mod runtime_parser;
+pub mod runtime_parser;
 use runtime_parser::*;
+mod augmenter;
+use augmenter::*;
+pub mod generic_absyn;
+pub use generic_absyn::*;
+pub mod zc_parser;
+use zc_parser::*;
+
 
 pub use lr_statemachine::{Stateaction,decode_action};
 pub use runtime_parser::{RuntimeParser,RProduction};
+pub use zc_parser::{ZCParser,ZCRProduction};
+//pub use lexer_interface::{Lexer,Lextoken,charlexer};
+//pub use lexer_interface::{TerminalToken,Tokenizer,RawToken,StrTokenizer,LexSource};
+//pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-/// this is the only function that invokes the parser generator, if they do not run
-/// rustlr::main directly.  It expects to find a file of the form grammarname.grammar.
+////// main function, called from main with command-line args
+
+/// this is the only function that can invoke the parser generator externally,
+/// without running rustlr (rustlr::main) directly.
+/// It expects to find a file of the form grammarname.grammar.
 /// The option argument that can currently only be "lr1" or "lalr".  It generates
 /// a grammar in a file named grammarnameparser.rs.
 ///
 /// Example:
 ///
-/// Given the grammar at <https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar>,
+/// Given the grammar called [test1.grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar>),
 ///```ignore
 /// rustler("test1","lalr");
 ///```
-/// would generate the file
-///<https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs>.
+/// would generate 
+///[this parser](<https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs>).
 /// Since this grammar is small enought (requiring less than 16 LALR states), the
 /// generated parser is readable, which is appropriate for testing.  For larger
 /// grammars, the parser generator switches to a binary representation.
-
-pub fn rustler(grammarname:&str, option:&str) {
+fn rustler(grammarname:&str, option:&str) {
   let mut gram1 = Grammar::new();
   let grammarfile = format!("{}.grammar",&grammarname);
 

@@ -1,5 +1,5 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
-**LR(1) and LALR(1) parser generator by Chuck Liang.**
+**LR(1) and LALR(1) parser generator**
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
@@ -17,6 +17,7 @@ ambiguous grammars.
  4. The ability to train the parser, interactively or from script,
     for better error reporting. 
 
+#### Version 0.2.4: mostly internal enhancements
 #### Version 0.2.3:
 
 The ability to **automatically generate a lexical

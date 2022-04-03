@@ -405,8 +405,8 @@ macro_rules! lbox {
 */
 
 ///macro for creating `LBox<dyn Any>` structures that can encapsulate any type
-///as abstract syntax.  **Must** called from within the semantic actions of a
-///grammar production rule as it calls the [RuntimeParser::lb] function to
+///as abstract syntax.  **Must** be called from within the semantic actions of
+///a grammar production rule as it calls the [RuntimeParser::lb] function to
 ///insert the lexical line/column/src information into the LBox.
 #[macro_export]
 macro_rules! lbup {

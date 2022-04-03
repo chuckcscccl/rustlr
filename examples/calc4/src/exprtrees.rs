@@ -73,7 +73,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
      Divide(x,y) => {
        eval(env,y)
        .map(|yval|{if yval==0 {
-          eprint!("Division by zero (expression starting at column {}) on line {} of {:?} at column {} ... ",y.column,y.line,x,x.column);
+          eprint!("Division by zero (expression starting at column {}) on line {} of {:?} at column {} ... ",y.column(),y.line(),x,x.column());
 	  None
          } else {eval(env,x).map(|xval|{Some(xval/yval)})}
        })
@@ -90,8 +90,8 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
        {
          ev = eval(env,x);
          if let Some(val) = ev {
-	   println!("result for line {}: {} ;",x.line,&val);
-         } else { eprintln!("Error evaluating line {};",x.line); }
+	   println!("result for line {}: {} ;",x.line(),&val);
+         } else { eprintln!("Error evaluating line {};",x.line()); }
        }//for
        ev
      },
