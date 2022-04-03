@@ -19,12 +19,12 @@
 //! fn check(e:&Expr) {
 //!   match e {
 //!     PlusExpr(a,b) => {
-//!       println!("checking subexpressions on line {} and {}",a.line,b.line);
+//!       println!("checking expressions on lines {} and {}",a.line(),b.line());
 //!       check(a); check(b); // Deref coercion used here
 //!     },
 //!   ...
 //!```
-//! The [RuntimeParser::lb] function can be called from the semantic actions
+//! The [ZCParser::lbx] function can be called from the semantic actions
 //! of a grammar
 //! to create LBoxed-values that include line/column information.  LBox<T>
 //! implements the Default trait if T does, so an LBox type can also serve
@@ -36,7 +36,7 @@
 //! Sufficient functionality has also been implemented to allow the use of
 //! `LBox<dyn Any>` as the abstract syntax type of Grammars.
 //! This effectively allows grammar symbols to carray values of different types
-//! as Any-trait objects.  The functions [LBox::upcast], [LBox::downcast], [RuntimeParser::lba],
+//! as Any-trait objects.  The functions [LBox::upcast], [LBox::downcast], [ZCParser::lba],
 //! and the convenience macros [lbup], [lbdown] and [lbget]
 //! are intended to support this usage.  A simplified, sample grammar using
 //! `LBox<dyn Any>` as the abstract syntax type returned by the parser is
@@ -59,7 +59,9 @@ use std::rc::Rc;
 use std::ops::{Deref,DerefMut};
 use std::collections::{HashMap,HashSet};
 use std::any::Any;
-use crate::RuntimeParser;
+use crate::zc_parser;
+use crate::zc_parser::ZCParser;
+//use crate::RuntimeParser;
 //use crate::GenAbsyn::*;
 
 /// custom smart pointer that encapsulates line number and column.  Source
@@ -70,21 +72,27 @@ use crate::RuntimeParser;
 pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
-  pub line:usize,
-  pub column:usize,
+  pub line:u32,
+  pub column:u32,
   // must refer to information kept externally  
   //pub src_id:usize,   
 }
 impl<T> LBox<T>
 {
   pub fn new(e:T,ln:usize,col:usize /*,src:usize*/) -> LBox<T>
-  { LBox { exp:Box::new(e), line:ln, column:col, /*src_id:src*/ } }
+  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32 } }
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
   pub fn transfer<U>(&self,e:U) -> LBox<U>
   {
-     LBox::new(e,self.line,self.column /*,self.src_id*/)
+     LBox::new(e,self.line(),self.column() /*,self.src_id*/)
   }
+  /// Since version 0.2.4, Rustlr now stores the line and column
+  /// information internally as u32 values instead of usize, and
+  /// the [LBox::line] and [LBox::column] functions are provided for
+  /// interface
+  pub fn line(&self)-> usize {self.line as usize}
+  pub fn column(&self)->usize {self.column as usize}
 }//impl LBox
 impl<T> Deref for LBox<T>
 {
@@ -173,20 +181,20 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LBox<T> {
 pub struct LRc<T:?Sized>
 {
   pub exp:Rc<T>,
-  pub line:usize,
-  pub column:usize,
+  pub line:u32,
+  pub column:u32,
   //pub src_id:usize,
 }
 impl<T> LRc<T>
 {
   pub fn new(e:T,ln:usize,col:usize /*,src:usize*/) -> LRc<T>
-  { LRc { exp:Rc::new(e), line:ln, column:col, /*src_id:src*/ } }
+  { LRc { exp:Rc::new(e), line:ln as u32, column:col as u32, /*src_id:src*/ } }
   //pub fn set_src_id(&mut self, id:usize) {self.src_id=id;}
   ///should be used to create a new LRc-expression that inherits
   /// lexical information from existing LRc
   pub fn transfer<U>(&self,e:U) -> LRc<U>
   {
-     LRc::new(e,self.line,self.column /*,self.src_id*/)
+     LRc::new(e,self.line(),self.column() /*,self.src_id*/)
   }
   ///uses [Rc::clone] to increase reference count of encapsulated Rc,
   ///copies line, column and source_id information.
@@ -199,6 +207,9 @@ impl<T> LRc<T>
         //src_id: lrc.src_id,
      }
   }//clone
+  pub fn line(&self) -> usize {self.line as usize}
+  //self.line.try_into().unwrap()}
+  pub fn column(&self) -> usize {self.column as usize}
 }
 
 impl<T:Clone> Clone for LRc<T>
@@ -406,8 +417,7 @@ macro_rules! lbox {
 
 ///macro for creating `LBox<dyn Any>` structures that can encapsulate any type
 ///as abstract syntax.  **Must** be called from within the semantic actions of
-///a grammar production rule as it calls the [RuntimeParser::lb] function to
-///insert the lexical line/column/src information into the LBox.
+///a grammar production rule.
 #[macro_export]
 macro_rules! lbup {
   ( $x:expr ) => {
