@@ -325,8 +325,8 @@ state that "int" terminal symbols ([TerminalTokens][tt]) are created
 from RawToken::Num(n) and carray semantic values Val(n), while
 "var" terminals carry values Var(x) and are formed from RawToken::Alphanum(x).
 The generated lexer will distinguish alphanumeric tokens that correspond
-to declared terminal symbols of the grammar. All other "Alphanums"
-will be parsed as "var".
+to other declared terminal symbols of the grammar such as "let".
+All other "Alphanums" will be parsed as "var".
 
 The [RawToken][rtk] enum defines n to be an i64 and x to be a &str.
 Generally speaking, for each value-carrying terminal symbol of the grammar,
