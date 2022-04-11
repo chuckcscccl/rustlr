@@ -1,9 +1,8 @@
 ## Chapter 1: Unambiguous LR Grammar for Simple Calculator.
 
-Please note that this tutorial has been rewritten for **[Rustlr version 0.2.3][drs]**,
-which can now **automatically generate a lexical scanner from a minimal set of
-declarations.**
-Parsers created since version 0.1.3 remain compatible.  The original version of this chapter
+Please note that this tutorial has been rewritten for **[Rustlr version 0.2.x][drs]**,
+which contains significant changes over the 0.1.x versions, although it remains
+compatible with parsers already created.  The original version of this chapter
 is available [here](https://cs.hofstra.edu/~cscccl/rustlr_project/test1grammar0.html).
 
 This tutorial is written for those with sufficient background in computer
@@ -27,12 +26,10 @@ T --> F:(f) { f }
 F --> ( E:e )  { e.value }
 F --> num:n { n.value }
 
-lexvalue num Num(n) (n as i32)
-
 EOF
 ```
 
-These are the contents of a Rustlr grammar file, called [test1.grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/test1.grammar).
+These are the contents of a Rustlr grammar file, called [test1.grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/test1.grammar).
 This classic example of LR parsing is found in virtually all compiler
 textbooks.  It is an unambiguous grammar.  After you **`cargo install rustlr`**
 you can produce a LALR parser from this grammar file with:
@@ -51,12 +48,7 @@ given to the executable are:
   So it will generate some kind of parser in any case.  The next chapter will
   explain in detail how conflicts are resolved.
 - **-o filepath** : changes the default destination of the generated parser, which is
-  a file called [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs).
-- **-genlex** : automatically generates a lexical scanner using the built-in
-[StrTokenizer][1].  Manually constructing a scanner is also
-possible and will be the subject of a future chapter.  The genlex option is
-also automatically enabled by the presence of certain declarations in the
-grammar file, such as **`lexvalue`**.
+  a file called [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs).
 - **-trace n**  : where n is a non-negative integer defining the trace level.
   Level 0 prints nothing; level 1, which is the default, prints a little more
   information.  Each greater level will print all information in lower levels.
@@ -65,15 +57,11 @@ grammar file, such as **`lexvalue`**.
 - **-nozc** : this produces an older version of the runtime parser that does not use
   the new zero-copy lexical analyzer trait.  This option is only retained
   for backwards compatibility with grammars and lexical scanners written prior
-  to rustlr version 0.2.0.  This option is not capable of generating a lexical
-  scanner.
+  to rustlr version 0.2.0.
 
-The generated parser will be a program
-[test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs)
-that contains a **`make_parser`** function.  If the `-genlex` option
-is used, it will also contain a struct `test1lexer` that implements
-the [Tokenizer][tktrait].  RustLr will derive the name of the grammar
-(test1) from the file path, unless there is a declaration of the form
+The generated parser will be a program [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs) that contains a **`make_parser`** function.
+RustLr will derive the name of the grammar (test1) from the file path, unless
+there is a declaration of the form
 
 >  grammarname somename
 
@@ -130,7 +118,7 @@ non-terminal on the left side of `-->` "nullable".
 
 Each rule can optionally end with a semantic action inside { and },
 which can only follow all grammar symbols making up the right-hand
-side of the production rule.  This is a piece of Rust code that will
+side of the production rule.  This is a piece of Rust code that would
 be injected *verbatim* into the generated parser.  This code will have
 access to any labels associated with the symbols defined using ":".
 In a label such as `E:e`, e is of type [StackedItem][sitem], which includes the
@@ -177,110 +165,112 @@ code.
 
 #### **CREATING A LEXER AND INVOKING THE PARSER**
 
-A lexical scanner (aka "tokenizer", "lexer", etc) can either be
-created manually by implementing the [Tokenizer][tktrait] trait, or be
-generated automatically from a minimal set of declarations using the
-built-in [StrTokenizer][1].  This tokenizer makes zero-copy of the
-source. It is capable of recognizing multi-line string literals and
-comments, alphanumeric and non alpha-numeric symbols, decimal and
-hexadecimal constants, floating point constants.
-It also has the option of returning newline and
-whitespaces (with count) as tokens.  It returns the starting line and
-column numbers of each recognized token.  But it has limitations and
-may not be the best tokenizer for every scenario.  The process of adopting
-another tokenizer for use by a Rustlr parser will be covered in a speparate
-chapter.
-
-For this grammar, a lexer is generated from a single declaration
-
->  lexvalue num Num(n) (n as i32)
-
-This line states that a token of the form [RawToken][rtk]::Num(n)
-should be recognized as the terminal grammar symbol "num", carrying
-semantic value (n as i32) - because in Num(n), n is of type i64 and
-the semantic value attached to each grammar symbol must be of the
-declared *absyntype* (valuetype).  The rest of the lexical scanner is
-derived from the declarations of terminal symbols in the grammar.
-
-To understand what declarations are needed to generate a lexer in general,
-the reader should become familiar with **[RawToken][rtk]**.  This is what
-[StrTokenizer][1] returns.
-The RawToken enum contains the following principal variants:
-
- - **Alphanum(&str)**: where the string represents an (ascii) alphanumeric
-   symbol that does not start with a digit.  The underscore character is
-   also recognized as alphanumeric.
- - **Symbol(&str)**: a string consisting of non alphanumeric characters such as "==",
- - **Num(i64)**: Both decimal and hexidecimals (starting
- with "0x") are recognized as Nums.  However, although the returned value is signed,
- a negative integer such as "-12" is recognized as a Symbol("-") followed by a Num(12),
- and thus must be recognized at the parser level.  Despite this, it is still more convenient
- to return the more generic signed form.  Also, "3u8" would be
- reconized as a Num(3) followed by an Alphanum("u8").
- - **Float(f64)**: like the case of Num, this represents unsigned, decimal floats.
- - **Char(char)**: this represents a character literal in single quotes such as 'c'
- - **Strlit(&str)**: A string literal delinated by double quotes.  These strings can span multiple lines and can contain nested, escaped quotes.
- - **Newline**: optional token indicating a newline character. These tokens
- are **not** returned by the tokenizer by default, but can be returned with
- the directive
-   > lexattribute keep_newline = true
- - **Whitespace(usize)**: another optional token that carries the number of
-   consecutive whitespaces.  This option is likewise enabled with
-   > lexattribute keep_whitespace = true   
- - **Verbatim(&str)**: another optional token carrying verbatim text, usually
-   comments.  Enable with
-   > lexattribute keep_comment = true
-   
-   By default, [StrTokenizer][1] recognizes C-style comments, but this can
-   be customized with, for example,
-   > lexattribute set_line_comment("#")
-   
-The most important lexer-generation directive is **lexvalue**.  For
-every terminal symbol in the grammar that carries a (non-default)
-semantic value, typically numerical and string literals, a
-lexvalue directive is needed to identify the corresponding
-[RawToken][rtk] that represents the terminal and how to translate the
-RawToken's value to the valuetype/absyntype value to be associated
-with the terminal symbol.  The lexvalue directive must identify the
-name of the terminal symbol, the RawToken form, and the valuetype
-form that should be recreated from the RawToken (currently the first
-two elements may not contain whitespaces).
-
-Besides **lexvalue**, there are two other lexer-generation directives,
-**lexname**, which allows the mapping of a reserved symbol such as `{`
-to a terminal symbol (see below), and **lexattribute** which allows the
-customization of the scanner. Further usage of these directives can be
-found in other chapters and examples.
-
-The generated lexer is a struct called test1lexer alongside the make_parser()
-function inside the generated parser file.  One creates a mutable instance
-of the lexer using the generated **`test1lexer::from_str`** and **`test1lexer::from_source`** functions.
-
-Here is the [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) associated with this grammar, which forms a simple calculator.  Its
-principal contents creates a parser, a lexer, and invokes the parser on
-the first command-line argument.
+Here is the [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1main.rs) associated with this grammar, which forms a simple calculator.  Its principal
+contents define a lexical analyzer that conforms to the [Tokenizer][tktrait] trait.
 ```
-mod test1parser;
-use test1parser::*;
+struct Scanner<'t>(StrTokenizer<'t>);
+impl<'t> Tokenizer<'t,i32> for Scanner<'t>
+{
+   // this function must convert any kind of token produced by the lexer
+   // into TerminalTokens expected by the parser.  The built-in lexer,
+   // StrTokenizer, produces RawTokens along with their line/column numbers.
+   fn nextsym(&mut self) -> Option<TerminalToken<'t,i32>>   {
+     let tokopt = self.0.next_token();
+     if let None = tokopt {return None;}
+     let tok = tokopt.unwrap();
+     match tok.0 {  // tok.1,tok.2 are line,column numbers
+       RawToken::Num(n) => Some(TerminalToken::from_raw(tok,"num",n as i32)),
+       RawToken::Symbol(s) => Some(TerminalToken::from_raw(tok,s,0)),
+       _ => Some(TerminalToken::from_raw(tok,"<<Lexical Error>>",0)),
+     }//match
+   }
+}
 fn main() {
   let mut input = "5+2*3";
   let args:Vec<String> = std::env::args().collect(); // command-line args
   if args.len()>1 {input = &args[1];}
-  let mut parser1 = make_parser(); // calls function in mod test1parser
-  let mut tokenizer1 = test1lexer::from_str(input); //creates lexer
+  let mut parser1 = zc1parser::make_parser();
+  let mut tokenizer1 =Scanner(StrTokenizer::from_str(input));
   let result = parser1.parse(&mut tokenizer1);
   println!("result after parsing {}: {}",input,result);  
 }//main
 ```
-Alternatively, we can choose to create a test1lexer from another source,
-such as a file, with:
+
+To run the program, **`cargo new`** a new crate and copy
+the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1main.rs and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
+under [dependencies]:
 ```
-let source = rustlr::LexSource::new("file path").unwrap();
-let mut tokenizer1 = test1lexer::from_source(&source);
+rustlr = "0.2"  
 ```
+**`cargo run "2+3*4"`** will print 14 and `cargo run "(2+3)*4"` will print
+20.
+
+#### RustLr's Lexical Interface
+
+To create a lexical scanner for your grammar, you must become familiar with the [Tokenizer][tktrait] trait and the
+[TerminalToken][tt] struct which are defined by rustlr:
+
+```
+pub struct TerminalToken<'t,AT:Default>
+{
+  pub sym: &'t str,
+  pub value: AT,
+  pub line:usize,
+  pub column:usize,
+}
+pub trait Tokenizer<'t,AT:Default> 
+{
+  fn nextsym(&mut self) -> Option<TerminalToken<'t,AT>>;
+  //... the above is the only required function when impl Tokenizer
+}  
+```
+TerminalTokens are the structures expected by rustlr's built-in runtime parser
+(called [ZCParser][zcp], whereas RuntimeParser refers to an older version).  **The
+.sym field of each token must correspond to the name of a terminal symbol
+of the grammar** being parsed.  The value must be of the valuetype or 'absyntype'
+of the grammar.  Each TerminalToken also includes the starting line and column
+of where the token begins in the source.
+
+The parser requires a ref mut to a Tokenizer-trait object as an argument.
+
+The nextsym function of the trait object must produce Some(TerminalToken) until
+end of input is reached, at which point it should return None.  The
+[TerminalToken::new][ttnew] function can be called to create a new token.
+Very importantly, the "sym" &str of the TerminalToken must match identically
+with the name of a terminal symbol of your grammar (yes that's worth repeating).
+The "value" of the token is something of type valuetype/absyntype as defined
+by the grammar.  In this case each integer constant must be translated into
+a token with .sym=="num" and .value = the value of integer as an i32.
+
+This example uses the built-in [StrTokenizer][1] as lexer.  This tokenizer
+suffices for the examples that have been so-far created by rustlr.  It
+is capable of recognizing multi-line string literals and comments,
+alphanumeric and non alpha-numeric symbols, decimal and hexadecimal
+constants (unsigned), floating point constants, character literals
+such as `'a'`.  It also has the option of returning newline and
+whitespaces (with count) as tokens.  But it does have limitations. It
+is not the most efficient (not always one-pass, uses regex).  It
+returns all integers as i64 (it would recognize "1u8" as two separate
+tokens, a number and an alphanumeric symbol "u8").  Negative integers
+must also be recognized at the parser as opposed to lexer level.  The
+lexer was not designed to recognize binary input.  But StrTokenizer
+does "get the job done" in many cases that are required in compiling and
+analyzing source code.
+
+[StrTokenizer][1] produces a structure called [RawToken][rtk].  The
+[TerminalToken::from_raw][fromraw] function converts a tuple that consists of
+(RawToken,line,column) into a TerminalToken.
+[RawToken][rtk] is an enum that includes `Num` that carries an i64 value,
+and `Symbol`, which carries a string of non-alphanumeric symbols such as `*`.
+
+Besides the [TerminalToken::from_raw][fromraw] function, there is
+no link between the specific tokenizer and the parser.  Any lexer can
+be adopted to impl the [Tokenizer][tktrait] trait by converting whatever kind of
+tokens they produce into TerminalTokens in the **[nextsym][nextsymfun]**
+function required by the trait.
 
 An instance of the runtime parser is created by calling the **`make_parser`**
-function.
+function, which is the only exported function of the generated parser.
 Once a lexer has also been created, parsing can commence by calling
 
 >      `parser1.parse(&mut tokenizer1)`
@@ -292,19 +282,8 @@ even if parsing failed (but error messages will be printed).  After
 that was returned.  
 
 
-To run the program, **`cargo new`** a new crate and copy
-the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
-under [dependencies]:
-```
-rustlr = "0.2"  
-```
-**`cargo run "2+3*4"`** will print 14 and `cargo run "(2+3)*4"` will print
-20.
 
-<br><p>
-
-
-#### **Reserved Symbols**
+#### Reserved Symbols
 
 The following terminal symbols are reserved and should not be used in a grammar:
 
@@ -313,34 +292,16 @@ The following terminal symbols are reserved and should not be used in a grammar:
 The following symbols should also NOT be used as non-terminals in your grammar:
 
 >     START valuetype absyntype grammarname resync resynch topsym errsym 
->     nonterminal terminal nonterminals terminals lexvalue lexname typedterminal
->     left right externtype externaltype lifetime lexattribute
+>     nonterminal terminal nonterminals terminals flexname lexname typedterminal
+>     left right externtype externaltype lifetime
 
 For example, if ":" is to be one of the terminal symbols of your
-language, then you should call it something like COLON instead in the
-grammar. You will then adopt your lexical analyzer so that ":" is
-translated to COLON.  This can be accomplished with the directive
-(if generating a lexer automatically):
-
->     lexname COLON :
-
-This directive is equivalent to
-
->     lexvalue COLON Symbol(":") <valuetype>::default()
-
-where valuetype refers to the declared valuetype.
-Underneath, the ":" symbol is translated into a [TerminalToken][tt] with .sym="COLON" before sending the token to the parser. If you
+language, then you should call it something like COLON inside the
+grammar.  You will then adopt your lexical analyzer so that ":" is
+translated into a [TerminalToken][tt] with .sym="COLON" before sending the token to the parser. If you
 want to treat a whitespace as a token your lexer must similarly
-translate whitespaces.  For automatic lexer generation, use
-something like the following:
-
->     lexvalue WHITESPACE Whitespace(n) value
-
-assuming that WHITESPACE is a declared terminal symbol and "value" is
-the value you want to be associated with the symbol (usually this is just
-the valuetype::default()).  Whitespace(n) is a variant of [RawToken][rtk].
-
-The symbol START and terminal EOF will always be added as additional
+translate whitespaces into something like WHITESPACE. Non-terminal
+symbol START and terminal EOF will always be added as additional
 symbols to the grammar.  The other symbols that should not be used for
 non-terminals are for avoiding clash with grammar directives.
 
@@ -370,10 +331,12 @@ about the LR state machine.
 Most rustlr projects will consist of mulitple files: the .grammar file, a module
 defining the abstract syntax type, a module defining a lexical analyzer, the
 generated parser as another module, and presumably a main to launch the program.
-In [this additional example](https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/brackets.grammar),
+In [this additional example](https://cs.hofstra.edu/~cscccl/rustlr_project/brackets.grammar),
 enough code has been injected into the .grammar so that rustlr can generate a
-relatively [self-contained program](https://cs.hofstra.edu/~cscccl/rustlr_project/brackets/src/main.rs), that includes a lexer and a main, and illustrates a
-few extra features of Rustlr.
+relatively [self-contained program](https://cs.hofstra.edu/~cscccl/rustlr_project/bracketsparser.rs), that includes a lexer and a main, and illustrates a
+few extra features of Rustlr.  This example also uses charscanner, which is
+another tokenizer that comes with Rustlr, this time designed to parse one
+character at a time.
 
 -----------
 

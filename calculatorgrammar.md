@@ -36,10 +36,6 @@ left / 500
 left + 400
 left - 400
 
-lexvalue int Num(n) Val(n)
-lexvalue var Alphanum(x) Var(x)
-lexattribute set_line_comment("#")
-
 E --> int:m { m.value }
 E --> var:s@Var(v)@ { s.value }
 E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
@@ -160,48 +156,52 @@ be of the following forms (two were used in the first grammar):
    associated with.  For example, the rule for `E --> E + E` can also be
    written as
 
-        `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(1,b)) }`
+>>   `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(1,b)) }`
 
    
 
-   3. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
+>   3. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
    bound to the **.value** popped from the stack as a mutable variable (the .value is moved to the pattern).  The
    specified semantic action is injected into the body of if-let.  A parser
    error report is generated if the pattern fails to match, in which
    case the default value of the abstract syntax type is returned.
    To be precise, the semantic action function generated for the last rule of the
    grammar is
-      ```
-      |parser|{ let mut _item2_ = parser.popstack();
-         let mut e = parser.popstack(); let mut _item0_ = parser.popstack(); 
-         if let (Seq(mut v),)=(_item0_.value,) { 
-           v.push(e.lbox());
-           Seq(v)
+   
+   ```ignore
+     |parser|{ let mut _item2_ = parser.popstack();
+        let mut e = parser.popstack(); let mut _item0_ = parser.popstack(); 
+        if let (Seq(mut v),)=(_item0_.value,) { 
+          v.push(e.lbox());
+          Seq(v)
           }  else {parser.bad_pattern("(Seq(mut v),)")} }
-      ```
-      Rustlr generates a variable of the form `_item{n}_` to hold the
-      value of the [StackedItem][sitem], if no direct label is specified.
-      Notice that `_item0_.value` is *moved* into the pattern so generally
-      it cannot be referenced again.
+   ```
+   
+>>   Rustlr generates a variable of the form `_item{n}_` to hold the value of
+   the [StackedItem][sitem], if no direct label is specified.  Notice that
+   `_item0_.value` is *moved* into the pattern so generally it cannot be
+   referenced again.
 
-   4. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
+>   4. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
    assigned to the StackedItem popped from the stack and an if-let is
    generated that attempts to match the pattern to **`&mut es`**.
    In particular, the last production rule of this grammar is equivalent to:
-      ```
-      ES --> ES:es@Seq(v)@  E:e ;  {
-         v.push(parser.lbx(1,e.value));
-         es.value
-      }   
-      ```
-      In contrast to a non-named pattern, the value is **not** moved into the
-      pattern, which means we can still refer to it as `es.value`.  The call
-      to [parser.lbx][4] requires an index, starting from 0, of the grammar symbol
-      on the right-hand side of the production along with a value and forms
-      an LBox with starting line/column information.  In this case, it is
-      equivalent to `v.push(e.lbox())`: the .lbox function converts the
-      [StackedItem][sitem] to an [LBox][2].  But calling .lbox is only possible because 
-      this form of pattern does not move the .value out of the StackedItem.
+
+>>  `
+   ES --> ES:es@Seq(v)@  E:e ;  {
+     v.push(parser.lbx(1,e.value));
+     es.value
+    }   
+   `
+    
+>>   In contrast to a non-named pattern, the value is **not** moved into the
+   pattern, which means we can still refer to it as `es.value`.  The call
+   to [parser.lbx][4] requires an index, starting from 0, of the grammar symbol
+   on the right-hand side of the production along with a value and forms
+   an LBox with starting line/column information.  In this case, it is
+   equivalent to `v.push(e.lbox())`: the .lbox function converts the
+   [StackedItem][sitem] to an [LBox][2].  But calling .lbox is only possible because 
+   this form of pattern does not move the .value out of the StackedItem.
 
 
 #### The Abstract Syntax Type **Expr**
@@ -281,7 +281,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>  {
      Divide(x,y) => {
        eval(env,y)
        .map(|yval|{if yval==0 {
-          eprint!("Division by zero (expression starting at column {}) on line {} of {:?} at column {} ... ",y.column(),y.line(),x,x.column());
+          eprint!("Division by zero (expression starting at column {}) on line {} of {:?} at column {} ... ",y.column,y.line,x,x.column);
 	  None
          } else {eval(env,x).map(|xval|{Some(xval/yval)})}
        })
@@ -298,8 +298,8 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>  {
        {
          ev = eval(env,x);
          if let Some(val) = ev {
-	   println!("result for line {}: {} ;",x.line(),&val);
-         } else { eprintln!("Error evaluating line {};",x.line()); }
+	   println!("result for line {}: {} ;",x.line,&val);
+         } else { eprintln!("Error evaluating line {};",x.line); }
        }//for
        ev
      },
@@ -312,58 +312,17 @@ the clause for `Plus`, for example, is equivalent to
 
 `if let Some(a)=eval(env,x) { if let Some(b)= eval(env,y) {Some(a+b)} else {None} } else {None}`.
 
-<br>
+#### Lexical scanner and main.
 
-#### **Lexical scanner and main**
-
-The directives **lexvalue**, **lexname** and **lexattribute** are used to
-configure an automatically generated lexical tokenizer.
-'lexvalue' should be used 
-for all terminal symbols that carry (non-default) semantic values, such as
-numerical constants and string literals.  The two **lexvalue** directives
-state that "int" terminal symbols ([TerminalTokens][tt]) are created
-from RawToken::Num(n) and carray semantic values Val(n), while
-"var" terminals carry values Var(x) and are formed from RawToken::Alphanum(x).
-The generated lexer will distinguish alphanumeric tokens that correspond
-to declared terminal symbols of the grammar. All other "Alphanums"
-will be parsed as "var".
-
-The [RawToken][rtk] enum defines n to be an i64 and x to be a &str.
-Generally speaking, for each value-carrying terminal symbol of the grammar,
-write a similar *lexvalue* declaration by identifying the type of RawToken
-that it corresponds to and how to construct the semantic value from the token.
-
-Please note that
-whitespaces are only allowed in the specification of the semantic value (in the
-future we may rewrite rustlr inside rustlr, but this is not a priority as the
-hand-coded grammar parser suffices for most cases if used a little carefully).
-
-Since no reserved symbols such as "|" or "{" are used in this language, the
-**lexname** directive is not used.  These reserved symbols cannot be used
-as terminal symbols.  One must choose names such as VBAR and write
-`lexname VBAR |` to define the correspondence between the grammar symbol
-and its textual form.
-
-The **lexattribute** directive can be used to set any attribute on the
-lexer to be generated.  Consult the docs for [StrTokenizer][1]. 
-The following samples are valid lexattribute declarations
-
->      lexattribute keep_newline = true
->      lexattribute keep_comment = true
->      lexattribute keep_whitespace = true
->      lexattribute set_multiline_comments("/* */")
->      lexattribute set_line_comment("")
-
-Setting the line_comment or multiline_comments to the empty string will mean
-that such comments are not recognized.  The keep_flags are all false be
-default.  [StrTokenizer][1] recognizes C-style comments by default.
-
-The presence of these directives automatically enables the -genlex option.
-The lexer created is called calc4lexer and is found in with the generated
-parser.  Use the **calc4lexer::from_str** and **calc4lexer::from_source**
-functions to create instances of this zero-copy lexical scanner (consult 
-[main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs)
-for example).
+The file [exprtrees.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/exprtrees.rs) also contains a lexical analyzer for this language
+called `Calcscanner`, again created from the built-in [StrTokenizer][1].
+It isn't too different from the lexer for the first, [simpler calculator][chap1]
+so we will not repeat all of its code here.  However, the following setting
+was made to the StrTokenizer: **`.set_line_comment("#")`**.
+This allows the tokenizer to recognize (and by default ignore) such comments.
+Additionally, the [nextsym][nextsymfun] function must be implemented to distinguish the keywords "let" and "in" from other alphanumeric symbols such as "x", which
+are recognized as variables carrying values of the form `Var(_)`.
+The exact code (see [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs)) also shows how to set the tokenizer to read input from a some other source using [LexSource][lexsource]
 
 Generate the parser with
 
@@ -411,9 +370,6 @@ result for line 10: 102 ;
 Final result after evaluation: Some(102)
 ```
 
-This chapter is followed by an **[addendum](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/mj.grammar)**, which contains a larger example with further
-illustration of the techniques explained here.
-
 ----------------
 
 ### Training The Parser For Better Error Reporting
@@ -429,7 +385,7 @@ message is given. To print more helpful error messages, the parser can
 be trained interactively.  Interactive training also produces a script
 for future, automatic retraining when a new parser is generated.
 
-Modify [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs) by uncommenting lines 2 and 3 in the input:
+Modify [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calculator/src/main.rs) by uncommenting lines 2 and 3 in the input:
 ```
 3(1+2)   # syntax (parsing) error
 5%2;   # syntax error
@@ -523,7 +479,7 @@ training from script has not yet been tested on a large scale.
 [4]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html#method.lbx
 [5]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html#method.lbox
 [sitem]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html
-[chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter1.html
+[chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/test1grammar.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html
