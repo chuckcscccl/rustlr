@@ -78,7 +78,7 @@ pub mod generic_absyn;
 pub use generic_absyn::*;
 pub mod zc_parser;
 use zc_parser::*;
-
+mod parser_writer;
 
 pub use lr_statemachine::{Stateaction,decode_action};
 pub use runtime_parser::{RuntimeParser,RProduction};

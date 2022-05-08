@@ -32,6 +32,9 @@ pub use generic_absyn::*;
 pub mod zc_parser;
 use zc_parser::*;
 
+mod parser_writer;
+use parser_writer::*;
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -114,7 +117,8 @@ fn rustle(args:&Vec<String>) // called from main
   let write_result =
     if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)
-      fsm0.writelbaparser(&parserfile)      
+      fsm0.writelbaparser(&parserfile)
+      //fsm0.writeenumparser(&parserfile)
     }
     else {  // non-zc, original before version 0.2.0
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}

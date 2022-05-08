@@ -857,8 +857,8 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
      actionopt = parser.RSM[cstate].get("ANY_ERROR");
   }// lookahead is not a grammar sym
   let errmsg = if let Some(Error(em)) = &actionopt {
-    format!("unexpected symbol {} on line {}, column {}: ** {} ** ..",lksym,lookahead.line,lookahead.column,em.trim())
-  } else {format!("unexpected symbol {} on line {}, column {} .. ",lksym,lookahead.line,lookahead.column)};
+    format!("unexpected symbol '{}' on line {}, column {}: ** {} ** ..",lksym,lookahead.line,lookahead.column,em.trim())
+  } else {format!("unexpected symbol '{}' on line {}, column {} .. ",lksym,lookahead.line,lookahead.column)};
 
   parser.report(&errmsg);
 

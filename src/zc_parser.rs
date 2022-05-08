@@ -662,6 +662,9 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
+    ////// WRITE ENUM (test)
+    if !self.Gmr.sametype { self.Gmr.gen_enum(&mut fd)?; }
+    
     ////// WRITE LEXER
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"raw_to_lba")?; }
 
@@ -670,6 +673,9 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writelbaparser
+
+
+
 
 
 //write-verbose no longer supported
@@ -687,7 +693,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
 ////// independent function
   fn is_lba(t:&str) -> bool {
-   t.contains("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
+   t.trim().starts_with("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
   
 //    for s in ["", "LBox<dyn Any>","LBox<Any>","LBox< dyn Any>","LBox<dyn Any >",
 //              "LBox< dyn Any >"] { if s==t {return true;}}
