@@ -279,7 +279,9 @@ impl Grammar
 //	       if stokens.len()>2 && stokens[2]!="mut" {
 //	         let rtype = format!("PE_Variant_{}({})",self.Symbols.len(),tokentype.trim());
 //		 newterm.settype(&rtype);
-               newterm.settype(tokentype.trim());
+               let mut nttype = tokentype.trim();
+               if nttype.len()<2 {nttype = &self.Absyntype};
+               newterm.settype(nttype);
 //               }
 //               else {newterm.settype(&self.Absyntype);}
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
@@ -483,8 +485,10 @@ impl Grammar
                 }//match
 	      } // while there are tokens on rhs
 	      // form rule
+              let mut newlhs = lhsym.clone();
+              if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
-	        lhs : lhsym.clone(),
+	        lhs : newlhs,
 		rhs : rhsyms,
 		action: semaction.to_owned(),
 		precedence : maxprec,
@@ -664,6 +668,10 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 {
     ////// WRITE LEXER
       let ref absyn = self.Absyntype;
+      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
+          else {String::new()};
+      let retenum = format!("RetTypeEnum{}",&ltopt);
+      let retype = if self.sametype {absyn} else {&retenum};
       let lifetime = if (self.lifetime.len()>0) {&self.lifetime} else {"'t"};
       write!(fd,"\n// Lexical Scanner using RawToken and StrTokenizer\n")?;
       let lexername = format!("{}lexer",&self.name);
@@ -694,6 +702,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 	   doubles.push(&sym);
 	}      
       }// for symbols in lexnames such as "||" --> OROR
+
       write!(fd,"pub struct {0}<'t> {{
    stk: StrTokenizer<'t>,
    keywords: HashSet<&'static str>,
@@ -724,7 +733,7 @@ impl<'t> {0}<'t>
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{
    fn nextsym(&mut self) -> Option<TerminalToken<{0},{1}>> {{
-",lifetime,absyn,&lexername)?;
+",lifetime,retype/*absyn*/,&lexername)?;
       write!(fd,"    let tokopt = self.stk.next_token();
     if let None = tokopt {{return None;}}
     let token = tokopt.unwrap();
@@ -749,11 +758,11 @@ impl<'t> {0}<'t>
       }
       for (lform,tname) in &self.Lexnames
       {
-        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,absyn)?;
+        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,retype)?;
       }
-      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,absyn)?;
-      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,absyn)?;      
-      write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,absyn)?;
+      write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
+      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
+      write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}
@@ -775,7 +784,7 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
     //enum name is Retenumgrammarname, variant is _grammarname_enum_{n}
     let enumname = format!("RetTypeEnum{}",&ltopt);  // will not be pub
     let symlen = self.Symbols.len();
-    write!(fd,"\n//Enum for return values \nenum {} {{\n",&enumname)?;
+    write!(fd,"\n//Enum for return values \npub enum {} {{\n",&enumname)?;
 
     for (typesym,eindex) in self.enumhash.iter()
     {
