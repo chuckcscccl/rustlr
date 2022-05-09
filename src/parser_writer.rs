@@ -112,7 +112,7 @@ impl Statemachine
 #![allow(irrefutable_let_patterns)]
 use std::any::Any;
 extern crate rustlr;
-use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action,LBox}};\n")?;
+use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
     if self.Gmr.genlex {
       write!(fd,"use rustlr::{{StrTokenizer,RawToken,LexSource}};
 use std::collections::{{HashMap,HashSet}};\n")?;
@@ -174,7 +174,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let fnname = format!("_semaction_rule_{}_",i);
       let typei = &self.Gmr.Symbols[*lhsi].rusttype;
       let enumindex = self.Gmr.enumhash.get(typei).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
-      write!(fd," RetTypeEnum::Enumvariant_{}({}(parser) }};\n",enumindex,&fnname)?;
+      write!(fd," RetTypeEnum::Enumvariant_{}({}(parser)) }};\n",enumindex,&fnname)?;
 /*      
       if is_lba(typei) {
         write!(fd," {}(parser) }};\n",&fnname)?;
@@ -204,8 +204,21 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
-    ////// WRITE ENUM (test)
-    if !self.Gmr.sametype { self.Gmr.gen_enum(&mut fd)?; }
+    if !self.Gmr.sametype {
+
+      ////// WRITE parse_with
+      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
+      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
+      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> {}\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn)?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_x_) = parser.parse(lexer) {{",abindex)?;
+  //    write!(fd,"     if parser.error_occurred() {{return Some(_x_);}}\n")?;
+      write!(fd," _x_ }} ")?;
+      write!(fd,"else {{ <{}>::default()}}\n}}//parse_with public function\n",absyn)?;
+
+      ////// WRITE ENUM (test)
+      self.Gmr.gen_enum(&mut fd)?;
+    }// !sametype
     
     ////// WRITE LEXER
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
