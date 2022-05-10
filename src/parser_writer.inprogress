@@ -54,7 +54,7 @@ impl Statemachine
       let mut patterns = String::from("(");
       while k>0 // k is length of right-hand side
       {
-        let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs symbols right to left...
+        let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
         let gsymi = *self.Gmr.Symhash.get(&gsym.sym).unwrap();
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
@@ -72,13 +72,29 @@ impl Statemachine
         fndef.push_str(&stat);
         // poppedlab now bound to actual value (equivalent to lbdown! downcast)
 
+        if gsym.label.len()>1 && findat.is_some() { // if-let pattern @@
+	  let atindex = findat.unwrap();
+          if atindex>0 { // label like es:@Exp(..)@
+            //let varlab = &gsym.label[0..atindex];   //es before @: es:@..@
+            labels.push_str("&mut "); // for if-let
+            labels.push_str(poppedlab); labels.push(',');
+          }
+          else { // non-labeled pattern: E:@..@
+            labels.push_str(poppedlab); labels.push(',');
+          }
+	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
+	} // @@ pattern exists, with or without label
+/*
         if gsym.label.len()>1 && findat.is_some() { // if-let pattern
-          labels.push_str("&mut *"); // for if-let  // *box.exp gets value
-          labels.push_str(poppedlab); /*labels.push_str(".exp");*/ labels.push(',');
+          labels.push_str("&mut "); // for if-let  // *box.exp gets value
+          labels.push_str(poppedlab);  labels.push(',');
           // closing @ trimed in grammar_processor.rs
           let atindex = findat.unwrap();
 	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
 	} // @@ pattern exists, with or without label
+*/
+
+
         k -= 1;      
       }// for each symbol on right hand side of rule (while k)
       // form if let pattern=labels ...
@@ -109,6 +125,7 @@ impl Statemachine
 #![allow(unused_imports)]
 #![allow(unused_assignments)]
 #![allow(dead_code)]
+#![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
 use std::any::Any;
 extern crate rustlr;
@@ -175,14 +192,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let typei = &self.Gmr.Symbols[*lhsi].rusttype;
       let enumindex = self.Gmr.enumhash.get(typei).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
       write!(fd," RetTypeEnum::Enumvariant_{}({}(parser)) }};\n",enumindex,&fnname)?;
-/*      
-      if is_lba(typei) {
-        write!(fd," {}(parser) }};\n",&fnname)?;
-      }
-      else {
-        write!(fd," lbup!( LBox::new({}(parser),parser.linenum,parser.column)) }};\n",&fnname)?;
-      }
-*/
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// write each rule action
     
@@ -204,18 +213,21 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
-    ////// WRITE parse_with
-    let lexerlt = if has_lt {&ltopt} else {"<'t>"};
-    let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
-    let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-    write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Option<{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn)?;
-    write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_x_) = parser.parse(lexer) {{",abindex)?;
-//    write!(fd,"     if parser.error_occurred() {{return Some(_x_);}}\n")?;
-    write!(fd," Some(_x_) }} ")?;
-    write!(fd,"else {{None}}\n}}//parse_with public function\n")?;
+    if !self.Gmr.sametype {
 
-    ////// WRITE ENUM (test)
-    if !self.Gmr.sametype { self.Gmr.gen_enum(&mut fd)?; }
+      ////// WRITE parse_with
+      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
+      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
+      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> {}\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn)?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_x_) = parser.parse(lexer) {{",abindex)?;
+  //    write!(fd,"     if parser.error_occurred() {{return Some(_x_);}}\n")?;
+      write!(fd," _x_ }} ")?;
+      write!(fd,"else {{ <{}>::default()}}\n}}//parse_with public function\n",absyn)?;
+
+      ////// WRITE ENUM (test)
+      self.Gmr.gen_enum(&mut fd)?;
+    }// !sametype
     
     ////// WRITE LEXER
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
