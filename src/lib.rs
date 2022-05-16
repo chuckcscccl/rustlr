@@ -22,10 +22,6 @@
 //! a grammar has been modified.
 //! See the [ZCParser::parse_train] and [ZCParser::train_from_script] functions.
 //!
-//! The parser can generate a full
-//! LR(1) parser given the ANSI C grammar in
-//! approximately 2-4 seconds on contemporary processors.
-//!
 //! The parser generator can also generate a lexical scanner using
 //! the built-in [StrTokenizer] from a minimal set 
 //! of declarations.  The generated scanner is "zero-copy" and good enough

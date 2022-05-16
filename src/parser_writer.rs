@@ -1,4 +1,3 @@
-
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
@@ -54,13 +53,24 @@ impl Statemachine
       let mut patterns = String::from("(");
       while k>0 // k is length of right-hand side
       {
-        let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs symbols right to left...
-        let gsymi = *self.Gmr.Symhash.get(&gsym.sym).unwrap();
+        let mut boxedlabel = false;  // see if named label is of form [x]
+        let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
+        //let gsymi = *self.Gmr.Symhash.get(&gsym.sym).unwrap();
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
-          None if gsym.label.len()>0 => {plab = format!("{}",&gsym.label);},
-          Some(ati) if *ati>0 => {plab=format!("{}",&gsym.label[0..*ati]);},
+          None if gsym.label.len()>0 && !gsym.label.contains('(') => {
+            let truelabel = checkboxlabel(&gsym.label);
+            boxedlabel = truelabel != &gsym.label;
+            plab = String::from(truelabel);
+          },
+          Some(ati) if *ati>0 => {
+            let rawlabel = gsym.label[0..*ati].trim();
+            let truelabel = checkboxlabel(rawlabel);
+            boxedlabel = truelabel != rawlabel;
+            plab = String::from(truelabel);
+            //plab=format!("{}",&gsym.label[0..*ati]);
+          },
           _ => {},
         }//match
         let poppedlab = plab.as_str();
@@ -68,17 +78,28 @@ impl Statemachine
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR",&symtype);
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
         //form RetTypeEnum::Enumvariant_{eindex}(popped value)
-        let stat = format!("let mut _{0} = parser.popstack().value; let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=_{0} {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
+        let stat;
+        if !boxedlabel { // not a [x] label
+          stat = format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
+        } else {
+          stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.lbx({3},_{0}_);  ",poppedlab,&eindex,symtype,k-1);
+        }// is a [x] label
+        
         fndef.push_str(&stat);
-        // poppedlab now bound to actual value (equivalent to lbdown! downcast)
 
-        if gsym.label.len()>1 && findat.is_some() { // if-let pattern
-          labels.push_str("&mut *"); // for if-let  // *box.exp gets value
-          labels.push_str(poppedlab); /*labels.push_str(".exp");*/ labels.push(',');
-          // closing @ trimed in grammar_processor.rs
-          let atindex = findat.unwrap();
+        if gsym.label.len()>1 && findat.is_some() { // if-let pattern @@
+	  let atindex = findat.unwrap();
+          if atindex>0 { // label like es:@Exp(..)@
+            labels.push_str("&mut "); // for if-let
+            if boxedlabel {labels.push('*');} // &mut *Lbox gets the value
+            labels.push_str(poppedlab); labels.push(',');
+          }
+          else { // non-labeled pattern: E:@..@
+            labels.push_str(poppedlab); labels.push(',');
+          }
 	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
 	} // @@ pattern exists, with or without label
+
         k -= 1;      
       }// for each symbol on right hand side of rule (while k)
       // form if let pattern=labels ...
@@ -109,6 +130,7 @@ impl Statemachine
 #![allow(unused_imports)]
 #![allow(unused_assignments)]
 #![allow(dead_code)]
+#![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
 use std::any::Any;
 extern crate rustlr;
@@ -175,14 +197,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let typei = &self.Gmr.Symbols[*lhsi].rusttype;
       let enumindex = self.Gmr.enumhash.get(typei).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
       write!(fd," RetTypeEnum::Enumvariant_{}({}(parser)) }};\n",enumindex,&fnname)?;
-/*      
-      if is_lba(typei) {
-        write!(fd," {}(parser) }};\n",&fnname)?;
-      }
-      else {
-        write!(fd," lbup!( LBox::new({}(parser),parser.linenum,parser.column)) }};\n",&fnname)?;
-      }
-*/
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// write each rule action
     
@@ -234,4 +248,9 @@ use std::collections::{{HashMap,HashSet}};\n")?;
   fn is_lba(t:&str) -> bool {
    t.trim().starts_with("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
   }//is_lba to check type
-  
+
+
+fn checkboxlabel(s:&str) -> &str
+{
+    if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
+}// check if label is of form [x], returns x, or s if not of this form.

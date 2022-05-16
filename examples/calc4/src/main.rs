@@ -9,6 +9,8 @@ use calc4parser::*;
 //mod calc4lexermodel;
 //use calc4lexermodel::*;
 
+mod calcenumparser;
+
 fn main()
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -40,4 +42,12 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
    } else {
      println!("Parser error, best effort after recovery: {:?}", eval(&bindings,&result));
    }
+
+   println!("========= ENUM ===========");
+   let mut scanner4 = calcenumparser::calcenumlexer::from_str(input);
+   let mut parser4 = calcenumparser::make_parser();
+   let result4= calcenumparser::parse_with(&mut parser4, &mut scanner4);
+   let bindings4 = newenv();
+   println!("result after eval: {:?}", eval(&bindings4,&result4));
+
 }//main

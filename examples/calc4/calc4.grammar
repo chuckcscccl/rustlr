@@ -24,15 +24,15 @@ lexattribute set_line_comment("#")
 E --> int:m { m.value }
 E --> var:s@Var(v)@ { s.value }
 E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
-E --> E:e1 + E:e2 { Plus(e1.lbox(), e2.lbox()) }
+E --> E:[e1] + E:[e2] { Plus(e1,e2) }
 E --> E:e1 - E:e2 { Minus(e1.lbox(), parser.lbx(2,e2.value))}
-E --> E:e1 / E:e2 { Divide(e1.lbox(), e2.lbox())}
-E --> E:e1 * E:e2 { Times(e1.lbox(), e2.lbox())}
-E --> - E:e { Negative(e.lbox()) }
+E --> E:[e1] / E:[e2] { Divide(e1,e2) } 
+E --> E:[e1] * E:[e2] { Times(e1,e2) }
+E --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e.value }
-ES --> E:n ; { Seq(vec![n.lbox()]) }
-ES ==> ES:@Seq(mut v)@  E:e ;  {
-   v.push(e.lbox());
+ES --> E:[n] ; { Seq(vec![n]) }
+ES ==> ES:@Seq(mut v)@  E:[e] ;  {
+   v.push(e);
    Seq(v)
    } <==
 

@@ -22,6 +22,7 @@
 !use crate::lbasyntax::Expr::*;
 !use crate::lbasyntax::Stat::*;
 
+lifetime 'parser_lt
 absyntype LBox<dyn Any>
 typedterminal ID &'parser_lt str
 typedterminal STRING &'parser_lt str

@@ -330,9 +330,11 @@ impl Statemachine
        (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
          let winner = if (cri<nri) {cri} else {nri};
-         println!("Reduce-Reduce conflict between rules {} and {} with lookahead {} resolved in favor of {} ",cri,nri,la,winner);
-         printrule(&Gmr.Rules[*cri]);
-         printrule(&Gmr.Rules[*nri]);
+         println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
+//         printrule(&Gmr.Rules[*cri]);
+//         printrule(&Gmr.Rules[*nri]);
+         printrulela(*cri,Gmr,la);
+         printrulela(*nri,Gmr,la);
          if winner==cri {changefsm=false;}
        },
        (Some(Shift(_)), Reduce(rsi)) => {

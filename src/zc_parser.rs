@@ -406,24 +406,39 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let mut patterns = String::from("(");
       while k>0 // k is length of right-hand side
       {
+        let mut boxedlabel = false;  // see if named label is of form [x]
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
           None if gsym.label.len()>0 && !gsym.label.contains('(') => {
-             plab=format!("{}",gsym.label.trim());
+            let rawlabel = gsym.label.trim();
+            let truelabel = checkboxlabel(rawlabel);
+            boxedlabel = truelabel != rawlabel;
+            plab = String::from(truelabel);             
+            // plab=format!("{}",gsym.label.trim());
           },
-          Some(ati) if *ati>0 => {plab=format!("{}",&gsym.label[0..*ati]);},
+          Some(ati) if *ati>0 => {
+            let rawlabel = gsym.label[0..*ati].trim();
+            let truelabel = checkboxlabel(rawlabel);
+            boxedlabel = truelabel != rawlabel;
+            plab = String::from(truelabel);            
+          },
           _ => {},
         }//match
         let poppedlab = plab.as_str();
-        write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
+        if !boxedlabel {
+           write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
+        } else {
+           write!(fd,"let mut {} = parser.popstack().lbox(); ",poppedlab)?;     
+        }
         
 	if gsym.label.len()>1 && findat.is_some() { // if-let pattern
 	  let atindex = findat.unwrap();
           if atindex>0 { // label like es:@Exp(..)@
             //let varlab = &gsym.label[0..atindex];   //es before @: es:@..@
             labels.push_str("&mut "); // for if-let
+            if boxedlabel {labels.push('*');}
             labels.push_str(poppedlab); labels.push_str(".value,");
             //write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
           }
@@ -1078,6 +1093,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   }//train_from_script
 
 }// 3rd impl ZCParser
+
+fn checkboxlabel(s:&str) -> &str
+{
+    if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
+}// check if label is of form [x], returns x, or s if not of this form.
+
 
 /*
 // used by genlex routines

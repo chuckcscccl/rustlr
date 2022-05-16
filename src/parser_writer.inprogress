@@ -68,7 +68,8 @@ impl Statemachine
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR",&symtype);
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
         //form RetTypeEnum::Enumvariant_{eindex}(popped value)
-        let stat = format!("let mut _{0} = parser.popstack().value; let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=_{0} {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
+//        let stat = format!("let mut _{0} = parser.popstack().value; let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=_{0} {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
+        let stat = format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
         fndef.push_str(&stat);
         // poppedlab now bound to actual value (equivalent to lbdown! downcast)
 
@@ -84,16 +85,6 @@ impl Statemachine
           }
 	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
 	} // @@ pattern exists, with or without label
-/*
-        if gsym.label.len()>1 && findat.is_some() { // if-let pattern
-          labels.push_str("&mut "); // for if-let  // *box.exp gets value
-          labels.push_str(poppedlab);  labels.push(',');
-          // closing @ trimed in grammar_processor.rs
-          let atindex = findat.unwrap();
-	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
-	} // @@ pattern exists, with or without label
-*/
-
 
         k -= 1;      
       }// for each symbol on right hand side of rule (while k)

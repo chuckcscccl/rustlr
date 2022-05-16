@@ -89,6 +89,10 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.genlex = genlex;
   grammar1.tracelev = tracelev;
   grammar1.parse_grammar(filepath);
+  // Check grammar integrity:
+//  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
+//  let toptype = &grammar1.Symbols[topi].rusttype;
+
   if tracelev>2 {println!("computing Nullable set");}
   grammar1.compute_NullableRf();
   if tracelev>2 {println!("computing First sets");}
@@ -117,8 +121,8 @@ fn rustle(args:&Vec<String>) // called from main
   let write_result =
     if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)
-      fsm0.writelbaparser(&parserfile)
-      //fsm0.writeenumparser(&parserfile)
+      //fsm0.writelbaparser(&parserfile)
+      fsm0.writeenumparser(&parserfile)
     }
     else {  // non-zc, original before version 0.2.0
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
