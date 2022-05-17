@@ -59,16 +59,6 @@ ES ==> ES:@Seq(mut v)@  E:[e] ;  {
 # ==> and <== are required for rules spanning multiple lines
 
 EOF
-
-alternatives:
-E --> var:@Var(v)@ { Var(v) }
-ES ==> ES:es@Seq(v)@  E:e ;  {
-   v.push(e.lbox());
-   es.value
-   } <==
-
-# ==> and <== are required for rules spanning multiple lines
-EOF
 ```
 
 

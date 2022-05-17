@@ -19,6 +19,18 @@ In demonstrating this feature we will also take the opportunity to define a
 larger language.  The grammar below defines a scaled-down version of Java
 similar to the "Tiger" language in Andrew Appel's compiler textbooks.
 
+We present the definition of the abstract syntax along with the grammar.
+The files to examine are:
+
+1. [Abstract Syntax Structures](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/src/enumabsyn.rs)
+2. [Grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/mjenum.grammar)
+3. [Generated Parser/Lexer](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/src/mjenumparser.rs)
+4. [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/src/main.rs)
+5. Sample "minijava" programs [QuickSort.mj](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/QuickSort.mj) and
+[BinaryTree.mj](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/BinaryTree.mj)
+
+The grammar is as follows:
+
 ```
 !use rustlr::LBox;
 !use crate::enumabsyn::*;
