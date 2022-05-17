@@ -17,15 +17,17 @@ ambiguous grammars.
  4. The ability to train the parser, interactively or from script,
     for better error reporting. 
 
-#### Version 0.2.5: The ability to write semantic actions returning
+#### Version 0.2.5:
+
+The ability to write semantic actions returning
 values of different types has been added, without the need to use the Any
 trait (and can thus accomodate non-static references).  Chapter 3 of
 the tutorial will be rewritten to reflect this important new option.
 Backwards compatibility is retained.
 
 A simplified syntax for forming LBox has been added: Grammar rules can
-now contain labeled symbols on the right hand side in the form `[x]`, which
-means that the semantic value is automatically placed in an LBox and assigned
+now contain labeled symbols on the right hand side in the form `E:[x]`, which
+means that the semantic value associated with grammar symbol E is automatically placed in an LBox and assigned
 to x.
 
 
