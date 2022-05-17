@@ -11,7 +11,7 @@ science and in Rust programming, with some knowledge of context free grammars
 and basic LR parsing concepts.
 Those who are already
 familiar with similar LR parser generation tools may wish to skip to the
-more advanced example in [Chapter 2](https://cs.hofstra.edu/~cscccl/rustlr_project/calculatorgrammar.html).
+more advanced example in [Chapter 2](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html).
 
 The tutorial will start with a sample grammar.
 ```ignore

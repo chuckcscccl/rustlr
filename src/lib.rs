@@ -1,9 +1,11 @@
 //! Rustlr is a Yacc-style parser generator for Rust. **Versions 0.2.3
-//! introduced the ability to automatically generate a usable lexical
+//! added the ability to automatically generate a usable lexical
 //! scanner.** This significantly simplies the process of creating a
-//! working parser.
+//! working parser. **Version 0.2.5** added several other enhancements
+//! including the ability for semantics actions to return values of
+//! different types.
 //!
-//! A [**detailed tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
+//! A [**tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is separately available that will explain the
 //! format of grammars and how to generate and deploy parsers for several 
 //! examples.
@@ -59,6 +61,7 @@
 #![allow(unused_assignments)]
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
+
 //use std::default::Default;
 mod grammar_processor;
 use grammar_processor::*;

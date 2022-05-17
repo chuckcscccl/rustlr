@@ -383,9 +383,9 @@ impl Statemachine
                 // now need to call makegotos again on this state - add
                 // to end of open vector.
                 self.Open.push(toadd);
-                if TRACE>3 { print!("===> MERGED STATE: ");
-                    printstate(&self.States[toadd],&self.Gmr);
-                }
+                //if TRACE>3 { print!("===> MERGED STATE: ");
+                //    printstate(&self.States[toadd],&self.Gmr);
+                //}
              } // existing state extended, re-closed, but ...
              break;
            } // core_eq with another state  

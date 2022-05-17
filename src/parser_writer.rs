@@ -218,21 +218,26 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
-    if !self.Gmr.sametype {
+    //if !self.Gmr.sametype {  // checked at first
 
-      ////// WRITE parse_with
+      ////// WRITE parse_with and parse_train_with
       let lexerlt = if has_lt {&ltopt} else {"<'t>"};
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> {}\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn)?;
-      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_x_) = parser.parse(lexer) {{",abindex)?;
-  //    write!(fd,"     if parser.error_occurred() {{return Some(_x_);}}\n")?;
-      write!(fd," _x_ }} ")?;
-      write!(fd,"else {{ <{}>::default()}}\n}}//parse_with public function\n",absyn)?;
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse(lexer) {{\n",abindex)?;
+      write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
+      write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
+      // training version
+      write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(lexer,parserpath) {{\n",abindex)?;
+      write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
+      write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_train_with public function\n",absyn)?;
+
 
       ////// WRITE ENUM (test)
       self.Gmr.gen_enum(&mut fd)?;
-    }// !sametype
+    // }// !sametype
     
     ////// WRITE LEXER
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }

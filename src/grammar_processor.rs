@@ -512,7 +512,7 @@ impl Grammar
             //} 
             } // for rul
             }, 
-            _ => {panic!("error parsing grammar on line {}, grammar stage {}",linenum,stage);},  
+            _ => {panic!("ERROR parsing grammar on line {}, unexpected declaration at grammar stage {}",linenum,stage);},  
          }//match first word
        }// not an empty or comment line
      } // while !atEOF

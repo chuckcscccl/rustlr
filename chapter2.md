@@ -18,9 +18,9 @@ The [grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/calc4.grammar)
 for the more advanced calculator is as follows:
 
 ```ignore
-!use crate::exprtrees::*;  /* ! lines are injected verbatim into parser */
+!use crate::exprtrees::*; /* ! lines are injected verbatim into parser */
 !use crate::exprtrees::Expr::*;
-!use rustlr::{LBox,makelbox};
+!use rustlr::{LBox};
 
 lifetime 'src_lt
 absyntype Expr<'src_lt>
@@ -36,31 +36,110 @@ left / 500
 left + 400
 left - 400
 
+# for lexical scanner generation:
 lexvalue int Num(n) Val(n)
 lexvalue var Alphanum(x) Var(x)
 lexattribute set_line_comment("#")
 
 E --> int:m { m.value }
-E --> var:s@Var(v)@ { s.value }
-E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
-E --> E:e1 + E:e2 { Plus(e1.lbox(), e2.lbox()) }
-E --> E:e1 - E:e2 { Minus(e1.lbox(), parser.lbx(2,e2.value))}
-E --> E:e1 / E:e2 { Divide(e1.lbox(), e2.lbox())}
-E --> E:e1 * E:e2 { Times(e1.lbox(), e2.lbox())}
-E --> - E:e { Negative(e.lbox()) }
+E --> var:s { s.value }
+E --> E:e1 + E:e2 { Plus(e1.lbox(),parser.lbx(2,e2.value)) }
+E --> E:[e1] - E:[e2] { Minus(e1,e2)}
+E --> E:[e1] / E:[e2] { Divide(e1,e2) } 
+E --> E:[e1] * E:[e2] { Times(e1,e2) }
+E --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e.value }
-ES --> E:n ; { Seq(vec![n.lbox()]) }
-ES ==> ES:@Seq(mut v)@  E:e ;  {
-   v.push(e.lbox());
+E --> let E:@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
+ES --> E:[n] ; { Seq(vec![n]) }
+ES ==> ES:@Seq(mut v)@  E:[e] ;  {
+   v.push(e);
    Seq(v)
+   } <==
+
+# ==> and <== are required for rules spanning multiple lines
+
+EOF
+
+alternatives:
+E --> var:@Var(v)@ { Var(v) }
+ES ==> ES:es@Seq(v)@  E:e ;  {
+   v.push(e.lbox());
+   es.value
    } <==
 
 # ==> and <== are required for rules spanning multiple lines
 EOF
 ```
 
-This grammar differs from the [first][chap1] in
-the following principal ways.
+
+### Motivation
+
+  Using an LR parser generator has a non-trivial learning curve.
+Working with strictly unambiguous grammars can be non-intuitive.
+Intuitively we'd like to see something close to the BNF definition of
+syntax: `E --> E+E | E*E | E-E`, etc.  Every expression `E` can
+be a subexpression of a larger one.  But such grammars are ambiguous
+and thus not LR. The ambiguity comes from the unspecified precedence
+of operators + and *, and the unspecified associativity of -.  Another
+ambiguity is illustrated by the infamous "dangling else" problem.
+In a grammar with
+
+     `E --> if (E) E  |  if (E) E else E`
+
+how should we parse *`if (a) if (b) c else d`*? To associate the
+`else` with the inner `if`, we must delay the reduction by the first
+rule in favor of the second.  Eliminating such ambiguities by
+rewriting the grammar can be non-trivial.  However, these kinds of
+ambiguities can also be eliminated by augmenting the ambiguous grammar with
+operator precedence and associativity declarations.
+
+The main purpose of a parser is to transform *concrete syntax*, which
+is usually a string, into *abstract syntax*, which is usually a tree.
+Parsing is only one of the first stages in a modern interpreter or
+compiler. Many important tasks such as type checking can be carried
+out in other stages.  Errors can be syntactic - meaning that the
+syntax is not accepted by the grammar, or semantic, such as type
+incompatibilities.  Usually only syntactic errors are reported by the
+parser.  However, all error reports made by the interpreter/compiler
+must indicate the location in the orignal text (line and column
+numbers) where the error is traced to.  This implies that the parser
+must insert this location information into the abstract syntax tree.
+All data structures designed for the abstract syntax must accommodate
+this information.  In an object oriented programming language, this
+can be easily done by defining an abstract superclass for all such
+structures.  But Rust has only minimal support for OOP.  It has no
+direct support for inheritance.  Instead, rustlr implements a mechanism
+called **[LBox][2]**.
+
+Trees are defined recursively - in Rust, this usually means using the
+Box smart pointer.
+An [LBox][2] encapsulates a Box along with a pair of u32 values
+indicating a line and a column number (thus taking up only 64 bits of
+extra space).  It implements Deref and DerefMut by redirecting the
+dereferences to the encapsulated box.  This means that an LBox can be
+used like a Box - except when we need to access the location
+information.
+
+It is recommended (but not required) that the enums and
+structs making up the abstract syntax use [LBox][2], e.g. 
+
+  `enum Expr { Plus(LBox<Expr>,LBox<Expr>), Times(LBox<Expr>,LBox<expr>), etc.. }`
+
+Rustlr has features that facilitate the use of LBox.  For example, on the
+right-hand side of a production rule a labeled symbol in form `E:[a]` means
+that the semantic value associated with the symbol is automatically
+placed in an LBox that also includes the lexical
+location information, and this LBox is assigned to `a`. 
+A similar mechanism for Rc, [LRc][3], also exists, but without the same
+level of support.  
+
+In the following we further detail the additional features of rustlr
+demonstrated by this grammar and associated abstract syntax structures.
+
+### Principal Features
+
+
+The grammar shown above differs from the [first][chap1] chapter in the following principal ways.
 
 1. The grammar is ambiguous.  There are *shift-reduce* conflicts from
 the pure grammar that are resolved using operator precedence and
@@ -146,25 +225,35 @@ be of the following forms (two were used in the first grammar):
    is a mutable Rust variable that's assigned to the [StackedItem][sitem]
    popped from the parse stack, which includes .value, .line and .column.
 
-   2. **`E:(a,b)`** The label can also be a simple, irrefutable pattern
+   2. **`E:(a,b)`**: The label can also be a simple, irrefutable pattern
    enclosed in parentheses, which are required even if the pattern is a single
    variable.  Furthermore, (currently) no whitespaces are allowed in the pattern.
    The pattern is bound directly to the .value of the StackedItem popped from
-   the stack.  One can still recover the line/column information in several
-   ways: most commonly, one would form a [LBox][2] using
-   the [ZCParser::lbx][4] or  the [StackedItem::lbox][5] functions.
-   The [StackedItem::lbox][5] function directly transforms a [StackedItem][sitem]
-   into an LBox.  The [ZCParser::lbx][4] function takes an index and an expression  and produces an LBox.  The index indicates the position, starting
+   the stack.  One can recover the line/column information in several
+   ways: it is recommended to use [LBox][2] using
+   the [ZCParser::lbx][4] or the [StackedItem::lbox][5] functions, or a
+   labeled pattern such as `E:[a]`.
+   The [StackedItem::lbox][5] function transforms a [StackedItem][sitem]
+   into an LBox.
+   The [ZCParser::lbx][4] function takes an index and an expression  and produces an LBox.  The index indicates the position, starting
    from zero, of the grammar
    symbol on the right-hand side of the production that the value is
    associated with.  For example, the rule for `E --> E + E` can also be
    written as
 
-        `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(1,b)) }`
+        `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(2,b)) }`
 
+
+   3. **`E:[a]`**:  If an alphanumeric label is enclosed in square brackets,
+   then the [StackedItem][sitem] is automatically converted into an [LBox][2]
+   encapsulating the value and the lexical position.  This form is most
+   convenient in the majority of cases if the abstract syntax uses LBox
+   in its recursive definitions.  The labels are already LBoxes:
    
+        `E --> E:[a] + E:[b] { Plus(a,b) }`   
 
-   3. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
+
+   4. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
    bound to the **.value** popped from the stack as a mutable variable (the .value is moved to the pattern).  The
    specified semantic action is injected into the body of if-let.  A parser
    error report is generated if the pattern fails to match, in which
@@ -184,10 +273,14 @@ be of the following forms (two were used in the first grammar):
       Notice that `_item0_.value` is *moved* into the pattern so generally
       it cannot be referenced again.
 
-   4. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
+   5. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
    assigned to the StackedItem popped from the stack and an if-let is
    generated that attempts to match the pattern to **`&mut es`**.
-   In particular, the last production rule of this grammar is equivalent to:
+   The named label can also be in the form **`[es]`**, which will transform
+   the StakedItem into an LBox assigned to es: in this case, the pattern is bound to
+   **`&mut *es`**.
+   
+   For example, the last production rule of this grammar is equivalent to:
       ```
       ES --> ES:es@Seq(v)@  E:e ;  {
          v.push(parser.lbx(1,e.value));
