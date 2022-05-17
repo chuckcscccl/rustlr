@@ -1,7 +1,7 @@
 # types Expr, Calcscanner defined in exprtrees.rs
 !use crate::exprtrees::*; /* ! lines are injected verbatim into parser */
 !use crate::exprtrees::Expr::*;
-!use rustlr::{LBox,makelbox};
+!use rustlr::{LBox};
 
 lifetime 'src_lt
 absyntype Expr<'src_lt>
@@ -17,19 +17,20 @@ left / 500
 left + 400
 left - 400
 
+# for lexical scanner generation:
 lexvalue int Num(n) Val(n)
 lexvalue var Alphanum(x) Var(x)
 lexattribute set_line_comment("#")
 
 E --> int:m { m.value }
-E --> var:s@Var(v)@ { s.value }
-E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,e.lbox(),b.lbox())}
-E --> E:[e1] + E:[e2] { Plus(e1,e2) }
-E --> E:e1 - E:e2 { Minus(e1.lbox(), parser.lbx(2,e2.value))}
+E --> var:s { s.value }
+E --> E:e1 + E:e2 { Plus(e1.lbox(),parser.lbx(2,e2.value)) }
+E --> E:[e1] - E:[e2] { Minus(e1,e2)}
 E --> E:[e1] / E:[e2] { Divide(e1,e2) } 
 E --> E:[e1] * E:[e2] { Times(e1,e2) }
 E --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e.value }
+E --> let E:@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
 ES --> E:[n] ; { Seq(vec![n]) }
 ES ==> ES:@Seq(mut v)@  E:[e] ;  {
    v.push(e);

@@ -4,6 +4,7 @@ extern crate rustlr;
 extern crate basic_lexer;
 use basic_lexer::*;
 use rustlr::{StrTokenizer,LexSource};
+
 /*
 mod absyntax;
 use absyntax::*;
@@ -37,8 +38,8 @@ fn main()
   let source = LexSource::new(srcfile).unwrap();
   let mut scanner3 = mjenumlexer::from_source(&source);
   let mut parser3 = make_parser();
-  let absyntree3 = parse_with(&mut parser3, &mut scanner3);
-  println!("Parser Error? : {}",parser3.error_occurred());
+  let result3 = parse_with(&mut parser3, &mut scanner3);
+  let absyntree3 = result3.unwrap_or_else(|x|{println!("Parsing Errors Encountered"); x});
   println!("abstract syntax tree after parse: {:?}\n",absyntree3);
 }//main
 

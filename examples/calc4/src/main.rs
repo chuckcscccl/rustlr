@@ -16,8 +16,8 @@ fn main()
   let args:Vec<String> = std::env::args().collect(); // command-line args
   let mut input =
 "-5-(4-2)*5;
-#3(1+2);   # syntax (parsing) error
-#5%2;      # syntax error (% is not recognized by grammar)
+3(1+2);   # syntax (parsing) error
+5%2;      # syntax error (% is not recognized by grammar)
 5-7- -9 ; 
 4*3-9; 
 2+1/(2-1-1);  # division by 0 (semantic) error
@@ -33,7 +33,8 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
 //  let mut scanner2 = Calcscanner::new(stk2);
   let mut scanner2 = calc4lexer::from_str(input);
   let mut parser3 = make_parser();
-  let result = parser3.parse_train(&mut scanner2,"calc4parser.rs");
+//  let result = parser3.parse_train(&mut scanner2,"calc4parser.rs");
+  let result = parser3.parse(&mut scanner2);
   let bindings = newenv();
    println!("Expression tree from parse: {:?}",result);
    println!("---------------------------------------\n");
@@ -46,7 +47,9 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
    println!("========= ENUM ===========");
    let mut scanner4 = calcenumparser::calcenumlexer::from_str(input);
    let mut parser4 = calcenumparser::make_parser();
-   let result4= calcenumparser::parse_with(&mut parser4, &mut scanner4);
+//   let tree4= calcenumparser::parse_train_with(&mut parser4, &mut scanner4,"src/calcenumparser.rs");
+   let tree4= calcenumparser::parse_with(&mut parser4, &mut scanner4);
+   let result4 = tree4.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
    let bindings4 = newenv();
    println!("result after eval: {:?}", eval(&bindings4,&result4));
 
