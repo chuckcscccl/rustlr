@@ -321,7 +321,7 @@ the stack contains the staring line/column position of that construct.
 The parser itself also maintains it's own current line/column
 position, which are used to form the LBox when `parser.lb` is called.
 The [ZCParser::lbx][4] function cannot be called when the right-hand
-side of the production rules is empty.
+side of a production rule is empty.
 
 Invoking the parser also requires a different procedure (find in main).
 One can still call the .parse function on the generated parser but it
@@ -369,8 +369,9 @@ allows the parser generation routines to stay generic, and does not
 require a custom treatment of lexical tokens.  However, this object-oriented
 approach also comes with its own costs: it's slower, does not accommodate
 non-static references (they don't implement Any), and compromises static
-type safety.  A version of the "minijava" grammar that uses this approach
-is found **[here](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/lbamj.grammar)**
+type safety.  There is an **[original "Chapter 3"](https://cs.hofstra.edu/~cscccl/rustlr_project/lbany.html)** that explains how to use this approach,
+A version of the "minijava" grammar that uses this approach
+is found **[here](https://cs.hofstra.edu/~cscccl/rustlr_project/minijava/lbamj.grammar)**.
 
 One can always create an enum manually and still use a single absyntype
 declaration for the entire grammar.  Combined with pattern matching, this
@@ -386,8 +387,7 @@ abstract syntax.  For example, the main absyntype can be called 'Expression'
 while the externtype can be a 'Vec<Expression>'.  An example of this
 approach is found **[here](https://cs.hofstra.edu/~cscccl/rustlr_project/lambdascript/untyped.grammar)**, which is the grammar for [lambdascript](https://crates.io/crates/lambdascript), an interpreter for the pure untyped lambda calculus.
 
-
-     -------------------
+-------------------
 
 [1]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.StrTokenizer.html
 [2]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html
