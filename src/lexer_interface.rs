@@ -224,9 +224,16 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
+  /// Retrieves the ith line of the raw input, if line index i is valid.
+  /// This function should be called after the tokenizer has
+  /// completed its task of scanning and tokenizing the entire input,
+  /// when generating diagnostic messages when evaluating the AST post-parsing.
+  /// The default implementation returns None.
+  fn get_line(&self,i:usize) -> Option<&str> {None}
   /// retrieves the source (such as filename or URL) of the tokenizer.  The
   /// default implementation returns the empty string.
   fn source(&self) -> &str {""}
+  
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
   /// value=AT::default().  The is the only provided function that should *not*
@@ -345,6 +352,8 @@ pub struct StrTokenizer<'t>
    pub keep_comment:bool,
    line_start:usize, // keep starting position of line, for column info
    src:&'t str, // source name
+   /// vector of starting byte position of each line, position 0 not used.
+   pub line_positions:Vec<usize>, // starting position of each line
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -372,7 +381,8 @@ impl<'t> StrTokenizer<'t>
     let keep_comment=false;
     let line_start=0;
     let src = "";
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src}
+    let line_positions = vec![0,0];
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -397,6 +407,7 @@ impl<'t> StrTokenizer<'t>
   pub fn set_input(&mut self, inp:&'t str)
   {
     self.input=inp.trim_end(); self.position=0; self.line=1; self.line_start=0;
+    self.line_positions = vec![0,0];
   }
   /// sets the symbol that begins a single-line comment. The default is
   /// "//".  If this is set to the empty string then no line-comments are
@@ -428,7 +439,7 @@ impl<'t> StrTokenizer<'t>
   pub fn get_source(&self) -> &str {self.src}
   pub fn set_source<'u:'t>(&mut self, s:&'u str) {self.src=s;}
 
-  /// gets the current line
+  /// gets the current line of the source input
   pub fn current_line(&self) -> &str
   {
      let startl = self.line_start;
@@ -437,8 +448,26 @@ impl<'t> StrTokenizer<'t>
      &self.input[startl..startl+endl]
   }
 
+  /// Retrieves the ith line of the raw input, if line index i is valid.
+  /// This function is intended to be called once the tokenizer has
+  /// completed its task of scanning and tokenizing the entire input.
+  /// Otherwise, it may return None if the tokenizer has not yet scanned
+  /// up to the line indicated.
+  /// That is, it is intended for error message generation when evaluating
+  /// the AST post-parsing.
+  pub fn get_line(&self,i:usize) -> Option<&str>
+  {
+     if i<1 || i>=self.line_positions.len() {return None;}
+     let startl = self.line_positions[i];
+     let endl = *self.line_positions.get(i+1).unwrap_or(&self.input.len());
+     Some(&self.input[startl..endl])
+  }
+
   /// reset tokenizer to parse from beginning of input
-  pub fn reset(&mut self) {self.position=0; self.line=0; self.line_start=0;}
+  pub fn reset(&mut self) {
+   self.position=0; self.line=0; self.line_start=0;
+   self.line_positions = vec![0,0];
+  }
 
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along
@@ -465,6 +494,7 @@ impl<'t> StrTokenizer<'t>
     {
        if c=='\n' {
          self.line+=1; lstart0=self.line_start; self.line_start=i+1; line0=self.line;
+         self.line_positions.push(i+1);
          if self.keep_newline { self.position = i+1; return Some((Newline,self.line-1,pi-lstart0+1)); }
        }
        i+= 1; 
@@ -505,6 +535,7 @@ impl<'t> StrTokenizer<'t>
        while let Some(nli) = self.input[ci..self.position].find('\n')
        {
           self.line+=1; ci += nli+1;  self.line_start=ci;
+          self.line_positions.push(ci);
           // Newline token is never returned if inside string literal
        }
        if self.keep_comment {
@@ -546,6 +577,7 @@ impl<'t> StrTokenizer<'t>
          }
          else if &self.input[ci..ci+1] == "\n" {
            self.line+=1; self.line_start=ci+1;
+           self.line_positions.push(self.line_start);
          }
          // else need to try again!
          else if &self.input[ci..ci+1] == "\\" {ci+=1}; // extra skip
@@ -556,19 +588,6 @@ impl<'t> StrTokenizer<'t>
         eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
         return Some((LexError,line0,pi-lstart0+1)); 
     }//strlit
-    /*
-    if let Some(mat) = self.strlit.find(&self.input[pi..]) {
-       self.position = mat.end()+pi;
-       // find newline chars
-       let mut ci = pi;
-       while let Some(nli) = self.input[ci..self.position].find('\n')
-       {
-          self.line+=1; ci += nli+1;  self.line_start=ci;
-          // Newline token is never returned if inside string literal
-       }
-       return Some((Strlit(&self.input[pi..self.position]),line0,pi-lstart0+1));
-    }//string lits are matched first, so other's aren't part of strings
-    */
     
     // look for hex
     if let Some(mat) = self.hexnum.find(&self.input[pi..]) {
@@ -674,6 +693,7 @@ impl<'t> StrTokenizer<'t>
       let mut stk = StrTokenizer::new();
       stk.set_source(ls.get_path());
       stk.set_input(ls.contents.as_str());
+      let res=stk.line_positions.try_reserve(stk.input.len()/40);
       stk
    }
    /// creates a string tokenizer and sets input to give str.
