@@ -428,6 +428,15 @@ impl<'t> StrTokenizer<'t>
   pub fn get_source(&self) -> &str {self.src}
   pub fn set_source<'u:'t>(&mut self, s:&'u str) {self.src=s;}
 
+  /// gets the current line
+  pub fn current_line(&self) -> &str
+  {
+     let startl = self.line_start;
+     let max = self.input.len() - startl+1;
+     let endl = self.input[startl..].find('\n').unwrap_or(max);
+     &self.input[startl..startl+endl]
+  }
+
   /// reset tokenizer to parse from beginning of input
   pub fn reset(&mut self) {self.position=0; self.line=0; self.line_start=0;}
 
@@ -645,10 +654,6 @@ impl<'t> LexSource<'t>
        Err(e) => {Err(e)}
      }//match
   }//new
-//  /// sets the numerical id of this source: can be used in conjunction with
-//  /// [crate::RuntimeParser::set_src_id]
-//  pub fn set_id(&mut self, id:usize) {self.id=id;}
-//  pub fn get_id(&self)->usize {self.id}
   /// retrieves entire contents of lexsource
   pub fn get_contents(&self)->&str {&self.contents}
   /// retrieves original path (such as filename) of this source
@@ -698,10 +703,10 @@ impl<'t> Tokenizer<'t,i64> for StrTokenizer<'t>
        _ => Some(TerminalToken::new("EOF",0,0,0)),
      }//match
    }
-   fn current_line(&self) -> &str {self.input}
    fn linenum(&self) -> usize {self.line}
    fn position(&self) -> usize {self.position}
    fn source(&self) -> &str {self.get_source()}
+   fn current_line(&self) -> &str {self.input}
 }
 */
 

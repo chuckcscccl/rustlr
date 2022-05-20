@@ -775,6 +775,7 @@ impl<'t> {0}<'t>
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}
    fn position(&self) -> usize {{self.stk.current_position()}}
+   fn current_line(&self) -> &str {{self.stk.current_line()}}
 }}//impl Tokenizer
 \n")?;
       Ok(())
