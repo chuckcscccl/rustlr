@@ -37,6 +37,8 @@ use crate::{TRACE,Stateaction,Statemachine,TerminalToken,Tokenizer};
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
 use std::rc::Rc;
+//extern crate termion;
+//use termion::{color,style};
 
 use crate::{StandardReporter};
 
@@ -177,6 +179,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     /// this report function will print to stdout. 
     pub fn report(&mut self, errmsg:&str)  
     {      // linenum must be set prior to call
+       //eprint!("{}",color::Fg(color::Yellow));
        if (self.report_line != self.linenum || self.linenum==0)  {
 //         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
 //         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
@@ -186,6 +189,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
        else {
          eprint!(" {} ",errmsg);
        }
+       //eprint!("{}",color::Fg(color::Reset));       
        self.err_occurred = true;
     }// report
 
