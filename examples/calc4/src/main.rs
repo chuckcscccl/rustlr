@@ -55,7 +55,9 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
    let bindings4 = newenv();
    println!("result after eval: {:?}", eval(&bindings4,&result4));
 
-   let lexer:& dyn Tokenizer<'_,_> = &scanner4;
-   println!("\nline 10: {}",lexer.get_line(10).unwrap());
-
+   //let lexer:& dyn Tokenizer<'_,_> = &scanner4;
+   //println!("\nline 10: {}",lexer.get_line(10).unwrap());
+   println!("\nline 10: {}",scanner4.get_line(10).unwrap());
+   // interesting: only need to use Tokenizer for it to recognize function,
+   // don't need to typecast
 }//main
