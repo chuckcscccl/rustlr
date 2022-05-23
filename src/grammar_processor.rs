@@ -437,7 +437,7 @@ impl Grammar
 		 barsplit.push(scar.trim());
 		 linecs = &scdr[1..];
 	      }//barsplit loop
-	      if barsplit.len()==0 {barsplit.push(linec);}
+	      barsplit.push(linecs.trim()); // at least one
 
               if barsplit.len()>1 && findcsplit.len()>1 {
 	        panic!("The '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
@@ -863,13 +863,13 @@ fn is_alphanum(x:&str) -> bool
 fn findskip(s:&str, key:char) -> Option<usize>
 {
    let mut i = 0;
-   let mut cx:usize = 0;
+   let mut cx:i32 = 0;
    for c in s.chars()
    {
       match c {
         x if x==key && cx==0 => {return Some(i); },
 	'{' => {cx+=1;},
-	'}' => {if cx<1 {return None;} else {cx-=1;}},
+	'}' => {cx-=1;},
 	_ => {},
       }//match
       i += 1;
