@@ -424,8 +424,20 @@ impl Grammar
               // split by | into separate rules
 
               let pos0 = line.find(stokens[1]).unwrap() + stokens[1].len();
-              let mut linec = line[pos0..].to_string();
-              let barsplit:Vec<_> = linec.split('|').collect();
+              let mut linec = &line[pos0..]; //.to_string();
+              //let barsplit:Vec<_> = linec.split('|').collect();
+ 	      // this can't handle the | symbol that's inside the semantic
+	      // action block - 0.2.6 fix NOT COMPLETE:  print("|x|")
+	      // use split_once + loop
+	      let mut barsplit = Vec::new();
+	      let mut linecs = linec;
+	      while let Some(barpos) = findskip(linecs,'|') //findskip at end
+              {
+		 let (scar,scdr) = linecs.split_at(barpos);
+		 barsplit.push(scar.trim());
+		 linecs = &scdr[1..];
+	      }//barsplit loop
+	      if barsplit.len()==0 {barsplit.push(linec);}
 
               if barsplit.len()>1 && findcsplit.len()>1 {
 	        panic!("The '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
@@ -845,3 +857,22 @@ fn is_alphanum(x:&str) -> bool
   }
   true
 }//is_alphanum
+
+
+// find | symbol, ignore enclosing {}'s
+fn findskip(s:&str, key:char) -> Option<usize>
+{
+   let mut i = 0;
+   let mut cx:usize = 0;
+   for c in s.chars()
+   {
+      match c {
+        x if x==key && cx==0 => {return Some(i); },
+	'{' => {cx+=1;},
+	'}' => {if cx<1 {return None;} else {cx-=1;}},
+	_ => {},
+      }//match
+      i += 1;
+   }//for
+   return None;
+}//findskip
