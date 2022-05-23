@@ -3,7 +3,7 @@
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
-Among the features that Rustlr support are the following:
+Among the features that Rustlr supports are the following:
 
  1. operator precedence and associativity declarations allow the use of
 ambiguous grammars.

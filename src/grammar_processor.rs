@@ -405,13 +405,16 @@ impl Grammar
 	       self.genlex = true;
 	    },
 //////////// case for grammar production:            
-	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
+	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}
               // println!("RULE {}",&line); 
               if stage<2 {stage=2;}
               
 	    // construct lhs symbol
+	      let findcsplit:Vec<_> = LHS0.split(':').collect();
+	      let LHS = findcsplit[0];
+	      //findcsplit[1] will be used to auto-gen AST type below
               let symindex = match self.Symhash.get(LHS) {
                 Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
                 _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
@@ -423,6 +426,10 @@ impl Grammar
               let pos0 = line.find(stokens[1]).unwrap() + stokens[1].len();
               let mut linec = line[pos0..].to_string();
               let barsplit:Vec<_> = linec.split('|').collect();
+
+              if barsplit.len()>1 && findcsplit.len()>1 {
+	        panic!("The '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
+	      }
               
               for rul in &barsplit 
               { //if rul.trim().len()>0 {  // must include empty productions!
@@ -494,6 +501,7 @@ impl Grammar
 	      } // while there are tokens on rhs
 	      // form rule
               let mut newlhs = lhsym.clone();
+	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
 	        lhs : newlhs,
