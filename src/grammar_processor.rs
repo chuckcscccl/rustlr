@@ -115,6 +115,7 @@ pub struct Grammar
   pub Lexextras: Vec<String>,
   pub enumhash:HashMap<String,usize>, //enum index of each type
   pub genlex: bool,
+  pub genabsyn: bool,
 }
 
 impl Default for Grammar {
@@ -134,7 +135,8 @@ impl Grammar
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
-       Absyntype:String::from("i64"), //default(),
+//       Absyntype:String::from("i64"),
+       Absyntype:String::from("()"), //changed for 0.2.7
        Externtype:String::from(""),   // default unused field
 //       Recover : HashSet::new(),
        Resynch : HashSet::new(),
@@ -148,6 +150,7 @@ impl Grammar
        Haslexval:HashSet::new(),
        Lexextras:Vec::new(),
        genlex: false,
+       genabsyn: false,
        enumhash:HashMap::new(),
      }
   }//new grammar

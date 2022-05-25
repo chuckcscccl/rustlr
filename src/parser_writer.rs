@@ -59,7 +59,7 @@ impl Statemachine
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
-          None if gsym.label.len()>0 && !gsym.label.contains('(') => {
+          None if gsym.label.len()>0 /*&& !gsym.label.contains('(')*/ => {
             let truelabel = checkboxlabel(&gsym.label);
             boxedlabel = truelabel != &gsym.label;
             plab = String::from(truelabel);

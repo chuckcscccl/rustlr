@@ -35,6 +35,9 @@ use zc_parser::*;
 mod parser_writer;
 use parser_writer::*;
 
+mod ast_writer;
+use ast_writer::*;
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -54,6 +57,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut verbose = false;
   let mut zc = true;
   let mut genlex = false;
+  let mut genabsyn = false;
   while argi<argc
   {
      match &args[argi][..] {
@@ -69,6 +73,7 @@ fn rustle(args:&Vec<String>) // called from main
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
        "genlex" | "-genlex" => {genlex=true; },
+       "-genabsyn" | "-ast" | "genabsyn" => {genabsyn = true; },
        "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {
@@ -87,11 +92,16 @@ fn rustle(args:&Vec<String>) // called from main
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
   let mut grammar1 = Grammar::new();
   grammar1.genlex = genlex;
+  grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
   grammar1.parse_grammar(filepath);
   // Check grammar integrity:
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
+
+  if genabsyn {
+    let ast = grammar1.prepare();
+  }
 
   if tracelev>2 {println!("computing Nullable set");}
   grammar1.compute_NullableRf();

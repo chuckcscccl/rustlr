@@ -79,6 +79,8 @@ pub mod zc_parser;
 use zc_parser::*;
 mod parser_writer;
 
+mod ast_writer;
+
 pub use lr_statemachine::{Stateaction,decode_action};
 pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
