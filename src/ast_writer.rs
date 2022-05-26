@@ -35,6 +35,8 @@ impl Grammar
      for NT in self.Rulesfor.keys()  // for each non-terminal
      {
         let nti = *self.Symhash.get(NT).unwrap();
+//println!("type for {}: {}",NT,&self.Symbols[nti].rusttype);
+// all types set to absyntype, which is ()!
 	if self.Symbols[nti].rusttype.len()<3 { // can override!
 	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
 	}
@@ -50,8 +52,12 @@ impl Grammar
      {
         let nti = *self.Symhash.get(NT).unwrap();
         let ntsym = &self.Symbols[nti];
-	ASTS.push_str(&format!("pub enum {} {{\n",&ntsym.rusttype));
-	for ri in NTrules  // for each rule with NU on lhs
+	if !ntsym.rusttype.starts_with(NT) {
+//	println!("nonstandard {} ",&ntsym.rusttype);
+ 	  continue;
+	}
+	ASTS.push_str(&format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype));
+	for ri in NTrules  // for each rule with NT on lhs
 	{
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
 	  // look at rhs of rule to form enum variant + action of each rule

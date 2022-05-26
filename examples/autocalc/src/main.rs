@@ -1,5 +1,9 @@
+#![allow(unused_variables)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
+#![allow(unused_parens)]
+#![allow(unused_imports)]
+#![allow(dead_code)]
 mod calcauto_ast;
 use calcauto_ast::*;
 mod calcautoparser;

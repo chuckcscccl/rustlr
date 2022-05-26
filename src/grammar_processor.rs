@@ -306,7 +306,7 @@ impl Grammar
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
               	    self.topsym = String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
-                    if toptype != &self.Absyntype && toptype.len()>1 {
+                    if toptype != &self.Absyntype && &self.Absyntype!="()" && toptype.len()>1 {
                        eprintln!("Type of Grammar start symbol {} set to {}",stokens[1],&self.Absyntype);
                        self.Symbols[*tsi].rusttype = self.Absyntype.clone();
                     }
