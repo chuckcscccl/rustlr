@@ -32,31 +32,27 @@ impl Grammar
        self.enumhash.insert("()".to_owned(),ntcx);
        ntcx += 1;
      }
-     for NT in self.Rulesfor.keys()  // for each non-terminal
+     for NT in self.Rulesfor.keys()  // for each non-terminal (set rusttype)
      {
         let nti = *self.Symhash.get(NT).unwrap();
-//println!("type for {}: {}",NT,&self.Symbols[nti].rusttype);
-// all types set to absyntype, which is ()!
 	if self.Symbols[nti].rusttype.len()<3 { // can override!
 	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
 	}
 	if NT==&self.topsym {
-          self.enumhash.insert(self.Symbols[nti].rusttype.clone(), 0);
+	  self.Absyntype = self.Symbols[nti].rusttype.clone();
+          self.enumhash.insert(self.Absyntype.clone(), 0);
 	}
         else { // not topsym
 	  self.enumhash.insert(self.Symbols[nti].rusttype.clone(), ntcx);
           ntcx += 1;
 	}
      }//for each NT in grammar as keys of self.Rulesfor
+     // rusttype now set, including for topsym, Absyntype
      for (NT,NTrules) in self.Rulesfor.iter()
      {
         let nti = *self.Symhash.get(NT).unwrap();
         let ntsym = &self.Symbols[nti];
-	if !ntsym.rusttype.starts_with(NT) {
-//	println!("nonstandard {} ",&ntsym.rusttype);
- 	  continue;
-	}
-	ASTS.push_str(&format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype));
+	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
 	for ri in NTrules  // for each rule with NT on lhs
 	{
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
@@ -76,13 +72,12 @@ impl Grammar
 	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
 	    let itemlabel = if rsym.label.len()>0 {rsym.label.clone()} else
             	            {format!("_item{}_",&rhsi)};
-	    if !self.Symbols[rsymi].terminal {
-	       rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
+            rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
+            if !self.Symbols[rsymi].terminal {
 	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
 	    }
 	    else if &self.Symbols[rsymi].rusttype!="()" {
-	      //rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
 	      enumvar.push_str(&format!("{},",&rsym.rusttype));
 	      ACTION.push_str(&format!("{},",&itemlabel));
 	    }
@@ -97,22 +92,24 @@ impl Grammar
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
-	  ASTS.push_str(&enumvar); ASTS.push_str(",\n");
-	  ACTION.push_str(" }");
-	  if self.Rules[*ri].action.len()<=1 {
+	  AST.push_str(&enumvar); AST.push_str(",\n");
+    	  ACTION.push_str(" }");
+	  if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
 	  }
 //println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
-	ASTS.push_str(&format!("  {}_Nothing,\n}}\n",NT));
-	ASTS.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{}_Nothing }} }}\n\n",&ltopt,&ntsym.rusttype,NT,NT));
+	AST.push_str(&format!("  {}_Nothing,\n}}\n",NT));
+	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{}_Nothing }} }}\n\n",&ltopt,&ntsym.rusttype,NT,NT));
+        if ntsym.rusttype.starts_with(NT) { ASTS.push_str(&AST); }
      }//for each non-terminal and set of rules
 
      // set Absyntype
-     let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist
-     self.Absyntype = self.Symbols[*topi].rusttype.clone();
+//     let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist
+//     self.Absyntype = self.Symbols[*topi].rusttype.clone();
+//     self.enumhash.insert(self.Absyntype.clone(), 0);
 //println!("\n AST generated:\n\n{}",&ASTS);
-
+     self.sametype = false;
      // add the grammar .extras
      self.Extras.push_str("use rustlr::LBox;\n");
      self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));

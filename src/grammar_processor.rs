@@ -289,7 +289,7 @@ impl Grammar
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
-	    }, //nonterminals
+	    }, //nonterminal
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
 	          let mut newterm = Gsym::new(stokens[i],false);

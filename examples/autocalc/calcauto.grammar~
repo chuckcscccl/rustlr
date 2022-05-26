@@ -1,0 +1,37 @@
+# types Expr, Calcscanner defined in exprtrees.rs
+!use crate::exprtrees::*; /* ! lines are injected verbatim into parser */
+!use crate::exprtrees::Expr::*;
+!use rustlr::{LBox,makelbox};
+
+# declare input lifetime:
+lifetime 'ilt
+nonterminals E ES
+terminals + - * / ( ) = ;
+terminals let in
+typedterminal int i64
+typedterminal var &'src_lt str
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+
+lexvalue int Num(n) n
+lexvalue var Alphanum(x) x
+lexattribute set_line_comment("#")
+
+E:Val --> int
+E:Var --> var
+E:Letexp --> let E = E in E
+E:Plus --> E + E
+E:Minus --> E:a - E:b
+E:Div --> E / E
+E:Times --> E * E
+E:Neg --> - E
+# override auto
+E --> ( E:e )  { e }
+ES --> E ;
+ES:Cons --> ES E ;  
+EOF

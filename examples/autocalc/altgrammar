@@ -2,8 +2,8 @@
 
 # declare input lifetime:
 lifetime 'lt
-nonterminals Expr ES
-#nonterminal ES Vec<LBox<Expr<'lt>>>
+nonterminals Expr
+nonterminal ES Vec<LBox<Expr<'lt>>>
 terminals + - * / ( ) = ;
 terminals let in
 typedterminal int i64
@@ -30,10 +30,10 @@ Expr:Times --> Expr * Expr
 Expr:Neg --> - Expr
 # override auto-generated creation of abstract syntax, but type matters
 Expr --> ( Expr:e )  { e }
-ES:nil -->
-ES:cons --> Expr ; ES
-#ES --> Expr:[e] ; { vec![e] }
-#ES --> ES:v Expr:[e] ;  { v.push(e); v }
+#ES:One --> Expr ;
+#ES:Seq --> ES Expr ;
+ES --> Expr:[e] ; { vec![e] }
+ES --> ES:v Expr:[e] ;  { v.push(e); v }
 EOF
 
 override type, action?
