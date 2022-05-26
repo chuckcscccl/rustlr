@@ -98,15 +98,6 @@ fn rustle(args:&Vec<String>) // called from main
   // Check grammar integrity:
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
-
-  if genabsyn {
-    let ast = grammar1.prepare();
-  }
-
-  if tracelev>2 {println!("computing Nullable set");}
-  grammar1.compute_NullableRf();
-  if tracelev>2 {println!("computing First sets");}
-  grammar1.compute_FirstIM();
   if grammar1.name.len()<2  { // derive grammar name from filepath
      let doti = if let Some(p)= filepath.rfind('.') {p} else {filepath.len()};
      let mut slashi = if let Some(p) = filepath.rfind('/') {p+1} else {0};
@@ -116,6 +107,16 @@ fn rustle(args:&Vec<String>) // called from main
      grammar1.name = filepath[slashi..doti].to_string();
   }// derive grammar name
   let gramname = grammar1.name.clone();
+
+  if genabsyn {
+     let wres = grammar1.writeabsyn();
+     if !wres.is_ok() {eprintln!("failed to generate abstract syntax"); return;}
+  }
+
+  if tracelev>2 {println!("computing Nullable set");}
+  grammar1.compute_NullableRf();
+  if tracelev>2 {println!("computing First sets");}
+  grammar1.compute_FirstIM();
   let mut fsm0 = Statemachine::new(grammar1);
   fsm0.lalr = lalr;
   if lalr {fsm0.Open = Vec::with_capacity(1024); } // important

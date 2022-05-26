@@ -17,11 +17,15 @@ ambiguous grammars.
  4. The ability to train the parser, interactively or from script,
     for better error reporting.
 
-#### Lookahead: version 0.2.7 will introduce the ability to automatically
+#### Lookahead:
+
+Version 0.2.7 will introduce the ability to automatically
 generate the abstract syntax tree data structure, eliminating the need for
 any semantic actions.
 
-#### Version 0.2.6: the runtime parser now displays the lines for all parser errors; other internal enhancements.  Ability to parse rules separated by "|" improved.
+#### Version 0.2.6:
+
+The runtime parser now displays the lines for all parser errors; other internal enhancements.  Ability to parse rules separated by "|" improved.
 
 #### Version 0.2.5:
 

@@ -29,7 +29,6 @@ pub struct Gsym // struct for a grammar symbol
   pub rusttype : String, // used to derive private enum
   pub terminal : bool,
   pub label : String,  // object-level variable holding value
-  //pub enumindex : usize,   // internal enum index of rusttype
   pub precedence : i32,   // negatives indicate right associativity
 }
 
@@ -42,7 +41,6 @@ impl Gsym
       terminal : isterminal,
       label : String::default(),
       rusttype : String::new(),
-      //enumindex: 0,   // index 0 is for the default self.Absyntype
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
     }
   }
