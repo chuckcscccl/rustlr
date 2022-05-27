@@ -842,7 +842,7 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 
 
 // used by genlexer routines
-fn is_alphanum(x:&str) -> bool
+pub fn is_alphanum(x:&str) -> bool
 {
 /*
   let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();

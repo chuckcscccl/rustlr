@@ -77,7 +77,6 @@ impl Statemachine
         let ref symtype = gsym.rusttype;  // type of this symbol on rhs
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR",&symtype);
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
-//println!("eindex {} for type {}",eindex,symtype);	
         //form RetTypeEnum::Enumvariant_{eindex}(popped value)
         let stat;
         if !boxedlabel { // not a [x] label
