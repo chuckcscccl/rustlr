@@ -707,6 +707,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
       let mut keywords:HashSet<&str> = HashSet::new();
       let mut singles:Vec<char> = Vec::new();
       let mut doubles:Vec<&str> = Vec::new();
+      let mut triples:Vec<&str> = Vec::new();
       // collect symbols from grammar
       for symbol in &self.Symbols
       {
@@ -720,6 +721,9 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 	else if symbol.sym.len()==2 && !is_alphanum(&symbol.sym) {
 	   doubles.push(&symbol.sym);
 	}
+	else if symbol.sym.len()==3 && !is_alphanum(&symbol.sym) {
+	   triples.push(&symbol.sym);
+	}	
       }//for each symbol
       for (sym,symmap) in self.Lexnames.iter()
       {
@@ -733,7 +737,10 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 	}
 	else if sym.len()==2 {
 	   doubles.push(&sym);
-	}      
+	}
+	else if sym.len()==3 {
+	   triples.push(&sym);
+	}      	
       }// for symbols in lexnames such as "||" --> OROR
 
       write!(fd,"pub struct {0}<'t> {{
@@ -759,7 +766,10 @@ impl<'t> {0}<'t>
       write!(fd,"] {{stk.add_single(c);}}
     for d in [")?;
       for d in doubles {write!(fd,"\"{}\",",d)?;}
-      write!(fd,"] {{stk.add_double(d);}}\n")?;
+      write!(fd,"] {{stk.add_double(d);}}
+    for d in [")?;
+      for d in triples {write!(fd,"\"{}\",",d)?;}
+      write!(fd,"] {{stk.add_triple(d);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
       write!(fd,"    {} {{stk,keywords}}\n  }}\n}}\n",&lexername)?;
       // end of impl lexername
@@ -772,9 +782,10 @@ impl<'t> {0}<'t>
     let token = tokopt.unwrap();
     match token.0 {{
 ")?;
+// change sym to r#sym
     if keywords.len()>0 {
       write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::{}(token,sym,<{}>::default())),\n",fraw,retype)?;
-    }
+    }//if keywords.len()>0
       // write special alphanums first - others might be "var" form
       // next - write the Lexvals hexmap int -> (Num(n),Val(n))
       for (tname,raw,val) in &self.Lexvals //tname is terminal name

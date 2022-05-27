@@ -746,6 +746,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
       write!(fd,"pub struct {0}<'t> {{
    stk: StrTokenizer<'t>,
    keywords: HashSet<&'static str>,
+   lexnames: HashMap<&'static str,&'static str>,
 }}
 impl<'t> {0}<'t> 
 {{
@@ -756,7 +757,8 @@ impl<'t> {0}<'t>
     Self::new(StrTokenizer::from_source(s))
   }}
   pub fn new(mut stk:StrTokenizer<'t>) -> {}<'t> {{
-    let mut keywords = HashSet::with_capacity(16);
+    let mut lexnames = HashMap::with_capacity(64);
+    let mut keywords = HashSet::with_capacity(64);
     for kw in [",&lexername)?; // end of write
 
       for kw in &keywords {write!(fd,"\"{}\",",kw)?;}
@@ -769,21 +771,28 @@ impl<'t> {0}<'t>
       write!(fd,"] {{stk.add_double(d);}}
     for d in [")?;
       for d in triples {write!(fd,"\"{}\",",d)?;}
-      write!(fd,"] {{stk.add_triple(d);}}\n")?;
+      write!(fd,"] {{stk.add_triple(d);}}
+    for (k,v) in [")?;
+      for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
+      write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords}}\n  }}\n}}\n",&lexername)?;
+      write!(fd,"    {} {{stk,keywords,lexnames}}\n  }}\n}}\n",&lexername)?;
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{
    fn nextsym(&mut self) -> Option<TerminalToken<{0},{1}>> {{
-",lifetime,retype/*absyn*/,&lexername)?;
+",lifetime,retype,&lexername)?;
       write!(fd,"    let tokopt = self.stk.next_token();
     if let None = tokopt {{return None;}}
     let token = tokopt.unwrap();
     match token.0 {{
 ")?;
+// change sym to r#sym
     if keywords.len()>0 {
-      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::{}(token,sym,<{}>::default())),\n",fraw,retype)?;
+      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => {{
+        let truesym = self.lexnames.get(sym).unwrap_or(&sym);
+        Some(TerminalToken::{}(token,truesym,<{}>::default()))
+      }},\n",fraw,retype)?;
     }//if keywords.len()>0
       // write special alphanums first - others might be "var" form
       // next - write the Lexvals hexmap int -> (Num(n),Val(n))
@@ -799,12 +808,19 @@ impl<'t> {0}<'t>
         }
         write!(fd,"      RawToken::{} => Some(TerminalToken::{}(token,\"{}\",{})),\n",raw,fraw,tname,&Finalval)?;
       }
-      for (lform,tname) in &self.Lexnames
+
+      write!(fd,"      RawToken::Symbol(s) if self.lexnames.contains_key(s) => {{
+        let tname = self.lexnames.get(s).unwrap();
+        Some(TerminalToken::{}(token,tname,<{}>::default()))
+      }},\n",fraw,retype)?;
+      
+/*      for (lform,tname) in &self.Lexnames
       {
         if !is_alphanum(lform) {
         write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,retype)?;
 	}
       }//for
+*/      
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
       write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
       write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
