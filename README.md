@@ -3,25 +3,21 @@
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
-Among the features that Rustlr supports are the following:
+Among the features that Rustlr supports are:
 
- 1. operator precedence and associativity declarations allow the use of
-ambiguous grammars.
- 2. mutable external state allow the recognition of some non-context free
-    grammars.
- 3. use of patterns in describing semantic values directly in the grammar,
-    e.g.
-```
+1. The option of automatically creating the abstract syntax data structures and semantic actions from the grammar.
+2. operator precedence and associativity declarations allow the use of ambiguous grammars.
+3. use of patterns in describing semantic values directly in the grammar (when writing semantic actions manually), e.g.
+
+```rust
     E -->  let E:@Var(x)@ in E:@Expr(e)@  {  Letexp(x,e)  }
 ```
- 4. The ability to train the parser, interactively or from script,
-    for better error reporting.
+4. The ability to train the parser, interactively or from script for better error reporting.
+5. Semantic actions have access to mutable external state, which (with manually written actions) can recognize some non-context free languages.
 
-#### Lookahead:
+#### Version 0.2.7:
 
-Version 0.2.7 will introduce the ability to automatically
-generate the abstract syntax tree data structure, eliminating the need for
-any semantic actions.
+The ability to automatically generate the abstract syntax tree data structures as well as the semantic actions required to create instances of them.  Automatically generated actions can be combined with manually written overrides.
 
 #### Version 0.2.6:
 
@@ -114,7 +110,7 @@ parsers already created.
   [RuntimeParser::train_from_script][3] function.
 
   Future releases of rustlr will further enhance the training feature.
-  
+
   We also hope to identify a robust, generic lexical tokenizer tool
   for Rust so that the parser generator can also automatically
   generate a lexical analyzer from additional specifications in the grammar.
@@ -142,7 +138,7 @@ parsers already created.
  up/downcasting.
 
     --------------------
-    
+
 This project grew out of the author's compiler construction and
 programming languages classes over the years and has been mainly used
 for implmentating modestly scaled, experimental programming languages.

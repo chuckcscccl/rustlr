@@ -1,8 +1,8 @@
 ## Chapter 3: A Larger Example with Multiple Abstract Syntax Types
 
 The principal new feature, available since Rustlr version 0.2.5,
-demonstrated by the third sample grammar is ability to have more than
-a single 'absyntype' that all semantic actions must returned.  Only
+demonstrated by the third sample grammar is the ability to have more than
+a single 'absyntype' that all semantic actions must return.  Only
 the 'topsym' of the grammar needs to return the absyntype.  Each
 terminal as well as non-terminal symbol can have a different type
 attached as its semantic value.  The semantic actions for each
@@ -10,36 +10,32 @@ non-terminal must return the type as declared for that
 non-terminal.  
 
 A grammar declaration such as *`nonterminal E Expr`* or
-*`typedterminal int i32`* associates types with individual grammar symbols.  If
+*`typedterminal int i32`* associate types with individual grammar symbols.  If
 no type is associated, they will be assigned the declared
-absyntype/valuetype.  The type associated with the 'topsym' is forced
-to be the same as the absyntype.  **All types must still implement the
+absyntype/valuetype.  The type associated with the 'topsym' must be the same as the absyntype.  **All types must still implement the
 Default trait.**
 
 In demonstrating this feature we will also take the opportunity to define a
 larger language.  The grammar below defines a scaled-down version of Java
 similar to the language in Andrew Appel's compiler textbooks.
 
-For smaller grammars, using a single abstract syntax type is
+For smaller grammars, using one abstract syntax type, along with the external state type, is
 preferable.  **A downside of using different types is that it becomes
 more difficult to use an alternative lexical analyzer that does not
 come with Rustlr.** Semantic values of different types are
 accommodated on the parse stack by generating for each grammar an enum
 `RetTypeEnum` that exists only within the generated parser module.
-All values must be encoded as a variant of the enum before being
-stacked, and extracted when popped from the stack. One can examine the
-internal enum in the generated parser.  The generated parser becomes
-less readable, however, because of the extra coded needed.  Rustlr's
-lexer generation directives `lexname` and `lexvalue` have been
-modified to generate code that automatically encode/decode with
+All values must be encoded variants of the enum before being
+stacked, and extracted when popped from the stack.  The generated parser becomes
+less readable because of the extra coded needed.  Rustlr's
+lexer generation directives `lexname` and `lexvalue` will generate code that automatically encode/decode with
 respect to the enum.  Currently, no support is offered to translate
-tokens produced by another tokenizer.  The best way to see how to
+tokens produced by a lexer other than the built-in [StrTokenizer][1].  The best way to see how to
 implement a different lexical analyzer is to examine the one that's
 automatically generated for this grammar (look for `mjenumlexer`) and
 follow what needs to be done.  One has to adopt the lexer to the
 Tokenizer trait as well as the specific enum generated for the
 grammar.
-
 
 We present the definition of the abstract syntax along with the grammar.
 The files to examine are:
@@ -134,7 +130,6 @@ Essentially, the types distinguish between expressions (Expr), statements
 (Stat) and declarations (for variables, methods and classes).  
 The final type that's returned by the parser is `Program` which contains
 a list of class definitions, one of which contains `main`.
-
 
 The grammar is found below. **Please note that the interpretation of semantic
 labels of the form `E:a` has changed**: 'a' no longer represent a [StackedItem][sitem] but the semantic value that's been extracted from the .value field
