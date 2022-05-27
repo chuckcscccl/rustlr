@@ -11,7 +11,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use crate::Grammar;
+use crate::{Grammar,is_alphanum};
 
 // auto-generate abstract syntax
 
@@ -35,6 +35,8 @@ impl Grammar
      for NT in self.Rulesfor.keys()  // for each non-terminal (set rusttype)
      {
         let nti = *self.Symhash.get(NT).unwrap();
+	// determine if rusttype need 'lt
+
 	if self.Symbols[nti].rusttype.len()<3 { // can override!
 	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
 	}
@@ -57,8 +59,16 @@ impl Grammar
 	{
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
 	  // look at rhs of rule to form enum variant + action of each rule
-	  if self.Rules[*ri].lhs.label.len()<1 {
-	     self.Rules[*ri].lhs.label = format!("{}_{}",NT,ri);
+	  if self.Rules[*ri].lhs.label.len()<1 { // make up lhs label
+	     let mut lhslab = format!("{}_{}",NT,ri);
+	     if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
+	       let symname = &self.Rules[*ri].rhs[0].sym;
+	       if is_alphanum(symname) {
+	         lhslab = symname.clone();
+		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }
+	       }
+	     }
+	     self.Rules[*ri].lhs.label = lhslab;
 	  }
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
@@ -110,10 +120,6 @@ impl Grammar
 //     self.enumhash.insert(self.Absyntype.clone(), 0);
 //println!("\n AST generated:\n\n{}",&ASTS);
      self.sametype = false;
-     // add the grammar .extras
-     self.Extras.push_str("use rustlr::LBox;\n");
-     self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
-     self.Extras.push_str(&format!("use crate::{}_ast::*;\n",&self.name));     
      ASTS
    }//prepare_gram
 
@@ -132,9 +138,14 @@ impl Grammar
 #![allow(unused_imports)]
 #![allow(dead_code)]
 extern crate rustlr;
-use rustlr::LBox;\n\n")?;
+use rustlr::LBox;\n")?;
+     write!(fd,"{}\n",&self.Extras)?;
      write!(fd,"{}",&ASTS)?;
      println!("Abstract syntax structures created in {}",&filename);
+     // add the grammar .extras
+     self.Extras.push_str("use rustlr::LBox;\n");
+     self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
+     self.Extras.push_str(&format!("use crate::{}_ast::*;\n",&self.name));     
      Ok(())
    }//writeabsyn
 

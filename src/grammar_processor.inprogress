@@ -29,7 +29,6 @@ pub struct Gsym // struct for a grammar symbol
   pub rusttype : String, // used to derive private enum
   pub terminal : bool,
   pub label : String,  // object-level variable holding value
-  //pub enumindex : usize,   // internal enum index of rusttype
   pub precedence : i32,   // negatives indicate right associativity
 }
 
@@ -42,7 +41,6 @@ impl Gsym
       terminal : isterminal,
       label : String::default(),
       rusttype : String::new(),
-      //enumindex: 0,   // index 0 is for the default self.Absyntype
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
     }
   }
@@ -105,7 +103,7 @@ pub struct Grammar
   pub Externtype : String,    // type of external structure
   pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
   pub Errsym : String,        // error recovery terminal symbol
-  pub Lexnames : Vec<(String,String)>, // print names of grammar symbols
+  pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
   pub sametype: bool,  // determine if absyntype is only valuetype
   pub lifetime: String,
@@ -115,6 +113,7 @@ pub struct Grammar
   pub Lexextras: Vec<String>,
   pub enumhash:HashMap<String,usize>, //enum index of each type
   pub genlex: bool,
+  pub genabsyn: bool,
 }
 
 impl Default for Grammar {
@@ -134,12 +133,13 @@ impl Grammar
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
-       Absyntype:String::from("i64"), //default(),
+//       Absyntype:String::from("i64"),
+       Absyntype:String::from("()"), //changed for 0.2.7
        Externtype:String::from(""),   // default unused field
 //       Recover : HashSet::new(),
        Resynch : HashSet::new(),
        Errsym : String::new(),
-       Lexnames : Vec::new(),
+       Lexnames : HashMap::new(),
        Extras: String::new(),
        sametype:true,
        lifetime:String::new(), // empty means inferred
@@ -148,6 +148,7 @@ impl Grammar
        Haslexval:HashSet::new(),
        Lexextras:Vec::new(),
        genlex: false,
+       genabsyn: false,
        enumhash:HashMap::new(),
      }
   }//new grammar
@@ -288,7 +289,7 @@ impl Grammar
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
-	    }, //nonterminals
+	    }, //nonterminal
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
 	          let mut newterm = Gsym::new(stokens[i],false);
@@ -305,7 +306,7 @@ impl Grammar
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
               	    self.topsym = String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
-                    if toptype != &self.Absyntype && toptype.len()>1 {
+                    if toptype != &self.Absyntype && &self.Absyntype!="()" && toptype.len()>1 {
                        eprintln!("Type of Grammar start symbol {} set to {}",stokens[1],&self.Absyntype);
                        self.Symbols[*tsi].rusttype = self.Absyntype.clone();
                     }
@@ -378,7 +379,7 @@ impl Grammar
 	    }, // precedence and associativity
 	    "lexname"  => {
                if stokens.len()<3 {continue;}  // "||" -> "OROR"
-               self.Lexnames.push((stokens[2].to_string(),stokens[1].to_string()));
+               self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
             },
@@ -405,13 +406,16 @@ impl Grammar
 	       self.genlex = true;
 	    },
 //////////// case for grammar production:            
-	    LHS if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
+	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}
               // println!("RULE {}",&line); 
               if stage<2 {stage=2;}
               
 	    // construct lhs symbol
+	      let findcsplit:Vec<_> = LHS0.split(':').collect();
+	      let LHS = findcsplit[0];
+	      //findcsplit[1] will be used to auto-gen AST type below
               let symindex = match self.Symhash.get(LHS) {
                 Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
                 _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
@@ -421,8 +425,24 @@ impl Grammar
               // split by | into separate rules
 
               let pos0 = line.find(stokens[1]).unwrap() + stokens[1].len();
-              let mut linec = line[pos0..].to_string();
-              let barsplit:Vec<_> = linec.split('|').collect();
+              let mut linec = &line[pos0..]; //.to_string();
+              //let barsplit:Vec<_> = linec.split('|').collect();
+ 	      // this can't handle the | symbol that's inside the semantic
+	      // action block - 0.2.6 fix NOT COMPLETE:  print("|x|")
+	      // use split_once + loop
+	      let mut barsplit = Vec::new();
+	      let mut linecs = linec;
+	      while let Some(barpos) = findskip(linecs,'|') //findskip at end
+              {
+		 let (scar,scdr) = linecs.split_at(barpos);
+		 barsplit.push(scar.trim());
+		 linecs = &scdr[1..];
+	      }//barsplit loop
+	      barsplit.push(linecs.trim()); // at least one
+
+              if barsplit.len()>1 && findcsplit.len()>1 {
+	        panic!("The '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
+	      }
               
               for rul in &barsplit 
               { //if rul.trim().len()>0 {  // must include empty productions!
@@ -444,7 +464,7 @@ impl Grammar
 		let toks:Vec<&str> = strtok.split(':').collect();
 //if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}		
 		match self.Symhash.get(toks[0]) {
-		   None => {panic!("unrecognized grammar symbol {}, line {}",toks[0],linenum); },
+		   None => {panic!("unrecognized grammar symbol '{}', line {}",toks[0],linenum); },
 		   Some(symi) => {
                      let sym = &self.Symbols[*symi];
                      if self.Errsym.len()>0 && &sym.sym == &self.Errsym {
@@ -494,6 +514,7 @@ impl Grammar
 	      } // while there are tokens on rhs
 	      // form rule
               let mut newlhs = lhsym.clone();
+	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
 	        lhs : newlhs,
@@ -512,7 +533,7 @@ impl Grammar
             //} 
             } // for rul
             }, 
-            _ => {panic!("error parsing grammar on line {}, grammar stage {}",linenum,stage);},  
+            _ => {panic!("ERROR parsing grammar on line {}, unexpected declaration at grammar stage {}",linenum,stage);},  
          }//match first word
        }// not an empty or comment line
      } // while !atEOF
@@ -683,7 +704,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
       let lifetime = if (self.lifetime.len()>0) {&self.lifetime} else {"'t"};
       write!(fd,"\n// Lexical Scanner using RawToken and StrTokenizer\n")?;
       let lexername = format!("{}lexer",&self.name);
-      let mut keywords:Vec<&str> = Vec::new();
+      let mut keywords:HashSet<&str> = HashSet::new();
       let mut singles:Vec<char> = Vec::new();
       let mut doubles:Vec<&str> = Vec::new();
       // collect symbols from grammar
@@ -691,7 +712,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
       {
         if !symbol.terminal {continue;}
         if is_alphanum(&symbol.sym) && &symbol.sym!="EOF" && &symbol.sym!="ANY_ERROR" && !self.Haslexval.contains(&symbol.sym) {
-	   keywords.push(&symbol.sym);
+	   keywords.insert(&symbol.sym);
 	}
 	else if symbol.sym.len()==1 && !is_alphanum(&symbol.sym) {
 	   singles.push(symbol.sym.chars().next().unwrap());
@@ -700,9 +721,13 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 	   doubles.push(&symbol.sym);
 	}
       }//for each symbol
-      for (sym,_) in &self.Lexnames
+      for (sym,symmap) in self.Lexnames.iter()
       {
-        if is_alphanum(sym) {continue;}
+        if is_alphanum(sym) {
+	  keywords.remove(&symmap[..]);
+	  keywords.insert(sym);
+	  continue;
+	}
 	if sym.len()==1 {
 	   singles.push(sym.chars().next().unwrap());
 	}
@@ -766,8 +791,10 @@ impl<'t> {0}<'t>
       }
       for (lform,tname) in &self.Lexnames
       {
+        if !is_alphanum(lform) {
         write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,retype)?;
-      }
+	}
+      }//for
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
       write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
       write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
@@ -775,6 +802,8 @@ impl<'t> {0}<'t>
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}
    fn position(&self) -> usize {{self.stk.current_position()}}
+   fn current_line(&self) -> &str {{self.stk.current_line()}}
+   fn get_line(&self,i:usize) -> Option<&str> {{self.stk.get_line(i)}}
 }}//impl Tokenizer
 \n")?;
       Ok(())
@@ -819,7 +848,7 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 
 
 // used by genlexer routines
-fn is_alphanum(x:&str) -> bool
+pub fn is_alphanum(x:&str) -> bool
 {
 /*
   let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();
@@ -835,3 +864,22 @@ fn is_alphanum(x:&str) -> bool
   }
   true
 }//is_alphanum
+
+
+// find | symbol, ignore enclosing {}'s
+fn findskip(s:&str, key:char) -> Option<usize>
+{
+   let mut i = 0;
+   let mut cx:i32 = 0;
+   for c in s.chars()
+   {
+      match c {
+        x if x==key && cx==0 => {return Some(i); },
+	'{' => {cx+=1;},
+	'}' => {cx-=1;},
+	_ => {},
+      }//match
+      i += 1;
+   }//for
+   return None;
+}//findskip

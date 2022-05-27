@@ -29,7 +29,6 @@ pub struct Gsym // struct for a grammar symbol
   pub rusttype : String, // used to derive private enum
   pub terminal : bool,
   pub label : String,  // object-level variable holding value
-  //pub enumindex : usize,   // internal enum index of rusttype
   pub precedence : i32,   // negatives indicate right associativity
 }
 
@@ -42,7 +41,6 @@ impl Gsym
       terminal : isterminal,
       label : String::default(),
       rusttype : String::new(),
-      //enumindex: 0,   // index 0 is for the default self.Absyntype
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
     }
   }
@@ -291,7 +289,7 @@ impl Grammar
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
-	    }, //nonterminals
+	    }, //nonterminal
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
 	          let mut newterm = Gsym::new(stokens[i],false);
@@ -308,7 +306,7 @@ impl Grammar
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
               	    self.topsym = String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
-                    if toptype != &self.Absyntype && toptype.len()>1 {
+                    if toptype != &self.Absyntype && &self.Absyntype!="()" && toptype.len()>1 {
                        eprintln!("Type of Grammar start symbol {} set to {}",stokens[1],&self.Absyntype);
                        self.Symbols[*tsi].rusttype = self.Absyntype.clone();
                     }
@@ -844,7 +842,7 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 
 
 // used by genlexer routines
-fn is_alphanum(x:&str) -> bool
+pub fn is_alphanum(x:&str) -> bool
 {
 /*
   let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*$").unwrap();

@@ -35,6 +35,8 @@ impl Grammar
      for NT in self.Rulesfor.keys()  // for each non-terminal (set rusttype)
      {
         let nti = *self.Symhash.get(NT).unwrap();
+	// determine if rusttype need 'lt
+
 	if self.Symbols[nti].rusttype.len()<3 { // can override!
 	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
 	}
@@ -107,8 +109,15 @@ impl Grammar
 	  }
 //println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
-	AST.push_str(&format!("  {}_Nothing,\n}}\n",NT));
-	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{}_Nothing }} }}\n\n",&ltopt,&ntsym.rusttype,NT,NT));
+	// coerce Nothing to carry a dummy lifetime if necessary
+	let mut defaultvar = format!("{}_Nothing",NT);
+	let mut defaultvarinst = format!("{}_Nothing",NT);
+	if self.lifetime.len()>0 {
+	  defaultvar = format!("{}_Nothing(&{} ())",NT,&self.lifetime);
+	  defaultvarinst = format!("{}_Nothing(&())",NT);
+	}
+	AST.push_str(&format!("  {},\n}}\n",&defaultvar));
+	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",&ltopt,&ntsym.rusttype,NT,&defaultvarinst));
         if ntsym.rusttype.starts_with(NT) { ASTS.push_str(&AST); }
      }//for each non-terminal and set of rules
 

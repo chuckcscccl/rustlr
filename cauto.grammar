@@ -42,6 +42,9 @@ nonterminals external_declaration function_definition
 
 topsym translation_unit
 
+# added for Rustlr edition to resolve dangling else problem:
+left IF 100
+left ELSE 200
 
 primary_expression ==>
 	 IDENTIFIER
@@ -429,6 +432,84 @@ function_definition ==>
 	| declarator compound_statement
 	<==
 
+
+# Rustlr StrTokenizer specs
+
+lexname PTR_OP ->
+lexname INC_OP ++
+lexname DEC_OP --
+lexname LEFT_OP <<
+lexname RIGHT_OP >>
+lexname LE_OP <=
+lexname GE_OP >=
+lexname EQ_OP ==
+lexname NE_OP !=
+lexname AND_OP &&
+lexname OR_OP ||
+lexname MUL_ASSIGN *=
+lexname DIV_ASSIGN /=
+lexname MOD_ASSIGN %=
+lexname ADD_ASSIGN +=
+lexname SUB_ASSIGN -=
+lexname LEFT_ASSIGN <<=
+lexname RIGHT_ASSIGN >>=
+lexname AND_ASSIGN &=
+lexname XOR_ASSIGN ^=
+lexname OR_ASSIGN |=
+lexname SIZEOF sizeof
+lexname TYPEDEF typedef
+lexname EXTERN extern
+lexname STATIC static
+lexname AUTO auto
+lexname REGISTER register
+lexname CHAR char
+lexname SHORT short
+lexname INT int
+lexname LONG long
+lexname SIGNED signed
+lexname UNSIGNED unsigned
+lexname FLOAT float
+lexname DOUBLE double
+lexname CONST const
+lexname VOLATILE volatile
+lexname VOID void
+lexname STRUCT struct
+lexname UNION union
+lexname ENUM enum
+lexname ELLIPSIS ...
+lexname CASE case
+lexname DEFAULT default
+lexname IF if
+lexname ELSE else
+lexname SWITCH switch
+lexname WHILE while
+lexname DO do
+lexname FOR for
+lexname GOTO goto
+lexname CONTINUE continue
+lexname BREAK break
+lexname RETURN return
+lexname Lbrace {
+lexname Rbrace }
+lexname Amp &
+lexname Bang !
+lexname Bar |
+lexname Hat ^
+lexname Dot .
+lexname Comma ,
+lexname Colon :
+lexname Star *
+lexname Div /
+lexname Percent %
+lexname Lt <
+lexname Gt >
+lexname Eq1 =
+lexname Quest ?
+
+lexvalue IDENTIFIER Alphanum(s) s
+lexvalue CONSTANT Num(n) (n as i32)
+lexvalue STRING_LITERAL Strlit(n) n
+lexvalue TYPE_NAME Alphanum(s) s
 
 EOF
 
