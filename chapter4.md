@@ -43,7 +43,8 @@ Note the following differences between this grammar and the one presented in [Ch
 
 1. There are no semantic actions but for one of the rules
 2. There is no "absyntype" or "valuetype" declaration
-3. The non-terminal symbol on the left-hand side of a production rule may also carry a label.  This label will become the name of the enum variant to be created.
+3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal`).
+4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  This label will become the name of the enum variant to be created.
 
 Process the grammar with **`rustlr calcauto.grammar -genabsyn`**.   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
 
@@ -106,7 +107,13 @@ Since the grammar also contains lexer generation directives, all we need to is t
    
 ```
 
-Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).  This version of [main]( https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs) also contains the revised evaluation routines for the generated AST.
+Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).  This version of [main]( https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs) also contains the revised evaluation routines for the generated AST.
+
+
+
+#### Generating a Parser for C
+
+As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C Yacc grammar published in 1985 by Jeff Lee, which was converted to rustlr syntax and found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar).  The raw grammar produced a shift-reduce conflict caused by the *dangling else* problem, which we fixed by giving  'else' a higher precedence than 'if'.  The raw grammar contained a few other issues we have not addressed, most notably when an identifier should be considered as `TYPE_NAME`. Manual fine tuning will definitely be required, as one should expect.  However, the generated AST is at least a good starting point.  The AST enums are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cauto_ast.rs) and the generated parser [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cautoparser.rs).
 
 
 

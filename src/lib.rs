@@ -3,7 +3,9 @@
 //! scanner.** This significantly simplies the process of creating a
 //! working parser. **Version 0.2.5** added several other enhancements
 //! including the ability for semantics actions to return values of
-//! different types.
+//! different types.  **Version 0.2.7** introduced the ability to automatically
+//! generate the abstract syntax data structures (enums) and the
+//! corresponding semantic actions.
 //!
 //! A [**tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is separately available that will explain the
