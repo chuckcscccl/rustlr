@@ -6,10 +6,10 @@ version of the calculator example and describe a more complete set of
 features of RustLr including:
 
   * How to write ambiguous grammars with operator precedence and associativity
-  declarations.
+    declarations.
   * How to parse, create abstract syntax, and report syntactic and semantic errors for more sophisticated kinds of
-  expressions that include variables
-  and scoping rules, in particular expressions such as `let x=3 in x*x`.
+    expressions that include variables
+    and scoping rules, in particular expressions such as `let x=3 in x*x`.
   * How to use a simple error-recovery technique.
   * How to use patterns when defining grammar production rules.
   * How to train the parser interactively for better error reporting.
@@ -144,24 +144,24 @@ symbol with the highest precedence.
      Rustlr resolves **shift-reduce** conflicts as follows:
 
     - A lookahead symbol with strictly higher precedence than the rule results
-  in *shift*
+      in *shift*
     - A lookahead symbol with strictly lower precedence than the rule results
-  in *reduce*  
+      in *reduce*  
     - A lookahead symbol with the same precedence and associativity as the rule,
-  and which is declared right-associative, will result in *shift*.
+      and which is declared right-associative, will result in *shift*.
     - A lookahead symbol with the same precedence and associativity as the rule,
-  and which is declared left-associative, will result in *reduce*.
+      and which is declared left-associative, will result in *reduce*.
     - In other situations the conflict is *resolved in favor of shift*, with a
-  warning sent to stdout regardless of trace level.  All shift-reduce
-  conflicts are warned at trace level 2 or higher.
+      warning sent to stdout regardless of trace level.  All shift-reduce
+      conflicts are warned at trace level 2 or higher.
 
      Using this scheme, for example, the "dangling
 else" problem can be solved by giving "else" a higher precedence than "if".  
 
      Rustlr also resolves **reduce-reduce**
-  conflicts by always favoring the rule that appears first in the
-  grammar, although a warning is always sent to stdout regardless of trace
-  level.
+    conflicts by always favoring the rule that appears first in the
+    grammar, although a warning is always sent to stdout regardless of trace
+    level.
 
 2. The language that the grammar defines includes expressions of the form
    **`let x = 1 in (let x = 10 in x*x) + x`**, which should evaluate to 101.
@@ -180,14 +180,12 @@ else" problem can be solved by giving "else" a higher precedence than "if".
 3. The grammar's abstract syntax is defined in a separate module,
 [exprtrees.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/exprtrees.rs).  The abstract syntax tree type ('absyntype') 'Expr' of this module
 uses **[LBox][2]**,
-which encapsulates a Rust Box along with the line and column numbers
-associated with each syntactic construct.  LBox works like a Box in
-that it implements deref coercion on the boxed value, but which also
-carries along the additional information when they're needed.  The
-[StackedItem::lbox][5] and the [ZCParser.lbx][4] functions can be
+as explained above.  LBox implements deref coercion on the boxed value, but also
+carries the lexical position information when they're needed.  The
+[StackedItem::lbox][5], [ZCParser.lb](https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html#method.lb) and the [ZCParser.lbx][4] functions can be
 invoked from within the semantic actions to automatically transfer the
-parser's lexical information while creating an LBox.  It is
-recommended that LBox (or [LRc][3]) be used instead of Box (Rc) when
+parser's lexical information while creating an LBox.  However, the easiest way to use LBox, in most situation, is to label a grammar symbol as in **`E:[a]`**: this means that in the semantic action of the rule **`a`** will be bound to an LBox enclosing the semantic value associated with the grammar symbol.  It is
+recommended that [LBox][2] (or [LRc][3]) be used instead of Box (Rc) when
 defining the recursive enums and structs that typically form the
 abstract syntax representation.  This allows accurate error reporting
 after the parse tree is built, as in the division-by-zero example
@@ -203,53 +201,53 @@ In otherwords, failure to parse one expression does not mean it will not try to
 parse the next ones.  Rustlr does implement other error-recovery techniques, which are explored in a [later chapter](https://cs.hofstra.edu/~cscccl/rustlr_project/cpmz.grammar).
 
 5. The labels attached to grammar symbols on the right-hand side of
-grammar productions can be more than a simple variable or irrefutable pattern
-(as demonstrated in the first calculator). It can also be a pattern
-enclosed in @...@.  Rustlr generates an if-let expression that attempts to
-bind the pattern to what's popped from the parse stack.  The value is
-moved to a mut variable before being deconstructed by the pattern.
-In general, the label associated with a right-hand side grammar symbol can
-be of the following forms (two were used in the first grammar):
+   grammar productions can be more than a simple variable or irrefutable pattern
+   (as demonstrated in the first calculator). It can also be a pattern
+   enclosed in @...@.  Rustlr generates an if-let expression that attempts to
+   bind the pattern to what's popped from the parse stack.  The value is
+   moved to a mut variable before being deconstructed by the pattern.
+   In general, the label associated with a right-hand side grammar symbol can
+   be of the following forms (two were used in the first grammar):
 
    1. **`E:a + E:b`**: this is found in the first grammar, each symbol 'a', 'b'
    is a mutable Rust variable that's assigned to the [StackedItem][sitem]
    popped from the parse stack, which includes .value, .line and .column.
 
    2. **`E:(a,b)`**: The label can also be a simple, irrefutable pattern
-   enclosed in parentheses, which are required even if the pattern is a single
-   variable.  Furthermore, (currently) no whitespaces are allowed in the pattern.
-   The pattern is bound directly to the .value of the StackedItem popped from
-   the stack.  One can recover the line/column information in several
-   ways: it is recommended to use [LBox][2] using
-   the [ZCParser::lbx][4] or the [StackedItem::lbox][5] functions, or a
-   labeled pattern such as `E:[a]`.
-   The [StackedItem::lbox][5] function transforms a [StackedItem][sitem]
-   into an LBox.
-   The [ZCParser::lbx][4] function takes an index and an expression  and produces an LBox.  The index indicates the position, starting
-   from zero, of the grammar
-   symbol on the right-hand side of the production that the value is
-   associated with.  For example, the rule for `E --> E + E` can also be
-   written as
+      enclosed in parentheses, which are required even if the pattern is a single
+      variable.  Furthermore, (currently) no whitespaces are allowed in the pattern.
+      The pattern is bound directly to the .value of the StackedItem popped from
+      the stack.  One can recover the line/column information in several
+      ways: it is recommended to use [LBox][2] using
+      the [ZCParser::lbx][4] or the [StackedItem::lbox][5] functions, or a
+      labeled pattern such as `E:[a]`.
+      The [StackedItem::lbox][5] function transforms a [StackedItem][sitem]
+      into an LBox.
+      The [ZCParser::lbx][4] function takes an index and an expression  and produces an LBox.  The index indicates the position, starting
+      from zero, of the grammar
+      symbol on the right-hand side of the production that the value is
+      associated with.  For example, the rule for `E --> E + E` can also be
+      written as
 
         `E --> E:(a) + E:(b) { Plus(parser.lbx(0,a), parser.lbx(2,b)) }`
 
 
    3. **`E:[a]`**:  If an alphanumeric label is enclosed in square brackets,
-   then the [StackedItem][sitem] is automatically converted into an [LBox][2]
-   encapsulating the value and the lexical position.  This form is most
-   convenient in the majority of cases if the abstract syntax uses LBox
-   in its recursive definitions.  The labels are already LBoxes:
+      then the [StackedItem][sitem] is automatically converted into an [LBox][2]
+      encapsulating the value and the lexical position.  This form is most
+      convenient in the majority of cases if the abstract syntax uses LBox
+      in its recursive definitions.  The labels are already LBoxes:
    
         `E --> E:[a] + E:[b] { Plus(a,b) }`   
 
 
    4. **`E:@Seq(mut v)@`**: as seen in this grammar.  This pattern is if-let
-   bound to the **.value** popped from the stack as a mutable variable (the .value is moved to the pattern).  The
-   specified semantic action is injected into the body of if-let.  A parser
-   error report is generated if the pattern fails to match, in which
-   case the default value of the abstract syntax type is returned.
-   To be precise, the semantic action function generated for the last rule of the
-   grammar is
+      bound to the **.value** popped from the stack as a mutable variable (the .value is moved to the pattern).  The
+      specified semantic action is injected into the body of if-let.  A parser
+      error report is generated if the pattern fails to match, in which
+      case the default value of the abstract syntax type is returned.
+      To be precise, the semantic action function generated for the last rule of the
+      grammar is
       ```
       |parser|{ let mut _item2_ = parser.popstack();
          let mut e = parser.popstack(); let mut _item0_ = parser.popstack(); 
@@ -264,12 +262,12 @@ be of the following forms (two were used in the first grammar):
       it cannot be referenced again.
 
    5. **`E:es@Seq(v)@`**  The pattern can be named.  'es' will be a mut variable
-   assigned to the StackedItem popped from the stack and an if-let is
-   generated that attempts to match the pattern to **`&mut es`**.
-   The named label can also be in the form **`[es]`**, which will transform
-   the StakedItem into an LBox assigned to es: in this case, the pattern is bound to
-   **`&mut *es`**.
-   
+      assigned to the StackedItem popped from the stack and an if-let is
+      generated that attempts to match the pattern to **`&mut es`**.
+      The named label can also be in the form **`[es]`**, which will transform
+      the StakedItem into an LBox assigned to es: in this case, the pattern is bound to
+      **`&mut *es`**.
+
    For example, the last production rule of this grammar is equivalent to:
       ```
       ES --> ES:es@Seq(v)@  E:e ;  {

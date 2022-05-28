@@ -1,12 +1,10 @@
-## Chapter 4: Automatically Generating AST
+## Chapter 4: Automatically Generating the AST
 
-Since version 0.2.7, rustlr is capable of automatically generating the data structures (enums) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning may need to be done manually.
+Since version 0.2.7, rustlr is capable of automatically generating the data structures (enums) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning may be required.
 
-We redo the enhanced calculator example from Chapter 2: 
+We redo the enhanced calculator example from [Chapter 2][chap2].  The following grammar is found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/calcauto.grammar).
 
-```
-# Grammar testing automatic generation of abstract syntax
-
+```rust
 lifetime 'lt
 nonterminals Expr ES
 terminals + - * / ( ) = ;
@@ -37,20 +35,19 @@ ES:cons --> Expr ; ES
 lexvalue int Num(n) n
 lexvalue var Alphanum(x) x
 lexattribute set_line_comment("#")
-
 EOF
 
 ```
 
 Note the following differences between this grammar and the one presented in [Chapter 2][chap2]:
 
-1. There are no semantic actions safe for one of the rules
+1. There are no semantic actions but for one of the rules
 2. There is no "absyntype" or "valuetype" declaration
-3. The non-terminal symbol on the left-hand side of a production rule may also carry a label.  This label is a hint as to how to name the enum variant to be created.
+3. The non-terminal symbol on the left-hand side of a production rule may also carry a label.  This label will become the name of the enum variant to be created.
 
-Process the grammar with **`rustlr calcauto.grammar -genabsyn`**.   Two files are created.  Besides **calcautoparser.rs** there will be a **calcauto_ast.rs** with the following (principal) contents:
+Process the grammar with **`rustlr calcauto.grammar -genabsyn`**.   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
 
-```
+```rust
 #[derive(Debug)]
 pub enum ES<'lt> {
   cons(LBox<Expr<'lt>>,LBox<ES<'lt>>),
@@ -76,21 +73,21 @@ impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing(&()) }
 
 ```
 
-There is an enum created that's named for each non-terminal symbol of the grammar.  There is, essentially, an enum variant for each production rule of the grammar.  The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated (e.g. `Expr_8` represents the rule-8 variant of type `Expr`). The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.  Although the generated parser may not be very readable, rustlr also generated semantic actions that created instances of these enum types for the rules.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to 
+An enum is created for each non-terminal symbol of the grammar, with the same name as the non-terminal.  There is, essentially, an enum variant for each production rule of the grammar.  The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated (e.g. `Expr_8` represents the rule-8 variant of type `Expr`).[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.  Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these enum types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
 
 ```
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
 ```
 
-Recall from [Chapter 2][chap2] that a label of the form `[a]`means that the semantic value associated with the symbol is enclosed in an [LBox][2].  However, there are cases where one might want to override the automatically generated action, as for the rule `Expr --> ( Expr )`.  The parentheses are of no use at the abstract syntax level and the most appropriate action would be to return the same value as the expression on the right-hand side.  The automatically generated action would have created an additional LBox.  It is also possible to override the automatically generation of the type of a grammar symbol.  In case of ES, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar is not optimal for LR parsing.  One might wish to use a left-recursive grammar and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, declare the nonterminal `ES` as follows:
+Recall from [Chapter 2][chap2] that a label of the form `[a]`means that the semantic value associated with the symbol is enclosed in an [LBox][2].  However, there are cases where one might want to override the automatically generated action, as for the rule `Expr --> ( Expr )`.  The parentheses are of no use at the abstract syntax level and the most appropriate action would be to return the same value as the expression on the right-hand side.  The automatically generated action would have created an additional LBox.  It is also possible to override the automatic generation of the type of a grammar symbol.  In case of ES, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is not optimal for LR parsing.  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ES` as follows:
 
 ```
 nonterminal ES Vec<LBox<Expr<'lt>>>
 ```
 
-Then replace the two rules for `ES` with the following:
+Then replace the two production rules for `ES` with the following:
 
-```
+```rust
 ES --> Expr:[e] ; { vec![e] }
 ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
@@ -98,9 +95,20 @@ ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
 Future editions of Rustlr will allow syntax such as Expr+ and Expr*, which will generate such rules automatically.
 
+Since the grammar also contains lexer generation directives, all we need to is to write [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the `parse_with` or `parse_train_with` functions:
+
+```rust
+   let mut scanner = calcautoparser::calcautolexer::from_str("2*3+1;");
+   let mut parser = calcautoparser::make_parser();
+   let result = calcautoparser::parse_with(&mut parser, &mut scanner);
+   let tree = result.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
+   println!("\nAST: {:?}\n",&tree);
+   
+```
+
+Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).  This version of [main]( https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs) also contains the revised evaluation routines for the generated AST.
 
 
--------------------
 
 [1]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.StrTokenizer.html
 [2]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html
@@ -110,6 +118,7 @@ Future editions of Rustlr will allow syntax such as Expr+ and Expr*, which will 
 [sitem]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html
 [chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter1.html
 [chap2]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html
+[chap3]:  https://cs.hofstra.edu/~cscccl/rustlr_project/chapter3.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html
@@ -119,3 +128,8 @@ Future editions of Rustlr will allow syntax such as Expr+ and Expr*, which will 
 [nextsymfun]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html#tymethod.nextsym
 [zcp]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
+
+[^footnote 1]: Each enum has a `_Nothing(&'lt ())` variant.  This is used to implement the Default trait.  The lifetime parameter exists so that all enums can be parameterized with a lifetime.  Without the dummy reference one would have to compute a closure over the grammar to determine which enums require lifetimes and which do not: something that&#39;s determined to be too expensive relative to its importance.
+
+
+
