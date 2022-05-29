@@ -25,6 +25,7 @@ impl Grammar
           else {String::new()};
      // self.Rulesfor hashmap from nonterminals to set of usize indices
 
+     /*
      // construct type of ast for each non-terminal NT
      let mut ntcx=self.Symbols.len()+1;  // separate from typedterminals
      let unithash = self.enumhash.get("()"); // semi-hack, default absyn
@@ -35,7 +36,6 @@ impl Grammar
      for NT in self.Rulesfor.keys()  // for each non-terminal (set rusttype)
      {
         let nti = *self.Symhash.get(NT).unwrap();
-	// determine if rusttype need 'lt
 
 	if self.Symbols[nti].rusttype.len()<3 { // can override!
 	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
@@ -47,11 +47,13 @@ impl Grammar
 	  self.Absyntype = self.Symbols[nti].rusttype.clone();
           self.enumhash.insert(self.Absyntype.clone(), 0);
 	}
-        else { // not topsym
+        else if &self.Symbols[nti].rusttype!=&self.Absyntype { // not topsym
 	  self.enumhash.insert(self.Symbols[nti].rusttype.clone(), ntcx);
           ntcx += 1;
 	}
      }//for each NT in grammar as keys of self.Rulesfor
+     */
+     
      // rusttype now set, including for topsym, Absyntype
      for (NT,NTrules) in self.Rulesfor.iter()
      {

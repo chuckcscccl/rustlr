@@ -193,6 +193,7 @@ impl Grammar
      let mut multiline = false;  // multi-line mode with ==>, <==
      let mut foundeol = false;
      let mut enumindex = 0;  // 0 won't be used:inc'ed before first use
+     let mut ltopt = String::new();
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -252,11 +253,16 @@ impl Grammar
             "EOF" => {atEOF=true},
             ("terminal" | "terminals") if stage==0 => {
                for i in 1..stokens.len() {
-	          let newterm = Gsym::new(stokens[i],true);
+	          let mut newterm = Gsym::new(stokens[i],true);
+		  if self.genabsyn {
+  		    newterm.rusttype = "()".to_owned();
+		  }
+		  else {
+		    newterm.rusttype = self.Absyntype.clone();
+		  }
+		  
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
                   self.Symbols.push(newterm);
-                  //self.Symbols.insert(stokens[i].to_owned(),newterm);
-		  //if self.tracelev>3 {println!("terminal {}",stokens[i]);}
                }
             }, //terminals
 	    "typedterminal" if stage==0 => {
@@ -282,9 +288,13 @@ impl Grammar
                   tokentype.push(' ');
                }
 
-               let mut nttype = tokentype.trim();
-               if nttype.len()<2 {nttype = &self.Absyntype};
-               newterm.settype(nttype);
+               let mut nttype = tokentype.trim().to_owned();
+               if nttype.len()<2 && self.genabsyn {
+	         nttype = format!("{}{}",stokens[1],&ltopt);
+	       }
+               else if nttype.len()<2 {nttype = self.Absyntype.clone()};
+	       newterm.rusttype = nttype;
+               //newterm.settype(nttype);
 
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
@@ -294,7 +304,11 @@ impl Grammar
                for i in 1..stokens.len() {
 	          let mut newterm = Gsym::new(stokens[i],false);
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
-                  if (newterm.rusttype.len()<2) {newterm.rusttype = self.Absyntype.clone();}
+                  if self.genabsyn {
+		    newterm.rusttype = format!("{}{}",stokens[i],&ltopt);
+		  }
+		  else {newterm.rusttype = self.Absyntype.clone();}
+		  
                   self.Symbols.push(newterm);
                   self.Rulesfor.insert(stokens[i].to_owned(),HashSet::new());
 		  //if TRACE>2 {println!("nonterminal {}",stokens[i]);}
@@ -351,6 +365,7 @@ impl Grammar
             "lifetime" if stokens.len()==2 && stokens[1].len()>0  && stage==0 => {
                self.lifetime = if &stokens[1][0..1]=="'" && stokens[1].len()>1 
                  {String::from(stokens[1])} else {format!("'{}",stokens[1])};
+	       ltopt = format!("<{}>",&self.lifetime);
             },
             "absyntype" | "valuetype" /*if stage==0*/ => {
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
@@ -378,13 +393,19 @@ impl Grammar
                }
 	    }, // precedence and associativity
 	    "lexname"  => {
-               if stokens.len()<3 {continue;}  // "||" -> "OROR"
+               if stokens.len()<3 {
+	         eprintln!("MALFORMED lexname declaration line {} skipped",linenum);
+	         continue;
+	       }
                self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
             },
 	    "lexvalue" => {
-	       if stokens.len()<4 {continue;}  // "int" -> ("Num(n)","Val(n)")
+	       if stokens.len()<4 {
+	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
+	         continue;
+	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
 	       for i in 3 .. stokens.len()
 	       {
@@ -396,7 +417,7 @@ impl Grammar
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
 	    },
-	    "lexset" | "lexattribute" => {
+	    "lexattribute" => {
 	       let mut prop = String::new();
 	       for i in 1 .. stokens.len()
 	       {
@@ -598,6 +619,9 @@ impl Grammar
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
+     if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>1 {
+        self.Absyntype = topgsym.rusttype.clone();
+     }
      for ri in 0..self.Symbols.len()
      {
         let rtype = &self.Symbols[ri].rusttype;
@@ -605,6 +629,7 @@ impl Grammar
           self.Symbols[ri].settype(&self.Absyntype);
         }
         else if rtype!=&self.Absyntype {
+//println!("NOT SAME TYPE: {} and {}",rtype,&self.Absyntype);	
           self.sametype = false;
           if !self.enumhash.contains_key(rtype) {
             enumindex +=1;
@@ -876,6 +901,7 @@ impl<'t> {0}<'t>
 pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 {
     let ref absyn = self.Absyntype;
+//println!("enumhash for absyn {} is {:?}",absyn,self.enumhash.get(absyn));
     let ref extype = self.Externtype;
     let ref lifetime = self.lifetime;
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");
@@ -888,19 +914,9 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
     for (typesym,eindex) in self.enumhash.iter()
     {
        write!(fd,"  Enumvariant_{}({}),\n",eindex,typesym)?;
+       //println!("  Enumvariant_{}({}),\n",eindex,typesym);
     }
-/*
-    let mut varset:HashSet<usize> = HashSet::with_capacity(self.Symbols.len());
-    for sym in &self.Symbols
-    {
-       if !varset.contains(&sym.enumindex) {
-         varset.insert(sym.enumindex);
-         write!(fd,"  Enumvariant_{}({}),\n",sym.enumindex,&sym.rusttype)?;
-       }
-    }
-*/    
     write!(fd,"}}\n")?;
-    //write!(fd,"impl{} {} {{\n",&ltopt,&enumname)?;
     write!(fd,"impl{} Default for {} {{ fn default()->Self {{RetTypeEnum::Enumvariant_0(<{}>::default())}} }}\n\n",&ltopt,&enumname,&self.Absyntype)?;
     Ok(())
 }// generate enum from rusttype defs RetTypeEnum::Enumvariant_0 is absyntype

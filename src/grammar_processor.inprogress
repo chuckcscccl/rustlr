@@ -193,6 +193,7 @@ impl Grammar
      let mut multiline = false;  // multi-line mode with ==>, <==
      let mut foundeol = false;
      let mut enumindex = 0;  // 0 won't be used:inc'ed before first use
+     let mut ltopt = String::new();
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -351,6 +352,7 @@ impl Grammar
             "lifetime" if stokens.len()==2 && stokens[1].len()>0  && stage==0 => {
                self.lifetime = if &stokens[1][0..1]=="'" && stokens[1].len()>1 
                  {String::from(stokens[1])} else {format!("'{}",stokens[1])};
+	       ltopt = format!("<{}>",&self.lifetime);
             },
             "absyntype" | "valuetype" /*if stage==0*/ => {
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
@@ -378,13 +380,19 @@ impl Grammar
                }
 	    }, // precedence and associativity
 	    "lexname"  => {
-               if stokens.len()<3 {continue;}  // "||" -> "OROR"
+               if stokens.len()<3 {
+	         eprintln!("MALFORMED lexname declaration line {} skipped",linenum);
+	         continue;
+	       }
                self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
             },
 	    "lexvalue" => {
-	       if stokens.len()<4 {continue;}  // "int" -> ("Num(n)","Val(n)")
+	       if stokens.len()<4 {
+	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
+	         continue;
+	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
 	       for i in 3 .. stokens.len()
 	       {
@@ -396,7 +404,7 @@ impl Grammar
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
 	    },
-	    "lexset" | "lexattribute" => {
+	    "lexattribute" => {
 	       let mut prop = String::new();
 	       for i in 1 .. stokens.len()
 	       {
@@ -454,15 +462,63 @@ impl Grammar
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
               while i<bstokens.len() {
-	        let strtok = bstokens[i];
+	        let mut strtok = bstokens[i];
 		i+=1;
                 if strtok.len()>0 && &strtok[0..1]=="{" {
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
 		   break;
                 }
+		
+		// add code to recognize E*, E+ and E?
+                let newtok; // will be new strtok
+		if strtok.len()>1 && (strtok.ends_with('*') || strtok.ends_with('+') || strtok.ends_with('?')) {
+		   let gsympart = strtok[0..strtok.len()-1].trim();
+		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
+		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
+		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
+		   let mut newnt = Gsym::new(&newntname,false);
+		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+		   self.Symbols.push(newnt.clone());
+		   self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
+		   // add new rules
+		   let mut newrule1 = Grule::new_skeleton(&newntname);
+		   newrule1.lhs.rusttype = newnt.rusttype.clone();
+		   if strtok.ends_with('?') {
+		     newrule1.rhs.push(self.Symbols[gsymi].clone());
+		     newrule1.action=String::from(" Some(_item0_) }");
+		   }
+		   else { // * or +
+  		     newrule1.rhs.push(newnt.clone());
+		     newrule1.rhs.push(self.Symbols[gsymi].clone());
+		     newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+		   }
+		   let mut newrule0 = Grule::new_skeleton(&newntname);
+		   newrule0.lhs.rusttype = newnt.rusttype.clone();
+		   if strtok.ends_with('+') {
+		     newrule0.rhs.push(self.Symbols[gsymi].clone());
+		     newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+		   }
+		   else if strtok.ends_with('*') {
+		     newrule0.action = String::from(" Vec::new() }");
+//println!("rule lhs type is {}",&newrule0.lhs.rusttype);		     
+		   }
+		   else if strtok.ends_with('?') {
+		     newrule0.action = String::from(" None }");
+		   }
+		   self.Rules.push(newrule0);
+		   self.Rules.push(newrule1);
+		   let mut rulesforset = HashSet::with_capacity(2);
+		   rulesforset.insert(self.Rules.len()-2);
+		   rulesforset.insert(self.Rules.len()-1);
+		   newtok = format!("{}:_item{}_",&newntname,i-1);
+		   self.Rulesfor.insert(newntname,rulesforset);
+		   // change strtok to new form
+		   strtok = &newtok;
+		}// processes RE directive - add new productions
+
+		// separte gsym from label:
 		let toks:Vec<&str> = strtok.split(':').collect();
-//if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}		
 		match self.Symhash.get(toks[0]) {
 		   None => {panic!("unrecognized grammar symbol '{}', line {}",toks[0],linenum); },
 		   Some(symi) => {
@@ -476,7 +532,6 @@ impl Grammar
                      }
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<2 {newsym.rusttype = self.Absyntype.clone();}
-//println!("newsym {} type is ({})",&newsym.sym,&newsym.rusttype);                    
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
@@ -489,20 +544,8 @@ impl Grammar
 			 }
 			 if !label.ends_with('@') { panic!("pattern labels must be closed with @, line {}",linenum);}			 
 		       } // if-let pattern
-/*		       
-                       if &toks[1][0..1]=="'" { // if-let pattern
-		         label.push_str(&toks[1][..]); // include leading ' in string
-			 while !label.ends_with("'") && i<bstokens.len()
-			 { // i indexes all tokens split by whitespaces
-			    label.push(' '); label.push_str(bstokens[i]); i+=1;
-			 }
-			 if !label.ends_with("'") { panic!("pattern labels must be closed with  a ', line {}",linenum);}
-		       }// ' pattern '
-*/		       
                        else { label = toks[1].trim().to_string(); }
 		       newsym.setlabel(label.trim_end_matches('@'));
-		       //newsym.setlabel(label.trim_end_matches("'"));		       
-		       //newsym.setlabel(toks[1].trim()); 
 	             }//label exists
 			
                      if maxprec.abs() < newsym.precedence.abs()  {
@@ -513,7 +556,8 @@ impl Grammar
                 }//match
 	      } // while there are tokens on rhs
 	      // form rule
-              let mut newlhs = lhsym.clone();
+	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
+              let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
@@ -746,6 +790,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
       write!(fd,"pub struct {0}<'t> {{
    stk: StrTokenizer<'t>,
    keywords: HashSet<&'static str>,
+   lexnames: HashMap<&'static str,&'static str>,
 }}
 impl<'t> {0}<'t> 
 {{
@@ -756,7 +801,8 @@ impl<'t> {0}<'t>
     Self::new(StrTokenizer::from_source(s))
   }}
   pub fn new(mut stk:StrTokenizer<'t>) -> {}<'t> {{
-    let mut keywords = HashSet::with_capacity(16);
+    let mut lexnames = HashMap::with_capacity(64);
+    let mut keywords = HashSet::with_capacity(64);
     for kw in [",&lexername)?; // end of write
 
       for kw in &keywords {write!(fd,"\"{}\",",kw)?;}
@@ -769,14 +815,17 @@ impl<'t> {0}<'t>
       write!(fd,"] {{stk.add_double(d);}}
     for d in [")?;
       for d in triples {write!(fd,"\"{}\",",d)?;}
-      write!(fd,"] {{stk.add_triple(d);}}\n")?;
+      write!(fd,"] {{stk.add_triple(d);}}
+    for (k,v) in [")?;
+      for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
+      write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords}}\n  }}\n}}\n",&lexername)?;
+      write!(fd,"    {} {{stk,keywords,lexnames}}\n  }}\n}}\n",&lexername)?;
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{
    fn nextsym(&mut self) -> Option<TerminalToken<{0},{1}>> {{
-",lifetime,retype/*absyn*/,&lexername)?;
+",lifetime,retype,&lexername)?;
       write!(fd,"    let tokopt = self.stk.next_token();
     if let None = tokopt {{return None;}}
     let token = tokopt.unwrap();
@@ -784,7 +833,10 @@ impl<'t> {0}<'t>
 ")?;
 // change sym to r#sym
     if keywords.len()>0 {
-      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::{}(token,sym,<{}>::default())),\n",fraw,retype)?;
+      write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => {{
+        let truesym = self.lexnames.get(sym).unwrap_or(&sym);
+        Some(TerminalToken::{}(token,truesym,<{}>::default()))
+      }},\n",fraw,retype)?;
     }//if keywords.len()>0
       // write special alphanums first - others might be "var" form
       // next - write the Lexvals hexmap int -> (Num(n),Val(n))
@@ -800,12 +852,19 @@ impl<'t> {0}<'t>
         }
         write!(fd,"      RawToken::{} => Some(TerminalToken::{}(token,\"{}\",{})),\n",raw,fraw,tname,&Finalval)?;
       }
-      for (lform,tname) in &self.Lexnames
+
+      write!(fd,"      RawToken::Symbol(s) if self.lexnames.contains_key(s) => {{
+        let tname = self.lexnames.get(s).unwrap();
+        Some(TerminalToken::{}(token,tname,<{}>::default()))
+      }},\n",fraw,retype)?;
+      
+/*      for (lform,tname) in &self.Lexnames
       {
         if !is_alphanum(lform) {
         write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,retype)?;
 	}
       }//for
+*/      
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
       write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
       write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
@@ -853,7 +912,6 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
     write!(fd,"impl{} Default for {} {{ fn default()->Self {{RetTypeEnum::Enumvariant_0(<{}>::default())}} }}\n\n",&ltopt,&enumname,&self.Absyntype)?;
     Ok(())
 }// generate enum from rusttype defs RetTypeEnum::Enumvariant_0 is absyntype
-
 
 }//impl Grammar continued
 
