@@ -449,7 +449,7 @@ impl<'t> StrTokenizer<'t>
   pub fn current_line(&self) -> &str
   {
      let startl = self.line_start;
-     let max = self.input.len() - startl+1;
+     let max = self.input.len() - startl;
      let endl = self.input[startl..].find('\n').unwrap_or(max);
      &self.input[startl..startl+endl]
   }

@@ -454,15 +454,63 @@ impl Grammar
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
               while i<bstokens.len() {
-	        let strtok = bstokens[i];
+	        let mut strtok = bstokens[i];
 		i+=1;
                 if strtok.len()>0 && &strtok[0..1]=="{" {
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
 		   break;
                 }
+		
+		// add code to recognize E*, E+ and E?
+                let newtok; // will be new strtok
+		if strtok.len()>1 && (strtok.ends_with('*') || strtok.ends_with('+') || strtok.ends_with('?')) {
+		   let gsympart = strtok[0..strtok.len()-1].trim();
+		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
+		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
+		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
+		   let mut newnt = Gsym::new(&newntname,false);
+		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+		   self.Symbols.push(newnt.clone());
+		   self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
+		   // add new rules
+		   let mut newrule1 = Grule::new_skeleton(&newntname);
+		   newrule1.lhs.rusttype = newnt.rusttype.clone();
+		   if strtok.ends_with('?') {
+		     newrule1.rhs.push(self.Symbols[gsymi].clone());
+		     newrule1.action=String::from(" Some(_item0_) }");
+		   }
+		   else { // * or +
+  		     newrule1.rhs.push(newnt.clone());
+		     newrule1.rhs.push(self.Symbols[gsymi].clone());
+		     newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+		   }
+		   let mut newrule0 = Grule::new_skeleton(&newntname);
+		   newrule0.lhs.rusttype = newnt.rusttype.clone();
+		   if strtok.ends_with('+') {
+		     newrule0.rhs.push(self.Symbols[gsymi].clone());
+		     newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+		   }
+		   else if strtok.ends_with('*') {
+		     newrule0.action = String::from(" Vec::new() }");
+//println!("rule lhs type is {}",&newrule0.lhs.rusttype);		     
+		   }
+		   else if strtok.ends_with('?') {
+		     newrule0.action = String::from(" None }");
+		   }
+		   self.Rules.push(newrule0);
+		   self.Rules.push(newrule1);
+		   let mut rulesforset = HashSet::with_capacity(2);
+		   rulesforset.insert(self.Rules.len()-2);
+		   rulesforset.insert(self.Rules.len()-1);
+		   newtok = format!("{}:_item{}_",&newntname,i-1);
+		   self.Rulesfor.insert(newntname,rulesforset);
+		   // change strtok to new form
+		   strtok = &newtok;
+		}// processes RE directive - add new productions
+
+		// separte gsym from label:
 		let toks:Vec<&str> = strtok.split(':').collect();
-//if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}		
 		match self.Symhash.get(toks[0]) {
 		   None => {panic!("unrecognized grammar symbol '{}', line {}",toks[0],linenum); },
 		   Some(symi) => {
@@ -476,7 +524,6 @@ impl Grammar
                      }
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<2 {newsym.rusttype = self.Absyntype.clone();}
-//println!("newsym {} type is ({})",&newsym.sym,&newsym.rusttype);                    
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
@@ -489,20 +536,8 @@ impl Grammar
 			 }
 			 if !label.ends_with('@') { panic!("pattern labels must be closed with @, line {}",linenum);}			 
 		       } // if-let pattern
-/*		       
-                       if &toks[1][0..1]=="'" { // if-let pattern
-		         label.push_str(&toks[1][..]); // include leading ' in string
-			 while !label.ends_with("'") && i<bstokens.len()
-			 { // i indexes all tokens split by whitespaces
-			    label.push(' '); label.push_str(bstokens[i]); i+=1;
-			 }
-			 if !label.ends_with("'") { panic!("pattern labels must be closed with  a ', line {}",linenum);}
-		       }// ' pattern '
-*/		       
                        else { label = toks[1].trim().to_string(); }
 		       newsym.setlabel(label.trim_end_matches('@'));
-		       //newsym.setlabel(label.trim_end_matches("'"));		       
-		       //newsym.setlabel(toks[1].trim()); 
 	             }//label exists
 			
                      if maxprec.abs() < newsym.precedence.abs()  {
@@ -513,7 +548,8 @@ impl Grammar
                 }//match
 	      } // while there are tokens on rhs
 	      // form rule
-              let mut newlhs = lhsym.clone();
+	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
+              let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
@@ -868,7 +904,6 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
     write!(fd,"impl{} Default for {} {{ fn default()->Self {{RetTypeEnum::Enumvariant_0(<{}>::default())}} }}\n\n",&ltopt,&enumname,&self.Absyntype)?;
     Ok(())
 }// generate enum from rusttype defs RetTypeEnum::Enumvariant_0 is absyntype
-
 
 }//impl Grammar continued
 
