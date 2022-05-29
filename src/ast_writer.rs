@@ -40,6 +40,9 @@ impl Grammar
 	if self.Symbols[nti].rusttype.len()<3 { // can override!
 	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
 	}
+	if &self.Symbols[nti].rusttype=="unit" {
+	  self.Symbols[nti].rusttype = "()".to_owned();
+	}
 	if NT==&self.topsym {
 	  self.Absyntype = self.Symbols[nti].rusttype.clone();
           self.enumhash.insert(self.Absyntype.clone(), 0);

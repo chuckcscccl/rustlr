@@ -10,7 +10,6 @@
 #![allow(dead_code)]
 #![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
-use std::any::Any;
 extern crate rustlr;
 use rustlr::{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action};
 use rustlr::{StrTokenizer,RawToken,LexSource};
@@ -21,7 +20,7 @@ use crate::calcauto_ast::*;
 
 static SYMBOLS:[&'static str;16] = ["Expr","ES","+","-","*","/","(",")","=",";","let","in","int","var","START","EOF"];
 
-static TABLE:[u64;159] = [25769934848,51540066304,55834771456,42950000640,4295229441,65537,12885295104,281487862398976,281492157104128,281483567300608,281496452136960,281513632137216,563005788192768,562949954273281,562975723356160,562962838716416,563001493487616,562992903421952,844446405033986,844433520132098,844437815099394,844442110066690,844454994968578,844472174837762,844463584903170,1125925676777472,1125899907760129,1125964331352067,1125942856843264,1125912792137728,1125951446908928,1125955741614080,1407430719111168,1688862745559040,1688905695035392,1688892810264576,1688901400330240,1688875630198784,1688849861312513,1970372081614850,1970333426909186,1970346311811074,1970354901745666,1970363491680258,1970337721876482,1970342016843778,2251851353751552,2251842763685888,2251812698980352,2251799814799361,2251855648456704,2251825583620096,2533300560330752,2533287675691008,2533330625167360,2533326330462208,2533274791575553,2533317740396544,2814749768351745,2814775537041408,2814805601878016,2814792717107200,2814801307172864,2814762652401664,3096280578981890,3096267694080002,3096237629308930,3096289168916482,3096250514210818,3096276284014594,3377755555299328,3377699721838593,3377712605822976,3377751260594176,3377725490462720,3377742670528512,3659191877632000,3659183287828480,3659204763385856,3659196172664832,3659187582926848,3940688330096640,3940671149375488,3940658264539136,3940662559637504,3940666854342656,4222159011905536,4503646872469506,4503608217763842,4503638282534914,4503621102796800,4503629692600322,4503612512731138,4503616807763968,4785087489376258,4785121849114626,4785091784343554,4785096079310850,4785113259180034,4785104669245442,4785083194408962,5066596825759746,5066579645890562,5066558171054082,5066571055955970,5066562466021378,5066566760988674,5066588235825154,5348054622470146,5348046032928768,5348041737895936,5348033147633666,5348063212404738,5348037442600962,5348071802339330,5629521009639424,5629508124409858,5629512419377154,5629529599246338,5629538189180930,5629516714606592,5629546779115522,5911013166153730,5911004576219138,5910991691317250,5910983101382658,5911021756088322,5910995986284546,5910987396349954,6192505322864642,6192462373191682,6192475258093570,6192513912799234,6192492437962754,6192501027897346,6473967414345728,6473937349640192,6473950234279936,6473976004411392,6473980299116544,6473924465917953,6755446687334400,6755412326744064,6755408031645696,6755416621449216,6755420916482048,7036874419470337,7036930252537856,7036925957832704,7036917367767040,7036887303061504,7036900187701248,7318396639248386,7318362280165376,7318388049313794,7318379459379202,7318357985067008,7318370869903360,7318366574870528,];
+static TABLE:[u64;146] = [51540066304,64425099266,131073,42949869568,12885164032,55834640384,25770131456,4295360513,281505041547266,281522221416450,281513631481858,281487861678082,281496451612674,281483566710786,281492156645378,562962838913024,562958544076800,562971428782080,562967133945856,562988608913408,844480765558784,1125899907760129,1125951446908928,1125955741483008,1125925676974080,1125912792006656,1125942856712192,1407400653684736,1407374884536321,1407430718193664,1407426423619584,1407387768717312,1407417833422848,1688914284773379,1970346311811074,1970333426909186,1970342016843778,1970363491680258,1970372081614850,1970354901745666,1970337721876482,2251842763554816,2251855648325632,2251812698849280,2251825583816704,2251799814733825,2251851353751552,2533326330462208,2533274791510017,2533317740265472,2533287675559936,2533300560527360,2533330625036288,2814792716976128,2814749768286209,2814775537238016,2814762652270592,2814805601746944,2814801307172864,3096267693686784,3096237628981248,3096224745062401,3096276283883520,3096250513948672,3096280578457600,3377764145627138,3377725490659328,3377699720658945,3377755555168256,3377712605691904,3377751260594176,3377704016805889,3377742670397440,3659209058353152,3940666854473728,3940688329113602,3940696919048194,3940671149309952,3940679739179010,3940658264342530,3940662559309826,4222154716872704,4222146126020608,4222141831184384,4222137536151552,4222133241315328,4503629692469250,4503621102534658,4503612512600066,4503608217632770,4503646872338434,4503638282403842,4503616807567362,4785087489245186,4785083194277890,4785096079441920,4785113259048962,4785121848983554,4785091784605696,4785104669114370,5066596825825282,5066566761054210,5066571056021506,5066579645956098,5066562466086914,5066558171119618,5066588235890690,5348054622470146,5348037442600962,5348033147633666,5348041738027008,5348063212404738,5348071802339330,5348046032863232,5629563959377922,5910987396087808,5910974512431105,5911017460793344,5911026050990080,5911030345564160,5911000281055232,6192462373060610,6192466668027906,6192458078093314,6192479552929794,6192496732798978,6192488142864386,6192470962995202,6473971710558208,6473941644869632,6473937349836800,6473933055000576,6473945939705856,6755425211187200,6755455275696128,6755412326219776,6755399442694145,6755450981122048,6755442390925312,7036913072603138,7036883008421888,7036887303258112,7036895893127168,7036904482668546,7036891598290944,7036921662537730,];
 
 
 fn _semaction_rule_0_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
@@ -52,17 +51,17 @@ fn _semaction_rule_8_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'l
 let mut _item2_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut e = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()};  e }
 
 fn _semaction_rule_9_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
-let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; ES::One(parser.lbx(0,_item0_)) }
+ES::nil }
 
 fn _semaction_rule_10_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; ES::Seq(parser.lbx(0,_item0_),parser.lbx(1,_item1_)) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; ES::cons(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
 
 fn _semaction_rule_11_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> () {
 let mut _item0_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; <()>::default()}
 
 pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,()>
 {
- let mut parser1:ZCParser<RetTypeEnum<'lt>,()> = ZCParser::new(12,27);
+ let mut parser1:ZCParser<RetTypeEnum<'lt>,()> = ZCParser::new(12,26);
  let mut rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("start");
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
  rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_0_(parser)) };
@@ -103,7 +102,7 @@ pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,()>
  parser1.Errsym = "";
  parser1.resynch.insert(";");
 
- for i in 0..159 {
+ for i in 0..146 {
    let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;
    let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;
    parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));
@@ -131,11 +130,11 @@ pub fn parse_train_with<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>, lexer:&m
 
 //Enum for return values 
 pub enum RetTypeEnum<'lt> {
-  Enumvariant_17(()),
-  Enumvariant_1(i64),
   Enumvariant_0(ES<'lt>),
-  Enumvariant_2(&'lt str),
+  Enumvariant_1(i64),
   Enumvariant_18(Expr<'lt>),
+  Enumvariant_2(&'lt str),
+  Enumvariant_17(()),
 }
 impl<'lt> Default for RetTypeEnum<'lt> { fn default()->Self {RetTypeEnum::Enumvariant_0(<ES<'lt>>::default())} }
 
@@ -144,6 +143,7 @@ impl<'lt> Default for RetTypeEnum<'lt> { fn default()->Self {RetTypeEnum::Enumva
 pub struct calcautolexer<'t> {
    stk: StrTokenizer<'t>,
    keywords: HashSet<&'static str>,
+   lexnames: HashMap<&'static str,&'static str>,
 }
 impl<'t> calcautolexer<'t> 
 {
@@ -154,12 +154,15 @@ impl<'t> calcautolexer<'t>
     Self::new(StrTokenizer::from_source(s))
   }
   pub fn new(mut stk:StrTokenizer<'t>) -> calcautolexer<'t> {
-    let mut keywords = HashSet::with_capacity(16);
+    let mut lexnames = HashMap::with_capacity(64);
+    let mut keywords = HashSet::with_capacity(64);
     for kw in ["let","in",] {keywords.insert(kw);}
     for c in ['+','-','*','/','(',')','=',';',] {stk.add_single(c);}
     for d in [] {stk.add_double(d);}
+    for d in [] {stk.add_triple(d);}
+    for (k,v) in [] {lexnames.insert(k,v);}
     stk.set_line_comment("#");
-    calcautolexer {stk,keywords}
+    calcautolexer {stk,keywords,lexnames}
   }
 }
 impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for calcautolexer<'lt>
@@ -169,9 +172,16 @@ impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for calcautolexer<'lt>
     if let None = tokopt {return None;}
     let token = tokopt.unwrap();
     match token.0 {
-      RawToken::Alphanum(sym) if self.keywords.contains(sym) => Some(TerminalToken::from_raw(token,sym,<RetTypeEnum<'lt>>::default())),
+      RawToken::Alphanum(sym) if self.keywords.contains(sym) => {
+        let truesym = self.lexnames.get(sym).unwrap_or(&sym);
+        Some(TerminalToken::from_raw(token,truesym,<RetTypeEnum<'lt>>::default()))
+      },
       RawToken::Num(n) => Some(TerminalToken::from_raw(token,"int",RetTypeEnum::Enumvariant_1(n))),
       RawToken::Alphanum(x) => Some(TerminalToken::from_raw(token,"var",RetTypeEnum::Enumvariant_2(x))),
+      RawToken::Symbol(s) if self.lexnames.contains_key(s) => {
+        let tname = self.lexnames.get(s).unwrap();
+        Some(TerminalToken::from_raw(token,tname,<RetTypeEnum<'lt>>::default()))
+      },
       RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<RetTypeEnum<'lt>>::default())),
       RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<RetTypeEnum<'lt>>::default())),
       _ => Some(TerminalToken::from_raw(token,"<LexicalError>",<RetTypeEnum<'lt>>::default())),

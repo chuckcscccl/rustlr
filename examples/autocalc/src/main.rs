@@ -34,16 +34,15 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
    let tree4= calcautoparser::parse_with(&mut parser4, &mut scanner4);
    let result4 = tree4.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
 
-   println!("\nABSYN: {:?}",&result4);
+   println!("\nABSYN: {:?}\n",&result4);
    
    let bindings4 = newenv();
    println!("\nresult after eval: {:?}", eval_seq(&bindings4,&result4));
 
-   //println!("\nline 10: {}",scanner4.get_line(10).unwrap());
+   println!("\nline 10: {}",scanner4.get_line(10).unwrap());
 }//main
 
 /////////// evaluating generated ast
-
 
 pub enum Env<'t> {
   Nil,
@@ -70,28 +69,6 @@ fn lookup<'t>(x:&'t str, env:&Rc<Env<'t>>) -> Option<i64>
     }
     return None;
 }//lookup
-
-/*  -- hand written
-// main abstract syntax type
-#[derive(Debug)]
-pub enum Expr<'t>
-{
-   Var(&'t str),
-   Val(i64),
-   Plus(LBox<Expr<'t>>,LBox<Expr<'t>>),  // LBox replaces Box for recursive defs
-   Times(LBox<Expr<'t>>,LBox<Expr<'t>>),
-   Divide(LBox<Expr<'t>>,LBox<Expr<'t>>),
-   Minus(LBox<Expr<'t>>,LBox<Expr<'t>>),
-   Negative(LBox<Expr<'t>>),
-   Letexp(&'t str,LBox<Expr<'t>>,LBox<Expr<'t>>),
-   Seq(Vec<LBox<Expr<'t>>>),
-   Nothing,                    // for integration into lexer/parser
-} 
-impl Default for Expr<'_>  // required for absyntypes of grammar
-{
-  fn default() -> Self { Nothing }
-}//impl Default
-*/
 
 use crate::Expr::*;
 use crate::ES::*;
@@ -130,21 +107,14 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 fn eval_seq<'t>(env:&Rc<Env<'t>>, s:&ES) -> Option<i64>
 {
   match s {
-     One(e) => {
-       if let Some(val) = eval(env,e) {
-	   println!("result for line {}: {} ;",e.line(),&val);
-	   Some(val)
-       } else { println!("Error evaluating line {};",e.line()); None }      
-     },
-     Seq(rdc,rac) => {
-       eval_seq(env,&**rdc);
-       if let Some(val) = eval(env,&**rac) {
-	   println!("result for line {}: {} ;",rac.line(),&val);
-	   Some(val)
-       } else { println!("Error evaluating line {};",rac.line()); None }
+     nil => None,
+     cons(car,cdr) => {
+       if let Some(val) = eval(env,&**car) {
+	   println!("result for line {}: {} ;",car.line(),&val);
+	   if let nil = &**cdr {return Some(val);} // return last value
+       } else { println!("Error evaluating line {};",car.line());}
+       eval_seq(env,&**cdr)
      },
      _ => None,
   }//match
 }//eval_seq
-
-

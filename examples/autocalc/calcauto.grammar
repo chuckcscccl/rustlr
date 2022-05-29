@@ -35,5 +35,3 @@ ES:cons --> Expr ; ES
 #ES --> Expr:[e] ; { vec![e] }
 #ES --> ES:v Expr:[e] ;  { v.push(e); v }
 EOF
-
-override type, action?

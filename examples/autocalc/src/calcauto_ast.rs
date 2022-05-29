@@ -10,25 +10,25 @@ extern crate rustlr;
 use rustlr::LBox;
 
 #[derive(Debug)]
-pub enum ES<'lt> {
-  One(LBox<Expr<'lt>>),
-  Seq(LBox<ES<'lt>>,LBox<Expr<'lt>>),
-  ES_Nothing,
-}
-impl<'lt> Default for ES<'lt> { fn default()->Self { ES::ES_Nothing } }
-
-#[derive(Debug)]
 pub enum Expr<'lt> {
-  Val(i64),
-  Neg(LBox<Expr<'lt>>),
   Times(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Expr_8(LBox<Expr<'lt>>),
+  Letexp(&'lt str,LBox<Expr<'lt>>,LBox<Expr<'lt>>),
   Var(&'lt str),
   Div(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Letexp(&'lt str,LBox<Expr<'lt>>,LBox<Expr<'lt>>),
+  Neg(LBox<Expr<'lt>>),
+  Val(i64),
+  Expr_8(LBox<Expr<'lt>>),
   Plus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
   Minus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Expr_Nothing,
+  Expr_Nothing(&'lt ()),
 }
-impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing } }
+impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing(&()) } }
+
+#[derive(Debug)]
+pub enum ES<'lt> {
+  cons(LBox<Expr<'lt>>,LBox<ES<'lt>>),
+  nil,
+  ES_Nothing(&'lt ()),
+}
+impl<'lt> Default for ES<'lt> { fn default()->Self { ES::ES_Nothing(&()) } }
 

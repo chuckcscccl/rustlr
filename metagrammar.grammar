@@ -1,0 +1,88 @@
+# Grammar for Rustlr .grammar files
+
+!use rustlr::{Grammar,Grule,Gsym}
+lifetime 'gt
+#absyntype rule/dec ...
+externtype Grammar
+
+terminals LIFETIME TOPSYM RESYNC TERMINAL TERMINALS NONTERMINAL NONTERMINALS
+terminals TYPEDTERMINAL ABSYNTYPE VALUETYPE RECOVER ERRSYM LEFT RIGHT ENDL
+terminals LEXNAME LEXVALUE LEXATTRIBUTE EOG ATSYM LEFTARR2 BAR EQ BANG HASH
+terminals LBRACE RBRACE LBRACK RBRACK LPAREN RPAREN COLON RIGHTARR RIGHTARR2
+terminals STAR PLUS QUEST COMMA
+typedterminal GSYMa &'gt str
+typedterminal GSYMs &'gt str
+typedterminal PLEV u32
+typedterminal VERBATIM &'gt str
+# need custom lexer
+typedterminal VERBLINE &'gt str
+
+# production means one line of production
+nonterminals gsym directive production regularexp
+nonterminal directive unit
+topsym lrgrammar
+
+gsym --> GSYMa | GSYMs
+lrgrammar --> directive ENDL | production ENDL
+lrgrammar --> lrgrammar directive ENDL
+lrgrammar --> lrgrammar production ENDL
+lrgrammar --> lrgrammar EOG
+regularexp --> gsym
+regularexp:STAR --> regularexp STAR
+regularexp:PLUS --> regularexp PLUS
+regularexp:QUEST --> reguarexp QUEST
+regularexp --> LPAREN regularexp RPAREN 
+directive --> VERBLINE:s { parser.exstate.Extras.push_str(s); }
+directive -->
+
+# what should be the return type? not ()?
+
+lexvalue GSYMa Alphanum(a) a
+lexvalue GSYMs Symbol(s) s
+lexvalue PLEV Num(i) (i as u32)
+lexvalue VERBATIM Verbatim(s) &s[1..]
+lexvalue VERBLINE Verbatim(s) &s[1..]
+lexvalue ENDL Newline ()
+
+# dont' use # in actual grammar: use !//...
+lexattribute set_line_comment("!")
+lexattribute set_multiline_comments("{ }")
+lexattribute keep_comment=true
+lexattribute keep_newline=true
+lexname COMMA ,
+lexname STAR *
+lexname PLUS +
+lexname QUEST ?
+lexname EQ =
+lexname HASH #
+lexname BANG !
+lexname COLON :
+lexname RIGHTARR -->
+lexname ATSYM @
+lexname LEFTARR2 <==
+lexname RIGHTARR2 ==>
+lexname BAR |
+lexname LIFETIME lifetime
+lexname TOPSYM topsym
+lexname RESYNC resync
+lexname TERMINAL terminal
+lexname TERMINALS terminals
+lexname NONTERMINAL nonterminal
+lexname NONTERMINALS nonterminals
+lexname TYPEDTERMINAL typedterminal
+lexname ABSYNTYPE absyntype
+lexname VALUETYPE valuetype
+lexname RECOVER recover
+lexname ERRSYM errsym
+lexname LEFT left
+lexname RIGHT right
+lexname LEXNAME lexname
+lexname LEXVALUE lexvalue
+lexname LEXATTRIBUTE lexattribute
+lexname EOG EOF
+lexname LBRACE {
+lexname RBRACE }
+lexname LBRACK [
+lexname RBRACK ]
+lexname LPAREN (
+lexname RPAREN )
