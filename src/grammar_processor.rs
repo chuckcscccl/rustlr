@@ -290,12 +290,17 @@ impl Grammar
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-
+               // set rusttype
                let mut nttype = tokentype.trim().to_owned();
                if nttype.len()<1 && self.genabsyn {
 	         nttype = format!("{}{}",stokens[1],&ltopt);
-	       }
-               else if nttype.len()<1 {nttype = self.Absyntype.clone()};
+	       }  // genabsyn
+	       else if nttype.starts_with('*') {// copy type from other NT
+	         let copynt = nttype[1..].trim();
+	         let onti = *self.Symhash.get(copynt).expect(&format!("UNRECOGNIZED NON-TERMINAL SYMBOL {} TO COPY TYPE FROM (ORDER OF DECLARATION MATTERS), line {} of grammar",copynt,linenum));
+		 nttype = self.Symbols[onti].rusttype.clone();
+	       } // *NT copy type from other NT
+               if nttype.len()<1 {nttype = self.Absyntype.clone()};
 	       self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;
 	       newterm.rusttype = nttype;
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
@@ -485,16 +490,20 @@ impl Grammar
                    semaction = rul.split_at(position+1).1;
 		   break;
                 }
-		
+
 		// add code to recognize E*, E+ and E?
                 let newtok; // will be new strtok
-		if strtok.len()>1 && (strtok.ends_with('*') || strtok.ends_with('+') || strtok.ends_with('?')) {
-		   let gsympart = strtok[0..strtok.len()-1].trim();
+		let retoks:Vec<&str> = strtok.split(':').collect();
+		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
+		   strtok = retoks[0]; // to be changed back to normal a:b
+		   let defaultrelab = format!("_item{}_",i-1);
+		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
+		   let gsympart = strtok[0..strtok.len()-1].trim(); //no *
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
 		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
-		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
 		   self.Symbols.push(newnt.clone());
 		   self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
 		   // add new rules
@@ -502,7 +511,7 @@ impl Grammar
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-		     newrule1.action=String::from(" Some(_item0_) }");
+		     newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
 		   }
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
@@ -527,7 +536,8 @@ impl Grammar
 		   let mut rulesforset = HashSet::with_capacity(2);
 		   rulesforset.insert(self.Rules.len()-2);
 		   rulesforset.insert(self.Rules.len()-1);
-		   newtok = format!("{}:_item{}_",&newntname,i-1);
+		   //newtok = format!("{}:_item{}_",&newntname,i-1);
+		   newtok = format!("{}:{}",&newntname,relabel);
 		   self.Rulesfor.insert(newntname,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
@@ -632,11 +642,11 @@ impl Grammar
           self.Symbols[ri].settype(&self.Absyntype);
         }
         else if rtype!=&self.Absyntype {
-//println!("NOT SAME TYPE: {} and {}",rtype,&self.Absyntype);	
+	//println!("NOT SAME TYPE: {} and {}",rtype,&self.Absyntype);	
           self.sametype = false;
           if !self.enumhash.contains_key(rtype) {
             self.enumhash.insert(rtype.to_owned(),ntcx); ntcx+=1;
-	    println!("SHOULDNT BE HERE");
+	    //eprintln!("SHOULDNT BE HERE");
           }
         }// set enumindex
      }//compute sametype
