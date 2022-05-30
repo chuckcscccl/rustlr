@@ -25,7 +25,7 @@ impl Grammar
           else {String::new()};
      // self.Rulesfor hashmap from nonterminals to set of usize indices
 
-     /*
+     /*  // now done by grammar processor
      // construct type of ast for each non-terminal NT
      let mut ntcx=self.Symbols.len()+1;  // separate from typedterminals
      let unithash = self.enumhash.get("()"); // semi-hack, default absyn
@@ -124,6 +124,7 @@ impl Grammar
 	}
 	AST.push_str(&format!("  {},\n}}\n",&defaultvar));
 	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",&ltopt,&ntsym.rusttype,NT,&defaultvarinst));
+//println!("AST: {}",&AST);	
         if ntsym.rusttype.starts_with(NT) { ASTS.push_str(&AST); }
      }//for each non-terminal and set of rules
 
