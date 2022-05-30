@@ -15,6 +15,10 @@ Among the features that Rustlr supports are:
 4. The ability to train the parser, interactively or from script for better error reporting.
 5. Semantic actions have access to mutable external state, which (with manually written actions) can recognize some non-context free languages.
 
+#### Version 0.2.8:
+
+bug fixes; limited support for *, + and ? introduced.
+
 #### Version 0.2.7:
 
 The ability to automatically generate the abstract syntax tree data structures as well as the semantic actions required to create instances of them.  Automatically generated actions can be combined with manually written overrides.

@@ -96,7 +96,7 @@ ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
 Future editions of Rustlr will allow syntax such as Expr+ and Expr*, which will generate such rules automatically.
 
-Since the grammar also contains lexer generation directives, all we need to is to write [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the `parse_with` or `parse_train_with` functions:
+Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the `parse_with` or `parse_train_with` functions:
 
 ```rust
    let mut scanner = calcautoparser::calcautolexer::from_str("2*3+1;");
@@ -107,13 +107,15 @@ Since the grammar also contains lexer generation directives, all we need to is t
    
 ```
 
-Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).  This version of [main]( https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs) also contains the revised evaluation routines for the generated AST.
+Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).  
 
 
 
 #### Generating a Parser for C
 
-As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C Yacc grammar published in 1985 by Jeff Lee, which was converted to rustlr syntax and found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar).  The raw grammar produced a shift-reduce conflict caused by the *dangling else* problem, which we fixed by giving  'else' a higher precedence than 'if'.  The raw grammar contained a few other issues we have not addressed, most notably when an identifier should be considered as `TYPE_NAME`. Manual fine tuning will definitely be required, as one should expect.  However, the generated AST is at least a good starting point.  The AST enums are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cauto_ast.rs) and the generated parser [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cautoparser.rs).
+As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C Yacc grammar published in 1985 by Jeff Lee, which was converted to rustlr syntax and found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar).  The raw grammar produced a shift-reduce conflict caused by the *dangling else* problem, which we fixed by giving  'else' a higher precedence than 'if'.  The raw grammar contained a few other issues we have not addressed, most notably when an identifier should be considered as `TYPE_NAME`. Manual fine tuning will definitely be required, as one should expect.  However, the generated AST is at least a good starting point.  In forming the enum types, for production rules without a left-hand side label, rustlr will also sometimes use the name of an alpha-numeric terminal symbol to create the name of the enum variant (if it is the first symbol on the right-hand side).
+
+The AST enums are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cauto_ast.rs) and the generated parser [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cautoparser.rs).
 
 
 
@@ -136,7 +138,7 @@ As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C
 [zcp]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
 
-[^footnote 1]: Each enum has a `_Nothing(&'lt ())` variant.  This is used to implement the Default trait.  The lifetime parameter exists so that all enums can be parameterized with a lifetime.  Without the dummy reference one would have to compute a closure over the grammar to determine which enums require lifetimes and which do not: something that&#39;s determined to be too expensive relative to its importance.
+[^footnote 1]: Each enum has a `_Nothing(&'lt ())` variant.  This is used to implement the Default trait.  The lifetime parameter exists so that all enums can be parameterized with a lifetime, if one was declared for the grammar.  Without the dummy reference one would have to compute a closure over the grammar to determine which enums require lifetimes and which do not: something that&#39;s determined to be too expensive relative to its importance.
 
 
 
