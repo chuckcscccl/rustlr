@@ -17,15 +17,13 @@ Among the features that Rustlr supports are:
 
 #### Version 0.2.8:
 
-bug fixes; limited support for *, + and ? introduced.
-
-#### Version 0.2.7:
-
 The ability to automatically generate the abstract syntax tree data structures as well as the semantic actions required to create instances of them.  Automatically generated actions can be combined with manually written overrides.
 
-#### Version 0.2.6:
+Limited support for *, + and ? expressions introduced.
 
 The runtime parser now displays the lines for all parser errors; other internal enhancements.  Ability to parse rules separated by "|" improved.
+
+Bug fixes for versions 0.2.6, 0.2.7
 
 #### Version 0.2.5:
 

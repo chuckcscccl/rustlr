@@ -267,7 +267,7 @@ impl Grammar
                   self.Symbols.push(newterm);
                }
             }, //terminals
-	    "typedterminal" if stage==0 => {
+	    "typedterminal" if stage==0 && stokens.len()>2 => {
 	       let mut newterm = Gsym::new(stokens[1],true);
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
@@ -283,7 +283,11 @@ impl Grammar
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);           
 	    }, //typed terminals
-	    "nonterminal" | "typednonterminal" if stage==0 => {   // with type
+	    "nonterminal" | "typednonterminal" if stage==0 && stokens.len()>1 => {   // with type
+	       if self.Symhash.get(stokens[1]).is_some() {
+	         eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum);
+		 continue;
+	       }
 	       let mut newterm = Gsym::new(stokens[1],false);
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
@@ -379,7 +383,6 @@ impl Grammar
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
-	       if TRACE>2 {println!("abstract syntax type is {}",&self.Absyntype);}
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -388,10 +391,13 @@ impl Grammar
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
-               if stokens.len()<3 {continue;}
+               if stokens.len()<3 {
+	         eprintln!("MALFORMED ASSOCIATIVITY/PRECEDENCE DECLARATION SKIPPED ON LINE {}",linenum);
+	         continue;
+	       }
 	       let mut preclevel:i32 = DEFAULTPRECEDENCE;
 	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
-               else {panic!("did not read precedence level on line {}",linenum);}
+               else {panic!("Did not read precedence level on line {}",linenum);}
 	       if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
                if let Some(index) = self.Symhash.get(stokens[1]) {
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
@@ -504,6 +510,10 @@ impl Grammar
 		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
 		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+		   if !self.enumhash.contains_key(&newnt.rusttype) {
+ 		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
+		     ntcx+=1;
+		   }
 		   self.Symbols.push(newnt.clone());
 		   self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
 		   // add new rules

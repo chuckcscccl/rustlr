@@ -1,6 +1,6 @@
 ## Chapter 4: Automatically Generating the AST
 
-Since version 0.2.7, rustlr is capable of automatically generating the data structures (enums) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning may be required.
+One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Since version 0.2.8, rustlr is capable of automatically generating the data structures (enums) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
 
 We redo the enhanced calculator example from [Chapter 2][chap2].  The following grammar is found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/calcauto.grammar).
 
@@ -94,7 +94,20 @@ ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
 ```
 
-Future editions of Rustlr will allow syntax such as Expr+ and Expr*, which will generate such rules automatically.
+#### Adding New Rules with *, + and ?
+
+A relatively new feature of rustlr (since verion 0.2.8) allows the use of regular-expression style symbols *, + and ? to automatically generate new production rules.  However, this ability is currently rather limited and is only guaranteed to work in the automatic `-genabsyn` mode.  Another way to achieve the same effects as the above is to use the following alternative grammar declarations:
+
+```
+nonterminal ES Vec<LBox<Expr<'lt>>>
+nonterminal ES1 *Expr
+ES1 --> Expr:e ; {e}
+ES --> ES1+:v { v }
+```
+
+The special type declaration **`*Expr`** means that the type of the nonterminal `ES1` is copied from the type of `Expr`, which in this case is automatically generated as `Expr<'lt>`.  The expression **`ES1+`** means a sequence of at least one `ES1` derivations.  This is done by generating a new non-terminal symbol with associated type `Vec<LBox<Expr<'lt>>>`. The optional label v will be bound to such a value.  A **`*`** would mean zero or more `ES1` derivations, producing the same vector type,  and a **`?`** will mean  one or zero derivations with type `Option<LBox<Expr<'lt>>>`.  Currently, the *, + and ? symbols can only be placed after exactly one grammar symbol, thus the extra symbol and production for `ES1` is required.  Additionally, the label given for such an expression cannot be a pattern such as `[v]`or something enclosed inside `@...@`.  These restrictions should eventually be eliminated in future releases.
+
+##### Invoking the Parser
 
 Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the `parse_with` or `parse_train_with` functions:
 

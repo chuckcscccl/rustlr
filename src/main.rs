@@ -73,7 +73,7 @@ fn rustle(args:&Vec<String>) // called from main
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
        "genlex" | "-genlex" => {genlex=true; },
-       "-genabsyn" | "-ast" | "genabsyn" => {genabsyn = true; },
+       "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {

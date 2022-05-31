@@ -2,10 +2,10 @@
 
 # declare input lifetime:
 lifetime 'lt
-nonterminals Expr
-nonterminal ES Vec<LBox<Expr<'lt>>>
+nonterminals Expr ES
+#nonterminal ES Vec<LBox<Expr<'lt>>>
 # *Expr means type of ES1 will be copied from type of Expr
-nonterminal ES1 *Expr
+#nonterminal ES1 *Expr
 terminals + - * / ( ) = ;
 terminals let in
 typedterminal int i64
@@ -33,10 +33,10 @@ Expr:Neg --> - Expr
 # override auto-generated creation of abstract syntax, but type matters
 Expr --> ( Expr:e )  { e }
 
-#ES:nil -->
-#ES:cons --> Expr ; ES
-ES1 --> Expr:e ; {e}
-ES --> ES1+:v { v }
+ES:nil -->
+ES:cons --> Expr ; ES
+#ES1 --> Expr:e ; {e}
+#ES --> ES1+:v { v }
 #ES --> Expr:[e] ; { vec![e] }
 #ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
