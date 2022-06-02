@@ -18,22 +18,30 @@ typedterminal VERBATIM &'gt str
 typedterminal VERBLINE &'gt str
 
 # production means one line of production
-nonterminals gsym directive production regularexp
+nonterminals regularexp gsymseq gsym patlab
 nonterminal directive unit
+nonterminal productionline unit
+nonterminal production unit
+nonterminal lrgrammar unit
 topsym lrgrammar
 
-gsym --> GSYMa | GSYMs
+gsym --> GSYMa | GSYMs | GSYMa COLON patlab
+patlab --> GSYMa | LBRACK GSYMa RBRACK
+gsymseq --> gsym
+gsymseq --> gsymseq gsym
+# production means one production line.
 lrgrammar --> directive ENDL | production ENDL
 lrgrammar --> lrgrammar directive ENDL
 lrgrammar --> lrgrammar production ENDL
 lrgrammar --> lrgrammar EOG
 regularexp --> gsym
+regularexp:RSEQ --> LPAREN gsymseq RPAREN 
 regularexp:STAR --> regularexp STAR
 regularexp:PLUS --> regularexp PLUS
 regularexp:QUEST --> reguarexp QUEST
-regularexp --> LPAREN regularexp RPAREN 
 directive --> VERBLINE:s { parser.exstate.Extras.push_str(s); }
-directive -->
+#directive -->
+production --> GSYMa RIGHTARR gsymseq
 
 # what should be the return type? not ()?
 

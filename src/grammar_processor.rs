@@ -485,7 +485,7 @@ impl Grammar
               let bstokens:Vec<_> = rul.trim().split_whitespace().collect();
               let mut rhsyms:Vec<Gsym> = Vec::new();
               let mut semaction = "}";
-	      let mut i:usize = 0;
+	      let mut i:usize = 0;   // bstokens index on one barsplit 
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
               while i<bstokens.len() {

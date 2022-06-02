@@ -1,41 +1,7 @@
 #3.10.0 Documentation » The Python Language Reference » 10. Full Grammar specification
 
-lifetime 'lt
-nonterminals type_expressions statements statement statement_newline simple_stmts
-nonterminals simple_stmt compound_stmt assignment augassign global_stmt
-nonterminals nonlocal_stmt yield_stmt assert_stmt del_stmt import_stmt
-nonterminals import_name import_from import_from_targets import_from_as_names
-nonterminals import_from_as_name dotted_as_names dotted_as_name dotted_name
-nonterminals if_stmt elif_stmt else_block while_stmt for_stmt with_stmt
-nonterminals try_stmt except_block finally_block match_stmt subject_expr
-nonterminals case_block guard patterns pattern as_pattern or_pattern
-nonterminals closed_pattern literal_pattern literal-expr complex_number
-nonterminals signed_number signed_real_number real_number imaginar_number
-nonterminals capture_pattern pattern_capture_target wildcard_pattern
-nonterminals value_pattern attr name_or_attr group_pattern sequence_pattern
-nonterminals open_sequence_pattern maybe_sequence_pattern maybe_star_pattern
-nonterminals star_pattern mapping_pattern items_pattern key_value_pattern
-nonterminals double_star_pattern class_pattern positional_patterns
-nonterminals keyword_patterns keyword_pattern return_stmt raise_stmt
-nonterminals function_def dunction_def_raw params parameters
-nonterminals slash_no_default slash_with_default star_etc param_no_default
-nonterminals param_with_default param_maybe_default param annotation
-nonterminals defaultNT decorators class_def class_def_raw block
-nonterminals star-expressions star_expression star_name_expressions
-nonterminals star_named_expression assignment_expression named_expression
-nonterminals annotated_rhs expressions expression lambdef lambda_params
-nonterminals lambda_parameters lambda_slash_no_default
-nonterminals lambda_slash_with_default lambda_star_etc lambda_kwds lambda_param_no_default lambda_param_with_default lambda_param_maybe_default lambda_param
-nonterminals disjunction conjunction inversion comparison compare_op_bitwise_or_pair eq_bitwise_or noteq_bitwise_or lte_bitwise_or gte_bitwise_or gt_bitwise_or notin_bitwise_or in_bitwise_or isnot_bitwise_or is_bitwise_or bitwise_or
-nonterminals bitwise_xor bitwise_and shift_expr sum term factor power await_primary primary slices slice atom strings list listcomp tuple group genexp set
-nonterminals setcomp dict dictcomp double_starred_kvpairs double_starred_kvpair kvpair for_if_clauses for_if_clause yield_expr arguments args kwargs
-nonterminals starred_expression kwarg_or_starred kwarg_or_double_starred star_targets star_targets_list_seq star-targets_tuple_seq star_target
-nonterminals target_with_star_atom star_atom single_target single_subscript_attribute_target del_targets del_target del_t_atom t_primary t_lookahead
-
-terminals COMMA SEMICOLON COLON START DOUBLESTAR LBRACK RBRACK LBRACE RBRACE DOT NEWLINE ENDMARKER
-terminals PLUSEQ MINUSEQ TIMESEQ ATEQ DIVEQ ANDEQ OREQ XOREQ LEFTEQ RIGHTEQ DSTAREQ DSLASHEQ EQ EQEQ
-
-typedterminal NAME &'lt str
+nonterminals type_expression statements statement statement_newline simple_stmts
+nonterminals simple_stmt compound_stmt augassign 
 
 
 type_expressions:

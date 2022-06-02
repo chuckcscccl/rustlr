@@ -13,7 +13,7 @@ terminals XOR_ASSIGN OR_ASSIGN SIZEOF
 
 terminals TYPEDEF EXTERN STATIC AUTO REGISTER
 terminals CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE CONST VOLATILE VOID
-terminals STRUCT UNION ENUM ELLIPSIS
+terminals STRUCT UNION ENUM ELLIPSIS INCLUDE DEFINE
 
 terminals CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 terminals [ ] ( )  Lbrace Rbrace Amp + - ~ Bang Bar Hat ; Dot Comma Colon
@@ -200,7 +200,7 @@ init_declarator_list ==>
 
 init_declarator ==>
 	 declarator
-	| declarator Eq1 initializer
+	| declarator Eq1 initializer 
 	<==
 
 storage_class_specifier ==>
@@ -488,6 +488,8 @@ lexname GOTO goto
 lexname CONTINUE continue
 lexname BREAK break
 lexname RETURN return
+lexname INCLUDE include
+lexname DEFINE define
 lexname ELLIPSIS ...
 lexname Lbrace {
 lexname Rbrace }
