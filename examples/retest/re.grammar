@@ -4,7 +4,7 @@ terminal #
 nonterminals E
 topsym E
 
-E:SeqNum --> ID+ #? VAL
+E:SeqNum --> ID+ #? VAL 
 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
