@@ -196,6 +196,9 @@ impl Grammar
      let mut ltopt = String::new();
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
+     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
+     if self.genabsyn {wildcard.rusttype="()".to_owned();}
+     self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());        self.Symbols.push(wildcard); // wildcard is first symbol.
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -383,6 +386,7 @@ impl Grammar
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
+               if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -504,7 +508,8 @@ impl Grammar
 		   strtok = retoks[0]; // to be changed back to normal a:b
 		   let defaultrelab = format!("_item{}_",i-1);
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
-		   let gsympart = strtok[0..strtok.len()-1].trim(); //no *
+		   let mut gsympart = strtok[0..strtok.len()-1].trim(); //no *
+                   if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
 		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
@@ -554,9 +559,10 @@ impl Grammar
 		}// processes RE directive - add new productions
 
 		//////////// separte gsym from label:
-		let toks:Vec<&str> = strtok.split(':').collect();
+		let mut toks:Vec<&str> = strtok.split(':').collect();
+                if toks[0]=="_" {toks[0] = "_WILDCARD_TOKEN_";}
 		match self.Symhash.get(toks[0]) {
-		   None => {panic!("unrecognized grammar symbol '{}', line {}",toks[0],linenum); },
+		   None => {panic!("Unrecognized grammar symbol '{}', line {} of grammar",toks[0],linenum); },
 		   Some(symi) => {
                      let sym = &self.Symbols[*symi];
                      if self.Errsym.len()>0 && &sym.sym == &self.Errsym {
@@ -623,11 +629,12 @@ impl Grammar
      }
      // add start,eof and starting rule:
      let startnt = Gsym::new("START",false);
-     let eofterm =  Gsym::new("EOF",true);
+     let eofterm = Gsym::new("EOF",true);
+     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
 //     let anyerr = Gsym::new("ANY_ERROR",true);
      self.Symhash.insert(String::from("START"),self.Symbols.len());
      self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);
-//   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+2);     
+//   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+3);
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
 //     self.Symbols.push(anyerr.clone());     

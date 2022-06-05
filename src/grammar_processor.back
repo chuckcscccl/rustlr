@@ -193,6 +193,9 @@ impl Grammar
      let mut multiline = false;  // multi-line mode with ==>, <==
      let mut foundeol = false;
      let mut enumindex = 0;  // 0 won't be used:inc'ed before first use
+     let mut ltopt = String::new();
+     let mut ntcx = 2;  // used by -genabsyn option
+     self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -252,14 +255,19 @@ impl Grammar
             "EOF" => {atEOF=true},
             ("terminal" | "terminals") if stage==0 => {
                for i in 1..stokens.len() {
-	          let newterm = Gsym::new(stokens[i],true);
+	          let mut newterm = Gsym::new(stokens[i],true);
+		  if self.genabsyn {
+  		    newterm.rusttype = "()".to_owned();
+		  }
+		  else {
+		    newterm.rusttype = self.Absyntype.clone();
+		  }
+		  
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
                   self.Symbols.push(newterm);
-                  //self.Symbols.insert(stokens[i].to_owned(),newterm);
-		  //if self.tracelev>3 {println!("terminal {}",stokens[i]);}
                }
             }, //terminals
-	    "typedterminal" if stage==0 => {
+	    "typedterminal" if stage==0 && stokens.len()>2 => {
 	       let mut newterm = Gsym::new(stokens[1],true);
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
@@ -267,25 +275,38 @@ impl Grammar
                   tokentype.push(' ');
                }
                let mut nttype = tokentype.trim();
-               if nttype.len()<2 {nttype = &self.Absyntype}
+               if nttype.len()<1 {nttype = &self.Absyntype}
                else if nttype!=&self.Absyntype {self.sametype=false;}
-               newterm.settype(nttype);               
+               newterm.settype(nttype);
+	       self.enumhash.insert(nttype.to_owned(), ntcx);  ntcx+=1;
                //newterm.settype(tokentype.trim());
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);           
 	    }, //typed terminals
-	    "nonterminal" if stage==0 => {   // with type
+	    "nonterminal" | "typednonterminal" if stage==0 && stokens.len()>1 => {   // with type
+	       if self.Symhash.get(stokens[1]).is_some() {
+	         eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum);
+		 continue;
+	       }
 	       let mut newterm = Gsym::new(stokens[1],false);
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
                   tokentype.push_str(&stokens[i][..]);
                   tokentype.push(' ');
                }
-
-               let mut nttype = tokentype.trim();
-               if nttype.len()<2 {nttype = &self.Absyntype};
-               newterm.settype(nttype);
-
+               // set rusttype
+               let mut nttype = tokentype.trim().to_owned();
+               if nttype.len()<1 && self.genabsyn {
+	         nttype = format!("{}{}",stokens[1],&ltopt);
+	       }  // genabsyn
+	       else if nttype.starts_with('*') {// copy type from other NT
+	         let copynt = nttype[1..].trim();
+	         let onti = *self.Symhash.get(copynt).expect(&format!("UNRECOGNIZED NON-TERMINAL SYMBOL {} TO COPY TYPE FROM (ORDER OF DECLARATION MATTERS), line {} of grammar",copynt,linenum));
+		 nttype = self.Symbols[onti].rusttype.clone();
+	       } // *NT copy type from other NT
+               if nttype.len()<1 {nttype = self.Absyntype.clone()};
+	       self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;
+	       newterm.rusttype = nttype;
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
@@ -294,7 +315,12 @@ impl Grammar
                for i in 1..stokens.len() {
 	          let mut newterm = Gsym::new(stokens[i],false);
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
-                  if (newterm.rusttype.len()<2) {newterm.rusttype = self.Absyntype.clone();}
+                  if self.genabsyn {
+		    newterm.rusttype = format!("{}{}",stokens[i],&ltopt);
+		  }
+		  else {newterm.rusttype = self.Absyntype.clone();}
+		  self.enumhash.insert(newterm.rusttype.clone(), ntcx);
+		  ntcx+=1; 
                   self.Symbols.push(newterm);
                   self.Rulesfor.insert(stokens[i].to_owned(),HashSet::new());
 		  //if TRACE>2 {println!("nonterminal {}",stokens[i]);}
@@ -306,7 +332,7 @@ impl Grammar
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
               	    self.topsym = String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
-                    if toptype != &self.Absyntype && &self.Absyntype!="()" && toptype.len()>1 {
+                    if toptype != &self.Absyntype && !self.genabsyn && toptype.len()>0 {
                        eprintln!("Type of Grammar start symbol {} set to {}",stokens[1],&self.Absyntype);
                        self.Symbols[*tsi].rusttype = self.Absyntype.clone();
                     }
@@ -351,12 +377,12 @@ impl Grammar
             "lifetime" if stokens.len()==2 && stokens[1].len()>0  && stage==0 => {
                self.lifetime = if &stokens[1][0..1]=="'" && stokens[1].len()>1 
                  {String::from(stokens[1])} else {format!("'{}",stokens[1])};
+	       ltopt = format!("<{}>",&self.lifetime);
             },
             "absyntype" | "valuetype" /*if stage==0*/ => {
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
-	       if TRACE>2 {println!("abstract syntax type is {}",&self.Absyntype);}
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -365,10 +391,13 @@ impl Grammar
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
-               if stokens.len()<3 {continue;}
+               if stokens.len()<3 {
+	         eprintln!("MALFORMED ASSOCIATIVITY/PRECEDENCE DECLARATION SKIPPED ON LINE {}",linenum);
+	         continue;
+	       }
 	       let mut preclevel:i32 = DEFAULTPRECEDENCE;
 	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
-               else {panic!("did not read precedence level on line {}",linenum);}
+               else {panic!("Did not read precedence level on line {}",linenum);}
 	       if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
                if let Some(index) = self.Symhash.get(stokens[1]) {
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
@@ -378,13 +407,19 @@ impl Grammar
                }
 	    }, // precedence and associativity
 	    "lexname"  => {
-               if stokens.len()<3 {continue;}  // "||" -> "OROR"
+               if stokens.len()<3 {
+	         eprintln!("MALFORMED lexname declaration line {} skipped",linenum);
+	         continue;
+	       }
                self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
             },
 	    "lexvalue" => {
-	       if stokens.len()<4 {continue;}  // "int" -> ("Num(n)","Val(n)")
+	       if stokens.len()<4 {
+	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
+	         continue;
+	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
 	       for i in 3 .. stokens.len()
 	       {
@@ -396,7 +431,7 @@ impl Grammar
 	       self.Haslexval.insert(stokens[1].to_string());
 	       self.genlex = true;
 	    },
-	    "lexset" | "lexattribute" => {
+	    "lexattribute" => {
 	       let mut prop = String::new();
 	       for i in 1 .. stokens.len()
 	       {
@@ -450,19 +485,76 @@ impl Grammar
               let bstokens:Vec<_> = rul.trim().split_whitespace().collect();
               let mut rhsyms:Vec<Gsym> = Vec::new();
               let mut semaction = "}";
-	      let mut i:usize = 0;
+	      let mut i:usize = 0;   // bstokens index on one barsplit 
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
               while i<bstokens.len() {
-	        let strtok = bstokens[i];
+	        let mut strtok = bstokens[i];
 		i+=1;
                 if strtok.len()>0 && &strtok[0..1]=="{" {
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
 		   break;
                 }
+
+		// add code to recognize E*, E+ and E?
+                let newtok; // will be new strtok
+		let retoks:Vec<&str> = strtok.split(':').collect();
+		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
+		   strtok = retoks[0]; // to be changed back to normal a:b
+		   let defaultrelab = format!("_item{}_",i-1);
+		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
+		   let gsympart = strtok[0..strtok.len()-1].trim(); //no *
+		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
+		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
+		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
+		   let mut newnt = Gsym::new(&newntname,false);
+		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+		   if !self.enumhash.contains_key(&newnt.rusttype) {
+ 		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
+		     ntcx+=1;
+		   }
+		   self.Symbols.push(newnt.clone());
+		   self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
+		   // add new rules
+		   let mut newrule1 = Grule::new_skeleton(&newntname);
+		   newrule1.lhs.rusttype = newnt.rusttype.clone();
+		   if strtok.ends_with('?') {
+		     newrule1.rhs.push(self.Symbols[gsymi].clone());
+		     newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
+		   }
+		   else { // * or +
+  		     newrule1.rhs.push(newnt.clone());
+		     newrule1.rhs.push(self.Symbols[gsymi].clone());
+		     newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+		   }
+		   let mut newrule0 = Grule::new_skeleton(&newntname);
+		   newrule0.lhs.rusttype = newnt.rusttype.clone();
+		   if strtok.ends_with('+') {
+		     newrule0.rhs.push(self.Symbols[gsymi].clone());
+		     newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+		   }
+		   else if strtok.ends_with('*') {
+		     newrule0.action = String::from(" Vec::new() }");
+//println!("rule lhs type is {}",&newrule0.lhs.rusttype);		     
+		   }
+		   else if strtok.ends_with('?') {
+		     newrule0.action = String::from(" None }");
+		   }
+		   self.Rules.push(newrule0);
+		   self.Rules.push(newrule1);
+		   let mut rulesforset = HashSet::with_capacity(2);
+		   rulesforset.insert(self.Rules.len()-2);
+		   rulesforset.insert(self.Rules.len()-1);
+		   //newtok = format!("{}:_item{}_",&newntname,i-1);
+		   newtok = format!("{}:{}",&newntname,relabel);
+		   self.Rulesfor.insert(newntname,rulesforset);
+		   // change strtok to new form
+		   strtok = &newtok;
+		}// processes RE directive - add new productions
+
+		//////////// separte gsym from label:
 		let toks:Vec<&str> = strtok.split(':').collect();
-//if TRACE>2&&toks.len()>1 {println!("see labeled token {}",strtok);}		
 		match self.Symhash.get(toks[0]) {
 		   None => {panic!("unrecognized grammar symbol '{}', line {}",toks[0],linenum); },
 		   Some(symi) => {
@@ -476,7 +568,6 @@ impl Grammar
                      }
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<2 {newsym.rusttype = self.Absyntype.clone();}
-//println!("newsym {} type is ({})",&newsym.sym,&newsym.rusttype);                    
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
@@ -489,20 +580,8 @@ impl Grammar
 			 }
 			 if !label.ends_with('@') { panic!("pattern labels must be closed with @, line {}",linenum);}			 
 		       } // if-let pattern
-/*		       
-                       if &toks[1][0..1]=="'" { // if-let pattern
-		         label.push_str(&toks[1][..]); // include leading ' in string
-			 while !label.ends_with("'") && i<bstokens.len()
-			 { // i indexes all tokens split by whitespaces
-			    label.push(' '); label.push_str(bstokens[i]); i+=1;
-			 }
-			 if !label.ends_with("'") { panic!("pattern labels must be closed with  a ', line {}",linenum);}
-		       }// ' pattern '
-*/		       
                        else { label = toks[1].trim().to_string(); }
 		       newsym.setlabel(label.trim_end_matches('@'));
-		       //newsym.setlabel(label.trim_end_matches("'"));		       
-		       //newsym.setlabel(toks[1].trim()); 
 	             }//label exists
 			
                      if maxprec.abs() < newsym.precedence.abs()  {
@@ -513,7 +592,8 @@ impl Grammar
                 }//match
 	      } // while there are tokens on rhs
 	      // form rule
-              let mut newlhs = lhsym.clone();
+	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
+              let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
@@ -562,17 +642,21 @@ impl Grammar
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
+     if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
+        self.Absyntype = topgsym.rusttype.clone();
+     }
      for ri in 0..self.Symbols.len()
      {
         let rtype = &self.Symbols[ri].rusttype;
-        if rtype.len()<2 {
+        if rtype.len()<1 {
           self.Symbols[ri].settype(&self.Absyntype);
         }
         else if rtype!=&self.Absyntype {
+	//println!("NOT SAME TYPE: {} and {}",rtype,&self.Absyntype);	
           self.sametype = false;
           if !self.enumhash.contains_key(rtype) {
-            enumindex +=1;
-            self.enumhash.insert(rtype.to_owned(),enumindex);
+            self.enumhash.insert(rtype.to_owned(),ntcx); ntcx+=1;
+	    //eprintln!("SHOULDNT BE HERE");
           }
         }// set enumindex
      }//compute sametype
@@ -840,35 +924,25 @@ impl<'t> {0}<'t>
 pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 {
     let ref absyn = self.Absyntype;
+//println!("enumhash for absyn {} is {:?}",absyn,self.enumhash.get(absyn));
     let ref extype = self.Externtype;
     let ref lifetime = self.lifetime;
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
     //enum name is Retenumgrammarname, variant is _grammarname_enum_{n}
-    let enumname = format!("RetTypeEnum{}",&ltopt);  // will not be pub
+    let enumname = format!("RetTypeEnum{}",&ltopt);  // will be pub
     let symlen = self.Symbols.len();
     write!(fd,"\n//Enum for return values \npub enum {} {{\n",&enumname)?;
 
     for (typesym,eindex) in self.enumhash.iter()
     {
        write!(fd,"  Enumvariant_{}({}),\n",eindex,typesym)?;
+       //println!("  Enumvariant_{}({}),\n",eindex,typesym);
     }
-/*
-    let mut varset:HashSet<usize> = HashSet::with_capacity(self.Symbols.len());
-    for sym in &self.Symbols
-    {
-       if !varset.contains(&sym.enumindex) {
-         varset.insert(sym.enumindex);
-         write!(fd,"  Enumvariant_{}({}),\n",sym.enumindex,&sym.rusttype)?;
-       }
-    }
-*/    
     write!(fd,"}}\n")?;
-    //write!(fd,"impl{} {} {{\n",&ltopt,&enumname)?;
     write!(fd,"impl{} Default for {} {{ fn default()->Self {{RetTypeEnum::Enumvariant_0(<{}>::default())}} }}\n\n",&ltopt,&enumname,&self.Absyntype)?;
     Ok(())
 }// generate enum from rusttype defs RetTypeEnum::Enumvariant_0 is absyntype
-
 
 }//impl Grammar continued
 

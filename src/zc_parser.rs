@@ -228,7 +228,6 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   // next token
   fn shift<'t>(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> TerminalToken<'t, AT>
   {
-     //self.stack.push(Stackelement{si:nextstate,value:lookahead.value});
      self.linenum = lookahead.line;  self.column=lookahead.column;
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
      //self.nexttoken()
@@ -994,6 +993,11 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       self.column=self.stack[self.stack.len()-1].column;
       let currentstate = self.stack[self.stack.len()-1].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym);
+
+      if actionopt.is_none() && lookahead.sym!="EOF" { // added in version 0.2.9
+        actionopt = self.RSM[currentstate].get("_WILDCARD_TOKEN_");
+      }
+
       let actclone:Option<Stateaction> = match actionopt {
         Some(a) => Some(*a),
         None => None,

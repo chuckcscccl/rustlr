@@ -270,8 +270,8 @@ pub enum RawToken<'t>
   /// Alphanumeric sequence, staring with an alphabetical character or '_',
   /// and followed by arbitrary numbers of alphabetical, numeric or _.
   Alphanum(&'t str),
-  /// non-alphanumeric characters, either identified as doubles, singles, or
-  /// unrecognized sequences.
+  /// non-alphanumeric characters, either identified as triples, doubles,
+  /// singles, or unrecognized sequences (refering to length of symbol)
   Symbol(&'t str),
   /// a single byte (intended for binary data): this variant is currently
   /// not recognized by [StrTokenizer]
@@ -331,6 +331,7 @@ pub struct StrTokenizer<'t>
    nonalph:Regex,
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
+   triples:HashSet<&'t str>,
    //other_syms: Vec<&'t str>,
    input: &'t str,
    position: usize,
@@ -366,7 +367,8 @@ impl<'t> StrTokenizer<'t>
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
-    let mut doubles = HashSet::with_capacity(16);    
+    let mut doubles = HashSet::with_capacity(16);
+    let mut triples = HashSet::with_capacity(16);        
     let mut singles = HashSet::with_capacity(16);
     for c in ['(',')','[',']','{','}'] {singles.insert(c);}
     //let mut other_syms = Vec::with_capacity(32);
@@ -382,7 +384,7 @@ impl<'t> StrTokenizer<'t>
     let line_start=0;
     let src = "";
     let line_positions = vec![0,0];
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,triples,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -395,6 +397,10 @@ impl<'t> StrTokenizer<'t>
   /// add a single-character symbol.  The type of the symbol overrides other
   /// types except for whitespaces, comments and double-character symbols.
   pub fn add_single(&mut self, c:char) { self.singles.insert(c);}
+  /// add a 3-character symbol
+  pub fn add_triple(&mut self, s:&'t str)
+  { if s.len()==3 {self.triples.insert(s);} }
+
   /*
   /// add symbol of length greater than two. Symbols that are prefixes of
   /// other symbols should be added after the longer symbols.
@@ -443,7 +449,7 @@ impl<'t> StrTokenizer<'t>
   pub fn current_line(&self) -> &str
   {
      let startl = self.line_start;
-     let max = self.input.len() - startl+1;
+     let max = self.input.len() - startl;
      let endl = self.input[startl..].find('\n').unwrap_or(max);
      &self.input[startl..startl+endl]
   }
@@ -544,7 +550,12 @@ impl<'t> StrTokenizer<'t>
        else {continue;}
     }//multi-line comments
 
-
+    // look for triples
+    if self.triples.len()>0 && pi+2<self.input.len() && self.triples.contains(&self.input[pi..pi+3]) {
+      self.position = pi+3;
+      return Some((Symbol(&self.input[pi..pi+3]),self.line,self.column()-3));
+    }
+    
     // look for doubles
     if pi+1<self.input.len() && self.doubles.contains(&self.input[pi..pi+2]) {
       self.position = pi+2;
