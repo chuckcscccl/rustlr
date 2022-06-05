@@ -64,11 +64,11 @@ use crate::zc_parser::ZCParser;
 //use crate::RuntimeParser;
 //use crate::GenAbsyn::*;
 
-/// custom smart pointer that encapsulates line number and column.  Source
-/// ID information is kept at the parser (RuntimeParser or ZCParser) level (since version 0.2.0).
-/// For warnings and error messages after the parsing stage.  Implements
-/// [Deref] and [DerefMut] so the encapsulated expression can be accessed as
-/// in a standard Box.  
+/// Custom smart pointer that encapsulates line and column numbers along with
+/// a regular [Box].  Implements [Deref] and [DerefMut] so the encapsulated
+/// expression can be accessed as in a standard Box.  This is intended to
+/// to be used in the formation of abstract syntax trees so that the lexical
+/// information is available for each construct after the parsing stage.
 pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
@@ -122,6 +122,14 @@ impl<T:Clone> Clone for LBox<T>
         //src_id: self.src_id,
       }
    }//clone
+}
+impl<T:?Sized> AsRef<T> for LBox<T>
+{
+  fn as_ref(&self) -> &T  { &*self.exp }
+}
+impl<T:?Sized> AsMut<T> for LBox<T>
+{
+  fn as_mut(&mut self) -> &mut T  { &mut *self.exp }
 }
 
 impl<'t> LBox<dyn Any+'t>
