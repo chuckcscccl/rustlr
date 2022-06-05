@@ -89,7 +89,7 @@ impl Grammar
 	    let itemlabel = if rsym.label.len()>0 {rsym.label.clone()} else
             	            {format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
-            if !self.Symbols[rsymi].terminal {
+            if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
 	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
 	    }

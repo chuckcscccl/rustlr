@@ -196,6 +196,9 @@ impl Grammar
      let mut ltopt = String::new();
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
+     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
+     if self.genabsyn {wildcard.rusttype="()".to_owned();}
+     self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());        self.Symbols.push(wildcard); // wildcard is first symbol.
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -383,6 +386,7 @@ impl Grammar
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
+               if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -485,7 +489,7 @@ impl Grammar
               let bstokens:Vec<_> = rul.trim().split_whitespace().collect();
               let mut rhsyms:Vec<Gsym> = Vec::new();
               let mut semaction = "}";
-	      let mut i:usize = 0;
+	      let mut i:usize = 0;   // bstokens index on one barsplit 
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
               while i<bstokens.len() {
@@ -504,12 +508,16 @@ impl Grammar
 		   strtok = retoks[0]; // to be changed back to normal a:b
 		   let defaultrelab = format!("_item{}_",i-1);
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
-		   let gsympart = strtok[0..strtok.len()-1].trim(); //no *
+		   let mut gsympart = strtok[0..strtok.len()-1].trim(); //no *
+                   if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
 		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
-		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+                   newnt.rusttype = "()".to_owned();
+                   if &self.Symbols[gsymi].rusttype!="()" {
+		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+                   }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
  		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
 		     ntcx+=1;
@@ -521,24 +529,29 @@ impl Grammar
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-		     newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
-		   }
+                     if &newrule1.lhs.rusttype!="()" {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
+                     }
+		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-		     newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
-		   }
+                     if &newrule1.lhs.rusttype!="()" {
+		       newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+                     }
+		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
 		   newrule0.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
-		     newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
-		   }
-		   else if strtok.ends_with('*') {
+                     if &newrule0.lhs.rusttype!="()" {
+		       newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+                     }
+		   }// ends with +
+		   else if strtok.ends_with('*') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" Vec::new() }");
-//println!("rule lhs type is {}",&newrule0.lhs.rusttype);		     
 		   }
-		   else if strtok.ends_with('?') {
+		   else if strtok.ends_with('?') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" None }");
 		   }
 		   self.Rules.push(newrule0);
@@ -554,9 +567,10 @@ impl Grammar
 		}// processes RE directive - add new productions
 
 		//////////// separte gsym from label:
-		let toks:Vec<&str> = strtok.split(':').collect();
+		let mut toks:Vec<&str> = strtok.split(':').collect();
+                if toks[0]=="_" {toks[0] = "_WILDCARD_TOKEN_";}
 		match self.Symhash.get(toks[0]) {
-		   None => {panic!("unrecognized grammar symbol '{}', line {}",toks[0],linenum); },
+		   None => {panic!("Unrecognized grammar symbol '{}', line {} of grammar",toks[0],linenum); },
 		   Some(symi) => {
                      let sym = &self.Symbols[*symi];
                      if self.Errsym.len()>0 && &sym.sym == &self.Errsym {
@@ -623,11 +637,12 @@ impl Grammar
      }
      // add start,eof and starting rule:
      let startnt = Gsym::new("START",false);
-     let eofterm =  Gsym::new("EOF",true);
+     let eofterm = Gsym::new("EOF",true);
+     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
 //     let anyerr = Gsym::new("ANY_ERROR",true);
      self.Symhash.insert(String::from("START"),self.Symbols.len());
      self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);
-//   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+2);     
+//   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+3);
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
 //     self.Symbols.push(anyerr.clone());     

@@ -514,7 +514,10 @@ impl Grammar
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
 		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
-		   newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+                   newnt.rusttype = "()".to_owned();
+                   if &self.Symbols[gsymi].rusttype!="()" {
+		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+                   }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
  		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
 		     ntcx+=1;
@@ -526,24 +529,29 @@ impl Grammar
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-		     newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
-		   }
+                     if &newrule1.lhs.rusttype!="()" {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
+                     }
+		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-		     newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
-		   }
+                     if &newrule1.lhs.rusttype!="()" {
+		       newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+                     }
+		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
 		   newrule0.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
-		     newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
-		   }
-		   else if strtok.ends_with('*') {
+                     if &newrule0.lhs.rusttype!="()" {
+		       newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+                     }
+		   }// ends with +
+		   else if strtok.ends_with('*') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" Vec::new() }");
-//println!("rule lhs type is {}",&newrule0.lhs.rusttype);		     
 		   }
-		   else if strtok.ends_with('?') {
+		   else if strtok.ends_with('?') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" None }");
 		   }
 		   self.Rules.push(newrule0);

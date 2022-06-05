@@ -1,14 +1,16 @@
 typedterminal VAL i64
 typedterminal a i32
-typedterminal b i32
-typedterminal c i32
-nonterminals E T
+#typedterminal b i32
+terminal b i32
+terminal c
+nonterminals E
+nonterminal T ()
 topsym E
 
 #E:SeqNum --> a _* c b
 
 T --> b | _
-E --> a T* b
+E --> a T+ b
 
 lexvalue VAL Num(n) n
 
