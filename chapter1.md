@@ -91,7 +91,7 @@ The first line in the grammar specification:
 (alternatively `absyntype i32`) defines the type of value returned by
 the parser.  In most cases that would be some enum that defines an
 abstract syntax tree, but here we will just calculate an i32 value.
-The default valuetype (if none declared) is i64. 
+The default valuetype (if none declared) is `()`, unit. 
 
 **The valuetype you choose must implement the Default trait.**
 
