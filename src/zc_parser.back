@@ -176,18 +176,22 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     }
 
     /// may be called from grammar semantic actions to report error.
-    /// this report function will print to stdout. 
-    pub fn report(&mut self, errmsg:&str)  
-    {      // linenum must be set prior to call
+    /// this report function will print to stdout.
+    pub fn report(&mut self, errmsg:&str)  {self.report_error(errmsg,false)}
+    /// same as [ZCParser::report] but with option to display line/column
+    pub fn report_error(&mut self, errmsg:&str, showlc: bool)  
+    {  
        //eprint!("{}",color::Fg(color::Yellow));
        if (self.report_line != self.linenum || self.linenum==0)  {
-//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-//         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
-         eprintln!("PARSER ERROR: {}",errmsg);
+//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());
+         if showlc {
+           eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg); }
+         else { eprintln!("PARSER ERROR: {}",errmsg); }
          self.report_line = self.linenum;
        }
        else {
-         eprint!(" {} ",errmsg);
+         if showlc { eprint!(" ({},{}): {}",self.linenum,self.column,errmsg); }
+         else {eprint!(" {}",errmsg);}
        }
        //eprint!("{}",color::Fg(color::Reset));       
        self.err_occurred = true;
@@ -228,7 +232,6 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   // next token
   fn shift<'t>(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> TerminalToken<'t, AT>
   {
-     //self.stack.push(Stackelement{si:nextstate,value:lookahead.value});
      self.linenum = lookahead.line;  self.column=lookahead.column;
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
      //self.nexttoken()
@@ -897,6 +900,7 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
     let mut tokenlen = lookahead.sym.len();
     if is_alphanum(&lookahead.sym) {tokenlen = 3;}
     while tokenlen>0 { errmsg.push('^'); tokenlen-=1; }
+    errmsg.push('\n');
   }// augment errmsg with current line
   
   parser.report(&errmsg);
@@ -994,6 +998,11 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       self.column=self.stack[self.stack.len()-1].column;
       let currentstate = self.stack[self.stack.len()-1].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym);
+
+      if actionopt.is_none() && lookahead.sym!="EOF" { // added in version 0.2.9
+        actionopt = self.RSM[currentstate].get("_WILDCARD_TOKEN_");
+      }
+
       let actclone:Option<Stateaction> = match actionopt {
         Some(a) => Some(*a),
         None => None,

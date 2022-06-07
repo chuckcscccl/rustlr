@@ -18,77 +18,77 @@ use rustlr::LBox;
 use crate::calcauto_ast;
 use crate::calcauto_ast::*;
 
-static SYMBOLS:[&'static str;16] = ["Expr","ES","+","-","*","/","(",")","=",";","let","in","int","var","START","EOF"];
+static SYMBOLS:[&'static str;17] = ["_WILDCARD_TOKEN_","Expr","ES","+","-","*","/","(",")","=",";","let","in","int","var","START","EOF"];
 
-static TABLE:[u64;146] = [51540066304,64425099266,131073,42949869568,12885164032,55834640384,25770131456,4295360513,281505041547266,281522221416450,281513631481858,281487861678082,281496451612674,281483566710786,281492156645378,562962838913024,562958544076800,562971428782080,562967133945856,562988608913408,844480765558784,1125899907760129,1125951446908928,1125955741483008,1125925676974080,1125912792006656,1125942856712192,1407400653684736,1407374884536321,1407430718193664,1407426423619584,1407387768717312,1407417833422848,1688914284773379,1970346311811074,1970333426909186,1970342016843778,1970363491680258,1970372081614850,1970354901745666,1970337721876482,2251842763554816,2251855648325632,2251812698849280,2251825583816704,2251799814733825,2251851353751552,2533326330462208,2533274791510017,2533317740265472,2533287675559936,2533300560527360,2533330625036288,2814792716976128,2814749768286209,2814775537238016,2814762652270592,2814805601746944,2814801307172864,3096267693686784,3096237628981248,3096224745062401,3096276283883520,3096250513948672,3096280578457600,3377764145627138,3377725490659328,3377699720658945,3377755555168256,3377712605691904,3377751260594176,3377704016805889,3377742670397440,3659209058353152,3940666854473728,3940688329113602,3940696919048194,3940671149309952,3940679739179010,3940658264342530,3940662559309826,4222154716872704,4222146126020608,4222141831184384,4222137536151552,4222133241315328,4503629692469250,4503621102534658,4503612512600066,4503608217632770,4503646872338434,4503638282403842,4503616807567362,4785087489245186,4785083194277890,4785096079441920,4785113259048962,4785121848983554,4785091784605696,4785104669114370,5066596825825282,5066566761054210,5066571056021506,5066579645956098,5066562466086914,5066558171119618,5066588235890690,5348054622470146,5348037442600962,5348033147633666,5348041738027008,5348063212404738,5348071802339330,5348046032863232,5629563959377922,5910987396087808,5910974512431105,5911017460793344,5911026050990080,5911030345564160,5911000281055232,6192462373060610,6192466668027906,6192458078093314,6192479552929794,6192496732798978,6192488142864386,6192470962995202,6473971710558208,6473941644869632,6473937349836800,6473933055000576,6473945939705856,6755425211187200,6755455275696128,6755412326219776,6755399442694145,6755450981122048,6755442390925312,7036913072603138,7036883008421888,7036887303258112,7036895893127168,7036904482668546,7036891598290944,7036921662537730,];
+static TABLE:[u64;146] = [8590393345,47244902400,4295032833,30065098752,17180000256,60129738752,55834968064,68720066562,281500747169792,281492157169664,281487862136832,281517927170048,281496452268032,562980018520064,562954249240577,563005788389376,562997198323712,563010083160064,562967133421568,844446405033986,844467879870466,844437815099394,844476469805058,844459289935874,844442110066690,844450700001282,1125960037302272,1407392063553536,1407430718521344,1407404948652032,1407379179503617,1407435013292032,1407422128455680,1688875630067714,1688862745165826,1688871335100418,1688867040133122,1688884220002306,1688901399871490,1688892809936898,1970393556451331,2251855648653312,2251829878784000,2251804109701121,2251816993685504,2251847058587648,2251859943424000,2533304855494656,2533330625363968,2533334920134656,2533279086477313,2533291970396160,2533322035298304,2814754063253505,2814779832205312,2814797012008960,2814809896845312,2814766947106816,2814805602074624,3096284873555968,3096229040029697,3096254808915968,3096271988719616,3096241923817472,3096280578785280,3377716900528128,3377759850266624,3377729785626624,3377708311773185,3377704015560705,3377755555495936,3377746965430272,3377768440594434,3659187582599170,3659217647370242,3659209057435650,3659191877566466,3659200467697664,3659226237304834,3659196172795904,3940688330031104,4222137536086016,4222146126217216,4222150421118976,4222141831118848,4222159011840000,4503625397829632,4503633987305474,4503642577240066,4503616807436290,4503621102927872,4503651167174658,4503612512468994,4785100374540288,4785096079638528,4785117554016258,4785091784212482,4785108964081666,4785087489245186,4785126143950850,5066583940857858,5066571055955970,5066575350923266,5066566760988674,5066592530792450,5066601120727042,5066562466021378,5348046032732162,5348067507568642,5348041737764866,5348076097503234,5348050327699458,5348058917634050,5348037442797570,5629568254345218,5910978807398401,5911004576022528,5910991690924032,5911021755826176,5911034640662528,5911030345891840,6192466668027906,6192470962995202,6192483847897090,6192475257962498,6192501027766274,6192462373060610,6192492437831682,6473941644804096,6473945939902464,6473976005525504,6473937349771264,6473950234804224,6755416621056000,6755455276023808,6755459570794496,6755429506154496,6755446685958144,6755403737661441,7036908777635842,7036917367570434,7036891598225408,7036895893323776,7036900188225536,7036925957505026,7036887303192576,];
 
 
 fn _semaction_rule_0_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<i64>::default()}; Expr::Val(_item0_) }
+let mut _item0_ = if let RetTypeEnum::Enumvariant_4(_x_4)=parser.popstack().value { _x_4 } else {<i64>::default()}; Expr::Val(_item0_) }
 
 fn _semaction_rule_1_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<&'lt str>::default()}; Expr::Var(_item0_) }
+let mut _item0_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<&'lt str>::default()}; Expr::Var(_item0_) }
 
 fn _semaction_rule_2_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item5_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item4_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item3_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; Expr::Letexp(_item1_,parser.lbx(3,_item3_),parser.lbx(5,_item5_)) }
+let mut _item5_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item4_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item3_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; Expr::Letexp(_item1_,parser.lbx(3,_item3_),parser.lbx(5,_item5_)) }
 
 fn _semaction_rule_3_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; Expr::Plus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Plus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
 
 fn _semaction_rule_4_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; Expr::Minus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Minus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
 
 fn _semaction_rule_5_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; Expr::Div(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Div(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
 
 fn _semaction_rule_6_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; Expr::Times(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Times(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
 
 fn _semaction_rule_7_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item1_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; Expr::Neg(parser.lbx(1,_item1_)) }
+let mut _item1_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; Expr::Neg(parser.lbx(1,_item1_)) }
 
 fn _semaction_rule_8_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut e = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()};  e }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut e = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()};  e }
 
 fn _semaction_rule_9_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
 ES::nil }
 
 fn _semaction_rule_10_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_18(_x_18)=parser.popstack().value { _x_18 } else {<Expr<'lt>>::default()}; ES::cons(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; ES::cons(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
 
-fn _semaction_rule_11_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> () {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_17(_x_17)=parser.popstack().value { _x_17 } else {<()>::default()}; <()>::default()}
+fn _semaction_rule_11_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; <ES<'lt>>::default()}
 
 pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,()>
 {
  let mut parser1:ZCParser<RetTypeEnum<'lt>,()> = ZCParser::new(12,26);
  let mut rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("start");
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_0_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_0_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_1_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_1_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_2_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_2_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_3_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_3_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_4_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_4_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_5_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_5_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_6_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_6_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_7_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_7_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_18(_semaction_rule_8_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_8_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("ES");
  rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_9_(parser)) };
@@ -97,7 +97,7 @@ pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,()>
  rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_10_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("START");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_17(_semaction_rule_11_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_11_(parser)) };
  parser1.Rules.push(rule);
  parser1.Errsym = "";
  parser1.resynch.insert(";");
@@ -130,11 +130,11 @@ pub fn parse_train_with<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>, lexer:&m
 
 //Enum for return values 
 pub enum RetTypeEnum<'lt> {
+  Enumvariant_1(()),
+  Enumvariant_2(Expr<'lt>),
   Enumvariant_0(ES<'lt>),
-  Enumvariant_1(i64),
-  Enumvariant_18(Expr<'lt>),
-  Enumvariant_2(&'lt str),
-  Enumvariant_17(()),
+  Enumvariant_5(&'lt str),
+  Enumvariant_4(i64),
 }
 impl<'lt> Default for RetTypeEnum<'lt> { fn default()->Self {RetTypeEnum::Enumvariant_0(<ES<'lt>>::default())} }
 
@@ -156,7 +156,7 @@ impl<'t> calcautolexer<'t>
   pub fn new(mut stk:StrTokenizer<'t>) -> calcautolexer<'t> {
     let mut lexnames = HashMap::with_capacity(64);
     let mut keywords = HashSet::with_capacity(64);
-    for kw in ["let","in",] {keywords.insert(kw);}
+    for kw in ["let","in","_WILDCARD_TOKEN_",] {keywords.insert(kw);}
     for c in ['+','-','*','/','(',')','=',';',] {stk.add_single(c);}
     for d in [] {stk.add_double(d);}
     for d in [] {stk.add_triple(d);}
@@ -176,8 +176,8 @@ impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for calcautolexer<'lt>
         let truesym = self.lexnames.get(sym).unwrap_or(&sym);
         Some(TerminalToken::from_raw(token,truesym,<RetTypeEnum<'lt>>::default()))
       },
-      RawToken::Num(n) => Some(TerminalToken::from_raw(token,"int",RetTypeEnum::Enumvariant_1(n))),
-      RawToken::Alphanum(x) => Some(TerminalToken::from_raw(token,"var",RetTypeEnum::Enumvariant_2(x))),
+      RawToken::Num(n) => Some(TerminalToken::from_raw(token,"int",RetTypeEnum::Enumvariant_4(n))),
+      RawToken::Alphanum(x) => Some(TerminalToken::from_raw(token,"var",RetTypeEnum::Enumvariant_5(x))),
       RawToken::Symbol(s) if self.lexnames.contains_key(s) => {
         let tname = self.lexnames.get(s).unwrap();
         Some(TerminalToken::from_raw(token,tname,<RetTypeEnum<'lt>>::default()))

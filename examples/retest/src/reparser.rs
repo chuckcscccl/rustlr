@@ -18,9 +18,9 @@ use rustlr::LBox;
 use crate::re_ast;
 use crate::re_ast::*;
 
-static SYMBOLS:[&'static str;9] = ["ID","VAL","#","E","NID0","N#2","START","EOF","_WILDCARD_TOKEN_"];
+static SYMBOLS:[&'static str;9] = ["_WILDCARD_TOKEN_","ID","VAL","#","E","NID0","N#2","START","EOF"];
 
-static TABLE:[u64;17] = [17180000257,12885098497,65536,281483566645250,281474976710658,281479271677954,562949953683456,562954248519682,562958543749120,562971428585473,844454994903043,1125908496842754,1125899906908162,1125904201875458,1407379178979328,1688854155427842,1970354902007810,];
+static TABLE:[u64;17] = [4295098368,17179934721,21475033089,281509336449027,562954248388610,562958543355906,562962838323202,844433520197634,844450700263425,844437815427072,844429225361408,1125904201875458,1125908496842754,1125912791810050,1407383473946624,1688858450395138,1970359196975106,];
 
 
 fn _semaction_rule_0_(parser:&mut ZCParser<RetTypeEnum,()>) -> Vec<LBox<String>> {
@@ -29,14 +29,14 @@ let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().valu
 fn _semaction_rule_1_(parser:&mut ZCParser<RetTypeEnum,()>) -> Vec<LBox<String>> {
 let mut _item1_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<String>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<Vec<LBox<String>>>::default()};  _item0_.push(parser.lbx(1,_item1_)); _item0_ }
 
-fn _semaction_rule_2_(parser:&mut ZCParser<RetTypeEnum,()>) -> Option<LBox<()>> {
- None }
+fn _semaction_rule_2_(parser:&mut ZCParser<RetTypeEnum,()>) -> () {
+<()>::default()}
 
-fn _semaction_rule_3_(parser:&mut ZCParser<RetTypeEnum,()>) -> Option<LBox<()>> {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()};  Some(parser.lbx(0,_item0_)) }
+fn _semaction_rule_3_(parser:&mut ZCParser<RetTypeEnum,()>) -> () {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; <()>::default()}
 
 fn _semaction_rule_4_(parser:&mut ZCParser<RetTypeEnum,()>) -> E {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_6(_x_6)=parser.popstack().value { _x_6 } else {<Option<LBox<()>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<Vec<LBox<String>>>::default()}; E::SeqNum(parser.lbx(0,_item0_),parser.lbx(1,_item1_),_item2_) }
+let mut _item2_ = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<Vec<LBox<String>>>::default()}; E::SeqNum(parser.lbx(0,_item0_),_item2_) }
 
 fn _semaction_rule_5_(parser:&mut ZCParser<RetTypeEnum,()>) -> E {
 let mut _item0_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<E>::default()}; <E>::default()}
@@ -52,10 +52,10 @@ pub fn make_parser() -> ZCParser<RetTypeEnum,()>
  rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_5(_semaction_rule_1_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum,()>::new_skeleton("N#2");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_6(_semaction_rule_2_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_1(_semaction_rule_2_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum,()>::new_skeleton("N#2");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_6(_semaction_rule_3_(parser)) };
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_1(_semaction_rule_3_(parser)) };
  parser1.Rules.push(rule);
  rule = ZCRProduction::<RetTypeEnum,()>::new_skeleton("E");
  rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_4_(parser)) };
@@ -93,12 +93,11 @@ pub fn parse_train_with<'t>(parser:&mut ZCParser<RetTypeEnum,()>, lexer:&mut rel
 
 //Enum for return values 
 pub enum RetTypeEnum {
-  Enumvariant_5(Vec<LBox<String>>),
-  Enumvariant_2(String),
+  Enumvariant_0(E),
   Enumvariant_1(()),
   Enumvariant_3(i64),
-  Enumvariant_0(E),
-  Enumvariant_6(Option<LBox<()>>),
+  Enumvariant_2(String),
+  Enumvariant_5(Vec<LBox<String>>),
 }
 impl Default for RetTypeEnum { fn default()->Self {RetTypeEnum::Enumvariant_0(<E>::default())} }
 

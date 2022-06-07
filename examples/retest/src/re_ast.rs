@@ -11,7 +11,7 @@ use rustlr::LBox;
 
 #[derive(Debug)]
 pub enum E {
-  SeqNum(LBox<Vec<LBox<String>>>,LBox<Option<LBox<()>>>,i64),
+  SeqNum(LBox<Vec<LBox<String>>>,i64),
   E_Nothing,
 }
 impl Default for E { fn default()->Self { E::E_Nothing } }

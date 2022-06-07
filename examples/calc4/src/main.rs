@@ -11,6 +11,7 @@ use calc4parser::*;
 use rustlr::Tokenizer;
 
 mod calcenumparser;
+mod calcrewcparser;
 
 fn main()
 {
@@ -35,8 +36,8 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
 //  let mut scanner2 = Calcscanner::new(stk2);
   let mut scanner2 = calc4lexer::from_str(input);
   let mut parser3 = make_parser();
-//  let result = parser3.parse_train(&mut scanner2,"calc4parser.rs");
-  let result = parser3.parse(&mut scanner2);
+  let result = parser3.parse_train(&mut scanner2,"src/calc4parser.rs");
+//  let result = parser3.parse(&mut scanner2);
   let bindings = newenv();
    println!("Expression tree from parse: {:?}",result);
    println!("---------------------------------------\n");
@@ -46,7 +47,7 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
      println!("Parser error, best effort after recovery: {:?}", eval(&bindings,&result));
    }
 
-   println!("========= ENUM ===========");
+   println!("\n========= ENUM ===========");
    let mut scanner4 = calcenumparser::calcenumlexer::from_str(input);
    let mut parser4 = calcenumparser::make_parser();
    //let tree4= calcenumparser::parse_train_with(&mut parser4, &mut scanner4,"src/calcenumparser.rs");
@@ -60,4 +61,12 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
    println!("\nline 10: {}",scanner4.get_line(10).unwrap());
    // interesting: only need to use Tokenizer for it to recognize function,
    // don't need to typecast
+
+   println!("\n========= REWC ===========");
+   let mut scanner5 = calcrewcparser::calcrewclexer::from_str(input);
+   let mut parser5 = calcrewcparser::make_parser();
+   let tree5= calcrewcparser::parse_with(&mut parser5, &mut scanner5);
+   let result5 = Expr::Seq(tree5.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x}));
+   let bindings5 = newenv();
+   println!("result after eval: {:?}", eval(&bindings5,&result5));   
 }//main

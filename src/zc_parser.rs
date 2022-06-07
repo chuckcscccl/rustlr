@@ -176,18 +176,22 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     }
 
     /// may be called from grammar semantic actions to report error.
-    /// this report function will print to stdout. 
-    pub fn report(&mut self, errmsg:&str)  
-    {      // linenum must be set prior to call
+    /// this report function will print to stdout.
+    pub fn report(&mut self, errmsg:&str)  {self.report_error(errmsg,false)}
+    /// same as [ZCParser::report] but with option to display line/column
+    pub fn report_error(&mut self, errmsg:&str, showlc: bool)  
+    {  
        //eprint!("{}",color::Fg(color::Yellow));
        if (self.report_line != self.linenum || self.linenum==0)  {
-//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-//         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
-         eprintln!("PARSER ERROR: {}",errmsg);
+//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());
+         if showlc {
+           eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg); }
+         else { eprintln!("PARSER ERROR: {}",errmsg); }
          self.report_line = self.linenum;
        }
        else {
-         eprint!(" {} ",errmsg);
+         if showlc { eprint!(" ({},{}): {}",self.linenum,self.column,errmsg); }
+         else {eprint!(" {}",errmsg);}
        }
        //eprint!("{}",color::Fg(color::Reset));       
        self.err_occurred = true;
@@ -487,6 +491,19 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
+
+      ////// WRITE parse_with and parse_train_with
+      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
+      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
+      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  let _xres_ = parser.parse(lexer); ")?;
+      write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_with public function\n")?;
+      // training version
+      write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  let _xres_ = parser.parse_train(lexer,parserpath); ")?;
+      write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_train_with public function\n")?;
+
 
     ////// WRITE LEXER
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
@@ -896,6 +913,7 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
     let mut tokenlen = lookahead.sym.len();
     if is_alphanum(&lookahead.sym) {tokenlen = 3;}
     while tokenlen>0 { errmsg.push('^'); tokenlen-=1; }
+    errmsg.push('\n');
   }// augment errmsg with current line
   
   parser.report(&errmsg);

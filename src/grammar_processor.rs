@@ -135,7 +135,7 @@ impl Grammar
        Rulesfor: HashMap::new(),
 //       Absyntype:String::from("i64"),
        Absyntype:String::from("()"), //changed for 0.2.7
-       Externtype:String::from(""),   // default unused field
+       Externtype:String::from("()"),    // changed to () for 0.2.9
 //       Recover : HashSet::new(),
        Resynch : HashSet::new(),
        Errsym : String::new(),
@@ -403,7 +403,9 @@ impl Grammar
 	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
                else {panic!("Did not read precedence level on line {}",linenum);}
 	       if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
-               if let Some(index) = self.Symhash.get(stokens[1]) {
+               let mut targetsym = stokens[1];
+               if targetsym=="_" {targetsym = "_WILDCARD_TOKEN_";}
+               if let Some(index) = self.Symhash.get(targetsym) {
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
                    println!("WARNING: precedence of {} is non-positive",stokens[1]);
                  }

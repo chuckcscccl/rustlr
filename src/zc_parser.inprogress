@@ -37,6 +37,8 @@ use crate::{TRACE,Stateaction,Statemachine,TerminalToken,Tokenizer};
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
 use std::rc::Rc;
+//extern crate termion;
+//use termion::{color,style};
 
 use crate::{StandardReporter};
 
@@ -177,6 +179,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     /// this report function will print to stdout. 
     pub fn report(&mut self, errmsg:&str)  
     {      // linenum must be set prior to call
+       //eprint!("{}",color::Fg(color::Yellow));
        if (self.report_line != self.linenum || self.linenum==0)  {
 //         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
 //         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
@@ -186,6 +189,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
        else {
          eprint!(" {} ",errmsg);
        }
+       //eprint!("{}",color::Fg(color::Reset));       
        self.err_occurred = true;
     }// report
 
@@ -224,7 +228,6 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   // next token
   fn shift<'t>(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> TerminalToken<'t, AT>
   {
-     //self.stack.push(Stackelement{si:nextstate,value:lookahead.value});
      self.linenum = lookahead.line;  self.column=lookahead.column;
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
      //self.nexttoken()
@@ -406,24 +409,39 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let mut patterns = String::from("(");
       while k>0 // k is length of right-hand side
       {
+        let mut boxedlabel = false;  // see if named label is of form [x]
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
           None if gsym.label.len()>0 && !gsym.label.contains('(') => {
-             plab=format!("{}",gsym.label.trim());
+            let rawlabel = gsym.label.trim();
+            let truelabel = checkboxlabel(rawlabel);
+            boxedlabel = truelabel != rawlabel;
+            plab = String::from(truelabel);             
+            // plab=format!("{}",gsym.label.trim());
           },
-          Some(ati) if *ati>0 => {plab=format!("{}",&gsym.label[0..*ati]);},
+          Some(ati) if *ati>0 => {
+            let rawlabel = gsym.label[0..*ati].trim();
+            let truelabel = checkboxlabel(rawlabel);
+            boxedlabel = truelabel != rawlabel;
+            plab = String::from(truelabel);            
+          },
           _ => {},
         }//match
         let poppedlab = plab.as_str();
-        write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
+        if !boxedlabel {
+           write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
+        } else {
+           write!(fd,"let mut {} = parser.popstack().lbox(); ",poppedlab)?;     
+        }
         
 	if gsym.label.len()>1 && findat.is_some() { // if-let pattern
 	  let atindex = findat.unwrap();
           if atindex>0 { // label like es:@Exp(..)@
             //let varlab = &gsym.label[0..atindex];   //es before @: es:@..@
             labels.push_str("&mut "); // for if-let
+            if boxedlabel {labels.push('*');}
             labels.push_str(poppedlab); labels.push_str(".value,");
             //write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
           }
@@ -828,7 +846,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
 /// This trait replaces [crate::ErrHandler] in the [crate::runtime_parser] module.
 pub trait ErrReporter<AT:Default,ET:Default> // not same as error recovery
 {
-  fn err_reporter(&mut self, parser:&mut ZCParser<AT,ET>, lookahead:&TerminalToken<AT>, erropt:&Option<Stateaction>);
+  fn err_reporter(&mut self, parser:&mut ZCParser<AT,ET>, lookahead:&TerminalToken<AT>, erropt:&Option<Stateaction>, tokenizer:& dyn Tokenizer<'_,AT>);
   fn report_err(&self, parser:&mut ZCParser<AT,ET>, msg:&str) { parser.report(msg) }
 //  fn training_mode(&self, parser:&ZCParser<AT,ET>) -> bool {false}
 //  fn interactive_mode(&self, parser:&ZCParser<AT,ET>) -> bool {false}
@@ -845,7 +863,7 @@ besides the creation of the right kind of StandardReporter.
 impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
 {
   // this function will be able to write training script to file
-  fn err_reporter(&mut self, parser:&mut ZCParser<AT,ET>, lookahead:&TerminalToken<AT>, erropt:&Option<Stateaction>)
+  fn err_reporter(&mut self, parser:&mut ZCParser<AT,ET>, lookahead:&TerminalToken<AT>, erropt:&Option<Stateaction>, tokenizer:& dyn Tokenizer<'_,AT>)
  { 
   let mut wresult:std::io::Result<()> = Err(std::io::Error::new(std::io::ErrorKind::Other,"")); // dummy
   // known that actionop is None or Some(Error(_))
@@ -862,10 +880,24 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
   else {
      actionopt = parser.RSM[cstate].get("ANY_ERROR");
   }// lookahead is not a grammar sym
-  let errmsg = if let Some(Error(em)) = &actionopt {
+  let mut errmsg = if let Some(Error(em)) = &actionopt {
     format!("unexpected symbol '{}' on line {}, column {}: ** {} ** ..",lksym,lookahead.line,lookahead.column,em.trim())
   } else {format!("unexpected symbol '{}' on line {}, column {} .. ",lksym,lookahead.line,lookahead.column)};
 
+  ////// augment errmsg with current line (version 0.2.6)
+  let srcline = tokenizer.current_line();
+  if (srcline.len()>0) {
+    errmsg.push_str("\n >>");
+    errmsg.push_str(srcline);
+    errmsg.push_str("\n");
+    let mut cln = lookahead.column+2;
+    while cln>0 { errmsg.push(' '); cln-=1; }
+    //let mut tokenlen = srcline[cln-2..].find(char::is_whitespace).unwrap_or(1);
+    let mut tokenlen = lookahead.sym.len();
+    if is_alphanum(&lookahead.sym) {tokenlen = 3;}
+    while tokenlen>0 { errmsg.push('^'); tokenlen-=1; }
+  }// augment errmsg with current line
+  
   parser.report(&errmsg);
 
   if self.training {          ////// Training mode
@@ -961,6 +993,11 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       self.column=self.stack[self.stack.len()-1].column;
       let currentstate = self.stack[self.stack.len()-1].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym);
+
+      if actionopt.is_none() && lookahead.sym!="EOF" { // added in version 0.2.9
+        actionopt = self.RSM[currentstate].get("_WILDCARD_TOKEN_");
+      }
+
       let actclone:Option<Stateaction> = match actionopt {
         Some(a) => Some(*a),
         None => None,
@@ -968,7 +1005,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       if iserror(&actionopt) {  // either None or Error
         if !self.err_occurred {self.err_occurred = true;}
         
-        err_handler.err_reporter(self,&lookahead,&actclone);
+        err_handler.err_reporter(self,&lookahead,&actclone, tokenizer);
         //err_reporter(self,&lookahead,&actclone);
         
         match self.error_recover(&mut lookahead,tokenizer) {
@@ -1079,7 +1116,13 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
 
 }// 3rd impl ZCParser
 
-/*
+fn checkboxlabel(s:&str) -> &str
+{
+    if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
+}// check if label is of form [x], returns x, or s if not of this form.
+
+
+
 // used by genlex routines
 fn is_alphanum(x:&str) -> bool
 {
@@ -1097,4 +1140,3 @@ fn is_alphanum(x:&str) -> bool
   }
   true
 }//is_alphanum
-*/

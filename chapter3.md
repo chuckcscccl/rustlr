@@ -1,6 +1,7 @@
 ## Chapter 3: A Larger Example with Multiple Abstract Syntax Types
 
-The principal new feature, available since Rustlr version 0.2.5,
+The principal new feature, available since Rustlr version 0.2.5 (set Cargo
+dependency accordingly), and
 demonstrated by the third sample grammar is the ability to have more than
 a single 'absyntype' that all semantic actions must return.  Only
 the 'topsym' of the grammar needs to return the absyntype.  Each

@@ -1,0 +1,44 @@
+# version with +, _, but without auto-ast (but with enum)
+
+!use crate::exprtrees::*; /* ! lines are injected verbatim into parser */
+!use crate::exprtrees::Expr::*;
+!use rustlr::{LBox,makelbox};
+
+lifetime 'src_lt
+absyntype Vec<LBox<Expr<'src_lt>>>
+nonterminal E Expr<'src_lt>
+nonterminal E1 Expr<'src_lt>
+nonterminal ES
+terminals + - * / ( ) = ;
+terminals let in
+typedterminal int i64
+typedterminal var &'src_lt str
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+left _ 100
+
+lexvalue int Num(n) n
+lexvalue var Alphanum(x) x
+lexattribute set_line_comment("#")
+
+E --> int:m { Val(m) }
+E --> var:s { Var(s) }
+E --> let E:[vx]@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
+E --> E:[e1] + E:[e2] { Plus(e1,e2) }
+E --> E:[e1] - E:[e2] { Minus(e1,e2) }
+E --> E:[e1] / E:[e2] {Divide(e1,e2)}
+E --> E:e1 * E:e2 { Times(parser.lbx(0,e1),parser.lbx(2,e2))}
+E --> E _ E { parser.report_error("unidentified operator",true); Val(0)}
+E --> - E:[e] { Negative(e) }
+E --> ( E:e )  { e }
+E1 --> E:e ; {e}
+ES --> E1+:v {v}
+#ES --> E:[n] ; { vec![n] }
+#ES --> ES:v  E:[e] ;  {  v.push(e); v }
+
+EOF

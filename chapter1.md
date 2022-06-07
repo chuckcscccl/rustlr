@@ -308,7 +308,7 @@ rustlr = "0.2"
 
 The following terminal symbols are reserved and should not be used in a grammar:
 
->      EOF   ANY_ERROR   :  |  @  {  }  -->  ::=  ==>  <==  
+>      EOF  ANY_ERROR  _WILDCARD_TOKEN_  :  |  @  {  }  -->  ::=  ==>  <==  _
 
 The following symbols should also NOT be used as non-terminals in your grammar:
 

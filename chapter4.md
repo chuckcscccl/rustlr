@@ -80,7 +80,7 @@ An enum is created for each non-terminal symbol of the grammar, with the same na
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
 ```
 
-Recall from [Chapter 2][chap2] that a label of the form `[a]`means that the semantic value associated with the symbol is enclosed in an [LBox][2].  However, there are cases where one might want to override the automatically generated action, as for the rule `Expr --> ( Expr )`.  The parentheses are of no use at the abstract syntax level and the most appropriate action would be to return the same value as the expression on the right-hand side.  The automatically generated action would have created an additional LBox.  It is also possible to override the automatic generation of the type of a grammar symbol.  In case of ES, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is not optimal for LR parsing.  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ES` as follows:
+Recall from [Chapter 2][chap2] that a label of the form `[a]`means that the semantic value associated with the symbol is enclosed in an [LBox][2].  However, there are cases where one might want to override the automatically generated action, as for the rule `Expr --> ( Expr )`.  The parentheses are of no use at the abstract syntax level and the most appropriate action would be to return the same value as the expression on the right-hand side.  The automatically generated action would have created an additional LBox.  It is also possible to override the automatic generation of the type of a grammar symbol.  In case of ES, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is slightly non-optimal for LR parsing (the parse stack grows until the last element of the list before ES-reductions take place).  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ES` as follows:
 
 ```
 nonterminal ES Vec<LBox<Expr<'lt>>>
@@ -109,7 +109,7 @@ The special type declaration **`*Expr`** means that the type of the nonterminal 
 
 ##### Invoking the Parser
 
-Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the `parse_with` or `parse_train_with` functions:
+Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the **`parse_with`** or **`parse_train_with`** functions:
 
 ```rust
    let mut scanner = calcautoparser::calcautolexer::from_str("2*3+1;");
@@ -119,8 +119,13 @@ Since the grammar also contains lexer generation directives, all we need to do i
    println!("\nAST: {:?}\n",&tree);
    
 ```
+The `parse_with` and `parse_train_with` functions were also backported for
+grammars with a single *absyntype.*
 
-Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).  
+Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).
+
+Please also note that using [LBox][2] is already included in all parsers generated with the `-genabsyn` or `-auto` option, so do not use `!use ...` to include
+it again.
 
 
 

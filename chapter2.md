@@ -455,7 +455,7 @@ the state numbers may be different: the -trace 3 option prints these states
 to stdout.
 Create a cargo crate with the following dependency in Cargo.toml:
 ```
-rustlr = "0.2"  
+rustlr = "0.2.9"
 ```
 copy the [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs), [exprtrees.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/exprtrees.rs) and the generated [calc4parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/calc4parser.rs) files into src/.  The supplied main parses and evaluates the following input:
 ```

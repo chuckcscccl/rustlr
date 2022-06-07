@@ -1,7 +1,7 @@
 typedterminal ID String
 typedterminal VAL i64
 terminal #
-nonterminals E
+nonterminal E
 topsym E
 
 E:SeqNum --> ID+ #? VAL 
