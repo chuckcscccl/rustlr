@@ -40,9 +40,9 @@ But the wildcard will never override a regular transition, if there is one.
 What this means is that the intended meaning of the expression `a _*
 b` is **not** any sequence of symbols bracketed by a's and b's.  The
 above grammar (`E --> a _* b`) will fail to parse `"a b b b"` because
-it cannot determine that the first two `b`'s are supposed to
+it cannot determine that the first two `b`'s are supposed to be
 recognized as wildcards and that only the last b is a "real b".  That
-is, it does not know which to apply to input `b` if the lookahead is also `b`.
+is, it does not know which rule to apply to input `b` if the lookahead is also `b`.
 It will parse `"a a a b"` because after the initial `a` is read, there are no
 further conflicting transitions for `a`.  To parse what we intend to, we have to modify the
 grammar as follows:
