@@ -310,8 +310,11 @@ impl Statemachine
      if (lapred==rulepred) && lapred>0 { // left associative
         return true;
      } // right-associative lookahead, return shift     
-     else if (lapred.abs()>rulepred.abs()) {return false;} // shift
-     else if (lapred.abs()<rulepred.abs()) { return true;} // reduce
+     else if (lapred.abs()>rulepred.abs() && rulepred!=0) {return false;} // shift
+     else if (lapred.abs()<rulepred.abs() /*&& lapred!=0*/) {
+       if lapred==0 {     println!("Shift-Reduce conflict between lookahead {} and rule {} not clearly resolved by precedence and associativity declarations, defaulting to Reduce",la,ri);}
+       return true;
+     } // reduce
      // report unclear case
      println!("Shift-Reduce conflict between lookahead {} and rule {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",la,ri);
      printrulela(*ri,Gmr,la);

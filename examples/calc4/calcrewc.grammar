@@ -20,6 +20,7 @@ left * 500
 left / 500
 left + 400
 left - 400
+left = 300
 left _ 100
 
 lexvalue int Num(n) n

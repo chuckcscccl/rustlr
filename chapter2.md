@@ -35,6 +35,7 @@ left * 500
 left / 500
 left + 400
 left - 400
+left = 200
 
 # for lexical scanner generation:
 lexvalue int Num(n) Val(n)

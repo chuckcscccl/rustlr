@@ -1,0 +1,26 @@
+# grammar for propositional logic
+
+!use fixedstr::str8;
+
+nonterminal Prop
+terminal OR AND IMPLIES NOT ( )
+typedterminal Var str8
+topsym Prop
+
+lexname OR |
+lexname AND &
+lexname NOT ~
+lexname IMPLIES ->
+
+left OR 50
+left AND 80
+left NOT 100
+left IMPLIES 30
+
+Prop:Var --> Var
+Prop:And --> Prop AND Prop
+Prop:Or --> Prop OR Prop
+Prop:Implies --> Prop IMPLIES Prop
+Prop:Not --> NOT Prop
+Prop --> ( Prop:p ) { p }
+EOF
