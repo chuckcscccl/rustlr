@@ -17,6 +17,7 @@ left * 500
 left / 500
 left + 400
 left - 400
+left = 300
 
 lexvalue int Num(n) n
 lexvalue var Alphanum(x) x

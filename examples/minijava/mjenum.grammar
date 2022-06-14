@@ -62,7 +62,7 @@ left DOT 810
 # the lookahead symbol is 'else'.
 left if 30
 left else 40
-
+left [ 20
 
 Program --> MainCl:[mc]  ClassDecl:cs  { Program {mainclass:mc, otherclasses:cs } }
    

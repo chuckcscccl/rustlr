@@ -64,6 +64,8 @@ left DOT 810
 # the lookahead symbol is 'else'.
 left if 30
 left else 40
+left [ 20
+
 
 
 Program --> MainCl:@Maincl(mc)@  ClassDecl:@Classes(cs)@  { Program(parser.lb(mc),cs) }
