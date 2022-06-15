@@ -1,16 +1,17 @@
 # grammar for propositional logic
 
-!use fixedstr::str8;
+!use fixedstr::str4;
 
 nonterminal Prop
 terminal OR AND IMPLIES NOT ( )
-typedterminal Var str8
+typedterminal Var str4
 topsym Prop
 
 lexname OR |
 lexname AND &
 lexname NOT ~
 lexname IMPLIES ->
+lexvalue Var Alphanum(x) str4::from(x)
 
 left OR 50
 left AND 80

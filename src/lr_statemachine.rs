@@ -312,7 +312,7 @@ impl Statemachine
      } // right-associative lookahead, return shift     
      else if (lapred.abs()>rulepred.abs() && rulepred!=0) {return false;} // shift
      else if (lapred.abs()<rulepred.abs() /*&& lapred!=0*/) {
-       if lapred==0 {     println!("Shift-Reduce conflict between lookahead {} and rule {} not clearly resolved by precedence and associativity declarations, selecting to Reduce",la,ri);}
+       if lapred==0 {     println!("Shift-Reduce conflict between lookahead {} and rule {} resolved in favor of Reduce. The lookahead has undeclared precedence",la,ri);    printrulela(*ri,Gmr,la);       }
        return true;
      } // reduce
      // report unclear case
