@@ -28,8 +28,9 @@ Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
 Expr:Times --> Expr * Expr
 Expr:Neg --> - Expr
-# override auto-generated creation of abstract syntax, but type matters
+# override auto-generated creation of abstract syntax:
 Expr --> ( Expr:e )  { e }
+
 ES:nil -->
 ES:cons --> Expr ; ES
 
@@ -47,7 +48,7 @@ Note the following differences between this grammar and the one presented in [Ch
 3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal`).
 4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  This label will become the name of the enum variant to be created.
 
-Process the grammar with **`rustlr calcauto.grammar -genabsyn`**.   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
+Process the grammar with **`rustlr calcauto.grammar -genabsyn`** (or **`-auto`**).   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
 
 ```rust
 #[derive(Debug)]
@@ -66,7 +67,6 @@ pub enum Expr<'lt> {
   Minus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
   Val(i64),
   Times(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Expr_8(LBox<Expr<'lt>>),
   Plus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
   Var(&'lt str),
   Expr_Nothing(&'lt ()),
@@ -75,7 +75,7 @@ impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing(&()) }
 
 ```
 
-An enum is created for each non-terminal symbol of the grammar, with the same name as the non-terminal.  There is, essentially, an enum variant for each production rule of the grammar.  The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated (e.g. `Expr_8` represents the rule-8 variant of type `Expr`).[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.  Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these enum types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
+An enum is created for each non-terminal symbol of the grammar, with the same name as the non-terminal.  There is, essentially, an enum variant for each production rule of the grammar.  The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.  Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these enum types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
 
 ```
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}

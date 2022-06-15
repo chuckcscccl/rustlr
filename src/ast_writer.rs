@@ -116,10 +116,11 @@ impl Grammar
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
-	  AST.push_str(&enumvar); AST.push_str(",\n");
+	  //AST.push_str(&enumvar); AST.push_str(",\n");
     	  ACTION.push_str(" }");
 	  if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
+	    AST.push_str(&enumvar); AST.push_str(",\n");
 	  }
 //println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
