@@ -145,9 +145,9 @@ symbol with the highest precedence.
      Rustlr resolves **shift-reduce** conflicts as follows:
 
     - A lookahead symbol with strictly higher precedence than the rule results
-      in *shift*
+      in *shift*. A warning is always given if the rule has precedence zero.
     - A lookahead symbol with strictly lower precedence than the rule results
-      in *reduce*  
+      in *reduce*. A warning is always given if the lookahead has precedence zero (undeclared precedence)  
     - A lookahead symbol with the same precedence and associativity as the rule,
       and which is declared right-associative, will result in *shift*.
     - A lookahead symbol with the same precedence and associativity as the rule,
@@ -156,8 +156,12 @@ symbol with the highest precedence.
       warning sent to stdout regardless of trace level.  All shift-reduce
       conflicts are warned at trace level 2 or higher.
 
-     Using this scheme, for example, the "dangling
-else" problem can be solved by giving "else" a higher precedence than "if".  
+     Had we left out the last declaration `left = 200`, for example, rustlr
+     will give multiple shift-reduce warnings, although the generated parser
+     would be the same.
+
+     Using this scheme, the "dangling else" problem can be solved by giving
+     "else" a higher precedence than "if".  
 
      Rustlr also resolves **reduce-reduce**
     conflicts by always favoring the rule that appears first in the

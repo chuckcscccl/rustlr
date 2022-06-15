@@ -76,6 +76,7 @@ impl Grammar
 	     }
 	     self.Rules[*ri].lhs.label = lhslab;
 	  }
+	  //let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
 	  if self.Rules[*ri].rhs.len()>0 {
@@ -83,6 +84,7 @@ impl Grammar
 	    ACTION.push('(');
 	  }
 	  let mut rhsi = 0; // right-side index
+	  //let mut passthru:i64 = -1; // index of path-thru NT value
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
 	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
@@ -92,11 +94,17 @@ impl Grammar
             if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
 	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
+	       //if &rsym.rusttype==&lhsymtype && passthru==-1 { passthru =rhsi as i64;} else {passthru=-2;}
 	    }
 	    else if &self.Symbols[rsymi].rusttype!="()" {
 	      enumvar.push_str(&format!("{},",&rsym.rusttype));
 	      ACTION.push_str(&format!("{},",&itemlabel));
 	    }
+	    /*
+	    check special case: only one NT on rhs that has same type as lhs,
+	    and all other symbols have type () AND are marked punctuations.
+	    What is a punctuation?  go by precedence level?
+	    */
 	    rhsi += 1;
 	  }// for each symbol on rhs of rule ri
           if enumvar.ends_with(',') {

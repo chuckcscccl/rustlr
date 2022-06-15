@@ -18,6 +18,7 @@ left * 500
 left / 500
 left + 400
 left - 400
+left = 300
 
 Expr:Val --> int
 Expr:Var --> var
