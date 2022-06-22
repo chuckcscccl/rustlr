@@ -71,7 +71,7 @@ fn lookup<'t>(x:&'t str, env:&Rc<Env<'t>>) -> Option<i64>
 }//lookup
 
 use crate::Expr::*;
-use crate::ES::*;
+use crate::ExprList::*;
 
 // evaluation/interpretation
 pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
@@ -104,7 +104,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
    }//match
 }//eval
 
-fn eval_seq<'t>(env:&Rc<Env<'t>>, s:&ES) -> Option<i64>
+fn eval_seq<'t>(env:&Rc<Env<'t>>, s:&ExprList) -> Option<i64>
 {
   match s {
      nil => None,

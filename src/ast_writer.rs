@@ -76,7 +76,7 @@ impl Grammar
 	     }
 	     self.Rules[*ri].lhs.label = lhslab;
 	  }
-	  //let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
+	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
 	  if self.Rules[*ri].rhs.len()>0 {
@@ -84,17 +84,19 @@ impl Grammar
 	    ACTION.push('(');
 	  }
 	  let mut rhsi = 0; // right-side index
-	  //let mut passthru:i64 = -1; // index of path-thru NT value
+	  let mut passthru:i64 = -1; // index of path-thru NT value
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
 	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
 	    let itemlabel = if rsym.label.len()>0 {rsym.label.clone()} else
             	            {format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
+            if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
             if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
 	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
-	       //if &rsym.rusttype==&lhsymtype && passthru==-1 { passthru =rhsi as i64;} else {passthru=-2;}
+               if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
+               else {passthru = -2;}
 	    }
 	    else if &self.Symbols[rsymi].rusttype!="()" {
 	      enumvar.push_str(&format!("{},",&rsym.rusttype));
@@ -103,7 +105,11 @@ impl Grammar
 	    /*
 	    check special case: only one NT on rhs that has same type as lhs,
 	    and all other symbols have type () AND are marked punctuations.
-	    What is a punctuation?  go by precedence level?
+	    What is a punctuation?  go by precedence level.
+            "paththru" indicates rule like E --> ( E ), where semantic
+            action passes thru.  In this case pasthru will be 1.
+            passthru = -1 means passthru candidate index not yet found,
+            -2 means no passthru candidate exists.
 	    */
 	    rhsi += 1;
 	  }// for each symbol on rhs of rule ri
@@ -116,9 +122,12 @@ impl Grammar
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
-	  //AST.push_str(&enumvar); AST.push_str(",\n");
     	  ACTION.push_str(" }");
-	  if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
+	  // determine if action and ast enum should be generated:
+          if self.Rules[*ri].action.len()<=1 && passthru>=0 { // special case
+            self.Rules[*ri].action = format!("_item{}_ }}",passthru);
+          }
+	  else if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
 	    AST.push_str(&enumvar); AST.push_str(",\n");
 	  }
