@@ -583,7 +583,7 @@ impl Grammar
                        panic!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum);
                      }
 		     let mut newsym = sym.clone();
-                     if newsym.rusttype.len()<2 {newsym.rusttype = self.Absyntype.clone();}
+                     if newsym.rusttype.len()<1 {newsym.rusttype = self.Absyntype.clone();}
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
@@ -611,7 +611,7 @@ impl Grammar
 	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
-              if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
+              if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
 	        lhs : newlhs,
 		rhs : rhsyms,
