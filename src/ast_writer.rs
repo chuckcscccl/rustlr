@@ -25,36 +25,8 @@ impl Grammar
           else {String::new()};
      // self.Rulesfor hashmap from nonterminals to set of usize indices
 
-     /*  // now done by grammar processor
-     // construct type of ast for each non-terminal NT
-     let mut ntcx=self.Symbols.len()+1;  // separate from typedterminals
-     let unithash = self.enumhash.get("()"); // semi-hack, default absyn
-     if let Some(0) = unithash {
-       self.enumhash.insert("()".to_owned(),ntcx);
-       ntcx += 1;
-     }
-     for NT in self.Rulesfor.keys()  // for each non-terminal (set rusttype)
-     {
-        let nti = *self.Symhash.get(NT).unwrap();
+     // setting of type = NT name done by grammar processor
 
-	if self.Symbols[nti].rusttype.len()<3 { // can override!
-	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
-	}
-	if &self.Symbols[nti].rusttype=="unit" {
-	  self.Symbols[nti].rusttype = "()".to_owned();
-	}
-	if NT==&self.topsym {
-	  self.Absyntype = self.Symbols[nti].rusttype.clone();
-          self.enumhash.insert(self.Absyntype.clone(), 0);
-	}
-        else if &self.Symbols[nti].rusttype!=&self.Absyntype { // not topsym
-	  self.enumhash.insert(self.Symbols[nti].rusttype.clone(), ntcx);
-          ntcx += 1;
-	}
-     }//for each NT in grammar as keys of self.Rulesfor
-     */
-     
-     // rusttype now set, including for topsym, Absyntype
      for (NT,NTrules) in self.Rulesfor.iter()
      {
         let nti = *self.Symhash.get(NT).unwrap();
@@ -64,7 +36,9 @@ impl Grammar
 	{
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
 	  // look at rhs of rule to form enum variant + action of each rule
+          let mut nolhslabel = false;
 	  if self.Rules[*ri].lhs.label.len()<1 { // make up lhs label
+             nolhslabel = true;
 	     let mut lhslab = format!("{}_{}",NT,ri);
 	     if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	       let symname = &self.Rules[*ri].rhs[0].sym;
@@ -75,7 +49,7 @@ impl Grammar
 	       }
 	     }
 	     self.Rules[*ri].lhs.label = lhslab;
-	  }
+	  } // set lhs label
 	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
@@ -124,10 +98,11 @@ impl Grammar
 	  }
     	  ACTION.push_str(" }");
 	  // determine if action and ast enum should be generated:
-          if self.Rules[*ri].action.len()<=1 && passthru>=0 { // special case
+          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
             self.Rules[*ri].action = format!("_item{}_ }}",passthru);
           }
-	  else if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
+	  else
+          if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
 	    AST.push_str(&enumvar); AST.push_str(",\n");
 	  }
