@@ -503,6 +503,12 @@ impl Grammar
 		   break;
                 }
 
+                // add code to recognize (E ;)*, etc.
+                // These sequences should be limited to a single nonterminal
+                // plus additional "meaningless" terminals.  If
+                // (E ;)* and (E ,)* are to have different meaning, then dont
+                // use this notation.
+                
 		// add code to recognize E*, E+ and E?
                 let newtok; // will be new strtok
 		let retoks:Vec<&str> = strtok.split(':').collect();
@@ -702,11 +708,12 @@ impl Grammar
           let mut addornot = true;
           for gs in &rule.rhs 
           {
-             if gs.terminal || !self.Nullable.contains(&gs.sym) {addornot=false;}
+             if gs.terminal || !self.Nullable.contains(&gs.sym)
+             {addornot=false; break;}
           } // for each rhs symbol
 	  if (addornot) {
              changed = self.Nullable.insert(rule.lhs.sym.clone()) || changed;
-             if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
+             //if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
           }
           // add rule index to Rulesfor map:
           if let None = self.Rulesfor.get(&rule.lhs.sym) {
