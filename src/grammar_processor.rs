@@ -520,12 +520,14 @@ impl Grammar
                   let mut retoki = &strtok[1..]; // without (
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
+                  let mut suffix="";
                   while i<=bstokens.len()
                   {
                      let retokisplit:Vec<&str> = retoki.split(':').collect();
                                           
                      if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+")  {
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
+                       suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
                      }
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
@@ -565,14 +567,14 @@ impl Grammar
                   let mut rulesforset = HashSet::new();
                   rulesforset.insert(self.Rules.len()-1);
                   // i-1 is now at token with )* or )+
-                  let suffix = &bstokens[i-1][bstokens[i-1].len()-1..];
+                  //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
                   if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   self.Rulesfor.insert(ntname2,rulesforset);
                   strtok = &newtok2;
 
                 } // starts with (
-
+//println!("strtok now {}",strtok);
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
 		// add code to recognize E*, E+ and E?
