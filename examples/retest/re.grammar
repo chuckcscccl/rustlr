@@ -5,8 +5,9 @@ nonterminals E HASH
 topsym E
 
 HASH --> #
-E:SeqNum --> (ID ; ;)+ HASH* VAL 
-#E:SeqNum --> ID+ HASH? VAL 
+#E:SeqNum --> (ID ; ;)+ HASH* VAL 
+#E:SeqNum --> ID+ HASH? VAL
+E:SeqNum --> HASH? (; ID)*
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
 
