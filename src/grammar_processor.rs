@@ -494,6 +494,7 @@ impl Grammar
 	      let mut i:usize = 0;   // bstokens index on one barsplit 
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
+              let mut iadjust = 0;
               while i<bstokens.len() {
 	        let mut strtok = bstokens[i];
 		i+=1;
@@ -508,19 +509,78 @@ impl Grammar
                 // plus additional "meaningless" terminals.  If
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.
-                
+                //  NEED TO DECIDE WHAT EXACTLY TO IMPLEMENT HERE!
+                let newtok2;
+		if strtok.len()>1 && strtok.starts_with('(') {
+                  // advance i until see )*, or )+
+                  let ntname2 = format!("SEQNT_{}_",self.Rules.len());
+                  let mut newnt2 = Gsym::new(&ntname2,false);
+                  let mut newrule2 = Grule::new_skeleton(&ntname2);
+                  let mut retoki = &strtok[1..]; // without (
+                  let mut passthru:i64 = -1;
+                  let mut jk = 0;  //local index of rhs
+                  while i<=bstokens.len()
+                  {
+                     if retoki.ends_with(")*") || retoki.ends_with(")+")
+                     { retoki =  &retoki[..retoki.len()-2];}
+                     let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
+		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
+                     let igsym = &self.Symbols[gsymi];
+//                     if passthru>=0 && igsym.terminal && igsym.precedence!=0 {passthru=-2;}
+                     if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
+                       passthru=jk;
+                       newnt2.rusttype = igsym.rusttype.clone();
+                     }
+                     else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
+                     {passthru=-2;}
+                     newrule2.rhs.push(self.Symbols[gsymi].clone());
+                     if bstokens[i-1].ends_with(")*") || bstokens[i-1].ends_with(")+") {break;}
+                     if bstokens[i-1].starts_with('{') {i=bstokens.len()+1; break;}
+                     jk += 1; //local, for passthru
+                     i+=1; // indexes bstokens
+                     retoki = bstokens[i-1];
+                  }// while i<=bstokens.len()
+                  if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
+                  iadjust += jk as usize;
+                  if passthru<0 {
+                    newnt2.rusttype = ntname2.clone();
+                    self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
+                    // action will be written by ast_writer
+                  }
+                  else { // set action of new rule to be passthru
+                    newrule2.action = format!(" _item{}_ }}",passthru);
+                    //println!("passthru found, type is {}",&newnt2.rusttype);
+                  }
+                  // register new symbol
+                  self.Symhash.insert(ntname2.clone(),self.Symbols.len());
+                  self.Symbols.push(newnt2.clone());
+                  newrule2.lhs.rusttype = newnt2.rusttype.clone();
+                  // register new rule
+                  self.Rules.push(newrule2);
+                  let mut rulesforset = HashSet::new();
+                  rulesforset.insert(self.Rules.len()-1);
+                  // i-1 is now at token with )* or )+
+                  let suffix = &bstokens[i-1][bstokens[i-1].len()-1..];
+                  newtok2 = format!("{}{}",&ntname2,suffix);
+                  self.Rulesfor.insert(ntname2,rulesforset);
+                  strtok = &newtok2;
+
+                } // starts with (
+
+//println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
+
 		// add code to recognize E*, E+ and E?
                 let newtok; // will be new strtok
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
-		   let defaultrelab = format!("_item{}_",i-1);
+		   let defaultrelab = format!("_item{}_",i-1-iadjust);
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
 		   let mut gsympart = strtok[0..strtok.len()-1].trim(); //no *
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
+		   let newntname = format!("NEWNT{}{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    if &self.Symbols[gsymi].rusttype!="()" {
@@ -567,12 +627,12 @@ impl Grammar
 		   let mut rulesforset = HashSet::with_capacity(2);
 		   rulesforset.insert(self.Rules.len()-2);
 		   rulesforset.insert(self.Rules.len()-1);
-		   //newtok = format!("{}:_item{}_",&newntname,i-1);
 		   newtok = format!("{}:{}",&newntname,relabel);
 		   self.Rulesfor.insert(newntname,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
 		}// processes RE directive - add new productions
+
 
 		//////////// separte gsym from label:
 		let mut toks:Vec<&str> = strtok.split(':').collect();

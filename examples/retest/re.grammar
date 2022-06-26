@@ -1,11 +1,12 @@
 typedterminal ID String
 typedterminal VAL i64
-terminal #
-nonterminal E
+terminal # ;
+nonterminals E HASH
 topsym E
 
-E:SeqNum --> ID+ #? VAL 
-
+HASH --> #
+E:SeqNum --> (ID ; ;)+ HASH* VAL 
+#E:SeqNum --> ID+ HASH? VAL 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
 

@@ -503,6 +503,12 @@ impl Grammar
 		   break;
                 }
 
+                // add code to recognize (E ;)*, etc.
+                // These sequences should be limited to a single nonterminal
+                // plus additional "meaningless" terminals.  If
+                // (E ;)* and (E ,)* are to have different meaning, then dont
+                // use this notation.
+                
 		// add code to recognize E*, E+ and E?
                 let newtok; // will be new strtok
 		let retoks:Vec<&str> = strtok.split(':').collect();
@@ -514,7 +520,7 @@ impl Grammar
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("N{}{}",gsympart,self.Rules.len());
+		   let newntname = format!("_NEWNT{}{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    if &self.Symbols[gsymi].rusttype!="()" {
@@ -568,6 +574,7 @@ impl Grammar
 		   strtok = &newtok;
 		}// processes RE directive - add new productions
 
+
 		//////////// separte gsym from label:
 		let mut toks:Vec<&str> = strtok.split(':').collect();
                 if toks[0]=="_" {toks[0] = "_WILDCARD_TOKEN_";}
@@ -583,7 +590,7 @@ impl Grammar
                        panic!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum);
                      }
 		     let mut newsym = sym.clone();
-                     if newsym.rusttype.len()<2 {newsym.rusttype = self.Absyntype.clone();}
+                     if newsym.rusttype.len()<1 {newsym.rusttype = self.Absyntype.clone();}
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
@@ -611,7 +618,7 @@ impl Grammar
 	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
-              if newlhs.rusttype.len()<2 {newlhs.rusttype = self.Absyntype.clone();}              
+              if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}              
 	      let rule = Grule {
 	        lhs : newlhs,
 		rhs : rhsyms,
@@ -702,11 +709,12 @@ impl Grammar
           let mut addornot = true;
           for gs in &rule.rhs 
           {
-             if gs.terminal || !self.Nullable.contains(&gs.sym) {addornot=false;}
+             if gs.terminal || !self.Nullable.contains(&gs.sym)
+             {addornot=false; break;}
           } // for each rhs symbol
 	  if (addornot) {
              changed = self.Nullable.insert(rule.lhs.sym.clone()) || changed;
-             if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
+             //if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
           }
           // add rule index to Rulesfor map:
           if let None = self.Rulesfor.get(&rule.lhs.sym) {
