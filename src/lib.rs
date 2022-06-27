@@ -1,17 +1,17 @@
 //! Rustlr is an LR(1)/LALR(1) parser generator for Rust.
-//! It has undergone significant enhancements since version 0.2.
-//! **Version 0.2.3**
-//! added the ability to automatically generate a usable lexical scanner from a minimal set of specifications.
-//! **Version 0.2.5** added the ability for semantics actions to return values of
-//! different types.  **Version 0.2.8** introduced the ability to automatically
-//! generate the abstract syntax data types (enums) and the
-//! corresponding semantic actions.  Support for *, + and ? expressions as well
-//! as an experimental *wildcard* expression were introduced in version 0.2.9.
 //!
 //! A [**tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is separately available that will explain the
 //! format of grammars and how to generate and deploy parsers for several 
 //! examples.
+//!
+//! **Recent Updates:** *Version 0.2.3*
+//! added the ability to automatically generate a usable lexical scanner from a minimal set of specifications.
+//! *Version 0.2.5* added the ability for semantics actions to return values of
+//! different types.  *Version 0.2.8* introduced the ability to automatically
+//! generate the abstract syntax data types (enums) and the
+//! corresponding semantic actions.  Support for *, + and ? expressions as well
+//! as an experimental *wildcard* expression were introduced in version *0.2.9.*
 //!
 //! In addition to creating LR/LALR state machines using the classic algorithms,
 //! rustlr is capable of recognizing operator precedence and
