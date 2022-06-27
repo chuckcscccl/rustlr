@@ -97,16 +97,65 @@ ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
 #### Adding New Rules with *, + and ?
 
-A relatively new feature of rustlr (since verion 0.2.8) allows the use of regular-expression style symbols *, + and ? to automatically generate new production rules.  However, this ability is currently rather limited and is only guaranteed to work in the automatic `-genabsyn` mode.  Another way to achieve the same effects as the above is to use the following alternative grammar declarations:
+A relatively new feature of rustlr (since verion 0.2.9) allows the use of regular-expression style symbols *, + and ? to automatically generate new production rules.  However, these symbols cannot be used unrestrictedly to form arbitrary
+regular expressions (they cannot be nested).  They are given only as a convenience.  They are also guaranteed to only fully work in the -auto mode.
+
+Another way to achieve the same effects as the above is to use the following alternative grammar declarations:
 
 ```
 nonterminal ES Vec<LBox<Expr<'lt>>>
-nonterminal ES1 *Expr
-ES1 --> Expr:e ; {e}
-ES --> ES1+:v { v }
+ES --> (Expr ;)*
 ```
 
-The special type declaration **`*Expr`** means that the type of the nonterminal `ES1` is copied from the type of `Expr`, which in this case is automatically generated as `Expr<'lt>`.  The expression **`ES1+`** means a sequence of at least one `ES1` derivations.  This is done by generating a new non-terminal symbol with associated type `Vec<LBox<Expr<'lt>>>`. The optional label v will be bound to such a value.  A **`*`** would mean zero or more `ES1` derivations, producing the same vector type,  and a **`?`** will mean  one or zero derivations with type `Option<LBox<Expr<'lt>>>`.  Currently, the *, + and ? symbols can only be placed after exactly one grammar symbol, thus the extra symbol and production for `ES1` is required.  Additionally, the label given for such an expression cannot be a pattern such as `[v]`or something enclosed inside `@...@`.  These restrictions should eventually be eliminated in future releases.
+The operator **`+`** means a sequence of at least one.  This is done by generating several new non-terminal symbols initially.  Essentially, these correspond to
+
+```
+ES0 --> Expr:e ; {e}
+ES1 --> { Vec::new() }
+ES1 --> ES1:v ES0:[e] { v.push(e); v }
+ES --> ES1:v {v}
+```
+These rules replace the original in the grammar.  In the -auto mode,
+rustlr also infers that symbols such as ; has no meaning at the
+AST level (because it has the unit type and noprecedence/associativity
+declaration). It therefore infers that the type of the nonterminal ES0
+is the same as Expr, and automatically generates the appropriate semantic action.
+If override of this behavior is required, one can manually rewrite the grammar
+as
+```
+ES0:SEMI --> Expr ; 
+ES --> ES0*
+```
+The presence of the left-hand side label will cause the AST generator to 
+create an AST representation for the semicolon (assuming that is what's
+desired).  Another situation where the user has to write the ES0 rule
+manually is if `-auto` (or `-genabsyn`) is not specified, which implies
+that a rule with an explicit semantic action is required.  Generally speaking,
+the *, + and ? symbols will still work without `-auto` if it follows a
+single grammar symbol.
+
+The type rustlr associates with the new non-terminal ES1
+will be `Vec<LBox<Expr<'lt>>` and semantic actions are generated to
+create the vector for both ES1 rules.  A **`+`** means one or more
+`ES1` derivations, producing the same vector type, and a **`?`** will
+mean one or zero derivations with type `Option<LBox<Expr<'lt>>>`.
+
+Other alternatives are possible:
+```
+nonterminal ES
+ES:Sequence --> (Expr ;)*
+```
+This would generate a new enum type for the AST of ES, with a variant
+`Sequence(Vec<LBox<Expr<'lt>>>)`.  If the type of ES is declared manually
+as above, rustlr infers that the appropriate semantic action is equivalent to
+`ES --> (Expr ;)*:v {v}`  because there is only one symbol (the internally
+generated ES1) on the right-hand side, and it is of the same type.
+The label given for such an expression cannot be a pattern such as `[v]` or something enclosed inside `@...@`.  These restrictions may eventually be eliminated in future releases.
+
+Another restrictions is that the symbols `(`, `)`, `?`, `*` and `+` may not
+be separated by white spaces since that would confuse their interpretation
+as independent terminal symbols.  For example, `( Expr ; ) *` is not valid.
+
 
 ##### Invoking the Parser
 

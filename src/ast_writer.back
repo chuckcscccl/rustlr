@@ -25,36 +25,8 @@ impl Grammar
           else {String::new()};
      // self.Rulesfor hashmap from nonterminals to set of usize indices
 
-     /*  // now done by grammar processor
-     // construct type of ast for each non-terminal NT
-     let mut ntcx=self.Symbols.len()+1;  // separate from typedterminals
-     let unithash = self.enumhash.get("()"); // semi-hack, default absyn
-     if let Some(0) = unithash {
-       self.enumhash.insert("()".to_owned(),ntcx);
-       ntcx += 1;
-     }
-     for NT in self.Rulesfor.keys()  // for each non-terminal (set rusttype)
-     {
-        let nti = *self.Symhash.get(NT).unwrap();
+     // setting of type = NT name done by grammar processor
 
-	if self.Symbols[nti].rusttype.len()<3 { // can override!
-	  self.Symbols[nti].rusttype = format!("{}{}",NT,&ltopt);
-	}
-	if &self.Symbols[nti].rusttype=="unit" {
-	  self.Symbols[nti].rusttype = "()".to_owned();
-	}
-	if NT==&self.topsym {
-	  self.Absyntype = self.Symbols[nti].rusttype.clone();
-          self.enumhash.insert(self.Absyntype.clone(), 0);
-	}
-        else if &self.Symbols[nti].rusttype!=&self.Absyntype { // not topsym
-	  self.enumhash.insert(self.Symbols[nti].rusttype.clone(), ntcx);
-          ntcx += 1;
-	}
-     }//for each NT in grammar as keys of self.Rulesfor
-     */
-     
-     // rusttype now set, including for topsym, Absyntype
      for (NT,NTrules) in self.Rulesfor.iter()
      {
         let nti = *self.Symhash.get(NT).unwrap();
@@ -64,7 +36,9 @@ impl Grammar
 	{
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
 	  // look at rhs of rule to form enum variant + action of each rule
+          let mut nolhslabel = false;
 	  if self.Rules[*ri].lhs.label.len()<1 { // make up lhs label
+             nolhslabel = true;
 	     let mut lhslab = format!("{}_{}",NT,ri);
 	     if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	       let symname = &self.Rules[*ri].rhs[0].sym;
@@ -75,7 +49,8 @@ impl Grammar
 	       }
 	     }
 	     self.Rules[*ri].lhs.label = lhslab;
-	  }
+	  } // set lhs label
+	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
 	  if self.Rules[*ri].rhs.len()>0 {
@@ -83,20 +58,33 @@ impl Grammar
 	    ACTION.push('(');
 	  }
 	  let mut rhsi = 0; // right-side index
+	  let mut passthru:i64 = -1; // index of path-thru NT value
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
 	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
 	    let itemlabel = if rsym.label.len()>0 {rsym.label.clone()} else
             	            {format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
-            if !self.Symbols[rsymi].terminal {
+            if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
+            if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
 	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
+               if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
+               else {passthru = -2;}
 	    }
 	    else if &self.Symbols[rsymi].rusttype!="()" {
 	      enumvar.push_str(&format!("{},",&rsym.rusttype));
 	      ACTION.push_str(&format!("{},",&itemlabel));
 	    }
+	    /*
+	    check special case: only one NT on rhs that has same type as lhs,
+	    and all other symbols have type () AND are marked punctuations.
+	    What is a punctuation?  go by precedence level.
+            "paththru" indicates rule like E --> ( E ), where semantic
+            action passes thru.  In this case pasthru will be 1.
+            passthru = -1 means passthru candidate index not yet found,
+            -2 means no passthru candidate exists.
+	    */
 	    rhsi += 1;
 	  }// for each symbol on rhs of rule ri
           if enumvar.ends_with(',') {
@@ -108,10 +96,15 @@ impl Grammar
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
-	  AST.push_str(&enumvar); AST.push_str(",\n");
     	  ACTION.push_str(" }");
-	  if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
+	  // determine if action and ast enum should be generated:
+          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
+            self.Rules[*ri].action = format!("_item{}_ }}",passthru);
+          }
+	  else
+          if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
+	    AST.push_str(&enumvar); AST.push_str(",\n");
 	  }
 //println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT

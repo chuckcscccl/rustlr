@@ -2,8 +2,8 @@
 
 # declare input lifetime:
 lifetime 'lt
-nonterminals Expr ExprList
-#nonterminal ExprList Vec<LBox<Expr<'lt>>>
+nonterminals Expr
+nonterminal ExprList Vec<LBox<Expr<'lt>>>
 # *Expr means type of ES1 will be copied from type of Expr
 #nonterminal ES1 *Expr
 terminals + - * / ( ) = ;
@@ -36,11 +36,23 @@ Expr:Neg --> - Expr
 # should recognize "passthru" case
 Expr --> ( Expr )
 
-ExprList:nil -->
-ExprList:cons --> Expr ; ExprList
+# either spec Vec type directly and recognize pass-thru,
+# or give label
+ExprList --> (Expr ;)+
+#ExprList:Seq --> (Expr ;)+
+
+#ExprList:nil -->
+#ExprList:cons --> Expr ; ExprList
 #ES1 --> Expr:e ; {e}
-#ExprList --> ES1+:v { v }
 #ExprList --> Expr:[e] ; { vec![e] }
 #ExprList --> ExprList:v Expr:[e] ;  { v.push(e); v }
 
 EOF
+
+notes:
+
+passthru will not change the type of a non-terminal.
+However, when generating a one-time use nonterminal when processing
++, ?, passthru will set the type of nonterminal, so E --> F means E
+will inherit the type of F.  But in writing a grammar, this is only
+possible if E and F have the same type.

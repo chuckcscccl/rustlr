@@ -16,6 +16,9 @@ of grammar rules with expressions such as `a _* b`
 
 <p>
 
+***Version 0.2.91 update improves ability to recognize \*, + and ? operators: see
+Chapter 4 of the tutorial.***
+
 ### Major Features and the Versions that Introduced Them
 
 #### Version 0.2.9:

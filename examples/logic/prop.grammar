@@ -23,5 +23,6 @@ Prop:And --> Prop AND Prop
 Prop:Or --> Prop OR Prop
 Prop:Implies --> Prop IMPLIES Prop
 Prop:Not --> NOT Prop
-Prop --> ( Prop:p ) { p }
+Prop --> ( Prop )
+#Prop --> ( Prop:p )  { p }
 EOF

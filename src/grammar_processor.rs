@@ -509,7 +509,6 @@ impl Grammar
                 // plus additional "meaningless" terminals.  If
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.
-                //  NEED TO DECIDE WHAT EXACTLY TO IMPLEMENT HERE!
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
                   // advance i until see )*, or )+
@@ -533,7 +532,7 @@ impl Grammar
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
-//                     if passthru>=0 && igsym.terminal && igsym.precedence!=0 {passthru=-2;}
+//println!("igsym {}, type {}",&igsym.sym, &igsym.rusttype);                     
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
@@ -552,11 +551,12 @@ impl Grammar
                   if passthru<0 {
                     newnt2.rusttype = ntname2.clone();
                     self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
+//   println!("passthru on {} not recognized",&ntname2);                    
                     // action will be written by ast_writer
                   }
                   else { // set action of new rule to be passthru
                     newrule2.action = format!(" _item{}_ }}",passthru);
-                    //println!("passthru found, type is {}",&newnt2.rusttype);
+//   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
@@ -572,9 +572,8 @@ impl Grammar
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   self.Rulesfor.insert(ntname2,rulesforset);
                   strtok = &newtok2;
-
+//println!("1 strtok now {}",strtok);
                 } // starts with (
-//println!("strtok now {}",strtok);
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
 		// add code to recognize E*, E+ and E?
@@ -588,7 +587,7 @@ impl Grammar
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("NEWNT{}{}",gsympart,self.Rules.len());
+		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    if &self.Symbols[gsymi].rusttype!="()" {
@@ -639,6 +638,7 @@ impl Grammar
 		   self.Rulesfor.insert(newntname,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
+//println!("2 strtok now {}",strtok);                   
 		}// processes RE directive - add new productions
 
 
