@@ -100,6 +100,7 @@ impl Grammar
 	  // determine if action and ast enum should be generated:
           if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
             self.Rules[*ri].action = format!("_item{}_ }}",passthru);
+//println!("passthru on rule {}, NT {}",ri,&self.Rules[*ri].lhs.sym);
           }
 	  else
           if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {

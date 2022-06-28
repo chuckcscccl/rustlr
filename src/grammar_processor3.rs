@@ -19,8 +19,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 
-pub const DEFAULTPRECEDENCE:i32 = 0;   // 20
-pub const TRACE:usize = 0;
+pub const DEFAULTPRECEDENCE:i32 = 0;   
 
 #[derive(Clone)]
 pub struct Gsym // struct for a grammar symbol
@@ -28,7 +27,6 @@ pub struct Gsym // struct for a grammar symbol
   pub sym : String,
   pub rusttype : String, // used to derive private enum
   pub terminal : bool,
-  pub label : String,  // object-level variable holding value
   pub precedence : i32,   // negatives indicate right associativity
 }
 
@@ -39,19 +37,24 @@ impl Gsym
     Gsym {
       sym : s.to_owned(),
       terminal : isterminal,
-      label : String::default(),
       rusttype : String::new(),
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
     }
   }
-  pub fn setlabel(&mut self, la:&str)
-  { self.label = String::from(la); }
+//  pub fn setlabel(&mut self, la:&str)
+//  { self.label = String::from(la); }
   pub fn settype(&mut self, rt:&str)
   { self.rusttype = String::from(rt); }
   pub fn setprecedence(&mut self, p:i32)
   { self.precedence = p; }
 }// impl for Gsym
 
+pub struct Gsyminst
+{
+   pub index:usize, // index into self.Symbols
+   pub terminal : bool,
+   pub label:String, // grammar label
+}
 
 //Grammar Rule structure
 // This will be used only statically: the action is a string.
@@ -114,7 +117,6 @@ pub struct Grammar
   pub enumhash:HashMap<String,usize>, //enum index of each type
   pub genlex: bool,
   pub genabsyn: bool,
-  pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
 }
 
 impl Default for Grammar {
@@ -151,7 +153,6 @@ impl Grammar
        genlex: false,
        genabsyn: false,
        enumhash:HashMap::new(),
-       Reachable:HashMap::new(),
      }
   }//new grammar
 

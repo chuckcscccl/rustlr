@@ -7,6 +7,8 @@
 #![allow(unused_assignments)]
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
+use std::collections::{HashMap,HashSet,BTreeSet};
+//use std::cell::{RefCell,Ref,RefMut};
 use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
@@ -20,6 +22,14 @@ impl Grammar
 {
    fn prepare(&mut self) -> String
    {
+     if self.Reachable.len()<1 {self.reachability();}// compute reachability
+/*
+println!("reachable: {:?}",&self.Reachable);
+print!("SYMBOLS:");
+for i in 0..self.Symbols.len() {
+println!("{}: {}",i,&self.Symbols[i].sym);
+}
+*/
      let mut ASTS = String::new();
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
@@ -157,4 +167,47 @@ use rustlr::LBox;\n")?;
      Ok(())
    }//writeabsyn
 
+
+
+/////  Floyd/Warshall reachability - sort of
+  pub fn reachability(&mut self)
+  {
+     let NTs:Vec<_> = self.Rulesfor.keys().collect();
+     for NT in NTs
+     {
+       self.Reachable.insert(*self.Symhash.get(NT).unwrap(), HashSet::new());
+     } // create map skeletons
+
+     let mut stillopen = true;
+     while stillopen {
+       stillopen = false;
+       for (NT, NTrules) in self.Rulesfor.iter()
+       {
+        let iNT = self.Symhash.get(NT).unwrap();
+        let mut symset = HashSet::new();
+        for ri in NTrules
+        {
+           for sym in &self.Rules[*ri].rhs
+           {
+              let symi = *self.Symhash.get(&sym.sym).unwrap();
+              symset.insert(symi);
+              if !self.Symbols[symi].terminal { // noterminal
+                 for nsymi in self.Reachable.get(&symi).unwrap().iter()
+                 {
+                     symset.insert(*nsymi);
+                 }
+              }
+           } // collect rhs symbols into a set
+        }//for ri
+        let ireachable = self.Reachable.get_mut(iNT).unwrap(); // refcell
+        for sym in symset
+        {
+          stillopen =  ireachable.insert(sym) || stillopen;
+        }
+       }//(NT,NTrules)
+     }//stillopen
+  }// reachability closure
+
 }//impl Grammar
+
+

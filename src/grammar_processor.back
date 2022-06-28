@@ -509,7 +509,6 @@ impl Grammar
                 // plus additional "meaningless" terminals.  If
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.
-                //  NEED TO DECIDE WHAT EXACTLY TO IMPLEMENT HERE!
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
                   // advance i until see )*, or )+
@@ -520,18 +519,20 @@ impl Grammar
                   let mut retoki = &strtok[1..]; // without (
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
+                  let mut suffix="";
                   while i<=bstokens.len()
                   {
                      let retokisplit:Vec<&str> = retoki.split(':').collect();
                                           
                      if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+")  {
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
+                       suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
                      }
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
-//                     if passthru>=0 && igsym.terminal && igsym.precedence!=0 {passthru=-2;}
+//println!("igsym {}, type {}",&igsym.sym, &igsym.rusttype);                     
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
@@ -550,11 +551,12 @@ impl Grammar
                   if passthru<0 {
                     newnt2.rusttype = ntname2.clone();
                     self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
+//   println!("passthru on {} not recognized",&ntname2);                    
                     // action will be written by ast_writer
                   }
                   else { // set action of new rule to be passthru
                     newrule2.action = format!(" _item{}_ }}",passthru);
-                    //println!("passthru found, type is {}",&newnt2.rusttype);
+//   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
@@ -565,14 +567,13 @@ impl Grammar
                   let mut rulesforset = HashSet::new();
                   rulesforset.insert(self.Rules.len()-1);
                   // i-1 is now at token with )* or )+
-                  let suffix = &bstokens[i-1][bstokens[i-1].len()-1..];
+                  //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
                   if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   self.Rulesfor.insert(ntname2,rulesforset);
                   strtok = &newtok2;
-
+//println!("1 strtok now {}",strtok);
                 } // starts with (
-
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
 		// add code to recognize E*, E+ and E?
@@ -586,7 +587,7 @@ impl Grammar
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("NEWNT{}{}",gsympart,self.Rules.len());
+		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    if &self.Symbols[gsymi].rusttype!="()" {
@@ -637,6 +638,7 @@ impl Grammar
 		   self.Rulesfor.insert(newntname,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
+//println!("2 strtok now {}",strtok);                   
 		}// processes RE directive - add new productions
 
 
