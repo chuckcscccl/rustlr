@@ -200,6 +200,13 @@ impl<'t,AT:Default+'static> TerminalToken<'t,AT>
  }
 }//impl for AT:'static
 
+/* useless
+impl<'t,AT:Default+std::fmt::Debug> TerminalToken<'t,AT>
+{
+   pub fn make_string(&self)->String
+   { format!("{}({:?})",self.sym,&self.value) }
+}
+*/
 
 ///////////
 /// This is the trait that repesents an abstract lexical scanner for

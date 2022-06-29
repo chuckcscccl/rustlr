@@ -270,7 +270,7 @@ pub enum RawToken<'t>
 //  Hex(u64),
   /// floating point number
   Float(f64),
-  /// Decimal number too large for i64 or f64
+  /// Number too large for i64 or f64 - hex numbers will include 0x prefix
   BigNumber(&'t str),
   /// single character inside single quotes.
   Char(char), 
