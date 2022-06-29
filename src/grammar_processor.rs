@@ -551,7 +551,7 @@ impl Grammar
                   if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
                   iadjust += jk as usize;
                   if passthru<0 {
-                    newnt2.rusttype = ntname2.clone();
+                    newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
                     self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
 //   println!("passthru on {} not recognized",&ntname2);                    
                     // action will be written by ast_writer
