@@ -270,6 +270,8 @@ pub enum RawToken<'t>
 //  Hex(u64),
   /// floating point number
   Float(f64),
+  /// Decimal number too large for i64 or f64
+  BigNumber(&'t str),
   /// single character inside single quotes.
   Char(char), 
   /// String literal, allows for nested quotes
@@ -607,10 +609,13 @@ impl<'t> StrTokenizer<'t>
         return Some((LexError,line0,pi-lstart0+1)); 
     }//strlit
     
-    // look for hex
+    // look for hex, with possibility of overflow
     if let Some(mat) = self.hexnum.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
-        return Some((Num(i64::from_str_radix(&self.input[pi+2..self.position],16).unwrap()),self.line,pi+3-self.line_start));        
+        let tryparse = i64::from_str_radix(&self.input[pi+2..self.position],16);
+        if let Ok(hn) = tryparse {return Some((Num(hn),self.line,pi+3-self.line_start));}
+        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}
+        //return Some((Num(i64::from_str_radix(&self.input[pi+2..self.position],16).unwrap()),self.line,pi+3-self.line_start));        
     }//hexnum
     // look for alphanum    
     if let Some(mat) = self.alphan.find(&self.input[pi..]) {
@@ -620,12 +625,18 @@ impl<'t> StrTokenizer<'t>
     // floats
     if let Some(mat) = self.floatp.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
-        return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
+        let tryparse = self.input[pi..self.position].parse::<f64>();
+        if let Ok(n)=tryparse {return Some((Float(n),self.line,pi-self.line_start+1));}
+        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}
+        //return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
     }//floatp
     // decimal ints
     if let Some(mat) = self.decuint.find(&self.input[pi..]) {
-        self.position = mat.end()+pi;  
-        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
+        self.position = mat.end()+pi;
+        let tryparse = self.input[pi..self.position].parse::<i64>();
+        if let Ok(n)=tryparse {return Some((Num(n),self.line,pi-self.line_start+1));}
+        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}        
+//        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
     }//decuint
 
     //check for unclosed string

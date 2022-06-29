@@ -49,7 +49,9 @@ println!("{}: {}",i,&self.Symbols[i].sym);
           if intersect.next().is_none() { // remove lt from rusttype
             let position = self.Symbols[*NTi].rusttype.find(&ltopt);
             if let Some(pi) = position {
+              let ei = self.enumhash.remove(&self.Symbols[*NTi].rusttype);
               self.Symbols[*NTi].rusttype.truncate(pi);
+              ei.map(|i|{self.enumhash.insert(self.Symbols[*NTi].rusttype.clone(),i);});
             }
           }// no intersection with real lifetime types
        } // for each NT
