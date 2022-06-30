@@ -86,7 +86,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
             	            {format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
             if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
-            if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
+            if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" && !self.Symbols[rsymi].rusttype.starts_with("Vec") && !self.Symbols[rsymi].rusttype.starts_with("LBox") && !self.Symbols[rsymi].rusttype.starts_with("Option<LBox") {
               if genstruct {
                enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
                ACTION.push_str(&format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel));
