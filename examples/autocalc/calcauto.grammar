@@ -3,6 +3,7 @@
 # declare input lifetime:
 lifetime 'lt
 nonterminals Expr
+nonterminal Bxpr &'lt str
 nonterminal ExprList Vec<LBox<Expr<'lt>>>
 # *Expr means type of ES1 will be copied from type of Expr
 #nonterminal ES1 *Expr
@@ -25,7 +26,8 @@ lexvalue var Alphanum(x) x
 lexvalue bigint BigNumber(n) n
 lexattribute set_line_comment("#")
 
-Expr:BigVal --> bigint
+Bxpr:Big --> bigint
+Expr:BigVal --> Bxpr
 Expr:Val --> int
 Expr:Var --> var
 Expr:Letexp --> let var = Expr in Expr

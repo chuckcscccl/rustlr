@@ -11,7 +11,8 @@ HASH --> #
 #E --> (ID ;)*:v ID?:x { x.map(|x|{v.push(x)}); v }
 #E:SeqNum --> HASH? (ID ID ;)*
 
-E:SeqNums --> (ID ;)* (VAL ,)* VAL?
+E:SeqNums --> (ID ;)*:a (VAL ,)*:b VAL?:c
+#E:NumNum --> VAL VAL
 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()

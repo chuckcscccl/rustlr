@@ -30,7 +30,7 @@ for i in 0..self.Symbols.len() {
 println!("{}: {}",i,&self.Symbols[i].sym);
 }
 */
-     let mut ASTS = String::new();
+     let mut ASTS = String::new(); // all asts
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
      // self.Rulesfor hashmap from nonterminals to set of usize indices
@@ -41,9 +41,16 @@ println!("{}: {}",i,&self.Symbols[i].sym);
      {
         let nti = *self.Symhash.get(NT).unwrap();
         let ntsym = &self.Symbols[nti];
+
+        /////// generate ENUM by default
+        let mut genstruct = NTrules.len()==1;
+
 	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
+        if genstruct {AST=format!("#[derive(Default,Debug)]\npub struct {} {{\n",&ntsym.rusttype);}
+        
 	for ri in NTrules  // for each rule with NT on lhs
 	{
+          //if self.Rules[*ri].rhs.len()<1 {genstruct=false;}
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
 	  // look at rhs of rule to form enum variant + action of each rule
           let mut nolhslabel = false;
@@ -52,8 +59,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	     let mut lhslab = format!("{}_{}",NT,ri);
 	     if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	       let symname = &self.Rules[*ri].rhs[0].sym;
-	       if is_alphanum(symname) {
-//insert r# here	       
+	       if is_alphanum(symname) { //insert r# into enum variant name
 	         lhslab = symname.clone();
 		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }
 	       }
@@ -63,7 +69,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
-	  if self.Rules[*ri].rhs.len()>0 {
+          if genstruct {
+             ACTION=format!("{} {{",NT);
+             enumvar = String::new(); // "enumvar" means "struct-fields"
+          }
+	  else if self.Rules[*ri].rhs.len()>0 {
 	    enumvar.push('(');
 	    ACTION.push('(');
 	  }
@@ -77,15 +87,27 @@ println!("{}: {}",i,&self.Symbols[i].sym);
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
             if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
             if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
-	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
+              if genstruct {
+               enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
+               ACTION.push_str(&format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel));
+              }
+              else {
+               enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
+             }// not genstruct
                if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
                else {passthru = -2;}
 	    }
 	    else if &self.Symbols[rsymi].rusttype!="()" {
-	      enumvar.push_str(&format!("{},",&rsym.rusttype));
-	      ACTION.push_str(&format!("{},",&itemlabel));
-	    }
+              if genstruct {
+                enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
+                ACTION.push_str(&format!("{},",&itemlabel));
+              }
+	      else {
+                enumvar.push_str(&format!("{},",&rsym.rusttype));
+	        ACTION.push_str(&format!("{},",&itemlabel));
+              }//not genstruct (gen enum)
+	    }// terminal but not unit type
 	    /*
 	    check special case: only one NT on rhs that has same type as lhs,
 	    and all other symbols have type () AND are marked punctuations.
@@ -97,6 +119,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	    */
 	    rhsi += 1;
 	  }// for each symbol on rhs of rule ri
+          if genstruct {
+             enumvar.push_str("}\n");
+             ACTION.push('}');
+          }
+          else
           if enumvar.ends_with(',') {
 	      enumvar.pop(); 
 	      enumvar.push(')');
@@ -115,10 +142,12 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	  else
           if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
-	    AST.push_str(&enumvar); AST.push_str(",\n");
+	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
 	  }
 //println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
+
+        if !genstruct {
 	// coerce Nothing to carry a dummy lifetime if necessary
 	let mut defaultvar = format!("{}_Nothing",NT);
 	let mut defaultvarinst = format!("{}_Nothing",NT);
@@ -128,9 +157,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	}
 	AST.push_str(&format!("  {},\n}}\n",&defaultvar));
 	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",&ltopt,&ntsym.rusttype,NT,&defaultvarinst));
-//println!("AST: {}",&AST);	
+        } // !genstruct
+        
+        // rule only added if there's no override
         if ntsym.rusttype.starts_with(NT) { ASTS.push_str(&AST); }
-     }//for each non-terminal and set of rules
+     }//for each non-terminal and set of rules (NT, NTRules)
 
      // set Absyntype
 //     let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist
