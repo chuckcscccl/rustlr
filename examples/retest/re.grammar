@@ -1,13 +1,18 @@
 typedterminal ID String
 typedterminal VAL i64
-terminal # ;
-nonterminals E HASH
+terminal # ; ,
+nonterminals HASH
+nonterminals E
+#nonterminal E Vec<LBox<String>>
 topsym E
 
 HASH --> #
-E:SeqNum --> (ID ; ;)+ HASH* VAL?
-#E:SeqNum --> ID+ HASH? VAL
+#E:SeqNum --> (ID ; ;)+ HASH* VAL?
+#E --> (ID ;)*:v ID?:x { x.map(|x|{v.push(x)}); v }
 #E:SeqNum --> HASH? (ID ID ;)*
+
+E:SeqNums --> (ID ;)* (VAL ,)* VAL?
+
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
 

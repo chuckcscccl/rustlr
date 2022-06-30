@@ -514,7 +514,7 @@ impl Grammar
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
                   // advance i until see )*, or )+
-                  let ntname2 = format!("SEQNT_{}_",self.Rules.len());
+                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),i);
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
 	          let mut defaultrelab2 = String::new(); //format!("_item{}_",i-1-iadjust);
@@ -528,6 +528,7 @@ impl Grammar
                                           
                      if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+")  {
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
+                       if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`",linenum);}
                        suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
                      }
