@@ -9,6 +9,7 @@ nonterminal ExprList Vec<LBox<Expr<'lt>>>
 terminals + - * / ( ) = ;
 terminals let in
 typedterminal int i64
+typedterminal bigint &'lt str
 typedterminal var &'lt str
 topsym ExprList
 resync ;
@@ -21,8 +22,10 @@ left = 300
 
 lexvalue int Num(n) n
 lexvalue var Alphanum(x) x
+lexvalue bigint BigNumber(n) n
 lexattribute set_line_comment("#")
 
+Expr:BigVal --> bigint
 Expr:Val --> int
 Expr:Var --> var
 Expr:Letexp --> let var = Expr in Expr

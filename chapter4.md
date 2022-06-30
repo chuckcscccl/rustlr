@@ -28,8 +28,7 @@ Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
 Expr:Times --> Expr * Expr
 Expr:Neg --> - Expr
-# override auto-generated creation of abstract syntax:
-Expr --> ( Expr:e )  { e }
+Expr --> ( Expr:e )
 
 ES:nil -->
 ES:cons --> Expr ; ES
@@ -43,7 +42,7 @@ EOF
 
 Note the following differences between this grammar and the one presented in [Chapter 2][chap2]:
 
-1. There are no semantic actions but for one of the rules
+1. There are no semantic actions
 2. There is no "absyntype" or "valuetype" declaration
 3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal`).
 4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  This label will become the name of the enum variant to be created.
@@ -81,7 +80,31 @@ An enum is created for each non-terminal symbol of the grammar, with the same na
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
 ```
 
-Recall from [Chapter 2][chap2] that a label of the form `[a]`means that the semantic value associated with the symbol is enclosed in an [LBox][2].  However, there are cases where one might want to override the automatically generated action, as for the rule `Expr --> ( Expr )`.  The parentheses are of no use at the abstract syntax level and the most appropriate action would be to return the same value as the expression on the right-hand side.  The automatically generated action would have created an additional LBox.  It is also possible to override the automatic generation of the type of a grammar symbol.  In case of ES, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is slightly non-optimal for LR parsing (the parse stack grows until the last element of the list before ES-reductions take place).  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ES` as follows:
+Recall from [Chapter 2][chap2] that a label of the form `[a]` means that the semantic value associated with the symbol is enclosed in an [LBox][2].
+
+The production rule `Expr --> ( Expr )` is also treated in a special way:
+note that there is no variant that correspond to this rule in the enum.  Rustlr
+infers from the fact that
+  1. there is no left-hand side label to the nonterminal.
+  2. `Expr` is the only grammar symbol on the right-hand side that has a non-unit
+     type.
+  3. There are no operator precedence/associativity declaration for the
+     other symbols.
+     
+In other words, it infers that the other symbols on the right hand side carry
+no meaning at the AST level, and thus generates a semantic action for this rule
+that would be equivalent to:
+```
+  Expr --> ( Expr:e ) { e }
+```
+thus ignoring the parentheses in the AST.
+If the automatically inferred "meaning" of this rule is not what's desired,
+it can be altered by using an explicit left-side label: this will generate
+a separate enum variant (at the cost of an extra LBox) that distinguishes
+the presence of the parentheses.
+
+It is always possible to override the automatically generated type and action.
+In case of ES, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is slightly non-optimal for LR parsing (the parse stack grows until the last element of the list before ES-reductions take place).  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ES` as follows:
 
 ```
 nonterminal ES Vec<LBox<Expr<'lt>>>
@@ -94,8 +117,12 @@ ES --> Expr:[e] ; { vec![e] }
 ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
 ```
+The presence of a non-empty semantic action or a user-defined nonterminal
+type will always cancel their automatic generation.
 
-#### Adding New Rules with *, + and ?
+   -------------------
+
+### Adding New Rules with *, + and ?
 
 A relatively new feature of rustlr (since verion 0.2.9) allows the use of regular-expression style symbols *, + and ? to automatically generate new production rules.  However, these symbols cannot be used unrestrictedly to form arbitrary
 regular expressions (they cannot be nested).  They are given only as a convenience.  They are also guaranteed to only fully work in the -auto mode.
@@ -177,7 +204,7 @@ Please note that all generated enums for the grammar will attempt to derive the 
 Please also note that using [LBox][2] is already included in all parsers generated with the `-genabsyn` or `-auto` option, so do not use `!use ...` to include
 it again.
 
-
+   ----------------
 
 #### Generating a Parser for C
 

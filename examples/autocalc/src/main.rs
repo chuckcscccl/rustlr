@@ -22,7 +22,7 @@ fn main()
 5-7- -9 ; 
 4*3-9; 
 2+1/(2-1-1);  # division by 0 (semantic) error
-let x = 10 in 2+x;
+let x = 0x0FFFFFFFFFFFFFFFFFFFB in 2+x;
 let x = 1 in (x+ (let x=10 in x+x) + x);
 (let x = 2 in x+x) + x;  # unbound variable (semantic) error
 (let x = 4 in x/2) + (let x=10 in x*(let y=100 in y/x));
@@ -36,14 +36,13 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
 
    println!("\nABSYN: {:?}\n",&result4);
    
-   let bindings4 = newenv();
-   println!("\nresult after eval: {:?}", eval_seq(&bindings4,&result4));
-
+//   let bindings4 = newenv();
+//   println!("\nresult after eval: {:?}", eval_seq(&bindings4,&result4));
    println!("\nline 10: {}",scanner4.get_line(10).unwrap());
 }//main
 
 /////////// evaluating generated ast
-
+/*
 pub enum Env<'t> {
   Nil,
   Cons(&'t str, i64, Rc<Env<'t>>)
@@ -119,3 +118,4 @@ fn eval_seq<'t>(env:&Rc<Env<'t>>, s:&ExprList) -> Option<i64>
   }//match
 }//eval_seq
 
+*/

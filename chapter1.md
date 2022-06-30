@@ -289,14 +289,21 @@ This function will return a value of type valuetype.  It will return a valuetype
 even if parsing failed (but error messages will be printed).  After
 .parse returns, you can also check if an error had occurred by calling
 `parser1.error_occurred()` before deciding to use the valuetype result
-that was returned.  
+that was returned.
 
+An alternative way to invoke the parser is to call
+```
+let result = parse_with(&mut parser1, &mut tokenizer1)
+.unwrap_or_else(|x|{println!("Parsing errors occurred; results not guaranteed");
+ x});
+```
+The `parse_with` function returns a `Result<T,T>` where `T` is the valuetype/absyntype. 
 
 To run the program, **`cargo new`** a new crate and copy
 the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
 under [dependencies]:
 ```
-rustlr = "0.2"  
+rustlr = "0.2.9"  
 ```
 **`cargo run "2+3*4"`** will print 14 and `cargo run "(2+3)*4"` will print
 20.
