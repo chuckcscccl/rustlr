@@ -218,6 +218,7 @@ The RawToken enum contains the following principal variants:
  to return the more generic signed form.  Also, "3u8" would be
  reconized as a Num(3) followed by an Alphanum("u8").
  - **Float(f64)**: like the case of Num, this represents unsigned, decimal floats.
+ - **BigNumber(&str)**: Numbers that are too large for i64 or f64 are represented verbatim.
  - **Char(char)**: this represents a character literal in single quotes such as 'c'
  - **Strlit(&str)**: A string literal delinated by double quotes.  These strings can span multiple lines and can contain nested, escaped quotes.
  - **Newline**: optional token indicating a newline character. These tokens
@@ -322,6 +323,7 @@ The following symbols should also NOT be used as non-terminals in your grammar:
 >     START valuetype absyntype grammarname resync resynch topsym errsym 
 >     nonterminal terminal nonterminals terminals lexvalue lexname typedterminal
 >     left right externtype externaltype lifetime lexattribute
+>     any symbol starting with `SEQ` or `NEWNT` may potentially, but unlikely, cause conflict.
 
 For example, if ":" is to be one of the terminal symbols of your
 language, then you should call it something like COLON instead in the

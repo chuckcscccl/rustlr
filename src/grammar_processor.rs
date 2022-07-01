@@ -134,7 +134,6 @@ impl Grammar
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
-//       Absyntype:String::from("i64"),
        Absyntype:String::from("()"), //changed for 0.2.7
        Externtype:String::from("()"),    // changed to () for 0.2.9
 //       Recover : HashSet::new(),

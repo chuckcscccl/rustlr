@@ -1,6 +1,6 @@
 ## Chapter 4: Automatically Generating the AST
 
-One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Since version 0.2.8, rustlr is capable of automatically generating the data structures (enums) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
+One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Rustlr is capable of automatically generating the data structures (enums and structs) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
 
 We redo the enhanced calculator example from [Chapter 2][chap2].  The following grammar is found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/calcauto.grammar).
 
@@ -74,7 +74,33 @@ impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing(&()) }
 
 ```
 
-An enum is created for each non-terminal symbol of the grammar, with the same name as the non-terminal.  There is, essentially, an enum variant for each production rule of the grammar.  The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.  Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these enum types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
+An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules. The name of the enum is the
+same as the name of the non-terminal.  There is an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
+symbols of the rule that are associated with non-unit types.
+The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).  A special `Nothing` variant is also created to represent a default.[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.
+
+A struct is created for non-terminals symbols that appears on the
+left-hand side of exactly one production rule.  The name of the struct
+is the same as the non-terminal.  The fields of each struct is named by
+the labels given to the right-hand side symbols, or with `_item{i}_` if
+no labels are given.  For example, a singleton rule such as:
+  ```
+  Ifelse --> if Expr:condition Expr:truecase else Expr:falsecase
+  ```
+will result in the generation of:
+  ```
+  #[derive(Default,Debug)]
+  pub struct Ifelse {
+    condition: LBox<Expr>,
+    truecase: LBox<Expr>,
+    falsecase: LBox<Expr>,
+  }
+  ```
+The AST generator always creates a [LBox][2] for each non-terminal field.  The
+struct may be empty if all right-hand-side symbols of the single production
+rules are associated with the unit type.
+
+Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these enum types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
 
 ```
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
