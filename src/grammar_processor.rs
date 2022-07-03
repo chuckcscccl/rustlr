@@ -199,7 +199,8 @@ impl Grammar
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
      if self.genabsyn {wildcard.rusttype="()".to_owned();}
-     self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());        self.Symbols.push(wildcard); // wildcard is first symbol.
+     self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
+     self.Symbols.push(wildcard); // wildcard is first symbol.
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -385,6 +386,10 @@ impl Grammar
             },
             "absyntype" | "valuetype" /*if stage==0*/ => {
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
+               if self.genabsyn {
+                 eprintln!("WARNING: absyntype/valuetype declaration ignored in -auto (genabsyn) mode, line {}", linenum);
+                 continue;
+               }
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
                if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
@@ -392,7 +397,6 @@ impl Grammar
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Externtype = String::from(line[pos..].trim());            
-	       if TRACE>2 {println!("external structure type is {}",&self.Externtype);}
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
