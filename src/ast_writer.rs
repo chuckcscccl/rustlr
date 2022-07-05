@@ -44,7 +44,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 
         /////// generate ENUM by default
         let mut genstruct = NTrules.len()==1;
-
+        let mut usedlt = false; // did lt appear in type?
 	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
         if genstruct {AST=format!("#[derive(Default,Debug)]\npub struct {} {{\n",&ntsym.rusttype);}
         
@@ -85,7 +85,9 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	    let itemlabel = if rsym.label.len()>0 {rsym.label.clone()} else
             	            {format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
+            if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
             if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
+            // Lbox or no Lbox:
             if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" && !self.Symbols[rsymi].rusttype.starts_with("Vec") && !self.Symbols[rsymi].rusttype.starts_with("LBox") && !self.Symbols[rsymi].rusttype.starts_with("Option<LBox") {
               if genstruct {
                enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
@@ -95,10 +97,10 @@ println!("{}: {}",i,&self.Symbols[i].sym);
                enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
              }// not genstruct
-               if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
-               else {passthru = -2;}
-	    }
-	    else if &self.Symbols[rsymi].rusttype!="()" {
+             if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
+             else {passthru = -2;}
+	    } // with Lbox
+	    else if &self.Symbols[rsymi].rusttype!="()" {  //no Lbox
               if genstruct {
                 enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
                 ACTION.push_str(&format!("{},",&itemlabel));
@@ -107,6 +109,9 @@ println!("{}: {}",i,&self.Symbols[i].sym);
                 enumvar.push_str(&format!("{},",&rsym.rusttype));
 	        ACTION.push_str(&format!("{},",&itemlabel));
               }//not genstruct (gen enum)
+//println!("rule {}, rhs sym {}, type {}, lhs type {}",ri,&rsym.rusttype,&rsym.sym,&lhsymtype);
+              if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
+              else {passthru = -2;}            
 	    }// terminal but not unit type
 	    /*
 	    check special case: only one NT on rhs that has same type as lhs,
@@ -119,7 +124,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	    */
 	    rhsi += 1;
 	  }// for each symbol on rhs of rule ri
-          if genstruct {
+          if genstruct { // this is only rule that forms struct
+             if !usedlt && ltopt.len()>0 {
+               enumvar.push_str(&format!("  pub phantom:PhantomData<&{} ()>,\n",&self.lifetime));
+               ACTION.push_str("phantom:PhantomData, ");
+             }
              enumvar.push_str("}\n");
              ACTION.push('}');
           }
@@ -186,6 +195,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
+use std::marker::PhantomData;
 extern crate rustlr;
 use rustlr::LBox;\n")?;
      write!(fd,"{}\n",&self.Extras)?;

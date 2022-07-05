@@ -132,6 +132,7 @@ impl Statemachine
 #![allow(dead_code)]
 #![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
+use std::marker::PhantomData;
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
     if self.Gmr.genlex {

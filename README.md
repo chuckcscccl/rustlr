@@ -16,7 +16,7 @@ of grammar rules with expressions such as `a _* b`
 
 <p>
 
-**Version 0.2.92 improves ability to recognize \*, + and ? operators and generation of AST structures: see Chapter 4 of the tutorial.  The AST generator
+**Version 0.2.93 improves ability to recognize \*, + and ? operators and generation of AST structures: see Chapter 4 of the tutorial.  The AST generator
 now creates structs for nonterminals with singleton productions.  A `BigNumber` variant was added to RawToken.**
 
 
