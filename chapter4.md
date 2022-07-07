@@ -1,6 +1,6 @@
 ## Chapter 4: Automatically Generating the AST
 
-One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Rustlr is capable of automatically generating the data structures (enums and structs) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous two chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
+One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Rustlr is capable of automatically generating the data structures (enums and structs) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
 
 We redo the enhanced calculator example from [Chapter 2][chap2].  The following grammar is found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/calcauto.grammar).
 
@@ -43,9 +43,9 @@ EOF
 Note the following differences between this grammar and the one presented in [Chapter 2][chap2]:
 
 1. There are no semantic actions
-2. There is no "absyntype" or "valuetype" declaration
+2. There is no "absyntype" or "valuetype" declaration; any such declaration would be ignored
 3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal`).
-4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  This label will become the name of the enum variant to be created.
+4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  These labels will become the names of enum variants to be created.
 
 Process the grammar with **`rustlr calcauto.grammar -genabsyn`** (or **`-auto`**).   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
 
@@ -75,7 +75,7 @@ impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing(&()) }
 ```
 
 An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules. The name of the enum is the
-same as the name of the non-terminal.  There is an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
+same as the name of the non-terminal.  There is essentially an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
 symbols of the rule that are associated with non-unit types.
 The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).  A special `Nothing` variant is also created to represent a default.[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.
 
@@ -83,7 +83,7 @@ A struct is created for non-terminals symbols that appears on the
 left-hand side of exactly one production rule.  The name of the struct
 is the same as the non-terminal.  The fields of each struct is named by
 the labels given to the right-hand side symbols, or with `_item{i}_` if
-no labels are given.  For example, a singleton rule such as:
+no labels are given.  For example, a nonterminal `Ifelse` with a singleton rule
   ```
   Ifelse --> if Expr:condition Expr:truecase else Expr:falsecase
   ```
@@ -100,7 +100,7 @@ The AST generator always creates a [LBox][2] for each non-terminal field.  The
 struct may be empty if all right-hand-side symbols of the single production
 rules are associated with the unit type.
 
-Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these enum types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
+Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these AST types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
 
 ```
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
@@ -109,8 +109,7 @@ Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
 Recall from [Chapter 2][chap2] that a label of the form `[a]` means that the semantic value associated with the symbol is enclosed in an [LBox][2].
 
 The production rule `Expr --> ( Expr )` is also treated in a special way:
-note that there is no variant that correspond to this rule in the enum.  Rustlr
-infers from the fact that
+note that there is no variant that correspond to this rule in the generated enum.  Rustlr infers from the fact that
   1. there is no left-hand side label to the nonterminal.
   2. `Expr` is the only grammar symbol on the right-hand side that has a non-unit
      type.
@@ -160,7 +159,7 @@ nonterminal ES Vec<LBox<Expr<'lt>>>
 ES --> (Expr ;)*
 ```
 
-The operator **`+`** means a sequence of at least one.  This is done by generating several new non-terminal symbols initially.  Essentially, these correspond to
+The operator **`*`** means a sequence of zero or more.  This is done by generating several new non-terminal symbols initially.  Essentially, these correspond to
 
 ```
 ES0 --> Expr:e ; {e}
@@ -198,19 +197,31 @@ Other alternatives are possible:
 nonterminal ES
 ES:Sequence --> (Expr ;)*
 ```
-This would generate a new enum type for the AST of ES, with a variant
-`Sequence(Vec<LBox<Expr<'lt>>>)`.  If the type of ES is declared manually
+This would generate a new struct type for the AST of ES, with a component of
+type
+`Vec<LBox<Expr<'lt>>>`.  If the type of ES is declared manually
 as above, rustlr infers that the appropriate semantic action is equivalent to
 `ES --> (Expr ;)*:v {v}`  because there is only one symbol (the internally
 generated ES1) on the right-hand side, and it is of the same type.
-The label given for such an expression cannot be a pattern such as `[v]` or something enclosed inside `@...@`.  These restrictions may eventually be eliminated in future releases.
+**The label given for such an expression cannot be a pattern such as `[v]` or something enclosed inside `@...@`.**  These restrictions may eventually be eliminated in future releases.
 
-Another restrictions is that the symbols `(`, `)`, `?`, `*` and `+` may not
+Another restriction is that the symbols `(`, `)`, `?`, `*` and `+` may not
 be separated by white spaces since that would confuse their interpretation
 as independent terminal symbols.  For example, `( Expr ; ) *` is not valid.
 
+Yet another alternative is to manually define the type of ES, from which Rustlr will infer that no struct/enum needs to be created for it:
+```
+nonterminal ES Vec<LBox<Expr<'lt>>>
+ES: --> (Expr ;)*
+```
+This is because rustlr generates an internal non-terminal to represent the right-hand side `*` expression and assigns it type `Vec<LBox<Expr<'lt>>>`.
+It then recognizes that this is the only symbol on the
+right, which is of the same type as the left-hand side nonterminal `ES`
+as declared. This rule will again be given an action equivalent to
+`ES: --> (Expr ;)*:v {v}`
 
-##### Invoking the Parser
+
+#### Invoking the Parser
 
 Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the **`parse_with`** or **`parse_train_with`** functions:
 
@@ -259,7 +270,5 @@ The AST enums are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cpa
 [zcp]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
 
-[^footnote 1]: Each enum has a `_Nothing(&'lt ())` variant.  This is used to implement the Default trait.  The lifetime parameter exists so that all enums can be parameterized with a lifetime, if one was declared for the grammar.  Without the dummy reference one would have to compute a closure over the grammar to determine which enums require lifetimes and which do not: something that&#39;s determined to be too expensive relative to its importance.
-
-
+[^footnote 1]: Each enum has a `_Nothing(&'lt ())` variant.  This is used to implement the Default trait.  The lifetime parameter exists so that all enums can be parameterized with a lifetime, if one was declared for the grammar.  Without the dummy reference one would have to compute a closure over the grammar to determine which enums require lifetimes and which do not: something that&#39;s determined to be too expensive relative to its importance.  For structs, rustlr currently uses std::marker::PhantomData to avoid unused lifetimes.
 
