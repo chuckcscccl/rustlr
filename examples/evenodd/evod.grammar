@@ -1,0 +1,38 @@
+absyntype u32
+nonterminals A B E D S
+terminals a b
+topsym S
+
+S --> A:n {n.value} | B:n {n.value}
+A --> E:n b {n.value}
+B --> D:(n) b {n}
+E --> {0} | a a E:n {print!("E "); n.value+2}
+D --> a {1} | a a D:n {print!("D "); n.value+2}
+
+EOF
+
+This grammar is LALR(1) but not LL(k) for any k.  It is sensitive to whether
+there are an even or odd number of a's before b.  Only an LR parser can remember
+the left context like this: the decision to reduce to E or D is not made until
+all the a's are read and the single lookahead is b.
+
+A hand-written, recursive descent parser will result in multiple passes over
+the input, once for the arbitrary lookahead (and count until b) and one for
+the reduction.
+
+::: what if the even/odd question comes at the end:
+
+S --> A E | B D
+A --> b
+B --> b
+E -->   | a a E
+D --> a | a a D
+
+This grammar is not LR(1): it cannot resolve the conflict between A-->b and
+B-->b without looking all the way to the end, so it's not LR(k) for any k.
+However, the grammar is unambiguous, which means it describes a deterministic
+CFL, which by Knuth's result there should be an LR(1) grammar.
+
+S --> b E | b D
+E -->   | a a E
+D --> a | a a D

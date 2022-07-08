@@ -208,7 +208,8 @@ use rustlr::LBox;\n")?;
      Ok(())
    }//writeabsyn
 
-
+// NOTE including all of Extras (one big string) might cause repeated
+// definitions - best to not include as pubs.
 
 /////  Floyd/Warshall reachability - sort of
   pub fn reachability(&mut self)

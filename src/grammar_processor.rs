@@ -231,6 +231,9 @@ impl Grammar
        }
        else if linelen>1 && &line[0..1]=="!" {
            self.Extras.push_str(&line[1..]);
+           if line[1..].trim().starts_with("pub ") {
+             eprintln!("WARNING: public declarations may result in redundancy and conflicts, line {}",linenum);
+           }
        }
        else if linelen>1 && &line[0..1]!="#" {
          let toksplit = line.split_whitespace();
