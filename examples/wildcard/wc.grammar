@@ -1,15 +1,21 @@
 typedterminal VAL i64
 #typedterminal a i32
-typedterminal b i32
-terminals c a
-nonterminals E
-nonterminal T ()
+#typedterminal b usize
+terminals c a b
+nonterminal T usize
+nonterminal E
+#nonterminal E Vec<LBox<T>>
 topsym E
 
 #E:SeqNum --> a _* c b
 
-T --> b | _
-E --> a T* b
+#T:isb --> b {T::isb(parser.previous_position()) }
+#T:wc -->  _
+#T --> b | _
+
+T --> b {parser.current_position()}
+T --> _:@(x,y)@ {x}
+E --> a T*:positions b
 
 lexvalue VAL Num(n) n
 

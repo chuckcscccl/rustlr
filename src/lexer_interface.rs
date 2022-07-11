@@ -228,6 +228,11 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the absolute character position of the tokenizer.  The
   /// default implementation returns 0;
   fn position(&self) -> usize { 0 }
+  /*
+  /// returns the previous position (before as opposed to after the current token).
+  /// The default implementation returns 0.
+  fn previous_position(&self) -> usize { 0 }
+  */
   /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
@@ -235,11 +240,28 @@ pub trait Tokenizer<'t,AT:Default>
   /// This function should be called after the tokenizer has
   /// completed its task of scanning and tokenizing the entire input,
   /// when generating diagnostic messages when evaluating the AST post-parsing.
+
   /// The default implementation returns None.
   fn get_line(&self,i:usize) -> Option<&str> {None}
+
+  /// Retrieves the source string slice at the indicated indices; returns
+  /// the empty string if indices are invalid.  The default implementation
+  /// returns the empty string.
+  fn get_slice(&self,start:usize,end:usize) -> &str {""}
+  
   /// retrieves the source (such as filename or URL) of the tokenizer.  The
   /// default implementation returns the empty string.
   fn source(&self) -> &str {""}
+
+  /// For internal use only unless not using StrTokenizer.  This is a call-back
+  /// function from the parser and can only be implemented when the grammar
+  /// and token types are known.  It transforms a token to a token representing
+  /// the wildcard "_", with semantic value indicating its position in the text.
+  /// The default implementation returns the same TerminalToken.
+  /// This function is automatically overridden by the generated lexer when
+  /// using the -genlex option.
+  fn transform_wildcard(&self,t:TerminalToken<'t,AT>) -> TerminalToken<'t,AT>
+  {t}
   
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
@@ -482,11 +504,21 @@ impl<'t> StrTokenizer<'t>
      Some(&self.input[startl..endl])
   }
 
+  /// Retrieves the source string slice at the indicated indices; returns
+  /// the empty string if indices are invalid.  The default implementation
+  /// returns the empty string.
+  pub fn get_slice(&self,start:usize,end:usize) -> &str
+  {
+    if start<end && end<=self.input.len() {&self.input[start..end]} else {""}
+  }
+
   /// reset tokenizer to parse from beginning of input
   pub fn reset(&mut self) {
    self.position=0; self.prev_position=0; self.line=0; self.line_start=0;
    self.line_positions = vec![0,0];
   }
+
+  // transform_wildcard cannot be implemented here: need to know RetTypeEnum
 
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along

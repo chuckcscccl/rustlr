@@ -153,6 +153,9 @@ println!("{}: {}",i,&self.Symbols[i].sym);
   	    self.Rules[*ri].action = ACTION;
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
 	  }
+          else if ntsym.rusttype.starts_with(NT) {  // added for 0.2.94
+	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
+          }
 //println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
 

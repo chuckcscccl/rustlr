@@ -197,8 +197,16 @@ impl Grammar
      let mut ltopt = String::new();
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
-     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
-     if self.genabsyn {wildcard.rusttype="()".to_owned();}
+     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true); // special terminal
+
+     // need to add new flag in main to allow wildcard without genabsyn
+     //if self.genabsyn {wildcard.rusttype="()".to_owned();}
+//     if self.genabsyn {
+       wildcard.rusttype="(usize,usize)".to_owned();
+       self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
+//     }
+//     else {wildcard.rusttype="()".to_owned();}
+     
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
      self.Symbols.push(wildcard); // wildcard is first symbol.
      while !atEOF
@@ -395,7 +403,7 @@ impl Grammar
                }
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
-               if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
+               //if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -745,7 +753,7 @@ impl Grammar
      if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
         self.Absyntype = topgsym.rusttype.clone();
      }
-     for ri in 0..self.Symbols.len()
+     for ri in 1..self.Symbols.len() // exclude Symbols[0] for wildcard
      {
         let rtype = &self.Symbols[ri].rusttype;
         if rtype.len()<1 {
@@ -760,7 +768,9 @@ impl Grammar
           }
         }// set enumindex
      }//compute sametype
-     self.enumhash.insert(self.Absyntype.clone(),0);
+     // reset wildcard type if sametype on all other symbols
+     if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
+     self.enumhash.insert(self.Absyntype.clone(),0); // 0 reserved
   }//parse_grammar
 }// impl Grammar
 // last rule is always start rule and first state is start state
@@ -1008,6 +1018,14 @@ impl<'t> {0}<'t>
    fn position(&self) -> usize {{self.stk.current_position()}}
    fn current_line(&self) -> &str {{self.stk.current_line()}}
    fn get_line(&self,i:usize) -> Option<&str> {{self.stk.get_line(i)}}
+   fn get_slice(&self,s:usize,l:usize) -> &str {{self.stk.get_slice(s,l)}}")?;
+   if (!self.sametype) || self.genabsyn {
+//      let ttlt = if self.lifetime.len()>0 {&self.lifetime} else {"'wclt"};
+//      let ltparam = if self.lifetime.len()>0 {""} else {"<'wclt>"};
+      write!(fd,"
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_2((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype)?;
+   }
+   write!(fd,"
 }}//impl Tokenizer
 \n")?;
       Ok(())

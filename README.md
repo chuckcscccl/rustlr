@@ -16,8 +16,8 @@ of grammar rules with expressions such as `a _* b`
 
 <p>
 
-**Version 0.2.93 improves ability to recognize \*, + and ? operators and generation of AST structures: see Chapter 4 of the tutorial.  The AST generator
-now creates structs for nonterminals with singleton productions.  A `BigNumber` variant was added to RawToken.**
+**Version 0.2.94 improves ability the usability of the wildcard (_) token.
+See the tutorial's Appendix on Experimental featuers.**
 
 
 ### Major Features and the Versions that Introduced Them
