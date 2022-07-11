@@ -999,13 +999,6 @@ impl<'t> {0}<'t>
         Some(TerminalToken::{}(token,tname,<{}>::default()))
       }},\n",fraw,retype)?;
       
-/*      for (lform,tname) in &self.Lexnames
-      {
-        if !is_alphanum(lform) {
-        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,retype)?;
-	}
-      }//for
-*/      
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
       write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
       write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;

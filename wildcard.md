@@ -13,7 +13,7 @@ symbol to represent the sequence:
 ```
 E --> a T b
 T -->
-T --> _
+T --> T _
 ```
 
 However, the meaning of the `_` symbol is a bit intricate and requires an

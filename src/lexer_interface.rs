@@ -344,6 +344,7 @@ pub struct StrTokenizer<'t>
    //other_syms: Vec<&'t str>,
    input: &'t str,
    position: usize,
+   prev_position: usize,
    /// flag to toggle whether whitespaces should be returned as Whitespace tokens,
    /// default is false.
    pub keep_whitespace:bool,
@@ -383,6 +384,7 @@ impl<'t> StrTokenizer<'t>
     //let mut other_syms = Vec::with_capacity(32);
     let input = "";
     let position = 0;
+    let prev_position = 0;
     let keep_whitespace=false;
     let keep_newline=false;
     let line = 1;
@@ -393,7 +395,7 @@ impl<'t> StrTokenizer<'t>
     let line_start=0;
     let src = "";
     let line_positions = vec![0,0];
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,triples,input,position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -450,6 +452,8 @@ impl<'t> StrTokenizer<'t>
   pub fn column(&self)->usize {self.position-self.line_start+1}
   /// returns the current absolute byte position of the Tokenizer
   pub fn current_position(&self)-> usize {self.position}
+  /// returns the previous absolute byte position of the Tokenizer
+  pub fn previous_position(&self)-> usize {self.prev_position}  
   /// returns the source of the tokenizer such as URL or filename
   pub fn get_source(&self) -> &str {self.src}
   pub fn set_source<'u:'t>(&mut self, s:&'u str) {self.src=s;}
@@ -480,7 +484,7 @@ impl<'t> StrTokenizer<'t>
 
   /// reset tokenizer to parse from beginning of input
   pub fn reset(&mut self) {
-   self.position=0; self.line=0; self.line_start=0;
+   self.position=0; self.prev_position=0; self.line=0; self.line_start=0;
    self.line_positions = vec![0,0];
   }
 
@@ -490,6 +494,7 @@ impl<'t> StrTokenizer<'t>
   pub fn next_token(&mut self) -> Option<(RawToken<'t>,usize,usize)>
   {
    let mut pi = 0;
+   self.prev_position = self.position;
    let clen = self.line_comment.len();
    let (cms,cme) = (self.ml_comment_start,self.ml_comment_end);
    while self.position<self.input.len()
