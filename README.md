@@ -16,7 +16,7 @@ of grammar rules with expressions such as `a _* b`
 
 <p>
 
-**Version 0.2.94 improves ability the usability of the wildcard (_) token.
+**Version 0.2.94 improves the usability of the wildcard "_" token.
 See the tutorial's Appendix on Experimental featuers.**
 
 
