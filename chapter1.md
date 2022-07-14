@@ -220,7 +220,8 @@ The RawToken enum contains the following principal variants:
  - **Float(f64)**: like the case of Num, this represents unsigned, decimal floats.
  - **BigNumber(&str)**: Numbers that are too large for i64 or f64 are represented verbatim.
  - **Char(char)**: this represents a character literal in single quotes such as 'c'
- - **Strlit(&str)**: A string literal delinated by double quotes.  These strings can span multiple lines and can contain nested, escaped quotes.
+ - **Strlit(&str)**: A string literal delineated by double quotes.  These strings can span multiple lines and can contain nested, escaped quotes.  **The
+ surrounding double quotes are included in the literal**.
  - **Newline**: optional token indicating a newline character. These tokens
  are **not** returned by the tokenizer by default, but can be returned with
  the directive
@@ -235,7 +236,19 @@ The RawToken enum contains the following principal variants:
    By default, [StrTokenizer][1] recognizes C-style comments, but this can
    be customized with, for example,
    > lexattribute set_line_comment("#")
-   
+
+ - **Custom(&'static str, &str)**: user-defined token type (since Version 0.2.95).  The static
+   string defines the token type-key and the other string should hold raw text.
+   This token type is intended to be enabled with
+   > lexattribute add_custom("braced",r"^\{.*\}")
+
+   Text matching the given [regex][regex] expression will be returned as a
+   Custom("braced",_) token.  Please note that custom regular expressions
+   should not start with whitespaces and will override all other token types.
+   Multiple custom types will be matched by alphabetical ordering of their
+   keys (they are stored in a BTreeMap underneath).  An anchor (^) will always
+   be added to the start of the regex if none is given.
+
 The most important lexer-generation directive is **lexvalue**.  For
 every terminal symbol in the grammar that carries a (non-default)
 semantic value, typically numerical and string literals, a
@@ -252,6 +265,9 @@ Besides **lexvalue**, there are two other lexer-generation directives,
 to a terminal symbol (see below), and **lexattribute** which allows the
 customization of the scanner. Further usage of these directives can be
 found in other chapters and examples.
+
+**Please note that malformed lexattribute declarations will only result
+in errors when the generated parser is compiled.**
 
 The generated lexer is a struct called test1lexer alongside the make_parser()
 function inside the generated parser file.  One creates a mutable instance
@@ -402,3 +418,4 @@ few extra features of Rustlr.
 [zcp]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html
 [fromraw]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.from_raw
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
+[regex]:https://docs.rs/regex/latest/regex/

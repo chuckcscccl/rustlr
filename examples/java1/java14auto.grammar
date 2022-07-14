@@ -59,7 +59,7 @@ terminal ELLIPSIS
 terminal ENUM 
 nonterminal  goal
 nonterminal  literal
-nonterminal  type
+nonterminal  typeexpr
 nonterminal  primitive_type
 nonterminal  numeric_type
 nonterminal  integral_type
@@ -87,7 +87,7 @@ nonterminal  modifiers_opt
 nonterminal  modifiers
 nonterminal  modifier
 nonterminal  class_declaration
-nonterminal  super
+nonterminal  superexpr
 nonterminal  super_opt
 nonterminal  interfaces
 nonterminal  interfaces_opt
@@ -221,8 +221,8 @@ literal --> BOOLEAN_LITERAL
 literal --> CHARACTER_LITERAL
 literal --> STRING_LITERAL
 literal --> NULL_LITERAL
-type --> primitive_type
-type --> reference_type
+typeexpr --> primitive_type
+typeexpr --> reference_type
 primitive_type --> numeric_type
 primitive_type --> BOOLEAN
 numeric_type --> integral_type
@@ -280,9 +280,9 @@ modifier --> TRANSIENT
 modifier --> VOLATILE
 modifier --> STRICTFP
 class_declaration --> modifiers_opt CLASS IDENTIFIER super_opt interfaces_opt class_body
-super --> EXTENDS class_type
+superexpr --> EXTENDS class_type
 super_opt -->   
-super_opt --> super
+super_opt --> superexpr
 interfaces --> IMPLEMENTS interface_type_list
 interfaces_opt -->   
 interfaces_opt --> interfaces
@@ -302,7 +302,7 @@ class_member_declaration --> method_declaration
 class_member_declaration --> modifiers_opt CLASS IDENTIFIER super_opt interfaces_opt class_body
 class_member_declaration --> interface_declaration
 class_member_declaration --> SEMICOLON
-field_declaration --> modifiers_opt type variable_declarators SEMICOLON
+field_declaration --> modifiers_opt typeexpr variable_declarators SEMICOLON
 variable_declarators --> variable_declarator
 variable_declarators --> variable_declarators COMMA variable_declarator
 variable_declarator --> variable_declarator_id
@@ -312,7 +312,7 @@ variable_declarator_id --> variable_declarator_id LBRACK RBRACK
 variable_initializer --> expression
 variable_initializer --> array_initializer
 method_declaration --> method_header method_body
-method_header --> modifiers_opt type method_declarator throws_opt
+method_header --> modifiers_opt typeexpr method_declarator throws_opt
 method_header --> modifiers_opt VOID method_declarator throws_opt
 method_declarator --> IDENTIFIER LPAREN formal_parameter_list_opt RPAREN
 method_declarator --> method_declarator LBRACK RBRACK
@@ -320,8 +320,8 @@ formal_parameter_list_opt -->
 formal_parameter_list_opt --> formal_parameter_list
 formal_parameter_list --> formal_parameter
 formal_parameter_list --> formal_parameter_list COMMA formal_parameter
-formal_parameter --> type variable_declarator_id
-formal_parameter --> FINAL type variable_declarator_id
+formal_parameter --> typeexpr variable_declarator_id
+formal_parameter --> FINAL typeexpr variable_declarator_id
 throws_opt -->   
 throws_opt --> throws
 throws --> THROWS class_type_list
@@ -373,8 +373,8 @@ block_statement --> statement
 block_statement --> class_declaration
 block_statement --> interface_declaration
 local_variable_declaration_statement --> local_variable_declaration SEMICOLON
-local_variable_declaration --> type variable_declarators
-local_variable_declaration --> FINAL type variable_declarators
+local_variable_declaration --> typeexpr variable_declarators
+local_variable_declaration --> FINAL typeexpr variable_declarators
 statement --> statement_without_trailing_substatement
 statement --> labeled_statement
 statement --> if_then_statement

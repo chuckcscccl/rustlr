@@ -109,8 +109,12 @@ fn rustle(args:&Vec<String>) // called from main
   let gramname = grammar1.name.clone();
 
   if genabsyn {
-     let wres = grammar1.writeabsyn();
-     if !wres.is_ok() {eprintln!("failed to generate abstract syntax"); return;}
+     let mut slashpos = parserfile.rfind('/');
+     if let None = slashpos {slashpos = parserfile.rfind('\\');}
+     let mut astpath = format!("{}_ast.rs",&gramname);
+     if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
+     let wres = grammar1.writeabsyn(&astpath);
+     if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
   }
 
   if tracelev>2 {println!("computing Nullable set");}

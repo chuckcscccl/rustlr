@@ -1,7 +1,10 @@
-typedterminal ID String
-typedterminal CM String
+valueterminal ID String Alphanum(n) n.to_owned()
+valueterminal CM: String: Custom("braced",c) if matchingbraces(c): c.to_owned()
+lexterminal COMMA ,
+#typedterminal ID String
+#typedterminal CM String
 typedterminal VAL i64
-terminal # ; ,
+terminals # ; 
 nonterminals HASH
 nonterminals E
 #nonterminal E Vec<LBox<String>>
@@ -12,13 +15,25 @@ HASH --> #
 #E --> (ID ;)*:v ID?:x { x.map(|x|{v.push(x)}); v }
 #E:SeqNum --> HASH? (ID ID ;)*
 
-E:SeqNums --> (ID ;)+:a (VAL ,)*:b VAL?:c
-E:WithComment --> E CM
+E:SeqNums --> (ID ;)+:a (VAL COMMA)*:b VAL?:c
+E:WithBraces --> E CM
 #E:NumNum --> VAL VAL
 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
 lexattribute add_custom("braced",r"^\{.*\}")
-lexvalue CM Custom("braced",c) c.to_owned()
+#lexvalue CM Custom("braced",c) c.to_owned()
+#lexvalue CM: Custom("braced",c) if matchingbraces(c): c.to_owned()
+
+!fn matchingbraces(s:&str)->bool {
+!  let mut cx:i32 = 0;
+!  for x in s.chars() {
+!    if x=='{' {cx+=1;}
+!    if x=='}' {cx-=1;}
+!  }
+!  cx==0
+!}
+
+
 
 EOF

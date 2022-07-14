@@ -438,21 +438,73 @@ impl Grammar
 	       self.genlex = true;
             },
 	    "lexvalue" => {
-	       if stokens.len()<4 {
+               let pos = line.find("lexvalue").unwrap()+9;
+               let declaration = &line[pos..];
+               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect();}
+	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
 	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
-	       for i in 3 .. stokens.len()
+	       for i in 2 .. dtokens.len()
 	       {
-	         valform.push_str(stokens[i]);
-		 if (i<stokens.len()-1) {valform.push(' ');}
+	         valform.push_str(dtokens[i]);
+		 if (i<dtokens.len()-1) {valform.push(' ');}
 	       }
-	       self.Lexvals.push((stokens[1].to_string(),stokens[2].to_string(),valform));
+               let tokform = dtokens[1].to_owned();
+	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
 	       // record that this terminal always carries a value
-	       self.Haslexval.insert(stokens[1].to_string());
+	       self.Haslexval.insert(dtokens[0].to_string());
 	       self.genlex = true;
 	    },
+            "valueterminal" => {
+               let pos = line.find("valueterminal").unwrap()+14;
+               let declaration = &line[pos..];
+               let mut usingcolon = true;
+               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               if dtokens.len()<4 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
+	       if dtokens.len()<4 {
+	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
+	         continue;
+	       }  // valueterminal ID: String: Alphanum(n) if ... : n.to_owned()
+               let termname = dtokens[0].trim();               
+               let mut newterm = Gsym::new(termname,true);
+               let termtype = dtokens[1].trim();
+               if termtype.len()<1 {newterm.settype(&self.Absyntype);}
+               else {newterm.settype(termtype);}
+               if &newterm.rusttype!=&self.Absyntype {self.sametype=false;}
+               self.enumhash.insert(newterm.rusttype.clone(),ntcx); ntcx+=1;
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
+               self.Symbols.push(newterm);
+	       let mut valform = String::new(); // equiv to lexvalue...
+	       for i in 3 .. dtokens.len()
+	       {
+	         valform.push_str(dtokens[i]);
+		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
+                 else if (i<dtokens.len()-1) {valform.push(':');}
+	       }
+               let tokform = dtokens[2].to_owned();
+	       self.Lexvals.push((termname.to_string(),tokform,valform));
+	       // record that this terminal always carries a value
+	       self.Haslexval.insert(dtokens[0].to_string());
+	       self.genlex = true;
+            }, //valueterminal
+            "lexterminal" => {
+               if stokens.len()!=3 {
+               panic!("MALFORMED lexterminal declaration line {}: a terminal name and a lexical form are required",linenum);
+	         //continue;
+               }
+               let termname = stokens[1].trim();
+               let mut newterm = Gsym::new(termname,true);
+               if self.genabsyn { newterm.settype("()"); }
+               else {newterm.settype(&self.Absyntype);}
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
+               self.Symbols.push(newterm);
+               self.Lexnames.insert(stokens[2].to_string(),termname.to_string());
+	       self.Haslexval.insert(termname.to_string());
+	       self.genlex = true;
+            }, //lexterminal
 	    "lexattribute" => {
 	       let mut prop = String::new();
 	       for i in 1 .. stokens.len()

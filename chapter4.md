@@ -47,9 +47,10 @@ Note the following differences between this grammar and the one presented in [Ch
 3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal`).
 4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  These labels will become the names of enum variants to be created.
 
-Process the grammar with **`rustlr calcauto.grammar -genabsyn`** (or **`-auto`**).   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
+Process the grammar with **`rustlr calcauto.grammar -genabsyn`** (or **`-auto`**).   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be, in the
+same folder as the parser, a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
 
-```rust
+```
 #[derive(Debug)]
 pub enum ES<'lt> {
   cons(LBox<Expr<'lt>>,LBox<ES<'lt>>),
