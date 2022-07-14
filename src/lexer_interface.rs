@@ -19,7 +19,7 @@
 #![allow(unused_imports)]
 use std::str::Chars;
 use regex::Regex;
-use std::collections::{HashSet};
+use std::collections::{HashSet,HashMap};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
@@ -316,6 +316,10 @@ pub enum RawToken<'t>
   Whitespace(usize), // counts number of non-newline whitespaces
   /// usually used to represent comments, if returned optionally
   Verbatim(&'t str),
+  /*
+  /// Custom token type (allows for user extension)
+  Custom(&'static str, &'t str),
+  */
   /// tokenizer error
   LexError,
 }//RawToken
@@ -360,6 +364,7 @@ pub struct StrTokenizer<'t>
    //strlit:Regex,
    alphan:Regex,
    nonalph:Regex,
+   //custom_defined:HashMap<&'static str, Regex>, // added for 0.2.95
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
    triples:HashSet<&'t str>,
@@ -399,6 +404,7 @@ impl<'t> StrTokenizer<'t>
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
+    //let custom_defined = HashMap::new();
     let mut doubles = HashSet::with_capacity(16);
     let mut triples = HashSet::with_capacity(16);        
     let mut singles = HashSet::with_capacity(16);
@@ -417,7 +423,7 @@ impl<'t> StrTokenizer<'t>
     let line_start=0;
     let src = "";
     let line_positions = vec![0,0];
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,/*custom_defined,*/doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -440,7 +446,16 @@ impl<'t> StrTokenizer<'t>
   pub fn add_symbol(&mut self, s:&'t str) {
     if s.len()>2 {self.other_syms.push(s); }
   }
+
+
+  /// add custom defined regex, will correspond to RawToken::Custom variant
+  pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
+  {
+    let re = Regex::new(reg_expr).expect(&format!("Error compiling custom regular expression ({})",reg_expr));
+    self.custom_defined.insert(tkind,re);
+  }//add_custom
   */
+
   /// sets the input str to be parsed, resets position information.  Note:
   /// trailing whitespaces are always trimmed from the input.
   pub fn set_input(&mut self, inp:&'t str)
@@ -551,7 +566,7 @@ impl<'t> StrTokenizer<'t>
        }
        i+= 1; 
        if i<self.input.len() {c = nextchars.next().unwrap();}
-    }
+    } //c.is_whitespace
     self.position = i;
     if (i>pi && self.keep_whitespace) {
       return Some((Whitespace(i-pi),line0,self.column()-(i-pi)));}

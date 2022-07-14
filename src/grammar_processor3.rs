@@ -1,6 +1,8 @@
 //! Grammar processing module.  The exported elements of this module are
 //! only intended for re-implementing rustlr within rustlr.
 
+//! no owned strings!
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
@@ -21,15 +23,15 @@ use std::io::prelude::*;
 
 pub const DEFAULTPRECEDENCE:i32 = 0;   
 
-#[derive(Clone)]
-pub struct Gsym // struct for a grammar symbol
+#[derive(Clone,Debug)]
+pub struct Gsym
 {
-  pub sym : String,
-  pub rusttype : String, // used to derive private enum
+  pub sym : String,  // may be dynamically generated
+  pub rusttype : String, // used to derive private enum, may be generated
   pub terminal : bool,
   pub precedence : i32,   // negatives indicate right associativity
 }
-
+// there should be a single instance for each symbol.
 impl Gsym
 {
   pub fn new(s:&str,isterminal:bool) -> Gsym // compile time
@@ -41,20 +43,39 @@ impl Gsym
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
     }
   }
-//  pub fn setlabel(&mut self, la:&str)
-//  { self.label = String::from(la); }
   pub fn settype(&mut self, rt:&str)
-  { self.rusttype = String::from(rt); }
+  { self.rusttype = rt.to_owned(); }
   pub fn setprecedence(&mut self, p:i32)
   { self.precedence = p; }
 }// impl for Gsym
 
+
+// instance of a grammar symbols as it appears in production rules
+#[derive(Clone,Debug)]
 pub struct Gsyminst
 {
-   pub index:usize, // index into self.Symbols
-   pub terminal : bool,
-   pub label:String, // grammar label
+   pub index:usize, // index into Grammar Symbols
+   pub label:String, // grammar label, may be generated like _item0_
 }
+impl Gsyminst
+{
+  pub fn new(Gmr:&Grammar, sym:&str, label1:String) -> Gsyminst
+  {
+     let symi = *Gmr.Symhash.get(sym).expect(&format!("Unrecognized grammar symbol {}",sym,));
+     Gsyminst {
+       index: symi,
+       label: label1,
+     }
+  }//new
+  pub fn terminal(&self,Gmr:&Grammar) -> bool
+  { Gmr.Symbols[self.index].terminal }
+  pub fn sym(&self, Gmr:&Grammar)->&str {&Gmr.Symbols[self.index].sym}
+  pub fn precedence(&self, Gmr:&Grammar)->i32
+  {Gmr.Symbols[self.index].precedence}
+  pub fn objtype<'t>(&self, Gmr:&'t Grammar) -> &'t str
+  {&Gmr.Symbols[self.index].rusttype}
+}//impl Gsyminst
+
 
 //Grammar Rule structure
 // This will be used only statically: the action is a string.
@@ -62,46 +83,46 @@ pub struct Gsyminst
 // one can have a different label
 pub struct Grule  // struct for a grammar rule
 {
-  pub lhs : Gsym,  // left-hand side of rule
-  pub rhs : Vec<Gsym>, // right-hand side symbols (cloned from Symbols)
+  pub lhs : Gsyminst,  // left-hand side of rule
+  pub rhs : Vec<Gsyminst>, // right-hand side symbols (cloned from Symbols)
   pub action : String, //string representation of Ruleaction
   pub precedence : i32, // set to rhs symbol with highest |precedence|
 }
 impl Grule
 {
-  pub fn new_skeleton(lh:&str) -> Grule
+  pub fn new_skeleton(Gmr:&Grammar, lh:&str) -> Grule
   {
      Grule {
-       lhs : Gsym::new(lh,false),
+       lhs : Gsyminst::new(Gmr,lh,String::new()),
        rhs : Vec::new(),
-       action : String::default(),
+       action : String::new(),
        precedence : 0,   
      }
   }
 }//impl Grule
 
-pub fn printrule(rule:&Grule)  //independent function
+pub fn printrule(rule:&Grule, Gmr:&Grammar)  //independent function
 {
    print!("PRODUCTION: {} --> ",rule.lhs.sym);
-   for s in &rule.rhs {
-      print!("{}",s.sym);
+   for s in &rule.rhs {  // s is a Gyminst
+      print!("{}",s.sym(Gmr));
       if s.label.len()>0 {print!(":{}",s.label);}
       print!(" ");
    }
    println!("{{ {}, precedence {}",rule.action.trim(),rule.precedence);  // {{ is \{
 }
 
-/////main global class, roughly corresponds to "metaparser"
+/////main global struct, roughly corresponds to "metaparser"
 pub struct Grammar
 {
   pub name : String,
   pub Symbols : Vec<Gsym>,
   pub Symhash : HashMap<String,usize>,
   pub Rules: Vec<Grule>,
-  pub topsym : String,
-  pub Nullable : HashSet<String>,
-  pub First : HashMap<String,HashSet<String>>,
-  pub Rulesfor: HashMap<String,HashSet<usize>>,  //rules for a non-terminal
+  pub topsym : usize,   // index into Symbols
+  pub Nullable : HashSet<usize>,  // set of Symbols indices
+  pub First : HashMap<usize,HashSet<usize>>,
+  pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
   pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
@@ -112,7 +133,7 @@ pub struct Grammar
   pub lifetime: String,
   pub tracelev:usize,
   pub Lexvals: Vec<(String,String,String)>,  //"int" -> ("Num(n)","Val(n)")
-  pub Haslexval : HashSet<String>,
+  pub Haslexval : HashSet<usize>,
   pub Lexextras: Vec<String>,
   pub enumhash:HashMap<String,usize>, //enum index of each type
   pub genlex: bool,
