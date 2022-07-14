@@ -19,7 +19,7 @@
 #![allow(unused_imports)]
 use std::str::Chars;
 use regex::Regex;
-use std::collections::{HashSet,HashMap};
+use std::collections::{HashSet,BTreeMap};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
@@ -316,10 +316,9 @@ pub enum RawToken<'t>
   Whitespace(usize), // counts number of non-newline whitespaces
   /// usually used to represent comments, if returned optionally
   Verbatim(&'t str),
-  /*
-  /// Custom token type (allows for user extension)
+  /// Custom token type, allows for user extension.  The first string should
+  /// define the type of the token while the second should carry raw text.
   Custom(&'static str, &'t str),
-  */
   /// tokenizer error
   LexError,
 }//RawToken
@@ -364,7 +363,7 @@ pub struct StrTokenizer<'t>
    //strlit:Regex,
    alphan:Regex,
    nonalph:Regex,
-   //custom_defined:HashMap<&'static str, Regex>, // added for 0.2.95
+   custom_defined:BTreeMap<&'static str, Regex>, // added for 0.2.95
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
    triples:HashSet<&'t str>,
@@ -404,7 +403,7 @@ impl<'t> StrTokenizer<'t>
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
-    //let custom_defined = HashMap::new();
+    let custom_defined = BTreeMap::new();
     let mut doubles = HashSet::with_capacity(16);
     let mut triples = HashSet::with_capacity(16);        
     let mut singles = HashSet::with_capacity(16);
@@ -423,7 +422,7 @@ impl<'t> StrTokenizer<'t>
     let line_start=0;
     let src = "";
     let line_positions = vec![0,0];
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,/*custom_defined,*/doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -446,15 +445,15 @@ impl<'t> StrTokenizer<'t>
   pub fn add_symbol(&mut self, s:&'t str) {
     if s.len()>2 {self.other_syms.push(s); }
   }
-
+  */
 
   /// add custom defined regex, will correspond to RawToken::Custom variant
   pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
   {
-    let re = Regex::new(reg_expr).expect(&format!("Error compiling custom regular expression ({})",reg_expr));
+    let reg = if reg_expr.starts_with('^') {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
+    let re = Regex::new(&reg).expect(&format!("Error compiling custom regular expression \"{}\"",reg_expr));
     self.custom_defined.insert(tkind,re);
   }//add_custom
-  */
 
   /// sets the input str to be parsed, resets position information.  Note:
   /// trailing whitespaces are always trimmed from the input.
@@ -572,6 +571,25 @@ impl<'t> StrTokenizer<'t>
       return Some((Whitespace(i-pi),line0,self.column()-(i-pi)));}
     else if i>pi {continue;}
     //if pi>=self.input.len() {return None;}
+
+    // look for custom-defined regular expressions
+    for (ckey,cregex) in self.custom_defined.iter()
+    {
+       //println!("custom token type {}, regex {}",ckey,cregex);
+       if let Some(mat) = cregex.find(&self.input[pi..]) {
+         self.position = mat.end()+pi;
+         let rawtext = &self.input[pi..self.position];
+         let oldline = self.line;  let oldstart = self.line_start;
+         let endls:Vec<_>=rawtext.match_indices('\n').collect();
+         for (x,y) in &endls
+         {
+           self.line+=1;
+           self.line_start += x+1;  
+           self.line_positions.push(self.line_start);
+         } // record new lines
+         return Some((Custom(ckey,rawtext),oldline,pi-oldstart+1));
+       } // match to cregex found
+    }//for each custom key
 
     // look for line comment
     if clen>0 && pi+clen<=self.input.len() && self.line_comment==&self.input[pi..pi+clen] {

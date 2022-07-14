@@ -1,4 +1,5 @@
 typedterminal ID String
+typedterminal CM String
 typedterminal VAL i64
 terminal # ; ,
 nonterminals HASH
@@ -11,10 +12,13 @@ HASH --> #
 #E --> (ID ;)*:v ID?:x { x.map(|x|{v.push(x)}); v }
 #E:SeqNum --> HASH? (ID ID ;)*
 
-E:SeqNums --> (ID ;)*:a (VAL ,)*:b VAL?:c
+E:SeqNums --> (ID ;)+:a (VAL ,)*:b VAL?:c
+E:WithComment --> E CM
 #E:NumNum --> VAL VAL
 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
+lexattribute add_custom("braced",r"^\{.*\}")
+lexvalue CM Custom("braced",c) c.to_owned()
 
 EOF
