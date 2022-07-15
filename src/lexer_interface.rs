@@ -447,7 +447,10 @@ impl<'t> StrTokenizer<'t>
   }
   */
 
-  /// add custom defined regex, will correspond to RawToken::Custom variant
+  /// add custom defined regex, will correspond to [RawToken::Custom] variant.
+  /// Custom regular expressions should not start with whitespaces and will
+  /// override all others.  Multiple Custom types will be matched by the
+  /// alphabetical ordering of their type keys.  
   pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
   {
     let reg = if reg_expr.starts_with('^') {reg_expr.to_owned()} else {format!("^{}",reg_expr)};

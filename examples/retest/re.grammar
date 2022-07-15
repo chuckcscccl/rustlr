@@ -1,12 +1,15 @@
 valueterminal ID String Alphanum(n) n.to_owned()
 valueterminal CM: String: Custom("braced",c) if matchingbraces(c): c.to_owned()
 lexterminal COMMA ,
+valueterminal UINT: u64: Custom("uint",n): n[..n.len()-2].parse::<u64>().unwrap()
+lexattribute add_custom("uint",r"[0-9]+UL")
 #typedterminal ID String
 #typedterminal CM String
 typedterminal VAL i64
 terminals # ; 
 nonterminals HASH
 nonterminals E
+nonterminal Number
 #nonterminal E Vec<LBox<String>>
 topsym E
 
@@ -14,10 +17,10 @@ HASH --> #
 #E:SeqNum --> (ID ; ;)+ HASH* VAL?
 #E --> (ID ;)*:v ID?:x { x.map(|x|{v.push(x)}); v }
 #E:SeqNum --> HASH? (ID ID ;)*
-
-E:SeqNums --> (ID ;)+:a (VAL COMMA)*:b VAL?:c
+Number:signed --> VAL
+Number:unsigned --> UINT
+E:SeqNums --> (ID ;)+:a (Number COMMA)*:b Number?:c
 E:WithBraces --> E CM
-#E:NumNum --> VAL VAL
 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()

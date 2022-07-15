@@ -440,8 +440,9 @@ impl Grammar
 	    "lexvalue" => {
                let pos = line.find("lexvalue").unwrap()+9;
                let declaration = &line[pos..];
+               let mut usingcolon = true;
                let mut dtokens:Vec<_> = declaration.split(':').collect();
-               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect();}
+               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
 	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
@@ -450,7 +451,8 @@ impl Grammar
 	       for i in 2 .. dtokens.len()
 	       {
 	         valform.push_str(dtokens[i]);
-		 if (i<dtokens.len()-1) {valform.push(' ');}
+		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
+                 else if (i<dtokens.len()-1) {valform.push(':');}
 	       }
                let tokform = dtokens[1].to_owned();
 	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
@@ -497,8 +499,10 @@ impl Grammar
                }
                let termname = stokens[1].trim();
                let mut newterm = Gsym::new(termname,true);
-               if self.genabsyn { newterm.settype("()"); }
-               else {newterm.settype(&self.Absyntype);}
+               //if self.genabsyn { newterm.settype("()"); }
+               //else {newterm.settype(&self.Absyntype);}
+               newterm.settype("()");
+               if "()"!=&self.Absyntype {self.sametype=false;}
                self.Symhash.insert(termname.to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Lexnames.insert(stokens[2].to_string(),termname.to_string());

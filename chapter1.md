@@ -1,6 +1,6 @@
 ## Chapter 1: Unambiguous LR Grammar for Simple Calculator.
 
-Please note that this tutorial has been rewritten for **[Rustlr version 0.2.3][drs]**,
+Please note that this tutorial has been rewritten for **[Rustlr version 0.2.95][drs]**,
 which can now **automatically generate a lexical scanner from a minimal set of
 declarations.**
 Parsers created since version 0.1.3 remain compatible.  The original version of this chapter
@@ -238,15 +238,15 @@ The RawToken enum contains the following principal variants:
    > lexattribute set_line_comment("#")
 
  - **Custom(&'static str, &str)**: user-defined token type (since Version 0.2.95).  The static
-   string defines the token type-key and the other string should hold raw text.
-   This token type is intended to be enabled with
-   > lexattribute add_custom("braced",r"^\{.*\}")
+   string defines the token type-key and the other string should point to raw text.
+   This token type is intended to be paired with declarations such as
+   > lexattribute add_custom("uint32",r"^[0-9]+u32")
 
-   Text matching the given [regex][regex] expression will be returned as a
-   Custom("braced",_) token.  Please note that custom regular expressions
+   Text matching the given [regex][regex] will be returned as a
+   Custom("uint32",_) token.  Please note that custom regular expressions
    should not start with whitespaces and will override all other token types.
-   Multiple custom types will be matched by alphabetical ordering of their
-   keys (they are stored in a BTreeMap underneath).  An anchor (^) will always
+   Multiple custom types will be matched by the alphabetical ordering of their
+   keys.  An anchor (^) will always
    be added to the start of the regex if none is given.
 
 The most important lexer-generation directive is **lexvalue**.  For
@@ -257,8 +257,7 @@ lexvalue directive is needed to identify the corresponding
 RawToken's value to the valuetype/absyntype value to be associated
 with the terminal symbol.  The lexvalue directive must identify the
 name of the terminal symbol, the RawToken form, and the valuetype
-form that should be recreated from the RawToken (currently the first
-two elements may not contain whitespaces).
+form that should be recreated from the RawToken.
 
 Besides **lexvalue**, there are two other lexer-generation directives,
 **lexname**, which allows the mapping of a reserved symbol such as `{`
