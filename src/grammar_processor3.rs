@@ -153,7 +153,7 @@ impl Grammar
        Symbols: Vec::new(),           // grammar symbols
        Symhash: HashMap::new(),       
        Rules: Vec::new(),                 // production rules
-       topsym : String::default(),        // top symbol
+       topsym : 0, //String::default(),        // top symbol
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
