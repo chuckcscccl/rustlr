@@ -318,6 +318,8 @@ pub enum RawToken<'t>
   Verbatim(&'t str),
   /// Custom token type, allows for user extension.  The first string should
   /// define the type of the token while the second should carry raw text.
+  /// This token type is intended to be enabled with **`lexattribute add_custom`** directives,
+  /// which correspond to the function [StrTokenizer::add_custom]
   Custom(&'static str, &'t str),
   /// tokenizer error
   LexError,
@@ -363,7 +365,8 @@ pub struct StrTokenizer<'t>
    //strlit:Regex,
    alphan:Regex,
    nonalph:Regex,
-   custom_defined:BTreeMap<&'static str, Regex>, // added for 0.2.95
+   //custom_defined:BTreeMap<&'static str, Regex>, // added for 0.2.95
+   custom_defined:Vec<(&'static str,Regex)>,
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
    triples:HashSet<&'t str>,
@@ -403,7 +406,7 @@ impl<'t> StrTokenizer<'t>
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
-    let custom_defined = BTreeMap::new();
+    let custom_defined = Vec::new(); //BTreeMap::new();
     let mut doubles = HashSet::with_capacity(16);
     let mut triples = HashSet::with_capacity(16);        
     let mut singles = HashSet::with_capacity(16);
@@ -450,12 +453,13 @@ impl<'t> StrTokenizer<'t>
   /// add custom defined regex, will correspond to [RawToken::Custom] variant.
   /// Custom regular expressions should not start with whitespaces and will
   /// override all others.  Multiple Custom types will be matched by the
-  /// alphabetical ordering of their type keys.  
+  /// order in which they where declared in the grammar file.
   pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
   {
     let reg = if reg_expr.starts_with('^') {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
     let re = Regex::new(&reg).expect(&format!("Error compiling custom regular expression \"{}\"",reg_expr));
-    self.custom_defined.insert(tkind,re);
+    //self.custom_defined.insert(tkind,re);
+    self.custom_defined.push((tkind,re));
   }//add_custom
 
   /// sets the input str to be parsed, resets position information.  Note:

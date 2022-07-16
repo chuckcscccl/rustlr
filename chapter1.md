@@ -245,8 +245,11 @@ The RawToken enum contains the following principal variants:
    Text matching the given [regex][regex] will be returned as a
    Custom("uint32",_) token.  Please note that custom regular expressions
    should not start with whitespaces and will override all other token types.
-   Multiple custom types will be matched by the alphabetical ordering of their
-   keys.  An anchor (^) will always
+   Multiple custom types are matched by the order in which they appear in
+   the grammar file.  **Note: this is a change to the original feature
+   introduced in version 0.2.95, in which they were 
+   matched by the alphabetical ordering of their
+   keys.**  An anchor (^) will always
    be added to the start of the regex if none is given.
 
 The most important lexer-generation directive is **lexvalue**.  For

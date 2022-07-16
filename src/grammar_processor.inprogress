@@ -114,6 +114,7 @@ pub struct Grammar
   pub enumhash:HashMap<String,usize>, //enum index of each type
   pub genlex: bool,
   pub genabsyn: bool,
+  pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
 }
 
 impl Default for Grammar {
@@ -133,7 +134,6 @@ impl Grammar
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
-//       Absyntype:String::from("i64"),
        Absyntype:String::from("()"), //changed for 0.2.7
        Externtype:String::from("()"),    // changed to () for 0.2.9
 //       Recover : HashSet::new(),
@@ -150,6 +150,7 @@ impl Grammar
        genlex: false,
        genabsyn: false,
        enumhash:HashMap::new(),
+       Reachable:HashMap::new(),
      }
   }//new grammar
 
@@ -196,9 +197,18 @@ impl Grammar
      let mut ltopt = String::new();
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
-     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
-     if self.genabsyn {wildcard.rusttype="()".to_owned();}
-     self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());        self.Symbols.push(wildcard); // wildcard is first symbol.
+     let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true); // special terminal
+
+     // need to add new flag in main to allow wildcard without genabsyn
+     //if self.genabsyn {wildcard.rusttype="()".to_owned();}
+//     if self.genabsyn {
+       wildcard.rusttype="(usize,usize)".to_owned();
+       self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
+//     }
+//     else {wildcard.rusttype="()".to_owned();}
+     
+     self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
+     self.Symbols.push(wildcard); // wildcard is first symbol.
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -229,6 +239,9 @@ impl Grammar
        }
        else if linelen>1 && &line[0..1]=="!" {
            self.Extras.push_str(&line[1..]);
+           if line[1..].trim().starts_with("pub ") {
+             eprintln!("WARNING: public declarations may result in redundancy and conflicts, line {}",linenum);
+           }
        }
        else if linelen>1 && &line[0..1]!="#" {
          let toksplit = line.split_whitespace();
@@ -384,14 +397,17 @@ impl Grammar
             },
             "absyntype" | "valuetype" /*if stage==0*/ => {
                if stage>0 {panic!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum);}
+               if self.genabsyn {
+                 eprintln!("WARNING: absyntype/valuetype declaration ignored in -auto (genabsyn) mode, line {}", linenum);
+                 continue;
+               }
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
-               if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
+               //if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Externtype = String::from(line[pos..].trim());            
-	       if TRACE>2 {println!("external structure type is {}",&self.Externtype);}
             },            
 	    "left" | "right" if stage<2 => {
                if stage==0 {stage=1;}
@@ -422,19 +438,24 @@ impl Grammar
 	       self.genlex = true;
             },
 	    "lexvalue" => {
-	       if stokens.len()<4 {
+               let pos = line.find("lexvalue").unwrap()+9;
+               let declaration = &line[pos..];
+               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect();}
+	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
 	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
-	       for i in 3 .. stokens.len()
+	       for i in 2 .. dtokens.len()
 	       {
-	         valform.push_str(stokens[i]);
-		 if (i<stokens.len()-1) {valform.push(' ');}
+	         valform.push_str(dtokens[i]);
+		 if (i<dtokens.len()-1) {valform.push(' ');}
 	       }
-	       self.Lexvals.push((stokens[1].to_string(),stokens[2].to_string(),valform));
+               let tokform = dtokens[1].to_owned();
+	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
 	       // record that this terminal always carries a value
-	       self.Haslexval.insert(stokens[1].to_string());
+	       self.Haslexval.insert(dtokens[0].to_string());
 	       self.genlex = true;
 	    },
 	    "lexattribute" => {
@@ -494,6 +515,7 @@ impl Grammar
 	      let mut i:usize = 0;   // bstokens index on one barsplit 
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
+              let mut iadjust = 0;
               while i<bstokens.len() {
 	        let mut strtok = bstokens[i];
 		i+=1;
@@ -508,19 +530,86 @@ impl Grammar
                 // plus additional "meaningless" terminals.  If
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.
-                
+                let newtok2;
+		if strtok.len()>1 && strtok.starts_with('(') {
+                  // advance i until see )*, or )+
+                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),i);
+                  let mut newnt2 = Gsym::new(&ntname2,false);
+                  let mut newrule2 = Grule::new_skeleton(&ntname2);
+	          let mut defaultrelab2 = String::new(); //format!("_item{}_",i-1-iadjust);
+                  let mut retoki = &strtok[1..]; // without (
+                  let mut passthru:i64 = -1;
+                  let mut jk = 0;  //local index of rhs
+                  let mut suffix="";
+                  while i<=bstokens.len()
+                  {
+                     let retokisplit:Vec<&str> = retoki.split(':').collect();
+                                          
+                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+")  {
+                       retoki =  &retokisplit[0][..retokisplit[0].len()-2];
+                       if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`",linenum);}
+                       suffix = &retokisplit[0][retokisplit[0].len()-1..];
+                       if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
+                     }
+                     let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
+		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
+                     let igsym = &self.Symbols[gsymi];
+//println!("igsym {}, type {}",&igsym.sym, &igsym.rusttype);                     
+                     if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
+                       passthru=jk;
+                       newnt2.rusttype = igsym.rusttype.clone();
+                     }
+                     else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
+                     {passthru=-2;}
+                     newrule2.rhs.push(self.Symbols[gsymi].clone());
+                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
+                     if bstokens[i-1].starts_with('{') {i=bstokens.len()+1; break;}
+                     jk += 1; //local, for passthru
+                     i+=1; // indexes bstokens
+                     retoki = bstokens[i-1];
+                  }// while i<=bstokens.len()
+                  if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
+                  iadjust += jk as usize;
+                  if passthru<0 {
+                    newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
+                    self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
+//   println!("passthru on {} not recognized",&ntname2);                    
+                    // action will be written by ast_writer
+                  }
+                  else { // set action of new rule to be passthru
+                    newrule2.action = format!(" _item{}_ }}",passthru);
+//   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
+                  }
+                  // register new symbol
+                  self.Symhash.insert(ntname2.clone(),self.Symbols.len());
+                  self.Symbols.push(newnt2.clone());
+                  newrule2.lhs.rusttype = newnt2.rusttype.clone();
+                  // register new rule
+                  self.Rules.push(newrule2);
+                  let mut rulesforset = HashSet::new();
+                  rulesforset.insert(self.Rules.len()-1);
+                  // i-1 is now at token with )* or )+
+                  //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
+                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
+                  newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
+                  self.Rulesfor.insert(ntname2,rulesforset);
+                  strtok = &newtok2;
+//println!("1 strtok now {}",strtok);
+                } // starts with (
+//println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
+
 		// add code to recognize E*, E+ and E?
                 let newtok; // will be new strtok
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
-		   let defaultrelab = format!("_item{}_",i-1);
+		   let defaultrelab = format!("_item{}_",i-1-iadjust);
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
 		   let mut gsympart = strtok[0..strtok.len()-1].trim(); //no *
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("_NEWNT{}{}",gsympart,self.Rules.len());
+		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    if &self.Symbols[gsymi].rusttype!="()" {
@@ -567,11 +656,11 @@ impl Grammar
 		   let mut rulesforset = HashSet::with_capacity(2);
 		   rulesforset.insert(self.Rules.len()-2);
 		   rulesforset.insert(self.Rules.len()-1);
-		   //newtok = format!("{}:_item{}_",&newntname,i-1);
 		   newtok = format!("{}:{}",&newntname,relabel);
 		   self.Rulesfor.insert(newntname,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
+//println!("2 strtok now {}",strtok);                   
 		}// processes RE directive - add new productions
 
 
@@ -669,7 +758,7 @@ impl Grammar
      if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
         self.Absyntype = topgsym.rusttype.clone();
      }
-     for ri in 0..self.Symbols.len()
+     for ri in 1..self.Symbols.len() // exclude Symbols[0] for wildcard
      {
         let rtype = &self.Symbols[ri].rusttype;
         if rtype.len()<1 {
@@ -684,7 +773,9 @@ impl Grammar
           }
         }// set enumindex
      }//compute sametype
-     self.enumhash.insert(self.Absyntype.clone(),0);
+     // reset wildcard type if sametype on all other symbols
+     if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
+     self.enumhash.insert(self.Absyntype.clone(),0); // 0 reserved
   }//parse_grammar
 }// impl Grammar
 // last rule is always start rule and first state is start state
@@ -923,13 +1014,6 @@ impl<'t> {0}<'t>
         Some(TerminalToken::{}(token,tname,<{}>::default()))
       }},\n",fraw,retype)?;
       
-/*      for (lform,tname) in &self.Lexnames
-      {
-        if !is_alphanum(lform) {
-        write!(fd,"      RawToken::Symbol(r\"{}\") => Some(TerminalToken::{}(token,\"{}\",<{}>::default())),\n",lform,fraw,tname,retype)?;
-	}
-      }//for
-*/      
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
       write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
       write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
@@ -939,6 +1023,14 @@ impl<'t> {0}<'t>
    fn position(&self) -> usize {{self.stk.current_position()}}
    fn current_line(&self) -> &str {{self.stk.current_line()}}
    fn get_line(&self,i:usize) -> Option<&str> {{self.stk.get_line(i)}}
+   fn get_slice(&self,s:usize,l:usize) -> &str {{self.stk.get_slice(s,l)}}")?;
+   if (!self.sametype) || self.genabsyn {
+//      let ttlt = if self.lifetime.len()>0 {&self.lifetime} else {"'wclt"};
+//      let ltparam = if self.lifetime.len()>0 {""} else {"<'wclt>"};
+      write!(fd,"
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_2((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype)?;
+   }
+   write!(fd,"
 }}//impl Tokenizer
 \n")?;
       Ok(())

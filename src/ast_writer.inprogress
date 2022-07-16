@@ -7,6 +7,8 @@
 #![allow(unused_assignments)]
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
+use std::collections::{HashMap,HashSet,BTreeSet};
+//use std::cell::{RefCell,Ref,RefMut};
 use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
@@ -20,20 +22,26 @@ impl Grammar
 {
    fn prepare(&mut self) -> String
    {
+     //if self.Reachable.len()<1 {self.reachability();}// compute reachability
+/*
+println!("reachable: {:?}",&self.Reachable);
+print!("SYMBOLS:");
+for i in 0..self.Symbols.len() {
+println!("{}: {}",i,&self.Symbols[i].sym);
+}
+*/
      let mut ASTS = String::new();
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
      // self.Rulesfor hashmap from nonterminals to set of usize indices
 
-     // setting of type = NT name done by grammar processor
+     // setting of type = NT name done by grammar processor, including ltopt
 
      for (NT,NTrules) in self.Rulesfor.iter()
      {
         let nti = *self.Symhash.get(NT).unwrap();
-        //let ntsym = &self.Symbols[nti];
-	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&self.Symbols[nti].rusttype);
-        let numrules = NTrules.len();
-        let originaltype = self.Symbols[nti].rusttype.clone();
+        let ntsym = &self.Symbols[nti];
+	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
 	for ri in NTrules  // for each rule with NT on lhs
 	{
 	  self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
@@ -52,8 +60,7 @@ impl Grammar
 	     }
 	     self.Rules[*ri].lhs.label = lhslab;
 	  } // set lhs label
-	  let mut lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
-          //assert!(&lhsymtype==&ntsym.rusttype);
+	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
 	  if self.Rules[*ri].rhs.len()>0 {
@@ -72,33 +79,18 @@ impl Grammar
             if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" {
 	       enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
 	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
-               if passthru==-1 {
-                  if &lhsymtype==&rsym.rusttype { passthru=rhsi; }
-                  else if numrules==1 /*&& &self.Symbols[nti].sym!=&self.topsym*/ { 
-                    passthru = rhsi;
-                    lhsymtype = self.Symbols[rsymi].rusttype.clone();
-println!("passthru for {}, at {}, type {}",&self.Symbols[nti].sym, &self.Symbols[rsymi].sym,&lhsymtype);
-                  }
-               }
+               if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
                else {passthru = -2;}
 	    }
 	    else if &self.Symbols[rsymi].rusttype!="()" {
 	      enumvar.push_str(&format!("{},",&rsym.rusttype));
 	      ACTION.push_str(&format!("{},",&itemlabel));
-              if passthru==-1 {
-                  if &lhsymtype==&rsym.rusttype { passthru=rhsi; }
-                  else if numrules==1 /*&& &self.Symbols[nti].sym!=&self.topsym*/ { 
-                    passthru = rhsi;
-                    lhsymtype = self.Symbols[rsymi].rusttype.clone();
-                  }              
-              }
-              else {passthru=-2;}
 	    }
 	    /*
 	    check special case: only one NT on rhs that has same type as lhs,
 	    and all other symbols have type () AND are marked punctuations.
 	    What is a punctuation?  go by precedence level.
-            "paththru" indicates rule like E --> ( E1 ), where semantic
+            "paththru" indicates rule like E --> ( E ), where semantic
             action passes thru.  In this case pasthru will be 1.
             passthru = -1 means passthru candidate index not yet found,
             -2 means no passthru candidate exists.
@@ -116,15 +108,12 @@ println!("passthru for {}, at {}, type {}",&self.Symbols[nti].sym, &self.Symbols
 	  }
     	  ACTION.push_str(" }");
 	  // determine if action and ast enum should be generated:
-
-          if passthru<0 {lhsymtype = originaltype.clone();}
           if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
             self.Rules[*ri].action = format!("_item{}_ }}",passthru);
-            self.Rules[*ri].lhs.rusttype = lhsymtype.clone(); // change type
-            self.Symbols[nti].rusttype = self.Rules[*ri].lhs.rusttype.clone();
+//println!("passthru on rule {}, NT {}",ri,&self.Rules[*ri].lhs.sym);
           }
-	  else 
-          if self.Rules[*ri].action.len()<=1 && self.Symbols[nti].rusttype.starts_with(NT) {
+	  else
+          if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
   	    self.Rules[*ri].action = ACTION;
 	    AST.push_str(&enumvar); AST.push_str(",\n");
 	  }
@@ -138,15 +127,9 @@ println!("passthru for {}, at {}, type {}",&self.Symbols[nti].sym, &self.Symbols
 	  defaultvarinst = format!("{}_Nothing(&())",NT);
 	}
 	AST.push_str(&format!("  {},\n}}\n",&defaultvar));
-        if originaltype.starts_with(NT) {
-          AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",&ltopt,&originaltype,NT,&defaultvarinst));
-        }
-
-        // AST not committed unless type calls for it.
-        if self.Symbols[nti].rusttype.starts_with(NT) || &originaltype!=&self.Symbols[nti].rusttype
-        {
-          ASTS.push_str(&AST); 
-        }
+	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",&ltopt,&ntsym.rusttype,NT,&defaultvarinst));
+//println!("AST: {}",&AST);	
+        if ntsym.rusttype.starts_with(NT) { ASTS.push_str(&AST); }
      }//for each non-terminal and set of rules
 
      // set Absyntype
@@ -184,4 +167,47 @@ use rustlr::LBox;\n")?;
      Ok(())
    }//writeabsyn
 
+
+
+/////  Floyd/Warshall reachability - sort of
+  pub fn reachability(&mut self)
+  {
+     let NTs:Vec<_> = self.Rulesfor.keys().collect();
+     for NT in NTs
+     {
+       self.Reachable.insert(*self.Symhash.get(NT).unwrap(), HashSet::new());
+     } // create map skeletons
+
+     let mut stillopen = true;
+     while stillopen {
+       stillopen = false;
+       for (NT, NTrules) in self.Rulesfor.iter()
+       {
+        let iNT = self.Symhash.get(NT).unwrap();
+        let mut symset = HashSet::new();
+        for ri in NTrules
+        {
+           for sym in &self.Rules[*ri].rhs
+           {
+              let symi = *self.Symhash.get(&sym.sym).unwrap();
+              symset.insert(symi);
+              if !self.Symbols[symi].terminal { // noterminal
+                 for nsymi in self.Reachable.get(&symi).unwrap().iter()
+                 {
+                     symset.insert(*nsymi);
+                 }
+              }
+           } // collect rhs symbols into a set
+        }//for ri
+        let ireachable = self.Reachable.get_mut(iNT).unwrap(); // refcell
+        for sym in symset
+        {
+          stillopen =  ireachable.insert(sym) || stillopen;
+        }
+       }//(NT,NTrules)
+     }//stillopen
+  }// reachability closure
+
 }//impl Grammar
+
+
