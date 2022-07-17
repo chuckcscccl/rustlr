@@ -128,7 +128,7 @@ fn rustle(args:&Vec<String>) // called from main
   fsm0.generatefsm(); //GENERATE THE FSM
   if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
   else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
-  if parserfile.len()<1 {parserfile = format!("{}parser.rs",&gramname);}
+  if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.rs",&gramname));}
   if fsm0.States.len()>65536  {
     println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
     return;

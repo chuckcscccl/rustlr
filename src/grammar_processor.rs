@@ -576,14 +576,18 @@ impl Grammar
 		   break;
                 }
 
+/*
+Strategfy for parsing EBNF syntax:
+a. transform (E ;)* to E1*, E1 --> E ;
+b. transform E1* to E2,  E2 --> | E2 E1
+*/
+
                 // add code to recognize (E ;)*, etc.
-                // These sequences should be limited to a single nonterminal
-                // plus additional "meaningless" terminals.  If
                 // (E ;)* and (E ,)* are to have different meaning, then dont
-                // use this notation.
+                // use this notation.  Only use in -auto mode as it will
+                // generate ast, semaction for the new nonterminal.
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  // advance i until see )*, or )+
                   let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),i);
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
@@ -592,20 +596,29 @@ impl Grammar
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
                   let mut suffix="";
-                  while i<=bstokens.len()
+                  while i<=bstokens.len() // advance i until see )*, or )+, )?
                   {
+                     // get the part before :label
                      let retokisplit:Vec<&str> = retoki.split(':').collect();
-                                          
-                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+")  {
+                     let mut breakpoint = false;
+                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") || retokisplit[0].ends_with(")?") {
+                       breakpoint=true;
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
                        if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`",linenum);}
                        suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
+                     } // if retokisplit[0].ends_with(")*")...
+                     else if retokisplit.len()>1 {
+                       panic!("LABELS (:{}) ARE NOT ALLOWED INSIDE (..)*, (..)+ or (..)? GROUPINGS, LINE {}",retokisplit[1],linenum);
                      }
+                     // retoki should not end with )?, etc...
+                     if retoki.ends_with("*") || retoki.ends_with("+") || retoki.ends_with("?") {
+                         panic!("NESTED *, + and ? EXPRESSIONS ARE NOT ALLOWED, LINE {}",linenum);
+                       }
+                     
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
-//println!("igsym {}, type {}",&igsym.sym, &igsym.rusttype);                     
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
@@ -613,8 +626,9 @@ impl Grammar
                      else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
                      {passthru=-2;}
                      newrule2.rhs.push(self.Symbols[gsymi].clone());
-                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
-                     if bstokens[i-1].starts_with('{') {i=bstokens.len()+1; break;}
+                     //if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
+                     if breakpoint {break;}
+                     else if bstokens[i-1].starts_with('{') {i=bstokens.len()+1; break;}
                      jk += 1; //local, for passthru
                      i+=1; // indexes bstokens
                      retoki = bstokens[i-1];
@@ -624,7 +638,7 @@ impl Grammar
                   if passthru<0 {
                     newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
                     self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
-//   println!("passthru on {} not recognized",&ntname2);                    
+                    // this assumes -auto
                     // action will be written by ast_writer
                   }
                   else { // set action of new rule to be passthru
@@ -649,7 +663,8 @@ impl Grammar
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
-		// add code to recognize E*, E+ and E?
+		// add code to recognize E*, E+ and E?, aftert ()'s removed -
+                // Assuming *,+,? preceeded by a single grammar symbol
                 let newtok; // will be new strtok
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
