@@ -82,9 +82,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
 	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
-	    let itemlabel = if rsym.label.len()>0 {
+            let expectedlabel = format!("_item{}_",&rhsi);
+	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel {
+            // presence of rhs label also cancels passthru
               passthru=-2; rsym.label.clone()
-            } else {format!("_item{}_",&rhsi)};
+            } else {expectedlabel}; //{format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
             if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
             if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
@@ -110,10 +112,12 @@ println!("{}: {}",i,&self.Symbols[i].sym);
                 enumvar.push_str(&format!("{},",&rsym.rusttype));
 	        ACTION.push_str(&format!("{},",&itemlabel));
               }//not genstruct (gen enum)
-//println!("rule {}, rhs sym {}, type {}, lhs type {}",ri,&rsym.rusttype,&rsym.sym,&lhsymtype);
+
+//if *ri==15 {println!("rule {}, rhs sym {}, type {}, lhs type {}, passthru {}",ri,&rsym.sym,&rsym.rusttype,&lhsymtype,passthru);}
+              
               if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
-              else {passthru = -2;}            
-	    }// terminal but not unit type
+              else {passthru = -2;}
+	    }// could still be nonterminal but not unit type - no lbox
 	    /*
 	    check special case: only one NT on rhs that has same type as lhs,
 	    and all other symbols have type () AND are marked punctuations.
@@ -159,7 +163,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
           else if ntsym.rusttype.starts_with(NT) {  // added for 0.2.94
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
           }
-//println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
+//println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
 
         if !genstruct {

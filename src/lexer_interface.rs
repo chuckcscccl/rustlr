@@ -23,6 +23,8 @@ use std::collections::{HashSet,BTreeMap};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
+//use std::rc::Rc;
+//use std::cell::RefCell;
 
 /// **This structure is deprecated by [TerminalToken]**.
 /// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
@@ -394,6 +396,7 @@ pub struct StrTokenizer<'t>
    src:&'t str, // source name
    /// vector of starting byte position of each line, position 0 not used.
    pub line_positions:Vec<usize>, // starting position of each line
+   //pub shared_state: dyn for <ET:Default> Rc<RefCell<ET>>,
 }
 impl<'t> StrTokenizer<'t>
 {

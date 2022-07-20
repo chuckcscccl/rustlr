@@ -425,7 +425,7 @@ impl Grammar
                if targetsym=="_" {targetsym = "_WILDCARD_TOKEN_";}
                if let Some(index) = self.Symhash.get(targetsym) {
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
-                   println!("WARNING: precedence of {} is non-positive",stokens[1]);
+                   eprintln!("WARNING: precedence of {} is non-positive",stokens[1]);
                  }
                  self.Symbols[*index].precedence = preclevel;
                }
@@ -665,6 +665,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
 //println!("1 strtok now {}",strtok);
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
+
 
 		// add code to recognize E*, E+ and E?, aftert ()'s removed -
                 // Assuming *,+,? preceeded by a single grammar symbol

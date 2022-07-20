@@ -229,7 +229,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       for sym in &self.Gmr.Symbols
       {
          if sym.terminal && &sym.rusttype!="()" && !already.contains(&sym.rusttype[..]) && &sym.sym!="_WILDCARD_TOKEN_" {
-println!("processing for {}, type {}",&sym.sym, &sym.rusttype);         
+//println!("processing for {}, type {}",&sym.sym, &sym.rusttype);         
             already.insert(&sym.rusttype);
             let ei = self.Gmr.enumhash.get(&sym.rusttype).expect("GRAMMAR CORRUPTED");
 //            let ltm = &self.Gmr.lifetime;

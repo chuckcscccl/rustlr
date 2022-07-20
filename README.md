@@ -16,9 +16,9 @@ of grammar rules with expressions such as `a _* b`
 
 <p>
 
-**Version 0.2.95 adds the ability to define
-custom regular expressions and custom token types to the built-in lexical analyzer; the lexterminal and valueterminal directives further simplify the creation of the lexical analyzer.  Version 0.2.94 improves the usability of the wildcard "_" token.
-See the tutorial's Appendix on Experimental featuers.**
+**Version 0.2.96 adds the ability for the parser to modify output from the
+tokenizer - allowing the tokenizer to behave dynamically.  See [Chapter 4](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html) of the tutorial.  Version 0.2.95 adds the ability to define
+custom regular expressions and custom token types to the built-in lexical analyzer; the lexterminal and valueterminal directives further simplify the creation of the lexical analyzer.**
 
 
 ### Major Features and the Versions that Introduced Them
