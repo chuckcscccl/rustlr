@@ -57,6 +57,7 @@ given to the executable are:
 possible and will be the subject of a future chapter.  The genlex option is
 also automatically enabled by the presence of certain declarations in the
 grammar file, such as **`lexvalue`**.
+- **-auto** or **-genabsyn** : automatically generates abstract syntax data types and required semantic actions.  See [Chapter 4](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html).  This feature is not recommended for beginners.
 - **-trace n**  : where n is a non-negative integer defining the trace level.
   Level 0 prints nothing; level 1, which is the default, prints a little more
   information.  Each greater level will print all information in lower levels.

@@ -1,7 +1,7 @@
 # ANSI C YACC Grammar, adopted to rustlr syntax
 
 lifetime 'lt
-externtype HashSet<String>
+externtype HashSet<&'lt str>
 typedterminal IDENTIFIER &'lt str
 typedterminal CONSTANT i32
 typedterminal STRING_LITERAL &'lt str
@@ -207,7 +207,7 @@ declaration:DecSpecList ==> declaration_specifiers:ds init_declarator_list:il ;
       if let init_declarator_86(y) = &**x {
         if let declarator_130(z) = &**y {
           if let IDENTIFIER_131(id)= &**z {
-            parser.exstate.insert(id.to_string());
+            parser.exstate.insert(id);
           }}}}} ...
  } <==
 
@@ -225,7 +225,9 @@ declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
 
 storage_class_specifier:Typedef --> TYPEDEF
 
-type_specifier:Typename --> TYPE_NAME:s { parser.exstate.insert(s.to_string()); ... }
+type_specifier:Typename --> TYPE_NAME        
+
+#:s { parser.exstate.insert(s.to_string()); ... }
 
 # probably doesn't work : define new id in terms of others won't work.
 # must keep a list.  Must be visible to tokenizer.

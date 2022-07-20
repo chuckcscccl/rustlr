@@ -1,4 +1,4 @@
-## Chapter 4: Automatically Generating the AST
+## Chapter 4: Automatically Generating the AST and Moving Towards EBNF
 
 One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Rustlr is capable of automatically generating the data structures (enums and structs) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
 
@@ -143,17 +143,27 @@ ES --> Expr:[e] ; { vec![e] }
 ES --> ES:v Expr:[e] ;  { v.push(e); v }
 
 ```
-The presence of a non-empty semantic action or a user-defined nonterminal
-type will always cancel their automatic generation.
+The presence of a non-empty semantic action will override automatic AST generation.
+It is also possible to inject custom code into the
+automatically generated code:
+```
+ES --> Expr ; {println!("starting a new ES sequence"); ... }
+```
+The ellipsis are allowed only before the closing right-brace.  This indicates
+that the automatically generated portion of the semantic action should follow.
+The ellipsis cannot appear anywhere else.
+```
+
+```
 
    -------------------
 
-### Adding New Rules with *, + and ?
+### Moving Towards EBNF: Automatically Adding New Rules with *, + and ?
 
 A relatively new feature of rustlr (since verion 0.2.9) allows the use of regular-expression style symbols *, + and ? to automatically generate new production rules.  However, these symbols cannot be used unrestrictedly to form arbitrary
 regular expressions (they cannot be nested).  They are given only as a convenience.  They are also guaranteed to only fully work in the -auto mode.
 
-Another way to achieve the same effects as the above is to use the following alternative grammar declarations:
+Another way to achieve the same effects as the above (to derive a vector for symbol ES) is to use the following alternative grammar declarations:
 
 ```
 nonterminal ES Vec<LBox<Expr<'lt>>>
@@ -222,7 +232,14 @@ as declared. This rule will again be given an action equivalent to
 `ES: --> (Expr ;)*:v {v}`
 
 
-#### Invoking the Parser
+The operator-precedence and associativity declarations, the *, + and ?
+operators, and the natural ability of LR parsers to handle left-recursive
+grammars, including indirect ones, allows a language to be defined
+using a grammar that closely resembles EBNF syntax.
+
+
+
+### Invoking the Parser
 
 Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the **`parse_with`** or **`parse_train_with`** functions:
 
@@ -242,13 +259,95 @@ Please note that all generated enums for the grammar will attempt to derive the 
 Please also note that using [LBox][2] is already included in all parsers generated with the `-genabsyn` or `-auto` option, so do not use `!use ...` to include
 it again.
 
+
    ----------------
 
-#### Generating a Parser for C
+### Generating a Parser for C
 
-As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C Yacc grammar published in 1985 by Jeff Lee, which was converted to rustlr syntax and found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar).  The raw grammar produced a shift-reduce conflict caused by the *dangling else* problem, which we fixed by giving  'else' a higher precedence than 'if'.  The raw grammar contained a few other issues we have not addressed, most notably when an identifier should be considered as `TYPE_NAME`. Manual fine tuning will definitely be required, as one should expect.  However, the generated AST is at least a good starting point.  In forming the enum types, for production rules without a left-hand side label, rustlr will also sometimes use the name of an alpha-numeric terminal symbol to create the name of the enum variant (if it is the first symbol on the right-hand side).
+As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C Yacc grammar published in 1985 by Jeff Lee, which was converted to rustlr syntax and found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar).  The raw grammar could not be used as-is.  The following problems
+had to be resolved:
 
-The AST enums are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cauto_ast.rs) and the generated parser [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cautoparser.rs).
+ 1.  A shift-reduce conflict caused by the "dangling else" problem.
+ 2.  The need to distinguish an alphanumeric identifier as a "TYPE_NAME".
+
+The first problem was easily fixed by giving  'else' a higher precedence than 'if'.  The second problem presented a challenge for Rustlr.  The grammar
+contained two terminal symbols, "IDENTIFIER" and "TYPE_NAME", each should 
+carry as value alphanumeric strings.
+In the following C code
+```
+typedef unsigned int uint;
+...
+unit x = 1;
+```
+The first occurrence of "uint", in the typedef line, should be recognized as
+an IDENTIFIER while the second, in the declaration of x, should be
+recognized as TYPE_NAME.  This suggests that the lexical scanner must be aware of information that exists "several levels of abstraction above".  That
+is, the token returned depends on the symbol table, or at least on
+previously parsed "typedef" statements.  This sharing of information
+between parser and lexer is relative easy in Lex/Yacc given that global,
+mutable and shared structures are "simple" to do in C.  In Rust we have
+to find another solution.
+
+A Rustlr .grammar file (since versin 0.2.96) can contain a decarative such
+as
+```
+transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
+```
+The transform directive should be followed by a function of type
+```
+for <'t> fn(&ZCParser<AT,ET>, &mut TerminalToken<'t,AT>)
+```
+that allows a lexical token to be modified before being passed to the parser.
+The **`transform`** directive also enables a flag that calls this function
+each time a new token is returned by the lexical analyzer. The function must
+be on a single line and is injected verbatim into the generated parser.
+The `transform` directive
+also enables the generation of `extract_value_{terminal symbol}`
+and `encode_value_{terminal symbol}` function for each terminal symbol.  These
+function enables the extraction/encoding of the semantic value attached to
+a terminal symbol relative to the internally generated enum that allows
+grammar symbols to carry values of different types.
+
+We are also making use of the `external state` that every rustlr parser
+carries to maintain a set of strings that should be parsed as TYPE_NAME.
+
+
+The AST types are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cauto_ast.rs) and the generated parser [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cautoparser.rs).
+
+The most important modificiations to the grammar, in addition to the `transform` directive above, are as follows:
+```
+lifetime 'lt
+externtype HashSet<&'lt str>
+
+!/*the following exposes the names of the generated enum variants*/
+!use crate::cauto_ast::declaration_specifiers::*;
+!use crate::cauto_ast::storage_class_specifier::*;
+!use crate::cauto_ast::init_declarator::*;
+!use crate::cauto_ast::init_declarator_list::*;
+!use crate::cauto_ast::declarator::*;
+!use crate::cauto_ast::declaration::*;
+!use crate::cauto_ast::direct_declarator::*;
+
+declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
+
+type_specifier:Typename --> TYPE_NAME
+
+declaration:DecSpecList ==> declaration_specifiers:ds init_declarator_list:il ;
+ { if let (DSCDS(td,_),init_declarator_list_84(x)) = (&ds,&il) {
+    if let Typedef = &**td {
+      if let init_declarator_86(y) = &**x {
+        if let declarator_130(z) = &**y {
+          if let IDENTIFIER_131(id)= &**z {
+            parser.exstate.insert(id.to_string());
+          }}}}} ...
+ } <==
+ 
+```
+The nested ifs were needed in the rule for `declaration` to look into LBoxes.
+Rust does not allow pattern matching inside Box, and so nested pattern matching
+with recursively defined trees is difficult.
+
+   ----------------
 
 
 
