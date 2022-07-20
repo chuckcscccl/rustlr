@@ -82,8 +82,9 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
 	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
-	    let itemlabel = if rsym.label.len()>0 {rsym.label.clone()} else
-            	            {format!("_item{}_",&rhsi)};
+	    let itemlabel = if rsym.label.len()>0 {
+              passthru=-2; rsym.label.clone()
+            } else {format!("_item{}_",&rhsi)};
             rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
             if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
             if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
@@ -142,15 +143,17 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
-    	  ACTION.push_str(" }");
+    	  ACTION.push_str(" }");  // action already has last rbrack
 	  // determine if action and ast enum should be generated:
-          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
-            self.Rules[*ri].action = format!("_item{}_ }}",passthru);
+//          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
+          let mut actbase = augment_action(&self.Rules[*ri].action);
+          if !actbase.ends_with('}') && passthru>=0 && nolhslabel {
+            self.Rules[*ri].action = format!("{} _item{}_ }}",&actbase,passthru);
 //println!("passthru on rule {}, NT {}",ri,&self.Rules[*ri].lhs.sym);
           }
 	  else
-          if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
-  	    self.Rules[*ri].action = ACTION;
+          if !actbase.ends_with('}') && ntsym.rusttype.starts_with(NT) {
+  	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
 	  }
           else if ntsym.rusttype.starts_with(NT) {  // added for 0.2.94
@@ -256,3 +259,20 @@ use rustlr::LBox;\n")?;
 }//impl Grammar
 
 
+// function to see if given semantic action should be replaced or augmented
+// returns String base of action, not closed with } if need auto generation.
+fn augment_action(act0:&str) -> String
+{
+   let act = act0.trim();
+   if act.len()<=1 {return String::new();} // completely regenerate
+   let rbpo = act.rfind('}');
+   if let Some(rbp) = rbpo {
+     let ebpo = act[..rbp].rfind("...");
+     if let Some(ebp)=ebpo { 
+        let mut act2 = String::from(&act[..ebp]) + " ";
+        return act2;
+     }
+   }
+   else {return String::new();} // did not end in }
+   return String::from(act);
+}

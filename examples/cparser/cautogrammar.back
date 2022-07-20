@@ -1,7 +1,6 @@
 # ANSI C YACC Grammar, adopted to rustlr syntax
 
 lifetime 'lt
-externtype HashSet<String>
 typedterminal IDENTIFIER &'lt str
 typedterminal CONSTANT i32
 typedterminal STRING_LITERAL &'lt str
@@ -46,12 +45,6 @@ topsym translation_unit
 # added for Rustlr edition to resolve dangling else problem:
 left IF 100
 left ELSE 200
-
-# added to distinguish between IDENTIFIER and TYPE_NAME
-transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
-
-# rules as precedence over other rules
-#declaration_specifiers:TYPEDEFCLAUSE -->  TYPEDEF declaration_specifiers
 
 primary_expression ==>
 	 IDENTIFIER
@@ -186,49 +179,19 @@ expression ==>
 constant_expression --> conditional_expression
 
 
-#declaration ==>
-#	 declaration_specifiers ;
-#	| declaration_specifiers init_declarator_list ;
-#	<==
-
-
-!use crate::cauto_ast::declaration_specifiers::*;
-!use crate::cauto_ast::storage_class_specifier::*;
-!use crate::cauto_ast::init_declarator::*;
-!use crate::cauto_ast::init_declarator_list::*;
-!use crate::cauto_ast::declarator::*;
-!use crate::cauto_ast::declaration::*;
-!use crate::cauto_ast::direct_declarator::*;
-
-declaration:DecSpec --> declaration_specifiers ;
-declaration:DecSpecList ==> declaration_specifiers:ds init_declarator_list:il ;
- { if let (DSCDS(td,_),init_declarator_list_84(x)) = (&ds,&il) {
-    if let Typedef = &**td {
-      if let init_declarator_86(y) = &**x {
-        if let declarator_130(z) = &**y {
-          if let IDENTIFIER_131(id)= &**z {
-            parser.exstate.insert(id.to_string());
-          }}}}} ...
- } <==
+declaration ==>
+	 declaration_specifiers ;
+	| declaration_specifiers init_declarator_list ;
+	<==
 
 declaration_specifiers ==>
 	 storage_class_specifier
-        | type_specifier
-        | type_specifier declaration_specifiers
+	| storage_class_specifier declaration_specifiers
+	| type_specifier
+	| type_specifier declaration_specifiers
 	| type_qualifier
 	| type_qualifier declaration_specifiers
 	<==
-
-# this rule corresponds to typedef: set next identifier to be TYPE_NAME
-
-declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
-
-storage_class_specifier:Typedef --> TYPEDEF
-
-type_specifier:Typename --> TYPE_NAME:s { parser.exstate.insert(s.to_string()); ... }
-
-# probably doesn't work : define new id in terms of others won't work.
-# must keep a list.  Must be visible to tokenizer.
 
 init_declarator_list ==>
 	 init_declarator
@@ -241,7 +204,8 @@ init_declarator ==>
 	<==
 
 storage_class_specifier ==>
-	EXTERN
+	 TYPEDEF
+	| EXTERN
 	| STATIC
 	| AUTO
 	| REGISTER
@@ -259,9 +223,8 @@ type_specifier ==>
 	| UNSIGNED
 	| struct_or_union_specifier
 	| enum_specifier
+	| TYPE_NAME
 	<==
-#type_specifier:TYPE_NAME --> IDENTIFIER
-#TYPE_NAME replaced by IDENTIFIER above
 
 struct_or_union_specifier ==>
 	 struct_or_union IDENTIFIER Lbrace struct_declaration_list Rbrace
@@ -559,6 +522,3 @@ In 1985, Jeff Lee published his Yacc grammar (which is accompanied by a matching
 Jutta Degener, 1995
 
 Grammar was modified for Rustlr.  AST automatically generated.
-
-external_declaration_206(
-DecSpecList(DSCDS(Typedef, declaration_specifiers_78(UNSIGNED, declaration_specifiers_77(INT))), init_declarator_list_84(init_declarator_86(declarator_130(IDENTIFIER_131("uint")))))

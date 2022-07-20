@@ -59,7 +59,7 @@ impl Statemachine
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
-          None if gsym.label.len()>0 && !gsym.label.contains('(') => {
+          None if gsym.label.len()>0 /*&& !gsym.label.contains('(')*/ => {
             let truelabel = checkboxlabel(&gsym.label);
             boxedlabel = truelabel != &gsym.label;
             plab = String::from(truelabel);
@@ -132,7 +132,7 @@ impl Statemachine
 #![allow(dead_code)]
 #![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
-use std::any::Any;
+use std::marker::PhantomData;
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
     if self.Gmr.genlex {
@@ -224,17 +224,15 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let lexerlt = if has_lt {&ltopt} else {"<'t>"};
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> {}\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn)?;
-      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_x_) = parser.parse(lexer) {{",abindex)?;
-  //    write!(fd,"     if parser.error_occurred() {{return Some(_x_);}}\n")?;
-      write!(fd," _x_ }} ")?;
-      write!(fd,"else {{ <{}>::default()}}\n}}//parse_with public function\n",absyn)?;
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse(lexer) {{\n",abindex)?;
+      write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
+      write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
       // training version
-      write!(fd,"pub fn parse_train_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> {}\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn)?;
-      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_x_) = parser.parse_train(lexer,parserpath) {{",abindex)?;
-  //    write!(fd,"     if parser.error_occurred() {{return Some(_x_);}}\n")?;
-      write!(fd," _x_ }} ")?;
-      write!(fd,"else {{ <{}>::default()}}\n}}//parse_train_with public function\n",absyn)?;
+      write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(lexer,parserpath) {{\n",abindex)?;
+      write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
+      write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_train_with public function\n",absyn)?;
 
 
       ////// WRITE ENUM (test)

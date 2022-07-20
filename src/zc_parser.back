@@ -121,6 +121,8 @@ pub struct ZCParser<AT:Default,ET:Default>
   /// topmost StackedItem.
   pub linenum : usize,
   pub column : usize,
+  pub position : usize, // absolute byte position of input
+  pub prev_position : usize,
   pub src_id : usize,
   report_line : usize,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
@@ -148,6 +150,8 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          err_occurred : false,
          linenum : 0,
          column : 0,
+         position : 0,
+         prev_position: 0,
          src_id : 0,
          report_line : 0,
          resynch : HashSet::new(),
@@ -164,6 +168,15 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
        }
        return p;
     }//new
+
+    /// returns the current line number
+    pub fn current_line(&self)->usize {self.linenum}
+    /// returns the current column number
+    pub fn current_column(&self)->usize {self.column}
+    /// returns the current absolute byte position according to tokenizer
+    pub fn current_position(&self)->usize {self.position}
+    /// returns the previous position (before shift) according to tokenizer
+    pub fn previous_position(&self)->usize {self.prev_position}
 
     /// this function can be called from with the "semantic" actions attached
     /// to grammar production rules that are executed for each
@@ -233,6 +246,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   fn shift<'t>(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> TerminalToken<'t, AT>
   {
      self.linenum = lookahead.line;  self.column=lookahead.column;
+     self.prev_position = self.position; self.position = tokenizer.position();
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
      //self.nexttoken()
      tokenizer.next_tt()
@@ -808,12 +822,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     if iserror(&erraction) && self.resynch.len()>0 {
       while lookahead.sym!="EOF" &&
         !self.resynch.contains(lookahead.sym) {
-        self.linenum = lookahead.line; self.column = lookahead.column;
+        self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position = tokenizer.position();
         *lookahead = tokenizer.next_tt();
       }//while
       if lookahead.sym!="EOF" {
         // look for state on stack that has action defined on next symbol
-        self.linenum = lookahead.line; self.column = lookahead.column;
+        self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position=tokenizer.position();
         *lookahead = tokenizer.next_tt();
       }
       let mut k = self.stack.len()-1; // offset by 1 because of usize
@@ -834,7 +848,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
    // only action left is to skip ahead...
    let mut eofcx = 0;
    while iserror(&erraction) && eofcx<1 { //skip input
-      self.linenum = lookahead.line; self.column = lookahead.column;
+      self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position=tokenizer.position();
       *lookahead = tokenizer.next_tt();
       //*lookahead = self.nexttoken();
       if lookahead.sym=="EOF" {eofcx+=1;}
@@ -1009,11 +1023,15 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     {
       self.linenum = self.stack[self.stack.len()-1].line;
       self.column=self.stack[self.stack.len()-1].column;
+      //self.prev_position = tokenizer.previous_position();
+      //self.position = tokenizer.position();
       let currentstate = self.stack[self.stack.len()-1].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym);
 
       if actionopt.is_none() && lookahead.sym!="EOF" { // added in version 0.2.9
         actionopt = self.RSM[currentstate].get("_WILDCARD_TOKEN_");
+        // added for 0.2.94:
+        lookahead = tokenizer.transform_wildcard(lookahead);
       }
 
       let actclone:Option<Stateaction> = match actionopt {

@@ -129,6 +129,8 @@ pub struct ZCParser<AT:Default,ET:Default>
   pub Symset : HashSet<&'static str>,
   //pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
   popped : Vec<(usize,usize)>,
+  pub transform_token: for <'t> fn(&ZCParser<AT,ET>, &mut TerminalToken<'t,AT>),
+  pub do_transform : bool,
 }//struct ZCParser
 
 
@@ -161,6 +163,8 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          Symset : HashSet::with_capacity(64),
          //tokenizer:tk,
          popped: Vec::with_capacity(8),
+         transform_token : |p,t|{},
+         do_transform : false,
        };
        for _ in 0..slen {
          p.RSM.push(HashMap::with_capacity(16));
@@ -177,6 +181,14 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     pub fn current_position(&self)->usize {self.position}
     /// returns the previous position (before shift) according to tokenizer
     pub fn previous_position(&self)->usize {self.prev_position}
+
+    /// sets and enables a function that transforms a [TerminalToken]
+    /// after each shift operation
+    pub fn set_transform_token(&mut self,transform_function:for <'t> fn(&ZCParser<AT,ET>,&mut TerminalToken<'t,AT>))
+    {
+      self.transform_token = transform_function;
+      self.do_transform = true;
+    }
 
     /// this function can be called from with the "semantic" actions attached
     /// to grammar production rules that are executed for each
@@ -248,9 +260,10 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
      self.linenum = lookahead.line;  self.column=lookahead.column;
      self.prev_position = self.position; self.position = tokenizer.position();
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
-     //self.nexttoken()
-     tokenizer.next_tt()
-  }
+     let mut answer = tokenizer.next_tt();
+     if self.do_transform {(self.transform_token)(self,&mut answer);}
+     answer
+  }//shift
 
     /// this function is called from the generated semantic actions and should
     /// most definitely not be called from elsewhere as it would corrupt
@@ -810,7 +823,10 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
           // the error production is not a good idea
           while let None = self.RSM[*i].get(lookahead.sym) {
             if lookahead.sym=="EOF" {break;}
-            *lookahead = tokenizer.next_tt();
+            let mut nexttt = tokenizer.next_tt();
+            if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+            *lookahead = nexttt;
+            //*lookahead = tokenizer.next_tt();
           }//while let
           // either at end of input or found action on next symbol
           erraction = self.RSM[*i].get(lookahead.sym);
@@ -823,12 +839,18 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       while lookahead.sym!="EOF" &&
         !self.resynch.contains(lookahead.sym) {
         self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position = tokenizer.position();
-        *lookahead = tokenizer.next_tt();
+        let mut nexttt = tokenizer.next_tt();
+        if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+        *lookahead = nexttt;
+        //*lookahead = tokenizer.next_tt();
       }//while
       if lookahead.sym!="EOF" {
         // look for state on stack that has action defined on next symbol
         self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position=tokenizer.position();
-        *lookahead = tokenizer.next_tt();
+        let mut nexttt = tokenizer.next_tt();
+        if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+        *lookahead = nexttt;
+        //*lookahead = tokenizer.next_tt();
       }
       let mut k = self.stack.len()-1; // offset by 1 because of usize
       let mut position = 0;
@@ -849,8 +871,10 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
    let mut eofcx = 0;
    while iserror(&erraction) && eofcx<1 { //skip input
       self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position=tokenizer.position();
-      *lookahead = tokenizer.next_tt();
-      //*lookahead = self.nexttoken();
+      let mut nexttt = tokenizer.next_tt();
+      if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+      *lookahead = nexttt;
+      //*lookahead = tokenizer.next_tt();
       if lookahead.sym=="EOF" {eofcx+=1;}
       let csi =self.stack[self.stack.len()-1].si;
       erraction = self.RSM[csi].get(lookahead.sym);

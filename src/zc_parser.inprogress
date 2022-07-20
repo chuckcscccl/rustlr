@@ -121,12 +121,16 @@ pub struct ZCParser<AT:Default,ET:Default>
   /// topmost StackedItem.
   pub linenum : usize,
   pub column : usize,
+  pub position : usize, // absolute byte position of input
+  pub prev_position : usize,
   pub src_id : usize,
   report_line : usize,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
   //pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
   popped : Vec<(usize,usize)>,
+  pub transform_token: for <'t> fn(&ZCParser<AT,ET>, &mut TerminalToken<'t,AT>),
+  pub do_transform : bool,
 }//struct ZCParser
 
 
@@ -148,6 +152,8 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          err_occurred : false,
          linenum : 0,
          column : 0,
+         position : 0,
+         prev_position: 0,
          src_id : 0,
          report_line : 0,
          resynch : HashSet::new(),
@@ -157,6 +163,8 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          Symset : HashSet::with_capacity(64),
          //tokenizer:tk,
          popped: Vec::with_capacity(8),
+         transform_token : |p,t|{},
+         do_transform : false,
        };
        for _ in 0..slen {
          p.RSM.push(HashMap::with_capacity(16));
@@ -164,6 +172,23 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
        }
        return p;
     }//new
+
+    /// returns the current line number
+    pub fn current_line(&self)->usize {self.linenum}
+    /// returns the current column number
+    pub fn current_column(&self)->usize {self.column}
+    /// returns the current absolute byte position according to tokenizer
+    pub fn current_position(&self)->usize {self.position}
+    /// returns the previous position (before shift) according to tokenizer
+    pub fn previous_position(&self)->usize {self.prev_position}
+
+    /// sets and enables a function that transforms a [TerminalToken]
+    /// after each shift operation
+    pub fn set_transform_token(&mut self,transform_function:for <'t> fn(&ZCParser<AT,ET>,&mut TerminalToken<'t,AT>))
+    {
+      self.transform_token = transform_function;
+      self.do_transform = true;
+    }
 
     /// this function can be called from with the "semantic" actions attached
     /// to grammar production rules that are executed for each
@@ -176,18 +201,22 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     }
 
     /// may be called from grammar semantic actions to report error.
-    /// this report function will print to stdout. 
-    pub fn report(&mut self, errmsg:&str)  
-    {      // linenum must be set prior to call
+    /// this report function will print to stdout.
+    pub fn report(&mut self, errmsg:&str)  {self.report_error(errmsg,false)}
+    /// same as [ZCParser::report] but with option to display line/column
+    pub fn report_error(&mut self, errmsg:&str, showlc: bool)  
+    {  
        //eprint!("{}",color::Fg(color::Yellow));
        if (self.report_line != self.linenum || self.linenum==0)  {
-//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());         
-//         eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg);
-         eprintln!("PARSER ERROR: {}",errmsg);
+//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());
+         if showlc {
+           eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg); }
+         else { eprintln!("PARSER ERROR: {}",errmsg); }
          self.report_line = self.linenum;
        }
        else {
-         eprint!(" {} ",errmsg);
+         if showlc { eprint!(" ({},{}): {}",self.linenum,self.column,errmsg); }
+         else {eprint!(" {}",errmsg);}
        }
        //eprint!("{}",color::Fg(color::Reset));       
        self.err_occurred = true;
@@ -229,10 +258,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   fn shift<'t>(&mut self, nextstate:usize, lookahead:TerminalToken<'t,AT>, tokenizer:&mut dyn Tokenizer<'t,AT>) -> TerminalToken<'t, AT>
   {
      self.linenum = lookahead.line;  self.column=lookahead.column;
+     self.prev_position = self.position; self.position = tokenizer.position();
      self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
-     //self.nexttoken()
-     tokenizer.next_tt()
-  }
+     let mut answer = tokenizer.next_tt();
+     if self.do_transform {(self.transform_token)(self,&mut answer);}
+     answer
+  }//shift
 
     /// this function is called from the generated semantic actions and should
     /// most definitely not be called from elsewhere as it would corrupt
@@ -487,6 +518,19 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
+
+      ////// WRITE parse_with and parse_train_with
+      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
+      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
+      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  let _xres_ = parser.parse(lexer); ")?;
+      write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_with public function\n")?;
+      // training version
+      write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  let _xres_ = parser.parse_train(lexer,parserpath); ")?;
+      write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_train_with public function\n")?;
+
 
     ////// WRITE LEXER
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
@@ -779,7 +823,10 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
           // the error production is not a good idea
           while let None = self.RSM[*i].get(lookahead.sym) {
             if lookahead.sym=="EOF" {break;}
-            *lookahead = tokenizer.next_tt();
+            let mut nexttt = tokenizer.next_tt();
+            if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+            *lookahead = nexttt;
+            //*lookahead = tokenizer.next_tt();
           }//while let
           // either at end of input or found action on next symbol
           erraction = self.RSM[*i].get(lookahead.sym);
@@ -791,13 +838,19 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     if iserror(&erraction) && self.resynch.len()>0 {
       while lookahead.sym!="EOF" &&
         !self.resynch.contains(lookahead.sym) {
-        self.linenum = lookahead.line; self.column = lookahead.column;
-        *lookahead = tokenizer.next_tt();
+        self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position = tokenizer.position();
+        let mut nexttt = tokenizer.next_tt();
+        if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+        *lookahead = nexttt;
+        //*lookahead = tokenizer.next_tt();
       }//while
       if lookahead.sym!="EOF" {
         // look for state on stack that has action defined on next symbol
-        self.linenum = lookahead.line; self.column = lookahead.column;
-        *lookahead = tokenizer.next_tt();
+        self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position=tokenizer.position();
+        let mut nexttt = tokenizer.next_tt();
+        if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+        *lookahead = nexttt;
+        //*lookahead = tokenizer.next_tt();
       }
       let mut k = self.stack.len()-1; // offset by 1 because of usize
       let mut position = 0;
@@ -817,9 +870,11 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
    // only action left is to skip ahead...
    let mut eofcx = 0;
    while iserror(&erraction) && eofcx<1 { //skip input
-      self.linenum = lookahead.line; self.column = lookahead.column;
-      *lookahead = tokenizer.next_tt();
-      //*lookahead = self.nexttoken();
+      self.linenum = lookahead.line; self.column = lookahead.column; self.prev_position=self.position; self.position=tokenizer.position();
+      let mut nexttt = tokenizer.next_tt();
+      if self.do_transform {(self.transform_token)(self,&mut nexttt);}
+      *lookahead = nexttt;
+      //*lookahead = tokenizer.next_tt();
       if lookahead.sym=="EOF" {eofcx+=1;}
       let csi =self.stack[self.stack.len()-1].si;
       erraction = self.RSM[csi].get(lookahead.sym);
@@ -896,6 +951,7 @@ impl<AT:Default,ET:Default> ErrReporter<AT,ET> for StandardReporter
     let mut tokenlen = lookahead.sym.len();
     if is_alphanum(&lookahead.sym) {tokenlen = 3;}
     while tokenlen>0 { errmsg.push('^'); tokenlen-=1; }
+    errmsg.push('\n');
   }// augment errmsg with current line
   
   parser.report(&errmsg);
@@ -991,11 +1047,15 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     {
       self.linenum = self.stack[self.stack.len()-1].line;
       self.column=self.stack[self.stack.len()-1].column;
+      //self.prev_position = tokenizer.previous_position();
+      //self.position = tokenizer.position();
       let currentstate = self.stack[self.stack.len()-1].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym);
 
       if actionopt.is_none() && lookahead.sym!="EOF" { // added in version 0.2.9
         actionopt = self.RSM[currentstate].get("_WILDCARD_TOKEN_");
+        // added for 0.2.94:
+        lookahead = tokenizer.transform_wildcard(lookahead);
       }
 
       let actclone:Option<Stateaction> = match actionopt {

@@ -438,21 +438,77 @@ impl Grammar
 	       self.genlex = true;
             },
 	    "lexvalue" => {
-	       if stokens.len()<4 {
+               let pos = line.find("lexvalue").unwrap()+9;
+               let declaration = &line[pos..];
+               let mut usingcolon = true;
+               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
+	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
 	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
-	       for i in 3 .. stokens.len()
+	       for i in 2 .. dtokens.len()
 	       {
-	         valform.push_str(stokens[i]);
-		 if (i<stokens.len()-1) {valform.push(' ');}
+	         valform.push_str(dtokens[i]);
+		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
+                 else if (i<dtokens.len()-1) {valform.push(':');}
 	       }
-	       self.Lexvals.push((stokens[1].to_string(),stokens[2].to_string(),valform));
+               let tokform = dtokens[1].to_owned();
+	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
 	       // record that this terminal always carries a value
-	       self.Haslexval.insert(stokens[1].to_string());
+	       self.Haslexval.insert(dtokens[0].to_string());
 	       self.genlex = true;
 	    },
+            "valueterminal" => {
+               let pos = line.find("valueterminal").unwrap()+14;
+               let declaration = &line[pos..];
+               let mut usingcolon = true;
+               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               if dtokens.len()<4 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
+	       if dtokens.len()<4 {
+	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
+	         continue;
+	       }  // valueterminal ID: String: Alphanum(n) if ... : n.to_owned()
+               let termname = dtokens[0].trim();               
+               let mut newterm = Gsym::new(termname,true);
+               let termtype = dtokens[1].trim();
+               if termtype.len()<1 {newterm.settype(&self.Absyntype);}
+               else {newterm.settype(termtype);}
+               if &newterm.rusttype!=&self.Absyntype {self.sametype=false;}
+               self.enumhash.insert(newterm.rusttype.clone(),ntcx); ntcx+=1;
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
+               self.Symbols.push(newterm);
+	       let mut valform = String::new(); // equiv to lexvalue...
+	       for i in 3 .. dtokens.len()
+	       {
+	         valform.push_str(dtokens[i]);
+		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
+                 else if (i<dtokens.len()-1) {valform.push(':');}
+	       }
+               let tokform = dtokens[2].to_owned();
+	       self.Lexvals.push((termname.to_string(),tokform,valform));
+	       // record that this terminal always carries a value
+	       self.Haslexval.insert(dtokens[0].to_string());
+	       self.genlex = true;
+            }, //valueterminal
+            "lexterminal" => {
+               if stokens.len()!=3 {
+               panic!("MALFORMED lexterminal declaration line {}: a terminal name and a lexical form are required",linenum);
+	         //continue;
+               }
+               let termname = stokens[1].trim();
+               let mut newterm = Gsym::new(termname,true);
+               //if self.genabsyn { newterm.settype("()"); }
+               //else {newterm.settype(&self.Absyntype);}
+               newterm.settype("()");
+               if "()"!=&self.Absyntype {self.sametype=false;}
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
+               self.Symbols.push(newterm);
+               self.Lexnames.insert(stokens[2].to_string(),termname.to_string());
+	       self.Haslexval.insert(termname.to_string());
+	       self.genlex = true;
+            }, //lexterminal
 	    "lexattribute" => {
 	       let mut prop = String::new();
 	       for i in 1 .. stokens.len()
@@ -520,14 +576,18 @@ impl Grammar
 		   break;
                 }
 
+/*
+Strategfy for parsing EBNF syntax:
+a. transform (E ;)* to E1*, E1 --> E ;
+b. transform E1* to E2,  E2 --> | E2 E1
+*/
+
                 // add code to recognize (E ;)*, etc.
-                // These sequences should be limited to a single nonterminal
-                // plus additional "meaningless" terminals.  If
                 // (E ;)* and (E ,)* are to have different meaning, then dont
-                // use this notation.
+                // use this notation.  Only use in -auto mode as it will
+                // generate ast, semaction for the new nonterminal.
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  // advance i until see )*, or )+
                   let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),i);
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
@@ -536,20 +596,29 @@ impl Grammar
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
                   let mut suffix="";
-                  while i<=bstokens.len()
+                  while i<=bstokens.len() // advance i until see )*, or )+, )?
                   {
+                     // get the part before :label
                      let retokisplit:Vec<&str> = retoki.split(':').collect();
-                                          
-                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+")  {
+                     let mut breakpoint = false;
+                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") || retokisplit[0].ends_with(")?") {
+                       breakpoint=true;
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
                        if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`",linenum);}
                        suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
+                     } // if retokisplit[0].ends_with(")*")...
+                     else if retokisplit.len()>1 {
+                       panic!("LABELS (:{}) ARE NOT ALLOWED INSIDE (..)*, (..)+ or (..)? GROUPINGS, LINE {}",retokisplit[1],linenum);
                      }
+                     // retoki should not end with )?, etc...
+                     if retoki.ends_with("*") || retoki.ends_with("+") || retoki.ends_with("?") {
+                         panic!("NESTED *, + and ? EXPRESSIONS ARE NOT ALLOWED, LINE {}",linenum);
+                       }
+                     
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
-//println!("igsym {}, type {}",&igsym.sym, &igsym.rusttype);                     
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
@@ -557,8 +626,9 @@ impl Grammar
                      else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
                      {passthru=-2;}
                      newrule2.rhs.push(self.Symbols[gsymi].clone());
-                     if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
-                     if bstokens[i-1].starts_with('{') {i=bstokens.len()+1; break;}
+                     //if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
+                     if breakpoint {break;}
+                     else if bstokens[i-1].starts_with('{') {i=bstokens.len()+1; break;}
                      jk += 1; //local, for passthru
                      i+=1; // indexes bstokens
                      retoki = bstokens[i-1];
@@ -568,7 +638,7 @@ impl Grammar
                   if passthru<0 {
                     newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
                     self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
-//   println!("passthru on {} not recognized",&ntname2);                    
+                    // this assumes -auto
                     // action will be written by ast_writer
                   }
                   else { // set action of new rule to be passthru
@@ -593,7 +663,8 @@ impl Grammar
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
-		// add code to recognize E*, E+ and E?
+		// add code to recognize E*, E+ and E?, aftert ()'s removed -
+                // Assuming *,+,? preceeded by a single grammar symbol
                 let newtok; // will be new strtok
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {

@@ -115,6 +115,7 @@ pub struct Grammar
   pub genlex: bool,
   pub genabsyn: bool,
   pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
+  pub transform_function: String, // for 0.2.96
 }
 
 impl Default for Grammar {
@@ -151,6 +152,7 @@ impl Grammar
        genabsyn: false,
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
+       transform_function: String::new(),
      }
   }//new grammar
 
@@ -440,9 +442,7 @@ impl Grammar
 	    "lexvalue" => {
                let pos = line.find("lexvalue").unwrap()+9;
                let declaration = &line[pos..];
-               let mut usingcolon = true;
-               let mut dtokens:Vec<_> = declaration.split(':').collect();
-               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
+               let dtokens:Vec<_>=declaration.split_whitespace().collect();
 	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
@@ -451,8 +451,7 @@ impl Grammar
 	       for i in 2 .. dtokens.len()
 	       {
 	         valform.push_str(dtokens[i]);
-		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
-                 else if (i<dtokens.len()-1) {valform.push(':');}
+		 if (i<dtokens.len()-1) {valform.push(' ');}
 	       }
                let tokform = dtokens[1].to_owned();
 	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
@@ -518,6 +517,10 @@ impl Grammar
 	       self.Lexextras.push(prop);
 	       self.genlex = true;
 	    },
+            "transform" => {   // new for 0.2.96, transform_token added
+               let pos = line.find("transform").unwrap()+10;
+               self.transform_function = line[pos..].trim().to_owned();
+            },
 //////////// case for grammar production:            
 	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
@@ -801,7 +804,9 @@ b. transform E1* to E2,  E2 --> | E2 E1
      }
      // add start,eof and starting rule:
      let startnt = Gsym::new("START",false);
-     let eofterm = Gsym::new("EOF",true);
+     let mut eofterm = Gsym::new("EOF",true);
+     if self.genabsyn || !self.sametype {eofterm.rusttype = "()".to_owned();}
+     else {eofterm.rusttype = self.Absyntype.clone();}
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
 //     let anyerr = Gsym::new("ANY_ERROR",true);
      self.Symhash.insert(String::from("START"),self.Symbols.len());
