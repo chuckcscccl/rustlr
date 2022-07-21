@@ -115,6 +115,8 @@ pub struct Grammar
   pub genlex: bool,
   pub genabsyn: bool,
   pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
+  pub transform_function: String, // for 0.2.96
+  pub basictypes : HashSet<&'static str>,
 }
 
 impl Default for Grammar {
@@ -125,6 +127,8 @@ impl Grammar
 {
   pub fn new() -> Grammar
   {
+     let mut btypes = HashSet::with_capacity(14);
+     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)"] { btypes.insert(t);}
      Grammar {
        name : String::from(""),       // name of grammar
        Symbols: Vec::new(),           // grammar symbols
@@ -151,8 +155,18 @@ impl Grammar
        genabsyn: false,
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
+       transform_function: String::new(),
+       basictypes : btypes
      }
   }//new grammar
+
+  pub fn basictype(&self,ty0:&str) -> bool
+  {
+   let ty=ty0.trim();
+   if self.basictypes.contains(ty) {return true;}
+   if ty.starts_with('&') && !ty.contains("mut") {return true;}
+   return false;
+  }
 
   pub fn getsym(&self,s:&str) -> Option<&Gsym>
   {
@@ -227,7 +241,7 @@ impl Grammar
        if multiline && linelen>1 && &line[0..1]!="#" {
           // keep reading until <== found
           if linelen==3 && &line[0..3]=="EOF" {
-            panic!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==");
+            panic!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==, line {}",linenum);
           }
           match line.rfind("<==") {
             None => {}, // keep reading, add to line buffer
@@ -423,7 +437,7 @@ impl Grammar
                if targetsym=="_" {targetsym = "_WILDCARD_TOKEN_";}
                if let Some(index) = self.Symhash.get(targetsym) {
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
-                   println!("WARNING: precedence of {} is non-positive",stokens[1]);
+                   eprintln!("WARNING: precedence of {} is non-positive",stokens[1]);
                  }
                  self.Symbols[*index].precedence = preclevel;
                }
@@ -440,9 +454,7 @@ impl Grammar
 	    "lexvalue" => {
                let pos = line.find("lexvalue").unwrap()+9;
                let declaration = &line[pos..];
-               let mut usingcolon = true;
-               let mut dtokens:Vec<_> = declaration.split(':').collect();
-               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
+               let dtokens:Vec<_>=declaration.split_whitespace().collect();
 	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
@@ -451,8 +463,7 @@ impl Grammar
 	       for i in 2 .. dtokens.len()
 	       {
 	         valform.push_str(dtokens[i]);
-		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
-                 else if (i<dtokens.len()-1) {valform.push(':');}
+		 if (i<dtokens.len()-1) {valform.push(' ');}
 	       }
                let tokform = dtokens[1].to_owned();
 	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
@@ -518,6 +529,10 @@ impl Grammar
 	       self.Lexextras.push(prop);
 	       self.genlex = true;
 	    },
+            "transform" => {   // new for 0.2.96, transform_token added
+               let pos = line.find("transform").unwrap()+10;
+               self.transform_function = line[pos..].trim().to_owned();
+            },
 //////////// case for grammar production:            
 	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
@@ -663,6 +678,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
+
 		// add code to recognize E*, E+ and E?, aftert ()'s removed -
                 // Assuming *,+,? preceeded by a single grammar symbol
                 let newtok; // will be new strtok
@@ -678,8 +694,14 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
-                   if &self.Symbols[gsymi].rusttype!="()" {
-		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+                   // following means symbols such as -? will not be
+                   // part of ast type unless there is a given label: -?:m
+                   if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
+		     newnt.rusttype = if strtok.ends_with('?') {
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec") /*self.basictypes.contains(&self.Symbols[gsymi].rusttype[..])*/ {format!("Option<{}>",&self.Symbols[gsymi].rusttype)}
+                       else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)}
+                     }
+                     else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
                    }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
  		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
@@ -692,9 +714,8 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if &newrule1.lhs.rusttype!="()" {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
-                     }
+                     if newrule1.lhs.rusttype.starts_with("Option<LBox<") {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if newrule1.lhs.rusttype.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
@@ -801,7 +822,9 @@ b. transform E1* to E2,  E2 --> | E2 E1
      }
      // add start,eof and starting rule:
      let startnt = Gsym::new("START",false);
-     let eofterm = Gsym::new("EOF",true);
+     let mut eofterm = Gsym::new("EOF",true);
+     if self.genabsyn || !self.sametype {eofterm.rusttype = "()".to_owned();}
+     else {eofterm.rusttype = self.Absyntype.clone();}
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
 //     let anyerr = Gsym::new("ANY_ERROR",true);
      self.Symhash.insert(String::from("START"),self.Symbols.len());
@@ -1166,3 +1189,4 @@ fn findskip(s:&str, key:char) -> Option<usize>
    }//for
    return None;
 }//findskip
+

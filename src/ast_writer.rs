@@ -91,7 +91,8 @@ println!("{}: {}",i,&self.Symbols[i].sym);
             if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
             if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
             // Lbox or no Lbox:
-            if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" && !self.Symbols[rsymi].rusttype.starts_with("Vec") && !self.Symbols[rsymi].rusttype.starts_with("LBox") && !self.Symbols[rsymi].rusttype.starts_with("Option<LBox") {
+            let rsymtype = &self.Symbols[rsymi].rusttype;
+            if !self.Symbols[rsymi].terminal && !self.basictypes.contains(&rsymtype[..]) && !(rsymtype.starts_with('&') && !rsymtype.contains("mut")) && !rsymtype.starts_with("Vec") && !rsymtype.starts_with("LBox") && !rsymtype.starts_with("Option<LBox") {
               if genstruct {
                enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
                ACTION.push_str(&format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel));
@@ -103,7 +104,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
              if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
              else {passthru = -2;}
 	    } // with Lbox
-	    else if &self.Symbols[rsymi].rusttype!="()" {  //no Lbox
+	    else if &self.Symbols[rsymi].rusttype!="()" || rsym.label.len()>0 {  //no Lbox
               if genstruct {
                 enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
                 ACTION.push_str(&format!("{},",&itemlabel));

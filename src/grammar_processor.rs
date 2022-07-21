@@ -115,7 +115,8 @@ pub struct Grammar
   pub genlex: bool,
   pub genabsyn: bool,
   pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
-  pub transform_function: String, // for 0.2.96
+//  pub transform_function: String, // for 0.2.96
+  pub basictypes : HashSet<&'static str>,
 }
 
 impl Default for Grammar {
@@ -126,6 +127,8 @@ impl Grammar
 {
   pub fn new() -> Grammar
   {
+     let mut btypes = HashSet::with_capacity(14);
+     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)"] { btypes.insert(t);}
      Grammar {
        name : String::from(""),       // name of grammar
        Symbols: Vec::new(),           // grammar symbols
@@ -152,9 +155,18 @@ impl Grammar
        genabsyn: false,
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
-       transform_function: String::new(),
+//       transform_function: String::new(),
+       basictypes : btypes
      }
   }//new grammar
+
+  pub fn basictype(&self,ty0:&str) -> bool
+  {
+   let ty=ty0.trim();
+   if self.basictypes.contains(ty) {return true;}
+   if ty.starts_with('&') && !ty.contains("mut") {return true;}
+   return false;
+  }
 
   pub fn getsym(&self,s:&str) -> Option<&Gsym>
   {
@@ -463,7 +475,7 @@ impl Grammar
                let pos = line.find("valueterminal").unwrap()+14;
                let declaration = &line[pos..];
                let mut usingcolon = true;
-               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               let mut dtokens:Vec<_> = declaration.split('~').collect();
                if dtokens.len()<4 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
 	       if dtokens.len()<4 {
 	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
@@ -483,7 +495,7 @@ impl Grammar
 	       {
 	         valform.push_str(dtokens[i]);
 		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
-                 else if (i<dtokens.len()-1) {valform.push(':');}
+                 else if (i<dtokens.len()-1) {valform.push('~');}
 	       }
                let tokform = dtokens[2].to_owned();
 	       self.Lexvals.push((termname.to_string(),tokform,valform));
@@ -518,8 +530,12 @@ impl Grammar
 	       self.genlex = true;
 	    },
             "transform" => {   // new for 0.2.96, transform_token added
+              /*
                let pos = line.find("transform").unwrap()+10;
                self.transform_function = line[pos..].trim().to_owned();
+              */
+              eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more
+general solution.",linenum);
             },
 //////////// case for grammar production:            
 	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
@@ -684,8 +700,12 @@ b. transform E1* to E2,  E2 --> | E2 E1
                    newnt.rusttype = "()".to_owned();
                    // following means symbols such as -? will not be
                    // part of ast type unless there is a given label: -?:m
-                   if &self.Symbols[gsymi].rusttype!="()" || defaultrelab.len()>0 {
-		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+                   if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
+		     newnt.rusttype = if strtok.ends_with('?') {
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec") /*self.basictypes.contains(&self.Symbols[gsymi].rusttype[..])*/ {format!("Option<{}>",&self.Symbols[gsymi].rusttype)}
+                       else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)}
+                     }
+                     else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
                    }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
  		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
@@ -698,9 +718,8 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if &newrule1.lhs.rusttype!="()" {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
-                     }
+                     if newrule1.lhs.rusttype.starts_with("Option<LBox<") {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if newrule1.lhs.rusttype.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
@@ -971,6 +990,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 {
     ////// WRITE LEXER
       let ref absyn = self.Absyntype;
+      let ref extype = self.Externtype;
       let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
       let retenum = format!("RetTypeEnum{}",&ltopt);
@@ -1017,23 +1037,25 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 	}      	
       }// for symbols in lexnames such as "||" --> OROR
 
-      write!(fd,"pub struct {0}<'t> {{
-   stk: StrTokenizer<'t>,
+      write!(fd,"pub struct {0}<{2}> {{
+   stk: StrTokenizer<{2}>,
    keywords: HashSet<&'static str>,
    lexnames: HashMap<&'static str,&'static str>,
+   shared_state: Rc<RefCell<{1}>>,
 }}
-impl<'t> {0}<'t> 
+impl<{2}> {0}<{2}> 
 {{
-  pub fn from_str(s:&'t str) -> {0}<'t>  {{
+  pub fn from_str(s:&{2} str) -> {0}<{2}>  {{
     Self::new(StrTokenizer::from_str(s))
   }}
-  pub fn from_source(s:&'t LexSource<'t>) -> {0}<'t>  {{
+  pub fn from_source(s:&{2} LexSource<{2}>) -> {0}<{2}>  {{
     Self::new(StrTokenizer::from_source(s))
   }}
-  pub fn new(mut stk:StrTokenizer<'t>) -> {}<'t> {{
+  pub fn new(mut stk:StrTokenizer<{2}>) -> {0}<{2}> {{
     let mut lexnames = HashMap::with_capacity(64);
     let mut keywords = HashSet::with_capacity(64);
-    for kw in [",&lexername)?; // end of write
+    let shared_state = Rc::new(RefCell::new(<{1}>::default()));
+    for kw in [",&lexername,extype,lifetime)?; // end of write
 
       for kw in &keywords {write!(fd,"\"{}\",",kw)?;}
       write!(fd,"] {{keywords.insert(kw);}}
@@ -1050,7 +1072,7 @@ impl<'t> {0}<'t>
       for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
       write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords,lexnames}}\n  }}\n}}\n",&lexername)?;
+      write!(fd,"    {} {{stk,keywords,lexnames,shared_state}}\n  }}\n}}\n",&lexername)?;
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{
@@ -1174,3 +1196,4 @@ fn findskip(s:&str, key:char) -> Option<usize>
    }//for
    return None;
 }//findskip
+

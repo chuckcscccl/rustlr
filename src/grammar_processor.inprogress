@@ -116,6 +116,7 @@ pub struct Grammar
   pub genabsyn: bool,
   pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
   pub transform_function: String, // for 0.2.96
+  pub basictypes : HashSet<&'static str>,
 }
 
 impl Default for Grammar {
@@ -126,6 +127,8 @@ impl Grammar
 {
   pub fn new() -> Grammar
   {
+     let mut btypes = HashSet::with_capacity(14);
+     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)"] { btypes.insert(t);}
      Grammar {
        name : String::from(""),       // name of grammar
        Symbols: Vec::new(),           // grammar symbols
@@ -153,8 +156,17 @@ impl Grammar
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
        transform_function: String::new(),
+       basictypes : btypes
      }
   }//new grammar
+
+  pub fn basictype(&self,ty0:&str) -> bool
+  {
+   let ty=ty0.trim();
+   if self.basictypes.contains(ty) {return true;}
+   if ty.starts_with('&') && !ty.contains("mut") {return true;}
+   return false;
+  }
 
   pub fn getsym(&self,s:&str) -> Option<&Gsym>
   {
@@ -229,7 +241,7 @@ impl Grammar
        if multiline && linelen>1 && &line[0..1]!="#" {
           // keep reading until <== found
           if linelen==3 && &line[0..3]=="EOF" {
-            panic!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==");
+            panic!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==, line {}",linenum);
           }
           match line.rfind("<==") {
             None => {}, // keep reading, add to line buffer
@@ -425,7 +437,7 @@ impl Grammar
                if targetsym=="_" {targetsym = "_WILDCARD_TOKEN_";}
                if let Some(index) = self.Symhash.get(targetsym) {
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
-                   println!("WARNING: precedence of {} is non-positive",stokens[1]);
+                   eprintln!("WARNING: precedence of {} is non-positive",stokens[1]);
                  }
                  self.Symbols[*index].precedence = preclevel;
                }
@@ -442,9 +454,7 @@ impl Grammar
 	    "lexvalue" => {
                let pos = line.find("lexvalue").unwrap()+9;
                let declaration = &line[pos..];
-               let mut usingcolon = true;
-               let mut dtokens:Vec<_> = declaration.split(':').collect();
-               if dtokens.len()!=3 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
+               let dtokens:Vec<_>=declaration.split_whitespace().collect();
 	       if dtokens.len()<3 {
 	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
 	         continue;
@@ -453,8 +463,7 @@ impl Grammar
 	       for i in 2 .. dtokens.len()
 	       {
 	         valform.push_str(dtokens[i]);
-		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
-                 else if (i<dtokens.len()-1) {valform.push(':');}
+		 if (i<dtokens.len()-1) {valform.push(' ');}
 	       }
                let tokform = dtokens[1].to_owned();
 	       self.Lexvals.push((dtokens[0].to_string(),tokform,valform));
@@ -669,6 +678,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
 
+
 		// add code to recognize E*, E+ and E?, aftert ()'s removed -
                 // Assuming *,+,? preceeded by a single grammar symbol
                 let newtok; // will be new strtok
@@ -684,7 +694,9 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
-                   if &self.Symbols[gsymi].rusttype!="()" {
+                   // following means symbols such as -? will not be
+                   // part of ast type unless there is a given label: -?:m
+                   if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
 		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
                    }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
@@ -1174,3 +1186,4 @@ fn findskip(s:&str, key:char) -> Option<usize>
    }//for
    return None;
 }//findskip
+

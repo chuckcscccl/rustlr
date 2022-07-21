@@ -8,6 +8,7 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 use std::io::{self,Read,Write,BufReader,BufRead};
+use std::collections::HashSet;
 //use std::hash::{Hash,Hasher};
 //use std::any::Any;
 use std::fs::File;
@@ -214,9 +215,34 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 //    write!(fd,"   parser1.RSM[i].insert(SYMBOLS[k],decode_action(TABLE[i*{}+k]));\n }}}}\n",cols)?;
     write!(fd," for s in SYMBOLS {{ parser1.Symset.insert(s); }}\n\n")?;
 
+    if self.Gmr.transform_function.len()>0 {
+      write!(fd," parser1.set_transform_token({});\n\n",&self.Gmr.transform_function)?;
+    }
+
     write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
+
+    // write special value extraction functions for transform_function
+    if self.Gmr.transform_function.len()>0 {
+      let mut already:HashSet<&str> = HashSet::new();
+      for sym in &self.Gmr.Symbols
+      {
+         if sym.terminal && &sym.rusttype!="()" && !already.contains(&sym.rusttype[..]) && &sym.sym!="_WILDCARD_TOKEN_" {
+//println!("processing for {}, type {}",&sym.sym, &sym.rusttype);         
+            already.insert(&sym.rusttype);
+            let ei = self.Gmr.enumhash.get(&sym.rusttype).expect("GRAMMAR CORRUPTED");
+//            let ltm = &self.Gmr.lifetime;
+//            let refform = format!("&{} ",ltm);
+            let needclone = ".clone()"; //if sym.rusttype.starts_with("&") {""} else {".clone()"};
+            
+            write!(fd," fn extract_value_{}{}(x:&RetTypeEnum{}) -> {} {{
+    if let RetTypeEnum::Enumvariant_{}(_v_) = x {{_v_{}}} else {{<{}>::default()}}
+ }}\n",&sym.sym,&ltopt,&ltopt,&sym.rusttype,ei,needclone,&sym.rusttype)?;
+            write!(fd," fn encode_value_{}{}(x:{}) -> RetTypeEnum{} {{ RetTypeEnum::Enumvariant_{}(x) }}\n",&sym.sym,&ltopt,&sym.rusttype,&ltopt,ei)?;
+         }
+      }//for each terminal symbol
+    }
 
     //if !self.Gmr.sametype {  // checked at first
 
@@ -259,3 +285,24 @@ fn checkboxlabel(s:&str) -> &str
 {
     if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
 }// check if label is of form [x], returns x, or s if not of this form.
+
+
+
+// function to remove lifetime, <'t>, non-alphanums from string
+fn remove_lt(s:&str, lt:&str) -> String
+{
+   let mut ax = String::from(s);
+   if lt.len()==0 {return ax;}
+   let mut ltform = format!("{} ",lt);
+   let mut ln = ltform.len();
+   while let Some(p) = ax.find(&ltform) {ax.replace_range(p..(p+ln),"");}
+   ltform = format!("<{}>",lt); ln = ltform.len();
+   while let Some(p) = ax.find(&ltform) {ax.replace_range(p..(p+ln),"");}   
+   ln = lt.len();
+   while let Some(p) = ax.find(lt) {ax.replace_range(p..(p+ln),"");}
+   while let Some(p) = ax.find("<") {ax.replace_range(p..(p+1),"_");}
+   while let Some(p) = ax.find(">") {ax.replace_range(p..(p+1),"_");}   
+   ax
+}//remove_lt
+
+
