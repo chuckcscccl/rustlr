@@ -1,0 +1,69 @@
+# Rustlr grammar use with -auto
+
+lifetime 'lt
+lexterminal LBRACE {
+lexterminal RBRACE }
+lexterminal LBRACK [
+lexterminal RBRACK ]
+lexterminal LPAREN (
+lexterminal RPAREN )
+lexterminal COLON :
+lexterminal COMMA ,
+#lexterminal TRUE true
+#lexterminal FALSE false
+lexterminal NULL null
+lexterminal MINUS -
+lexterminal EXP e
+valueterminal TRUE: bool: Alphanum("true"): true
+valueterminal FALSE: bool: Alphanum("false"): false
+valueterminal STRING: &'lt str: Strlit(n): &n[1..n.len()-1]
+valueterminal NUM: i64: Num(n): n
+valueterminal FLOAT: f64: Float(n): n
+valueterminal BIGNUM: &'lt str: BigNumber(n): n
+
+#lexattribute add_custom("efloat",r"[
+
+nonterminal Number
+nonterminal Integer i64
+nonterminal Floatpt f64
+nonterminal Object Vec<LBox<Pair<'lt>>>
+nonterminal List Vec<LBox<Value<'lt>>>
+#explicit type enables passthru
+nonterminal Boolean bool
+nonterminals Value
+nonterminal Values Vec<LBox<Value<'lt>>>
+nonterminal Pair 
+nonterminal Pairs Vec<LBox<Pair<'lt>>>
+
+topsym Value
+resync COMMA RBRACK RBRACE
+
+# Json values:
+Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
+Floatpt ==> MINUS?:m FLOAT:n (EXP Integer)?:e {
+  let f = if m.is_some() {-1.0*n} else {n}; 
+  if let Some(exponent)=e {f*10_f64.powi(*exponent as i32)} else {f}
+ } <==
+Number:Bignum --> MINUS? BIGNUM
+Number:Int --> Integer
+Number:Float --> Floatpt
+Boolean --> TRUE | FALSE
+
+Value:Number --> Number
+Value:Boolean --> Boolean
+Value:Str --> STRING
+Value:Object --> Object
+Value:List --> List
+Value --> NULL
+Value --> LPAREN Value RPAREN
+
+Pair --> STRING:key COLON Value:val
+
+Values --> Value:[v] { vec![v] }
+Values --> Values:vs COMMA Value:[v] { vs.push(v); vs }
+Pairs --> Pair:[v] { vec![v] }
+Pairs --> Pairs:vs COMMA Pair:[v] { vs.push(v); vs }
+
+List --> LBRACK Values?:v RBRACK { let mut ax = Vec::new(); if v.is_none() {ax} else {let drm = v.as_deref_mut().unwrap(); std::mem::replace(drm,ax)}}
+Object --> LBRACE Pairs?:p RBRACE { if p.is_none() {vec![]} else {let drm = p.as_deref_mut().unwrap(); std::mem::take(drm)}}
+

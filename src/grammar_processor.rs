@@ -229,7 +229,7 @@ impl Grammar
        if multiline && linelen>1 && &line[0..1]!="#" {
           // keep reading until <== found
           if linelen==3 && &line[0..3]=="EOF" {
-            panic!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==");
+            panic!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==, line {}",linenum);
           }
           match line.rfind("<==") {
             None => {}, // keep reading, add to line buffer
@@ -682,7 +682,9 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
-                   if &self.Symbols[gsymi].rusttype!="()" {
+                   // following means symbols such as -? will not be
+                   // part of ast type unless there is a given label: -?:m
+                   if &self.Symbols[gsymi].rusttype!="()" || defaultrelab.len()>0 {
 		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
                    }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {

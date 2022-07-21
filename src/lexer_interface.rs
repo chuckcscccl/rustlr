@@ -298,7 +298,7 @@ pub enum RawToken<'t>
   BigNumber(&'t str),
   /// single character inside single quotes.
   Char(char), 
-  /// String literal, allows for nested quotes
+  /// String literal, allows for nested quotes.  **String literals always contain the enclosing double quotes**
   Strlit(&'t str),
   /// Alphanumeric sequence, staring with an alphabetical character or '_',
   /// and followed by arbitrary numbers of alphabetical, numeric or _.
