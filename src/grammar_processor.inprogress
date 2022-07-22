@@ -77,9 +77,9 @@ impl Grule
   }
 }//impl Grule
 
-pub fn printrule(rule:&Grule)  //independent function
+pub fn printrule(rule:&Grule,ri:usize)  //independent function
 {
-   print!("PRODUCTION: {} --> ",rule.lhs.sym);
+   print!("PRODUCTION_{}: {} --> ",ri,rule.lhs.sym);
    for s in &rule.rhs {
       print!("{}",s.sym);
       if s.label.len()>0 {print!(":{}",s.label);}
@@ -115,7 +115,7 @@ pub struct Grammar
   pub genlex: bool,
   pub genabsyn: bool,
   pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
-  pub transform_function: String, // for 0.2.96
+//  pub transform_function: String, // for 0.2.96
   pub basictypes : HashSet<&'static str>,
 }
 
@@ -155,7 +155,7 @@ impl Grammar
        genabsyn: false,
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
-       transform_function: String::new(),
+//       transform_function: String::new(),
        basictypes : btypes
      }
   }//new grammar
@@ -475,7 +475,10 @@ impl Grammar
                let pos = line.find("valueterminal").unwrap()+14;
                let declaration = &line[pos..];
                let mut usingcolon = true;
-               let mut dtokens:Vec<_> = declaration.split(':').collect();
+               let mut dtokens:Vec<_> = declaration.split('~').collect();
+               if dtokens.len()>1 && dtokens.len()<4 {
+                 panic!("ERROR ON LINE {}. MISSING ~",linenum);
+               }
                if dtokens.len()<4 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
 	       if dtokens.len()<4 {
 	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
@@ -495,7 +498,7 @@ impl Grammar
 	       {
 	         valform.push_str(dtokens[i]);
 		 if (i<dtokens.len()-1 && !usingcolon) {valform.push(' ');}
-                 else if (i<dtokens.len()-1) {valform.push(':');}
+                 else if (i<dtokens.len()-1) {valform.push('~');}
 	       }
                let tokform = dtokens[2].to_owned();
 	       self.Lexvals.push((termname.to_string(),tokform,valform));
@@ -530,8 +533,11 @@ impl Grammar
 	       self.genlex = true;
 	    },
             "transform" => {   // new for 0.2.96, transform_token added
+              /*
                let pos = line.find("transform").unwrap()+10;
                self.transform_function = line[pos..].trim().to_owned();
+              */
+              eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
             },
 //////////// case for grammar production:            
 	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
@@ -601,9 +607,11 @@ b. transform E1* to E2,  E2 --> | E2 E1
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.  Only use in -auto mode as it will
                 // generate ast, semaction for the new nonterminal.
+                let mut ntcnt = 0; // for generating new terminal names
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),i);
+                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),ntcnt);
+                  ntcnt+=1;
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
 	          let mut defaultrelab2 = String::new(); //format!("_item{}_",i-1-iadjust);
@@ -611,6 +619,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
                   let mut suffix="";
+                  let mut precd = 0; // set precedence
                   while i<=bstokens.len() // advance i until see )*, or )+, )?
                   {
                      // get the part before :label
@@ -634,6 +643,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
+                     if igsym.precedence.abs()>precd {precd =igsym.precedence;}
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
@@ -661,10 +671,14 @@ b. transform E1* to E2,  E2 --> | E2 E1
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
+                  newrule2.precedence = precd;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
                   self.Symbols.push(newnt2.clone());
                   newrule2.lhs.rusttype = newnt2.rusttype.clone();
                   // register new rule
+                   if self.tracelev>4 {
+                     printrule(&newrule2,self.Rules.len());
+                   }
                   self.Rules.push(newrule2);
                   let mut rulesforset = HashSet::new();
                   rulesforset.insert(self.Rules.len()-1);
@@ -691,13 +705,17 @@ b. transform E1* to E2,  E2 --> | E2 E1
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
+		   let newntname = format!("NEWNT{}_{}_{}",gsympart,self.Rules.len(),ntcnt); ntcnt+=1;
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    // following means symbols such as -? will not be
                    // part of ast type unless there is a given label: -?:m
                    if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
-		     newnt.rusttype = if strtok.ends_with('?') {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
+		     newnt.rusttype = if strtok.ends_with('?') {
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec") /*self.basictypes.contains(&self.Symbols[gsymi].rusttype[..])*/ {format!("Option<{}>",&self.Symbols[gsymi].rusttype)}
+                       else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)}
+                     }
+                     else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
                    }
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
  		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
@@ -708,11 +726,11 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   // add new rules
 		   let mut newrule1 = Grule::new_skeleton(&newntname);
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
+                   newrule1.precedence = self.Symbols[gsymi].precedence;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if &newrule1.lhs.rusttype!="()" {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
-                     }
+                     if newrule1.lhs.rusttype.starts_with("Option<LBox<") {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if newrule1.lhs.rusttype.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
@@ -735,6 +753,11 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   else if strtok.ends_with('?') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" None }");
 		   }
+
+                   if self.tracelev>4 {
+                     printrule(&newrule0,self.Rules.len());
+                     printrule(&newrule1,self.Rules.len()+1);   
+                   }                   
 		   self.Rules.push(newrule0);
 		   self.Rules.push(newrule1);
 		   let mut rulesforset = HashSet::with_capacity(2);
@@ -798,7 +821,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		action: semaction.to_owned(),
 		precedence : maxprec,
 	      };
-	      if self.tracelev>3 {printrule(&rule);}
+	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
               // Add rules to Rulesfor map
               if let None = self.Rulesfor.get(LHS) {
@@ -983,6 +1006,7 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 {
     ////// WRITE LEXER
       let ref absyn = self.Absyntype;
+      let ref extype = self.Externtype;
       let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
       let retenum = format!("RetTypeEnum{}",&ltopt);
@@ -1029,23 +1053,25 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
 	}      	
       }// for symbols in lexnames such as "||" --> OROR
 
-      write!(fd,"pub struct {0}<'t> {{
-   stk: StrTokenizer<'t>,
+      write!(fd,"pub struct {0}<{2}> {{
+   stk: StrTokenizer<{2}>,
    keywords: HashSet<&'static str>,
    lexnames: HashMap<&'static str,&'static str>,
+   shared_state: Rc<RefCell<{1}>>,
 }}
-impl<'t> {0}<'t> 
+impl<{2}> {0}<{2}> 
 {{
-  pub fn from_str(s:&'t str) -> {0}<'t>  {{
+  pub fn from_str(s:&{2} str) -> {0}<{2}>  {{
     Self::new(StrTokenizer::from_str(s))
   }}
-  pub fn from_source(s:&'t LexSource<'t>) -> {0}<'t>  {{
+  pub fn from_source(s:&{2} LexSource<{2}>) -> {0}<{2}>  {{
     Self::new(StrTokenizer::from_source(s))
   }}
-  pub fn new(mut stk:StrTokenizer<'t>) -> {}<'t> {{
+  pub fn new(mut stk:StrTokenizer<{2}>) -> {0}<{2}> {{
     let mut lexnames = HashMap::with_capacity(64);
     let mut keywords = HashSet::with_capacity(64);
-    for kw in [",&lexername)?; // end of write
+    let shared_state = Rc::new(RefCell::new(<{1}>::default()));
+    for kw in [",&lexername,extype,lifetime)?; // end of write
 
       for kw in &keywords {write!(fd,"\"{}\",",kw)?;}
       write!(fd,"] {{keywords.insert(kw);}}
@@ -1062,7 +1088,7 @@ impl<'t> {0}<'t>
       for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
       write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords,lexnames}}\n  }}\n}}\n",&lexername)?;
+      write!(fd,"    {} {{stk,keywords,lexnames,shared_state}}\n  }}\n}}\n",&lexername)?;
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{

@@ -19,7 +19,8 @@ HASH --> #
 #E:SeqNum --> HASH? (ID ID ;)*
 Number:signed --> VAL
 Number:unsigned --> UINT
-E:SeqNums --> (ID ;)+:a (Number COMMA)*:b (Number ;)?
+#E:SeqNums --> (ID ;)+:a (Number COMMA)*:b (Number ;)?
+E:SeqNums --> ID<;*>:a (Number COMMA)*:b (Number ;)?
 E:WithBraces --> E CM
 
 lexvalue VAL Num(n) n

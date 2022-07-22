@@ -77,9 +77,9 @@ impl Grule
   }
 }//impl Grule
 
-pub fn printrule(rule:&Grule)  //independent function
+pub fn printrule(rule:&Grule,ri:usize)  //independent function
 {
-   print!("PRODUCTION: {} --> ",rule.lhs.sym);
+   print!("PRODUCTION_{}: {} --> ",ri,rule.lhs.sym);
    for s in &rule.rhs {
       print!("{}",s.sym);
       if s.label.len()>0 {print!(":{}",s.label);}
@@ -601,6 +601,8 @@ impl Grammar
 Strategfy for parsing EBNF syntax:
 a. transform (E ;)* to E1*, E1 --> E ;
 b. transform E1* to E2,  E2 --> | E2 E1
+
+strtok is bstokens[i], but will change
 */
 
                 // add code to recognize (E ;)*, etc.
@@ -625,19 +627,29 @@ b. transform E1* to E2,  E2 --> | E2 E1
                      // get the part before :label
                      let retokisplit:Vec<&str> = retoki.split(':').collect();
                      let mut breakpoint = false;
+                     if retokisplit[0].ends_with('>') {
+                        if let Some(rpp) = retokisplit[0].rfind(')') {
+                           breakpoint = true;
+                           retoki = &retokisplit[0][..rpp];
+                           if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
+                           if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
+                        }
+                        else {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
+                     }
+                     else
                      if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") || retokisplit[0].ends_with(")?") {
                        breakpoint=true;
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
-                       if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`",linenum);}
+                       if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
                        suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
                      } // if retokisplit[0].ends_with(")*")...
                      else if retokisplit.len()>1 {
-                       panic!("LABELS (:{}) ARE NOT ALLOWED INSIDE (..)*, (..)+ or (..)? GROUPINGS, LINE {}",retokisplit[1],linenum);
+                       panic!("LABELS (:{}) ARE NOT ALLOWED INSIDE (..) GROUPINGS, LINE {}",retokisplit[1],linenum);
                      }
                      // retoki should not end with )?, etc...
-                     if retoki.ends_with("*") || retoki.ends_with("+") || retoki.ends_with("?") {
-                         panic!("NESTED *, + and ? EXPRESSIONS ARE NOT ALLOWED, LINE {}",linenum);
+                     if retoki.ends_with("*") || retoki.ends_with("+") || retoki.ends_with("?") || retoki.ends_with(">") {
+                         panic!("NESTED *, +, ? and <> EXPRESSIONS ARE NOT ALLOWED, LINE {}\n",linenum);
                        }
                      
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
@@ -676,6 +688,9 @@ b. transform E1* to E2,  E2 --> | E2 E1
                   self.Symbols.push(newnt2.clone());
                   newrule2.lhs.rusttype = newnt2.rusttype.clone();
                   // register new rule
+                   if self.tracelev>3 {
+                     printrule(&newrule2,self.Rules.len());
+                   }
                   self.Rules.push(newrule2);
                   let mut rulesforset = HashSet::new();
                   rulesforset.insert(self.Rules.len()-1);
@@ -702,7 +717,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("NEWNT{}_{}_{}",gsympart,self.Rules.len(),ntcnt); ntcnt+=1;
+		   let newntname = format!("NEWNT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    // following means symbols such as -? will not be
@@ -750,6 +765,10 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   else if strtok.ends_with('?') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" None }");
 		   }
+                   if self.tracelev>3 {
+                     printrule(&newrule0,self.Rules.len());
+                     printrule(&newrule1,self.Rules.len()+1);   
+                   }                   
 		   self.Rules.push(newrule0);
 		   self.Rules.push(newrule1);
 		   let mut rulesforset = HashSet::with_capacity(2);
@@ -762,7 +781,104 @@ b. transform E1* to E2,  E2 --> | E2 E1
 //println!("2 strtok now {}",strtok);                   
 		}// processes RE directive - add new productions
 
+                ///// process E<COMMA*>  or    E<SEMICOLON+>
+                ///// vector of E-values separated by the indicated
+                ///// terminal - must be terminal symbol of type ()
+                let mut newtok3; // will be new strtok
+		let septoks:Vec<&str> = strtok.split(':').collect();
+		if septoks.len()>0 && septoks[0].len()>2 && (septoks[0].ends_with("*>") || septoks[0].ends_with("+>")) {                
+                  let (lb,rb) = findmatch(strtok,'<','>');
+                  let termi;
+                  if lb!=0 && lb+2<rb  {
+                    // determine if what's inside <> is valid
+                    let termsym = &strtok[lb+1..rb-1]; // like COMMA
+                    let termiopt = self.Symhash.get(termsym);
+                    if !self.terminal(termsym) {
+                      panic!("ERROR ON LINE {}, {} is not a terminal symbol of this grammar\n",linenum,termsym);
+                    }
+                    termi = *termiopt.unwrap();
+                  } else {panic!("MALFORMED EXPRESSION LINE {}\n",linenum);}
+                  strtok = septoks[0]; // to the left of :, E<,*>
+   	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
+		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {septoks[1]} else {&defaultrelab3};
+    	          let mut gsympart3 = strtok[0..lb].trim(); //before <,*>
+                  if gsympart3=="_" {gsympart3="_WILDCARD_TOKEN_";}
+   	          let errmsg = format!("UNRECOGNIZED GRAMMAR SYMBOL '{}', LINE {}\n",gsympart3,linenum);
+	          let gsymi = *self.Symhash.get(gsympart3).expect(&errmsg);
+		  let newntname3 = format!("NEWSEPNT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
+	          let mut newnt3 = Gsym::new(&newntname3,false);
+                  newnt3.rusttype = "()".to_owned();
+                  if &self.Symbols[gsymi].rusttype!="()" || (septoks.len()>1 && septoks[1].len()>0) {
+		     newnt3.rusttype = format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype);
+                  } // else rusttype stays ()
+	          if !self.enumhash.contains_key(&newnt3.rusttype) {
+ 		     self.enumhash.insert(newnt3.rusttype.clone(),ntcx);
+		     ntcx+=1;
+		  }
+		  self.Symbols.push(newnt3.clone()); // register new nt
+		  self.Symhash.insert(newntname3.clone(),self.Symbols.len()-1);
+		   // add new rules
+		  let mut newrule3 = Grule::new_skeleton(&newntname3);
+		  let mut newrule4 = Grule::new_skeleton(&newntname3);
+  		  newrule3.lhs.rusttype = newnt3.rusttype.clone();
+  		  newrule4.lhs.rusttype = newnt3.rusttype.clone();
+                  newrule3.precedence = self.Symbols[gsymi].precedence;
+                  //PRECEDENCE SET TO SEPARATOR SYMBOL
+                  newrule4.precedence = self.Symbols[termi].precedence;
+                  // GENERATE AS FOR <COMMA+>
+                  newrule3.rhs.push(self.Symbols[gsymi].clone()); //N-->E
+                  newrule4.rhs.push(newnt3.clone());
+                  newrule4.rhs.push(self.Symbols[termi].clone());
+                  newrule4.rhs.push(self.Symbols[gsymi].clone());//N-->N,E
+                  if newnt3.rusttype.starts_with("Vec") {
+                    newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
+                    newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                  } // else leave at default
+                  if self.tracelev>3 {
+                    printrule(&newrule3,self.Rules.len());
+                    printrule(&newrule4,self.Rules.len()+1);
+                  }
+		  self.Rules.push(newrule3);
+   	          self.Rules.push(newrule4);
+		  let mut rulesforset3 = HashSet::with_capacity(2);
+		  rulesforset3.insert(self.Rules.len()-2);
+		  rulesforset3.insert(self.Rules.len()-1);
+                  newtok3 = format!("{}:{}",&newntname3,relabel3);
+                  self.Rulesfor.insert(newntname3,rulesforset3);
+                  // ANOTHER RULE IS NEEDED IF strtok ends in *>
+                  if strtok.ends_with("*>") {  // M --> | N
+                    let newntname5 = format!("NEWSEPNT2_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
+                    let mut newnt5 = Gsym::new(&newntname5,false);
+                    newnt5.rusttype = newnt3.rusttype.clone();
+		    self.Symhash.insert(newntname5.clone(),self.Symbols.len());
+                    self.Symbols.push(newnt5.clone()); // register new nt
+                    let mut newrule5 = Grule::new_skeleton(&newntname5);
+                    let mut newrule6 = Grule::new_skeleton(&newntname5);
+  		    newrule5.lhs.rusttype = newnt5.rusttype.clone();
+  		    newrule6.lhs.rusttype = newnt5.rusttype.clone();
+                    // 0 precedence for rule, newrule5 has empty rhs
+                    newrule6.rhs.push(newnt3.clone());
+                    if newnt5.rusttype.starts_with("Vec") {
+                       newrule5.action = String::from(" vec![] }");
+                       newrule6.action = String::from("_item0_ }");
+                    }
+                  if self.tracelev>3 {
+                    printrule(&newrule5,self.Rules.len());
+                    printrule(&newrule6,self.Rules.len()+1);
+                  }                    
+		  self.Rules.push(newrule5);
+   	          self.Rules.push(newrule6);
+		  let mut rulesforset5 = HashSet::with_capacity(2);
+		  rulesforset5.insert(self.Rules.len()-2);
+		  rulesforset5.insert(self.Rules.len()-1);
+                  newtok3 = format!("{}:{}",&newntname5,relabel3);
+                  self.Rulesfor.insert(newntname5,rulesforset5);
+                  } // *>
+                  strtok = &newtok3;
+                } // if ends with *> or +>
 
+
+                ////////////////////////// BACK TO ORIGINAL
 		//////////// separte gsym from label:
 		let mut toks:Vec<&str> = strtok.split(':').collect();
                 if toks[0]=="_" {toks[0] = "_WILDCARD_TOKEN_";}
@@ -813,7 +929,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		action: semaction.to_owned(),
 		precedence : maxprec,
 	      };
-	      if self.tracelev>3 {printrule(&rule);}
+	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
               // Add rules to Rulesfor map
               if let None = self.Rulesfor.get(LHS) {
@@ -1205,3 +1321,26 @@ fn findskip(s:&str, key:char) -> Option<usize>
    return None;
 }//findskip
 
+// find matching right to left, with initial counter cx, returns indices or
+// (0,0)
+fn findmatch(s:&str, left:char, right:char) -> (usize,usize)
+{
+   let mut ax = (0,0);
+   let mut index:usize = 0;
+   let mut foundstart=false;
+   let mut cx = 0;
+   for c in s.chars()
+   {
+      if c==left {
+        cx+=1;
+        if !foundstart { ax=(index,0); foundstart=true; }
+      }
+      else if c==right {cx-=1;}
+      if cx==0 && foundstart {
+         ax=(ax.0,index);
+         return ax;
+      }
+      index+=1;
+   }
+   ax
+}//findmatch
