@@ -1,25 +1,108 @@
-# ANSI C YACC Grammar, adopted to rustlr syntax
+# ANSI C YACC Grammar 2011 version adopted to Rustlr
+# from http://www.quut.com/c/ANSI-C-grammar-y.html
+# intended for use with rustlr -auto
 
 lifetime 'lt
 externtype HashSet<&'lt str>
-typedterminal IDENTIFIER &'lt str
-typedterminal CONSTANT i32
-typedterminal STRING_LITERAL &'lt str
-#typedterminal TYPE_NAME &'lt str
-valueterminal TYPE_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().contains(n)~ n
 
-terminals PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
-terminals AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
-terminals SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
-terminals XOR_ASSIGN OR_ASSIGN SIZEOF
+# new keywords
+lexterminal FUNC_NAME __func__
+lexterminal INLINE inline
+lexterminal RESTRICT restrict
+lexterminal ALIGNAS _Alignas
+lexterminal ALIGNOF _Alignof
+lexterminal ATOMIC _Atomic
+lexterminal BOOL _Bool
+lexterminal COMPLEX _Complex
+lexterminal GENERIC _Generic
+lexterminal IMAGINARY _Imaginary
+lexterminal NORETURN _Noreturn
+lexterminal STATIC_ASSERT _Static_assert
+lexterminal THREAD_LOCAL _Thread_local
 
-terminals TYPEDEF EXTERN STATIC AUTO REGISTER
-terminals CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE CONST VOLATILE VOID
-terminals STRUCT UNION ENUM ELLIPSIS INCLUDE DEFINE
+# from original 
+lexterminal PTR_OP ->
+lexterminal INC_OP ++
+lexterminal DEC_OP --
+lexterminal LEFT_OP <<
+lexterminal RIGHT_OP >>
+lexterminal LE_OP <=
+lexterminal GE_OP >=
+lexterminal EQ_OP ==
+lexterminal NE_OP !=
+lexterminal AND_OP &&
+lexterminal OR_OP ||
+lexterminal MUL_ASSIGN *=
+lexterminal DIV_ASSIGN /=
+lexterminal MOD_ASSIGN %=
+lexterminal ADD_ASSIGN +=
+lexterminal SUB_ASSIGN -=
+lexterminal LEFT_ASSIGN <<=
+lexterminal RIGHT_ASSIGN >>=
+lexterminal AND_ASSIGN &=
+lexterminal XOR_ASSIGN ^=
+lexterminal OR_ASSIGN |=
+lexterminal SIZEOF sizeof
+lexterminal TYPEDEF typedef
+lexterminal EXTERN extern
+lexterminal STATIC static
+lexterminal AUTO auto
+lexterminal REGISTER register
+lexterminal CHAR char
+lexterminal SHORT short
+lexterminal INT int
+lexterminal LONG long
+lexterminal SIGNED signed
+lexterminal UNSIGNED unsigned
+lexterminal FLOAT float
+lexterminal DOUBLE double
+lexterminal CONST const
+lexterminal VOLATILE volatile
+lexterminal VOID void
+lexterminal STRUCT struct
+lexterminal UNION union
+lexterminal ENUM enum
+lexterminal CASE case
+lexterminal DEFAULT default
+lexterminal IF if
+lexterminal ELSE else
+lexterminal SWITCH switch
+lexterminal WHILE while
+lexterminal DO do
+lexterminal FOR for
+lexterminal GOTO goto
+lexterminal CONTINUE continue
+lexterminal BREAK break
+lexterminal RETURN return
+lexterminal INCLUDE include
+lexterminal DEFINE define
+lexterminal ELLIPSIS ...
+lexterminal Lbrace {
+lexterminal Rbrace }
+lexterminal Amp &
+lexterminal Bang !
+lexterminal Bar |
+lexterminal Hat ^
+lexterminal Dot .
+lexterminal Comma ,
+lexterminal Colon :
+lexterminal Star *
+lexterminal Div /
+lexterminal Percent %
+lexterminal Lt <
+lexterminal Gt >
+lexterminal Eq1 =
+lexterminal Quest ?
+lexterminal Hash #
+terminals [ ] ( )  + - ~ ;
 
-terminals CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
-terminals [ ] ( )  Lbrace Rbrace Amp + - ~ Bang Bar Hat ; Dot Comma Colon
-terminals Star Div Percent Lt Gt Eq1 Quest Hash
+valueterminal TYPEDEF_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().contains(n)~ n
+# this has to change
+valueterminal ENUMERATION_CONSTANT~ &'lt str~ Alphanum(n)~ n
+valueterminal IDENTIFIER~ &'lt str~ Alphanum(n)~ n
+valueterminal I_CONSTANT~ i32~ Num(n)~ (n as i32)
+valueterminal F_CONSTANT~ f64~ Float(n)~ n
+valueterminal STRING_LITERAL~ &'lt str~ Strlit(s)~ s
 
 nonterminals primary_expression postfix_expression argument_expression_list
 nonterminals unary_expression unary_operator cast_expression multiplicative_expression
@@ -42,34 +125,53 @@ nonterminals statement_list expression_statement selection_statement
 nonterminals iteration_statement jump_statement translation_unit
 nonterminals external_declaration function_definition
 
+nonterminals constant stringnt generic_selection generic_assoc_list
+nonterminals generic_association static_assert_declaration designation
+nonterminals function_specifier alignment_specifier atomic_type_specifier
+nonterminals designator_list designator block_item
+
 topsym translation_unit
 
 # added for Rustlr edition to resolve dangling else problem:
 left IF 100
 left ELSE 200
+#left ( 3
+#left ATOMIC 1
 
 # added to distinguish between IDENTIFIER and TYPE_NAME
 #transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
-# THIS FEATURE WAS ONLY SUPPORTED IN RUSTLR VERSION 0.2.96.
-# This file uses the shared_state between parser and lexer.
 
 
 primary_expression ==>
 	 IDENTIFIER
-	| CONSTANT
-	| STRING_LITERAL
+	| constant
+	| stringnt
 	| ( expression )
+        | generic_selection
 	<==
 
+constant --> I_CONSTANT | F_CONSTANT | ENUMERATION_CONSTANT
+stringnt --> STRING_LITERAL | FUNC_NAME
+
+generic_selection --> GENERIC ( assignment_expression Comma generic_assoc_list )
+generic_assoc_list --> generic_association | generic_assoc_list Comma generic_association
+
+generic_association ==>
+         type_name Colon assignment_expression
+       | DEFAULT Colon assignment_expression 
+       <==
+
+# originals
 postfix_expression ==>
 	 primary_expression
 	| postfix_expression [ expression ]
-	| postfix_expression ( )
+	| postfix_expression ( )        
 	| postfix_expression ( argument_expression_list )
 	| postfix_expression Dot IDENTIFIER
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
 	| postfix_expression DEC_OP
+        | ( type_name ) Lbrace initializer_list Comma? Rbrace
 	<==
 
 argument_expression_list --> assignment_expression | argument_expression_list Comma assignment_expression
@@ -81,6 +183,7 @@ unary_expression ==>
 	| unary_operator cast_expression
 	| SIZEOF unary_expression
 	| SIZEOF ( type_name )
+        | ALIGNOF ( type_name )
 	<==
 
 unary_operator ==>
@@ -96,6 +199,8 @@ cast_expression ==>
 	 unary_expression
 	| ( type_name ) cast_expression
 	<==
+
+# precedence determined here
 
 multiplicative_expression ==>
 	 cast_expression
@@ -202,15 +307,16 @@ constant_expression --> conditional_expression
 !use crate::cauto_ast::direct_declarator::*;
 
 declaration:DecSpec --> declaration_specifiers ;
-declaration:DecSpecList ==> declaration_specifiers:ds init_declarator_list:il ;
- { if let (DSCDS(td,_),init_declarator_list_84(x)) = (&ds,&il) {
-    if let Typedef = &**td {
-      if let init_declarator_86(y) = &**x {
-        if let declarator_130(z) = &**y {
-          if let IDENTIFIER_131(id)= &**z {
-            parser.shared_state.borrow_mut().insert(id);
-          }}}}} ...
- } <==
+declaration:DecSpecList --> declaration_specifiers:ds init_declarator_list:il ;
+# { if let (DSCDS(td,_),init_declarator_list_84(x)) = (&ds,&il) {
+#    if let Typedef = &**td {
+#      if let init_declarator_86(y) = &**x {
+#        if let declarator_130(z) = &**y {
+#          if let IDENTIFIER_131(id)= &**z {
+#            parser.shared_state.borrow_mut().insert(id);
+#          }}}}} ...
+# } <==
+declaration:Statassert --> static_assert_declaration
 
 declaration_specifiers ==>
 	 storage_class_specifier
@@ -218,15 +324,15 @@ declaration_specifiers ==>
         | type_specifier declaration_specifiers
 	| type_qualifier
 	| type_qualifier declaration_specifiers
+        | function_specifier
+        | function_specifier declaration_specifiers
+        | alignment_specifier
+        | alignment_specifier declaration_specifiers
 	<==
 
 # this rule corresponds to typedef: set next identifier to be TYPE_NAME
 
 declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
-
-storage_class_specifier:Typedef --> TYPEDEF
-
-type_specifier:Typename --> TYPE_NAME        
 
 #:s { parser.exstate.insert(s.to_string()); ... }
 
@@ -243,13 +349,16 @@ init_declarator ==>
 	| declarator Eq1 initializer 
 	<==
 
+storage_class_specifier:Typedef --> TYPEDEF
 storage_class_specifier ==>
 	EXTERN
 	| STATIC
 	| AUTO
 	| REGISTER
+        | THREAD_LOCAL
 	<==
 
+type_specifier:Typename --> TYPEDEF_NAME        
 type_specifier ==>
 	 VOID
 	| CHAR
@@ -260,26 +369,35 @@ type_specifier ==>
 	| DOUBLE
 	| SIGNED
 	| UNSIGNED
+        | BOOL
+        | COMPLEX
+        | IMAGINARY
 	| struct_or_union_specifier
 	| enum_specifier
+        | atomic_type_specifier
 	<==
-#type_specifier:TYPE_NAME --> IDENTIFIER
-#TYPE_NAME replaced by IDENTIFIER above
+
 
 struct_or_union_specifier ==>
-	 struct_or_union IDENTIFIER Lbrace struct_declaration_list Rbrace
-	| struct_or_union Lbrace struct_declaration_list Rbrace
+	 struct_or_union IDENTIFIER? Lbrace struct_declaration_list Rbrace
 	| struct_or_union IDENTIFIER
 	<==
 
 struct_or_union --> STRUCT | UNION
 
-struct_declaration_list ==>
-	 struct_declaration
-	| struct_declaration_list struct_declaration
-	<==
+struct_declaration ==>
+         specifier_qualifier_list struct_declarator_list? ;
+       | static_assert_declaration
+       <==
+#       | specifier_qualifier_list
 
-struct_declaration --> specifier_qualifier_list struct_declarator_list ;
+
+#struct_declaration_list ==>
+#	 struct_declaration
+#	| struct_declaration_list struct_declaration
+#	<==
+struct_declaration_list --> struct_declaration+
+
 
 specifier_qualifier_list ==>
 	 type_specifier specifier_qualifier_list
@@ -300,8 +418,8 @@ struct_declarator ==>
 	<==
 
 enum_specifier ==>
-	 ENUM Lbrace enumerator_list Rbrace
-	| ENUM IDENTIFIER Lbrace enumerator_list Rbrace
+	 ENUM Lbrace enumerator_list Comma? Rbrace
+	| ENUM IDENTIFIER Lbrace enumerator_list Comma? Rbrace
 	| ENUM IDENTIFIER
 	<==
 
@@ -310,12 +428,21 @@ enumerator_list ==>
 	| enumerator_list Comma enumerator
 	<==
 
+# change IDENTIFIER TO ENUMERATION_CONSTANT?
 enumerator ==>
-	 IDENTIFIER
-	| IDENTIFIER Eq1 constant_expression
+	 ENUMERATION_CONSTANT
+	| ENUMERATION_CONSTANT Eq1 constant_expression
 	<==
 
-type_qualifier --> CONST | VOLATILE
+atomic_type_specifier --> ATOMIC ( type_name )
+
+type_qualifier --> CONST | VOLATILE | ATOMIC | RESTRICT
+
+
+function_specifier --> INLINE | NORETURN
+
+alignment_specifier --> ALIGNAS ( type_name ) 
+alignment_specifier --> ALIGNAS ( constant_expression )
 
 declarator ==>
 	 pointer direct_declarator
@@ -325,24 +452,32 @@ declarator ==>
 direct_declarator ==>
 	 IDENTIFIER
 	| ( declarator )
-	| direct_declarator [ constant_expression ]
 	| direct_declarator [ ]
+        | direct_declarator [ Star ]
+        | direct_declarator [ STATIC type_qualifier_list? assignment_expression ]
+        | direct_declarator [ type_qualifier_list Star ]
+        | direct_declarator [ type_qualifier_list assignment_expression ]
+        | direct_declarator [ type_qualifier_list STATIC assignment_expression ]        
+        | direct_declarator [ type_qualifier_list ]
+        | direct_declarator [ assignment_expression ]        
 	| direct_declarator ( parameter_type_list )
 	| direct_declarator ( identifier_list )
 	| direct_declarator ( )
 	<==
+#	| direct_declarator [ constant_expression ]
 
-pointer ==>
-	 Star
-	| Star type_qualifier_list
-	| Star pointer
-	| Star type_qualifier_list pointer
-	<==
+pointer --> Star type_qualifier_list?:tql pointer?:ptr
+#pointer ==>
+#	 Star
+#	| Star type_qualifier_list
+#	| Star pointer
+#	| Star type_qualifier_list pointer
+#	<==
 
-type_qualifier_list ==>
-	 type_qualifier
-	| type_qualifier_list type_qualifier
-	<==
+type_qualifier_list --> type_qualifier+:qualifiers
+#	 type_qualifier
+#	| type_qualifier_list type_qualifier
+#	<==
 
 
 parameter_type_list ==>
@@ -350,10 +485,9 @@ parameter_type_list ==>
 	| parameter_list Comma ELLIPSIS
 	<==
 
-parameter_list ==>
-	 parameter_declaration
-	| parameter_list Comma parameter_declaration
-	<==
+parameter_list --> parameter_declaration
+parameter_list --> parameter_list Comma parameter_declaration
+
 
 parameter_declaration ==>
 	 declaration_specifiers declarator
@@ -380,25 +514,42 @@ abstract_declarator ==>
 direct_abstract_declarator ==>
 	 ( abstract_declarator )
 	| [ ]
-	| [ constant_expression ]
+        | [ Star ]
+        | [ STATIC type_qualifier_list? assignment_expression ]
+        | [ type_qualifier_list STATIC?:s assignment_expression? ]
+        | [ assignment_expression ]
 	| direct_abstract_declarator [ ]
-	| direct_abstract_declarator [ constant_expression ]
+	| direct_abstract_declarator [ Star ]        
+	| direct_abstract_declarator [ STATIC type_qualifier_list? assignment_expression ]
+	| direct_abstract_declarator [ type_qualifier_list STATIC?:s assignment_expression ]        
+	| direct_abstract_declarator [ type_qualifier_list ]
+	| direct_abstract_declarator [ assignment_expression ]                
 	| ( )
 	| ( parameter_type_list )
 	| direct_abstract_declarator ( )
 	| direct_abstract_declarator ( parameter_type_list )
 	<==
+#	| [ constant_expression ]
 
 initializer ==>
 	 assignment_expression
-	| Lbrace initializer_list Rbrace
-	| Lbrace initializer_list Comma Rbrace
+	| Lbrace initializer_list Comma? Rbrace
 	<==
 
 initializer_list ==>
 	 initializer
 	| initializer_list Comma initializer
+        | designation initializer
+        | initializer_list Comma designation initializer
 	<==
+
+designation --> designator_list Eq1
+
+designator_list --> designator+
+
+designator --> [ constant_expression ] | Dot IDENTIFIER
+
+static_assert_declaration --> STATIC_ASSERT ( constant_expression Comma STRING_LITERAL ) ;
 
 statement ==>
 	 labeled_statement
@@ -415,22 +566,23 @@ labeled_statement ==>
 	| DEFAULT Colon statement
 	<==
 
-compound_statement ==>
-	 Lbrace Rbrace
-	| Lbrace statement_list Rbrace
-	| Lbrace declaration_list Rbrace
-	| Lbrace declaration_list statement_list Rbrace
-	<==
+compound_statement --> Lbrace block_item*:items Rbrace
+#	| Lbrace statement_list Rbrace
+#	| Lbrace declaration_list Rbrace
+#	| Lbrace declaration_list statement_list Rbrace
+#	<==
 
-declaration_list ==>
-	 declaration
-	| declaration_list declaration
-	<==
+block_item --> declaration | statement
 
-statement_list ==>
-	 statement
-	| statement_list statement
-	<==
+# not needed?
+#declaration_list ==> 
+#	 declaration
+#	| declaration_list declaration
+#	<==
+#statement_list ==>
+#	 statement
+#	| statement_list statement
+#	<==
 
 expression_statement --> ; | expression ;
 
@@ -443,8 +595,8 @@ selection_statement ==>
 iteration_statement ==>
 	 WHILE ( expression ) statement
 	| DO statement WHILE ( expression ) ;
-	| FOR ( expression_statement expression_statement ) statement
-	| FOR ( expression_statement expression_statement expression ) statement
+	| FOR ( expression_statement expression_statement expression? ) statement
+        | FOR ( declaration expression_statement expression? ) statement
 	<==
 
 jump_statement ==>
@@ -455,113 +607,22 @@ jump_statement ==>
 	| RETURN expression ;
 	<==
 
-translation_unit ==>
-	 external_declaration
-	| translation_unit external_declaration
-	<==
+translation_unit --> external_declaration+
+#	 external_declaration
+#	| translation_unit external_declaration
+#	<==
 
 external_declaration ==>
 	 function_definition
 	| declaration
 	<==
 
-function_definition ==>
-	 declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
-	| declarator declaration_list compound_statement
-	| declarator compound_statement
-	<==
+function_definition --> declaration_specifiers declarator declaration* compound_statement
 
+#	| declaration_specifiers declarator compound_statement
+#	| declarator declaration_list compound_statement
+#	| declarator compound_statement
+#	<==
 
-# Rustlr StrTokenizer specs
-
-lexname PTR_OP ->
-lexname INC_OP ++
-lexname DEC_OP --
-lexname LEFT_OP <<
-lexname RIGHT_OP >>
-lexname LE_OP <=
-lexname GE_OP >=
-lexname EQ_OP ==
-lexname NE_OP !=
-lexname AND_OP &&
-lexname OR_OP ||
-lexname MUL_ASSIGN *=
-lexname DIV_ASSIGN /=
-lexname MOD_ASSIGN %=
-lexname ADD_ASSIGN +=
-lexname SUB_ASSIGN -=
-lexname LEFT_ASSIGN <<=
-lexname RIGHT_ASSIGN >>=
-lexname AND_ASSIGN &=
-lexname XOR_ASSIGN ^=
-lexname OR_ASSIGN |=
-lexname SIZEOF sizeof
-lexname TYPEDEF typedef
-lexname EXTERN extern
-lexname STATIC static
-lexname AUTO auto
-lexname REGISTER register
-lexname CHAR char
-lexname SHORT short
-lexname INT int
-lexname LONG long
-lexname SIGNED signed
-lexname UNSIGNED unsigned
-lexname FLOAT float
-lexname DOUBLE double
-lexname CONST const
-lexname VOLATILE volatile
-lexname VOID void
-lexname STRUCT struct
-lexname UNION union
-lexname ENUM enum
-lexname CASE case
-lexname DEFAULT default
-lexname IF if
-lexname ELSE else
-lexname SWITCH switch
-lexname WHILE while
-lexname DO do
-lexname FOR for
-lexname GOTO goto
-lexname CONTINUE continue
-lexname BREAK break
-lexname RETURN return
-lexname INCLUDE include
-lexname DEFINE define
-lexname ELLIPSIS ...
-lexname Lbrace {
-lexname Rbrace }
-lexname Amp &
-lexname Bang !
-lexname Bar |
-lexname Hat ^
-lexname Dot .
-lexname Comma ,
-lexname Colon :
-lexname Star *
-lexname Div /
-lexname Percent %
-lexname Lt <
-lexname Gt >
-lexname Eq1 =
-lexname Quest ?
-lexname Hash #
-
-lexvalue IDENTIFIER Alphanum(s) s
-lexvalue CONSTANT Num(n) (n as i32)
-lexvalue STRING_LITERAL Strlit(n) n
-#lexvalue TYPE_NAME Alphanum(s) s
 
 EOF
-
-ANSI C Yacc grammar
-In 1985, Jeff Lee published his Yacc grammar (which is accompanied by a matching Lex specification) for the April 30, 1985 draft version of the ANSI C standard.  Tom Stockfisch reposted it to net.sources in 1987; that original, as mentioned in the answer to question 17.25 of the comp.lang.c FAQ, can be ftp'ed from ftp.uu.net, file usenet/net.sources/ansi.c.grammar.Z.
-
-Jutta Degener, 1995
-
-Grammar was modified for Rustlr.  AST automatically generated.
-
-external_declaration_206(
-DecSpecList(DSCDS(Typedef, declaration_specifiers_78(UNSIGNED, declaration_specifiers_77(INT))), init_declarator_list_84(init_declarator_86(declarator_130(IDENTIFIER_131("uint")))))

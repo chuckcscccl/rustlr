@@ -1,7 +1,7 @@
 valueterminal ID String Alphanum(n) n.to_owned()
-valueterminal CM: String: Custom("braced",c) if matchingbraces(c): c.to_owned()
+valueterminal CM~ String~ Custom("braced",c) if matchingbraces(c)~ c.to_owned()
 lexterminal COMMA ,
-valueterminal UINT: u64: Custom("uint",n): n[..n.len()-2].parse::<u64>().unwrap()
+valueterminal UINT~ u64~ Custom("uint",n)~ n[..n.len()-2].parse::<u64>().unwrap()
 lexattribute add_custom("uint",r"[0-9]+UL")
 #typedterminal ID String
 #typedterminal CM String
@@ -19,14 +19,14 @@ HASH --> #
 #E:SeqNum --> HASH? (ID ID ;)*
 Number:signed --> VAL
 Number:unsigned --> UINT
-E:SeqNums --> (ID ;)+:a (Number COMMA)*:b Number?:c
+E:SeqNums --> (ID ;)+:a (Number COMMA)*:b (Number ;)?
 E:WithBraces --> E CM
 
 lexvalue VAL Num(n) n
 lexvalue ID Alphanum(s) s.to_owned()
 lexattribute add_custom("braced",r"^\{.*\}")
 #lexvalue CM Custom("braced",c) c.to_owned()
-#lexvalue CM: Custom("braced",c) if matchingbraces(c): c.to_owned()
+#lexvalue CM~ Custom("braced",c) if matchingbraces(c)~ c.to_owned()
 
 !fn matchingbraces(s:&str)->bool {
 !  let mut cx:i32 = 0;

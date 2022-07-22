@@ -476,6 +476,9 @@ impl Grammar
                let declaration = &line[pos..];
                let mut usingcolon = true;
                let mut dtokens:Vec<_> = declaration.split('~').collect();
+               if dtokens.len()>1 && dtokens.len()<4 {
+                 panic!("ERROR ON LINE {}. MISSING ~",linenum);
+               }
                if dtokens.len()<4 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
 	       if dtokens.len()<4 {
 	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
@@ -534,8 +537,7 @@ impl Grammar
                let pos = line.find("transform").unwrap()+10;
                self.transform_function = line[pos..].trim().to_owned();
               */
-              eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more
-general solution.",linenum);
+              eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
             },
 //////////// case for grammar production:            
 	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
@@ -605,9 +607,11 @@ b. transform E1* to E2,  E2 --> | E2 E1
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.  Only use in -auto mode as it will
                 // generate ast, semaction for the new nonterminal.
+                let mut ntcnt = 0; // for generating new terminal names
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),i);
+                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),ntcnt);
+                  ntcnt+=1;
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
 	          let mut defaultrelab2 = String::new(); //format!("_item{}_",i-1-iadjust);
@@ -615,6 +619,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
                   let mut suffix="";
+                  let mut precd = 0; // set precedence
                   while i<=bstokens.len() // advance i until see )*, or )+, )?
                   {
                      // get the part before :label
@@ -638,6 +643,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
+                     if igsym.precedence.abs()>precd {precd =igsym.precedence;}
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
@@ -665,6 +671,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
+                  newrule2.precedence = precd;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
                   self.Symbols.push(newnt2.clone());
                   newrule2.lhs.rusttype = newnt2.rusttype.clone();
@@ -695,7 +702,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("NEWNT{}_{}",gsympart,self.Rules.len());
+		   let newntname = format!("NEWNT{}_{}_{}",gsympart,self.Rules.len(),ntcnt); ntcnt+=1;
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    // following means symbols such as -? will not be
@@ -716,6 +723,7 @@ b. transform E1* to E2,  E2 --> | E2 E1
 		   // add new rules
 		   let mut newrule1 = Grule::new_skeleton(&newntname);
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
+                   newrule1.precedence = self.Symbols[gsymi].precedence;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if newrule1.lhs.rusttype.starts_with("Option<LBox<") {

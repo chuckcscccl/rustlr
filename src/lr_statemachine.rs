@@ -299,7 +299,7 @@ impl Statemachine
 
   // reslove shift-reduce conflict, returns true if reduce, but defaults
   // to false (shift) so parsing will always continue and terminate.
-  fn sr_resolve(Gmr:&Grammar, ri:&usize, la:&str) -> bool
+  fn sr_resolve(Gmr:&Grammar, ri:&usize, la:&str, si:usize) -> bool
   {
      let lasym = Gmr.getsym(la).expect("GRAMMAR CORRUPT, UNKOWN SYMBOL");
      let lapred = lasym.precedence;
@@ -312,11 +312,11 @@ impl Statemachine
      } // right-associative lookahead, return shift     
      else if (lapred.abs()>rulepred.abs() && rulepred!=0) {return false;} // shift
      else if (lapred.abs()<rulepred.abs() /*&& lapred!=0*/) {
-       if lapred==0 {     println!("Shift-Reduce conflict between lookahead {} and rule {} resolved in favor of Reduce. The lookahead has undeclared precedence",la,ri);    printrulela(*ri,Gmr,la);       }
+       if lapred==0 {     println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved in favor of Reduce. The lookahead has undeclared precedence",la,ri,si);    printrulela(*ri,Gmr,la);       }
        return true;
      } // reduce
      // report unclear case
-     println!("Shift-Reduce conflict between lookahead {} and rule {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",la,ri);
+     println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",la,ri,si);
      printrulela(*ri,Gmr,la);
      false
   }//sr_resolve
@@ -344,13 +344,13 @@ impl Statemachine
          if Gmr.tracelev>1 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,la,si);
          }
-         if !Statemachine::sr_resolve(Gmr,rsi,la) {changefsm = false; }
+         if !Statemachine::sr_resolve(Gmr,rsi,la,si) {changefsm = false; }
        },
        (Some(Reduce(rsi)), Shift(_)) => {
          if Gmr.tracelev>1 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,la,si);
          }       
-         if Statemachine::sr_resolve(Gmr,rsi,la) {changefsm = false; }
+         if Statemachine::sr_resolve(Gmr,rsi,la,si) {changefsm = false; }
        },       
        _ => {}, // default add newstate
      }// match currentaction

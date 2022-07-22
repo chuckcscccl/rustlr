@@ -49,10 +49,10 @@ left IF 100
 left ELSE 200
 
 # added to distinguish between IDENTIFIER and TYPE_NAME
-#transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
-# THIS FEATURE WAS ONLY SUPPORTED IN RUSTLR VERSION 0.2.96.
-# This file uses the shared_state between parser and lexer.
+transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
 
+# rules as precedence over other rules
+#declaration_specifiers:TYPEDEFCLAUSE -->  TYPEDEF declaration_specifiers
 
 primary_expression ==>
 	 IDENTIFIER

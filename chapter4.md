@@ -76,9 +76,17 @@ impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing(&()) }
 ```
 
 An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules. The name of the enum is the
-same as the name of the non-terminal.  There is essentially an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
-symbols of the rule that are associated with non-unit types.
+same as the name of the non-terminal.
 The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).  A special `Nothing` variant is also created to represent a default.[^footnote 1] The 'absyntype' of the grammar will be set to `ES`, the symbol declared to be 'topsym'.
+
+There is essentially an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
+symbols of the rule that are associated with non-unit types.  Unit typed values
+can also become part of the enum if the symbol is given a label.  For example:
+  **` E:acase -->  a E `**  where terminal symbol `a` is of unit type, will result in a enum variant
+`acase(LBox<E>)`. whereas
+  **` E:acase -->  a:m E `**
+will result in a variant `acase((),LBox<E>)`
+
 
 A struct is created for non-terminals symbols that appears on the
 left-hand side of exactly one production rule.  The name of the struct
@@ -97,9 +105,10 @@ will result in the generation of:
     falsecase: LBox<Expr>,
   }
   ```
-The AST generator always creates a [LBox][2] for each non-terminal field.  The
-struct may be empty if all right-hand-side symbols of the single production
-rules are associated with the unit type.
+The AST generator always creates a [LBox][2] for each non-terminal field.
+Unit typed values are not included in the struct unless given an explicit label.
+The struct may be empty if all right-hand-side symbols of the single production
+rule are associated with the unit type and do not have labels.
 
 Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these AST types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
 
