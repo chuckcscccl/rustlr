@@ -48,7 +48,7 @@ E --> E:e1 + E:e2 { Plus(e1.lbox(),parser.lbx(2,e2.value)) }
 E --> E:[e1] - E:[e2] { Minus(e1,e2)}
 E --> E:[e1] / E:[e2] { Divide(e1,e2) } 
 E --> E:[e1] * E:[e2] { Times(e1,e2) }
-E --> - E:[e] { Negative(e) }
+E(600) --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e.value }
 E --> let E:@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
 ES --> E:[n] ; { Seq(vec![n]) }
@@ -82,7 +82,21 @@ how should we parse *`if (a) if (b) c else d`*? To associate the
 rule in favor of the second.  Eliminating such ambiguities by
 rewriting the grammar can be non-trivial.  However, these kinds of
 ambiguities can also be eliminated by augmenting the ambiguous grammar with
-operator precedence and associativity declarations.
+operator precedence and associativity declarations.  These are
+evident from declarations such as **`left * 500`**.  In addition to
+giving precedence to symbols, however, each production rule of the grammar
+must also be assigned a precedence.  This can usually be calculated
+automatically by finding the symbol on the right-hand side with the highest
+precedence.  However, there are cases when we must assign the precedence
+manually, as in the rule `E(600) --> - E`.  The - symbol has higher precedence
+when it appears as a unary operator compared to all binary operators.
+
+One might argue that the theoretically correct approach is to write unambiguous
+grammars.  But that approach entails a steep learning curve and even
+seasoned grammar hackers may find it difficult to always write conflict-free
+grammars.  As well shall see in Chapter 4, using simpler, ambiguous grammars
+has another important advantage in that it allows us to generate reasonable
+abstract syntax representations from the grammar automatically.
 
 The main purpose of a parser is to transform *concrete syntax*, which
 is usually a string, into *abstract syntax*, which is usually a tree.
@@ -137,10 +151,14 @@ the pure grammar that are resolved using operator precedence and
 associativity rules as declared by grammar directives such as **`left * 500`**.
 A terminal symbol that's to be used as an operator can be
 declared as left or right associative and a positive integer defines
-the precedence level.  The default precedence of all grammar symbols is zero.
-Each grammar production rule is also assigned a
-precedence and associativity, which is the same as that of the right-hand side
+the precedence level.  
+If a production rule is not explicitly assigned a precedence,
+it is assigned to be the same as that of the right-hand side
 symbol with the highest precedence.
+The default precedence of all grammar symbols is zero.
+*(Internally, the precedence is represented by a signed integer: positive
+for left-associative, negative for left-associative, and zero means
+unassigned.)*
 
      Rustlr resolves **shift-reduce** conflicts as follows:
 
@@ -460,7 +478,7 @@ the state numbers may be different: the -trace 3 option prints these states
 to stdout.
 Create a cargo crate with the following dependency in Cargo.toml:
 ```
-rustlr = "0.2.9"
+rustlr = "0.2.97"
 ```
 copy the [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/main.rs), [exprtrees.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/exprtrees.rs) and the generated [calc4parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/calc4/src/calc4parser.rs) files into src/.  The supplied main parses and evaluates the following input:
 ```

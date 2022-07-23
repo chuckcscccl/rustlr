@@ -63,7 +63,13 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	         lhslab = symname.clone();
 		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }
 	       }
-	     }
+               /*
+               else if self.Rules[*ri].rhs[0].label.len()>0 && is_alphanum(&self.Rules[*ri].rhs[0].label) {
+                 lhslab = self.Rules[*ri].rhs[0].label.clone();
+		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }                 
+               }
+               */
+	     }  // determine enum variant name based on 1st rhs symbol
 	     self.Rules[*ri].lhs.label = lhslab;
 	  } // set lhs label
 	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();

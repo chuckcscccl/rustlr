@@ -27,7 +27,8 @@ Expr:Plus --> Expr + Expr
 Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
 Expr:Times --> Expr * Expr
-Expr:Neg --> - Expr
+# the unary minus has higher precedence (600) than binary operators:
+Expr(600):Neg --> - Expr
 Expr --> ( Expr:e )
 
 ES:nil -->
