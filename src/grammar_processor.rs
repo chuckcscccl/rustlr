@@ -548,13 +548,27 @@ impl Grammar
               
 	    // construct lhs symbol
 	      let findcsplit:Vec<_> = LHS0.split(':').collect();
-	      let LHS = findcsplit[0];
+	      let mut LHS = findcsplit[0];
 	      //findcsplit[1] will be used to auto-gen AST type below
-              let symindex = match self.Symhash.get(LHS) {
-                Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
-                _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
-              };
-              let lhsym = &self.Symbols[*symindex]; //not .clone();
+              //let mut lhsym = &self.Symbols[*symindex]; //not .clone();
+
+            // parse default rule precedence (for all bar-splits!)
+            let mut manual_precedence = 0;
+            let (lb,rb)=findmatch(LHS0,'(',')');
+            if rb!=0 && lb+1<rb {
+              let parseopt = LHS0[lb+1..rb].parse::<i32>();
+              if let Ok(lev)=parseopt {manual_precedence=lev;}
+              else {panic!("ERROR: Precedence Level ({}) must be numeric, line {}\n",&LHS[lb+1..rb],linenum);}
+              LHS = &LHS0[..lb];  // change LHS from above
+            }
+            else if (lb,rb)!=(0,0) {
+               panic!("MALFORMED LEFT HAND SIDE LINE {}\n",linenum);
+            }// parse default precedence
+            let symindex = match self.Symhash.get(LHS) {
+               Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
+               _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
+             };
+
 
               // split by | into separate rules
 
@@ -922,7 +936,8 @@ strtok is bstokens[i], but will change
 	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
-              if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}              
+              if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}
+              if manual_precedence!=0 {maxprec=manual_precedence;} //0.2.97
 	      let rule = Grule {
 	        lhs : newlhs,
 		rhs : rhsyms,
