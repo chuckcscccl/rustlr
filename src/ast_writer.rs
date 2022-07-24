@@ -61,7 +61,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	       let symname = &self.Rules[*ri].rhs[0].sym;
 	       if is_alphanum(symname) { //insert r# into enum variant name
 	         lhslab = symname.clone();
-		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }
+		 if self.Rules[*ri].rhs.len()>1 /*|| self.Rules[*ri].rhs[0].rusttype!="()"*/ { lhslab.push_str(&format!("_{}",ri)); }
 	       }
                /*
                else if self.Rules[*ri].rhs[0].label.len()>0 && is_alphanum(&self.Rules[*ri].rhs[0].label) {

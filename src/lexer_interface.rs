@@ -230,6 +230,8 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the absolute character position of the tokenizer.  The
   /// default implementation returns 0;
   fn position(&self) -> usize { 0 }
+  // returns (line, column) information based on given position
+  //fn get_line_column(&self, position:usize) -> (usize,usize) { (0,0) }
   /*
   /// returns the previous position (before as opposed to after the current token).
   /// The default implementation returns 0.
@@ -909,3 +911,21 @@ impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
    fn current_line(&self) -> &str  {self.contents}   
 }//impl Tokenizer for charscanner
 
+// binary range search
+// given position, return line number and starting position of that line
+fn brsearch(ps:&[usize], p:usize) -> (usize,usize) // returns (0,0) none
+{
+   let mut min = 1;
+   let mut max = ps.len();
+   while min<max
+   {
+      let mid = (min+max)/2;
+      if ps[mid]>p {max = mid;}
+      else { // possible., p>=ps[mid]
+        if mid == ps.len()-1 || p<ps[mid+1] {return (mid,ps[mid]);}
+        else {min = mid+1;}
+      }
+   }
+   (0,0)  // not found, there's no line 0
+}// determine line based on position
+// given (l,s), column is calculated py p-s+1.

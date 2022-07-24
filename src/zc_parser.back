@@ -26,6 +26,7 @@ use std::fmt::Display;
 use std::default::Default;
 use std::collections::{HashMap,HashSet,BTreeSet};
 use std::io::{self,Read,Write,BufReader,BufRead};
+use std::rc::Rc;
 use std::cell::{RefCell,Ref,RefMut};
 use std::hash::{Hash,Hasher};
 use std::any::Any;
@@ -36,7 +37,6 @@ use std::mem;
 use crate::{TRACE,Stateaction,Statemachine,TerminalToken,Tokenizer};
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
-use std::rc::Rc;
 //extern crate termion;
 //use termion::{color,style};
 
@@ -103,6 +103,8 @@ pub struct ZCParser<AT:Default,ET:Default>
   /// [this sample grammar](<https://cs.hofstra.edu/~cscccl/rustlr_project/ncf.grammar>).
   /// The exstate is initialized to ET::default().
   pub exstate : ET,  // external state structure, usage optional
+  /// External state that can be shared
+  pub shared_state : Rc<RefCell<ET>>,
   /// used only by generated parser: do not reference
   pub RSM : Vec<HashMap<&'static str,Stateaction>>,  // runtime state machine
   // do not reference
@@ -145,6 +147,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          Rules : Vec::with_capacity(rlen),
          stopparsing : false,
          exstate : ET::default(),
+         shared_state: Rc::new(RefCell::new(ET::default())),
          stack : Vec::with_capacity(1024),
          Errsym : "",
          err_occurred : false,
@@ -366,6 +369,8 @@ impl Statemachine
 #![allow(dead_code)]
 #![allow(irrefutable_let_patterns)]
 #![allow(unreachable_patterns)]
+use std::rc::Rc;
+use std::cell::RefCell;
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
     if self.Gmr.genlex {
@@ -622,6 +627,8 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 #![allow(dead_code)]
 #![allow(irrefutable_let_patterns)]
 use std::any::Any;
+use std::rc::Rc;
+use std::cell::RefCell;
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action,LBox,lbdown,lbup,lbget,unbox}};\n")?;
     if self.Gmr.genlex {

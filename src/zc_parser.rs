@@ -397,10 +397,10 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     let mut encode:u64 = 0;
     for i in 0..self.FSM.len() // for each state index i
     {
-      let row = &self.FSM[i];
+      let row = &self.FSM[i]; // this is a hashmap<usize,stateaction>
       for key in row.keys()
       { // see function decode for opposite translation
-        let k = *self.Gmr.Symhash.get(key).unwrap(); // index of symbol
+        let k = *key; //*self.Gmr.Symhash.get(key).unwrap(); // index of symbol
         encode = ((i as u64) << 48) + ((k as u64) << 32);
         match row.get(key) {
           Some(Shift(statei)) => { encode += (*statei as u64) << 16; },
@@ -658,7 +658,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let row = &self.FSM[i];                          ////////LBA VERSION
       for key in row.keys()
       { // see function decode for opposite translation
-        let k = *self.Gmr.Symhash.get(key).unwrap(); // index of symbol
+        let k = *key; //*self.Gmr.Symhash.get(key).unwrap(); // index of symbol
         encode = ((i as u64) << 48) + ((k as u64) << 32);
         match row.get(key) {
           Some(Shift(statei)) => { encode += (*statei as u64) << 16; },

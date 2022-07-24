@@ -156,8 +156,8 @@ If a production rule is not explicitly assigned a precedence,
 it is assigned to be the same as that of the right-hand side
 symbol with the highest precedence.
 The default precedence of all grammar symbols is zero.
-*(Internally, the precedence is represented by a signed integer: positive
-for left-associative, negative for left-associative, and zero means
+*(Internally, the precedence is represented by the absolute value of a signed integer: positive
+for left-associative, negative for right-associative, and zero means
 unassigned.)*
 
      Rustlr resolves **shift-reduce** conflicts as follows:

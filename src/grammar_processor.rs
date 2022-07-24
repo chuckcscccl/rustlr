@@ -175,7 +175,14 @@ impl Grammar
        _ => None,
      }//match
   }
-
+  pub fn symref(&self,i:usize) -> &str
+  {
+    &self.Symbols[i].sym
+  }
+  pub fn Symref(&self,i:usize) -> &Gsym
+  {
+    &self.Symbols[i]
+  }
   pub fn nonterminal(&self,s:&str) -> bool
   {
      match self.Symhash.get(s) {
@@ -569,6 +576,7 @@ impl Grammar
                _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
              };
 
+             let mut ntcnt = 0; // for generating new nonterminal names
 
               // split by | into separate rules
 
@@ -623,10 +631,10 @@ strtok is bstokens[i], but will change
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.  Only use in -auto mode as it will
                 // generate ast, semaction for the new nonterminal.
-                let mut ntcnt = 0; // for generating new terminal names
+//                let mut ntcnt = 0; // for generating new terminal names
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  let ntname2 = format!("SEQNT_{}_{}",self.Rules.len(),ntcnt);
+                  let ntname2 = format!("NEWSEQNT_{}_{}",self.Rules.len(),ntcnt);
                   ntcnt+=1;
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
@@ -688,7 +696,9 @@ strtok is bstokens[i], but will change
                   iadjust += jk as usize;
                   if passthru<0 {
                     newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
-                    self.enumhash.insert(ntname2.clone(),ntcx); ntcx+=1;
+                    if !self.enumhash.contains_key(&newnt2.rusttype) {
+                      self.enumhash.insert(newnt2.rusttype.clone(),ntcx); ntcx+=1;
+                    }
                     // this assumes -auto
                     // action will be written by ast_writer
                   }
@@ -795,6 +805,7 @@ strtok is bstokens[i], but will change
 //println!("2 strtok now {}",strtok);                   
 		}// processes RE directive - add new productions
 
+
                 ///// process E<COMMA*>  or    E<SEMICOLON+>
                 ///// vector of E-values separated by the indicated
                 ///// terminal - must be terminal symbol of type ()
@@ -836,7 +847,7 @@ strtok is bstokens[i], but will change
 		  let mut newrule4 = Grule::new_skeleton(&newntname3);
   		  newrule3.lhs.rusttype = newnt3.rusttype.clone();
   		  newrule4.lhs.rusttype = newnt3.rusttype.clone();
-                  newrule3.precedence = self.Symbols[gsymi].precedence;
+                  newrule3.precedence = self.Symbols[termi].precedence;
                   //PRECEDENCE SET TO SEPARATOR SYMBOL
                   newrule4.precedence = self.Symbols[termi].precedence;
                   // GENERATE AS FOR <COMMA+>

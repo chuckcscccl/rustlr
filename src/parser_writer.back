@@ -134,6 +134,8 @@ impl Statemachine
 #![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
 use std::marker::PhantomData;
+use std::rc::Rc;
+use std::cell::RefCell;
 extern crate rustlr;
 use rustlr::{{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action}};\n")?;
     if self.Gmr.genlex {
@@ -215,16 +217,19 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 //    write!(fd,"   parser1.RSM[i].insert(SYMBOLS[k],decode_action(TABLE[i*{}+k]));\n }}}}\n",cols)?;
     write!(fd," for s in SYMBOLS {{ parser1.Symset.insert(s); }}\n\n")?;
 
+    /* // took out 0.2.97
     if self.Gmr.transform_function.len()>0 {
       write!(fd," parser1.set_transform_token({});\n\n",&self.Gmr.transform_function)?;
     }
-
+    */
+    
     write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
+/* // took out 0.2.97
     // write special value extraction functions for transform_function
-    if self.Gmr.transform_function.len()>0 {
+    //if self.Gmr.transform_function.len()>0 {
       let mut already:HashSet<&str> = HashSet::new();
       for sym in &self.Gmr.Symbols
       {
@@ -242,7 +247,8 @@ use std::collections::{{HashMap,HashSet}};\n")?;
             write!(fd," fn encode_value_{}{}(x:{}) -> RetTypeEnum{} {{ RetTypeEnum::Enumvariant_{}(x) }}\n",&sym.sym,&ltopt,&sym.rusttype,&ltopt,ei)?;
          }
       }//for each terminal symbol
-    }
+    //}//transform-related
+*/
 
     //if !self.Gmr.sametype {  // checked at first
 
@@ -251,11 +257,13 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
       write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
       write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse(lexer) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
       // training version
       write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
       write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(lexer,parserpath) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_train_with public function\n",absyn)?;
