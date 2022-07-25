@@ -58,7 +58,10 @@ impl StandardReporter
        Ok(n) if n>0 => {},
        _ => {stop=true; oktoaugment=false;}
      }
-     if line.trim().len()>21 && &line.trim()[..21]=="}//end of load_extras"  {stop=true;}
+     if line.trim().len()>21 && &line.trim()[..21]=="}//end of load_extras" {
+       stop=true;
+       //       println!("FOUND LINEMARKER!!!!");
+     }
    }//while !stop
    //// now augment
    if oktoaugment {

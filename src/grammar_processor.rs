@@ -918,7 +918,7 @@ strtok is bstokens[i], but will change
                     let mut newrule6 = Grule::new_skeleton(&newntname5);
   		    newrule5.lhs.rusttype = newnt5.rusttype.clone();
   		    newrule6.lhs.rusttype = newnt5.rusttype.clone();
-                    newrule5.lhs.index = newnt5.index;
+                    newrule5.lhs.index = newnt5.index; // simplify
                     newrule6.lhs.index = newnt5.index;
                     // 0 precedence for rule, newrule5 has empty rhs
                     newrule6.rhs.push(newnt3.clone());
@@ -938,7 +938,7 @@ strtok is bstokens[i], but will change
                   newtok3 = format!("{}:{}",&newntname5,relabel3);
                   self.Rulesfor.insert(newntname5,rulesforset5);
                   } // *> processed
-                  strtok = &newtok3;
+                  strtok = &newtok3; 
                 } // if ends with *> or +>
 
 
