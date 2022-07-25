@@ -165,11 +165,28 @@ impl LR1State
   }//core_eq
   //{ eq_core(&self.items,&state2.items) }
 
-
-  fn merge_states(&mut self, state2:&LR1State) // not used
+  fn merge_states(&mut self, state2:&LR1State) // used by lalr
   {
       for item in &state2.items {self.items.insert(*item);}
   }//merge_states
+
+/* won't work because new lookaheads also afters other states from this one.
+ // FOR LALR, returns false if no additions where added, will also
+  // augment action table with new reduce actions. - destination is state2
+  fn state_merge(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, state1:&LR1State, state2:&mut LR1State) -> bool
+  {  let mut answer = false;
+     for item in &state1.items {
+       let res = state2.items.insert(*item); // returns true if proper add
+       if res {
+          answer = true;
+          let newaction = Stateaction::Reduce(item.ri);
+          Statemachine::add_action(FSM,Gmr,newaction,state2.index,item.la,&mut self.sr_conflicts);
+       }// proper addtion, meaning only the lookahead was not there before
+     }//for each item in state2
+     answer
+  }//state_merge
+*/
+
 
 }// basics ofr LR1State
 
@@ -227,8 +244,53 @@ pub fn printstate_raw(state:&LR1State,Gmr:&Grammar)
   { printitem(item,Gmr); }
 }
 
-
-
+/*
+pub fn stateclosure0(state:&mut LR1State, Gmr:&Grammar) // new attempt
+{
+  //algorithm is like that of a spanning tree
+  let mut closed = 0
+  let mut closure = HashMap::new();
+  for item in state.items.iter() {
+     let lhsi = Gmr.Rules[item.ri].lhs.index;
+     closure.insert(*item,lhsi);
+  } // cover over to new hashmap from items to lhsi
+  while closed < closure.len()
+  {
+     for item in items
+     {  
+        let (ri,pi,la) = (item.ri,item.pi,item.la);
+        let rulei = &Gmr.Rules[ri]; //.get(ri).unwrap();
+        let lhsi = rulei.lhs.index;
+        //closed.insert(nextitem,lhsi); // place item in interior
+        if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
+          let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
+          let nti_lhsi = nti.index;
+          let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
+          for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
+          {
+            for lafollow in lookaheads 
+            { 
+              let newitem = LRitem {
+                 ri: *rulent,
+                 pi: 0,
+                 la: *lafollow,
+              };
+              if !state.items.contains(&newitem) && !toadd.contains_key(&newitem) { toadd.insert(newitem,nti_lhsi);    } 
+            }//for each possible lookahead following non-terminal
+          }// for each rule with this non-terminal on lhs
+        } // if candidate for add (dot before nonterminal)
+     } // for all existing items
+     if toadd.len()==0 {break;} // exit loop
+     for (fitem,flhsi) in toadd.iter()
+     {
+        state.insert(*fitem,*flhsi);   // move to interior
+     }
+     // tooadd still exists,
+     items = toadd.keys().collect();  // change items to toadd
+     toadd.clear();
+  }  // loop until no more to add
+}//stateclosure0 generation
+*/
 
 
 pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
@@ -419,15 +481,16 @@ impl Statemachine
         for i in indices.iter()
         { 
            if state.core_eq(&mut self.States[*i]) {
-             toadd=*i;
+             toadd=*i; // toadd changed to index of existing state
              let mut stateclone = LR1State {
                 index : toadd,
                 items : state.items.clone(),
-                lhss: BTreeSet::new(),
+                lhss: BTreeSet::new(), //state.lhss.clone(), //BTreeSet::new(), // will set by stateclosure
                 //expected : state.expected.clone(),
                 core: state.core.clone(),
              };
              stateclone.merge_states(&self.States[toadd]);
+             //self.state_merge(&self.States[toadd],&mut stateclone);
              if stateclone.items.len() > self.States[toadd].items.len() {
                 self.States[toadd] = stateclosure(stateclone,&self.Gmr);
                 // now need to call makegotos again on this state - add
@@ -517,7 +580,7 @@ impl Statemachine
      }
   }//makegotos
 
-  pub fn generatefsm(&mut self)
+   pub fn generatefsm(&mut self)
   { 
     // create initial state, closure from initial item: 
     // START --> .topsym EOF

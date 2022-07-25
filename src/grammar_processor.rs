@@ -937,7 +937,7 @@ strtok is bstokens[i], but will change
 		  rulesforset5.insert(self.Rules.len()-1);
                   newtok3 = format!("{}:{}",&newntname5,relabel3);
                   self.Rulesfor.insert(newntname5,rulesforset5);
-                  } // *>
+                  } // *> processed
                   strtok = &newtok3;
                 } // if ends with *> or +>
 
