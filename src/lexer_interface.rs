@@ -461,7 +461,7 @@ impl<'t> StrTokenizer<'t>
   /// order in which they where declared in the grammar file.
   pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
   {
-    let reg = if reg_expr.starts_with('^') {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
+    let reg = if reg_expr.starts_with('^') || reg_expr.starts_with("(?m") {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
     let re = Regex::new(&reg).expect(&format!("Error compiling custom regular expression \"{}\"",reg_expr));
     //self.custom_defined.insert(tkind,re);
     self.custom_defined.push((tkind,re));

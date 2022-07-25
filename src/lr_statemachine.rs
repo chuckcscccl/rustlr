@@ -19,7 +19,7 @@ use crate::Stateaction::*;
 
 //actions are: shift, reduce, accept, gotonext
 
-#[derive(Clone,PartialEq,Eq,Hash,Debug)]
+#[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
 pub struct LRitem
 {
    ri: usize, // rule index
@@ -74,7 +74,7 @@ fn extract_core(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
    for LRitem{ri:r, pi:p, la} in items  { core0.insert((*r,*p)); }
    core0
 }
-
+/*
 // checks if every item core in s1 is also in s2, for LALR
 fn sub_core(s1:&Itemset, s2:&Itemset) -> bool // not used
 {
@@ -100,13 +100,15 @@ fn eq_core(s1:&Itemset, s2:&Itemset) -> bool
    }
    return true;
 }//eq_core
+*/
 
 #[derive(Clone,Debug)]
 pub struct LR1State
 {
    index: usize, // index into vector
    items:Itemset,
-   lhss: BTreeSet<String>,  // set of left-side non-terminals
+   lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
+   core: HashSet<(usize,usize)>, // used only by lalr
    //expected : HashSet<String>, // expected lookaheads for error reporting
 }
 impl LR1State
@@ -115,40 +117,58 @@ impl LR1State
   {
      LR1State {
         index : 0,   // need to change
-        items : HashSet::with_capacity(256),
+        items : HashSet::with_capacity(512),
         lhss: BTreeSet::new(), // for quick lookup
+        core : HashSet::with_capacity(256),
         //expected : HashSet::with_capacity(32),
      }
   }
-  pub fn insert(&mut self, item:LRitem, lhs:&str) -> bool
+  pub fn insert(&mut self, item:LRitem, lhs:usize) -> bool
   {
      let inserted = self.items.insert(item);
-     self.lhss.insert(String::from(lhs));
+     self.lhss.insert(lhs);
      inserted
   }
-  pub fn hashval(&self) -> String  // note: NOT UNIQUE
+  
+  pub fn hashval(&self) -> usize  // note: NOT UNIQUE
+  { 
+    let mut key=self.items.len()+ self.lhss.len()*10000;
+    let limit = usize::MAX/1000 -1;
+    let mut cx = 8;
+    for s in &self.lhss {key+=s*1000; cx-=1; if cx==0  || key>=limit {break;}}    
+    key 
+    //self.items.len() + self.lhss.len()*10000
+  } // 
+  pub fn hashval_lalr(&mut self) -> usize  // note: NOT UNIQUE
   {
-    let mut key=self.items.len().to_string(); // better for lr1
-    let mut cx = 10;
-    for s in &self.lhss {key.push_str(s); cx-=1; if cx==0 {break;}}
-    key    
-  }  
-  pub fn hashval_lalr(&self) -> String  // note: NOT UNIQUE
-  {
-    let mut key = extract_core(&self.items).len().to_string(); // lalr
-    let mut cx=10;
-    for s in &self.lhss {key.push_str(s); cx-=1; if cx==0 {break;}}
-    key    
+    //let mut key=extract_core(&self.items).len() + self.lhss.len()*10000;
+    if self.core.len()==0 {self.core = extract_core(&self.items); }
+    let mut key=self.core.len() + self.lhss.len()*1000000;    
+    let limit = usize::MAX/1000 -1;
+    let mut cx = 8;
+    for s in &self.lhss {key+=1000*s; cx-=1; if cx==0 || key>=limit {break;}}
+    key
   }
+    
   pub fn contains(&self, x:&LRitem) -> bool {self.items.contains(x)}
 
-  fn core_eq(&self, state2:&LR1State) -> bool // for LALR
-  { eq_core(&self.items,&state2.items) }
-    //{ sub_core(&self.items,&state2.items) && sub_core(&state2.items,&self.items) }
+  fn core_eq(&mut self, state2:&mut LR1State) -> bool // for LALR
+  {
+     if self.core.len()==0 {self.core = extract_core(&self.items);}
+     if state2.core.len()==0 {state2.core = extract_core(&state2.items);}
+     if self.core.len()!=state2.core.len() {return false;}
+     for item_core in &self.core
+     {
+      if !state2.core.contains(item_core) {return false; }
+     }
+     return true;
+  }//core_eq
+  //{ eq_core(&self.items,&state2.items) }
+
 
   fn merge_states(&mut self, state2:&LR1State) // not used
   {
-      for item in &state2.items {self.items.insert(item.clone());}
+      for item in &state2.items {self.items.insert(*item);}
   }//merge_states
 
 }// basics ofr LR1State
@@ -209,6 +229,8 @@ pub fn printstate_raw(state:&LR1State,Gmr:&Grammar)
 
 
 
+
+
 pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
   -> LR1State // consumes and returns new state
 {
@@ -222,18 +244,12 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
      let item = state.items.take(&nextitem).unwrap();
      let (ri,pi,la) = (item.ri,item.pi,item.la);
      let rulei = &Gmr.Rules[ri]; //.get(ri).unwrap();
-     let lhs = &rulei.lhs.sym;
-     closed.insert(nextitem,lhs); // place item in interior
-     /*
-     // insert terminals into expected set for error reporting
-     if pi<rulei.rhs.len() && rulei.rhs[pi].terminal { // add to expected
-       closed.expected.insert(rulei.rhs[pi].sym.clone());
-     }
-     else if pi==rulei.rhs.len() {closed.expected.insert(la.clone());}
-     */
+     let lhsi = rulei.lhs.index; //*Gmr.Symhash.get(&rulei.lhs.sym).unwrap();
+     closed.insert(nextitem,lhsi); // place item in interior
      if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
-       let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],Gmr.symref(la));
+       let nti_lhsi = nti.index; //*Gmr.Symhash.get(&nti.sym).unwrap();
+       let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
        for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
        {
           for lafollow in lookaheads 
@@ -242,10 +258,10 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
             let newitem = LRitem {
                ri: *rulent,
                pi: 0,
-               la: *Gmr.Symhash.get(lafollow).unwrap(), //lafollow.clone(),
+               la: *lafollow, //*Gmr.Symhash.get(lafollow).unwrap(),
             };
             if !closed.items.contains(&newitem)  {
-              state.insert(newitem,&nti.sym); // add to "frontier"
+              state.insert(newitem,nti_lhsi); // add to "frontier"
             }
           }//for each possible lookahead following non-terminal
        }// for each rule in this non-terminal
@@ -290,7 +306,7 @@ pub struct Statemachine  // AT is abstract syntax (enum) type
 {
    pub Gmr: Grammar,
    pub States: Vec<LR1State>, 
-   pub Statelookup: HashMap<String,LookupSet<usize>>,
+   pub Statelookup: HashMap<usize,LookupSet<usize>>,
    pub FSM: Vec<HashMap<usize,Stateaction>>,
    pub lalr: bool,
    pub Open: Vec<usize>, // for LALR only, vector of unclosed states
@@ -317,7 +333,6 @@ impl Statemachine
   // to false (shift) so parsing will always continue and terminate.
   fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut HashMap<(usize,usize),(bool,bool)>) -> bool
   {
-//     let lasymi = *Gmr.Symhash.get(la).expect("GRAMMAR CORRUPT, UNKOWN SYMBOL");
      if let Some((c,r)) = conflicts.get(&(*ri,la)) {
         return *r;
      }
@@ -390,26 +405,27 @@ impl Statemachine
 
 
   // psi is previous state index, nextsym is next symbol (may do lalr)
-  fn addstate(&mut self, mut state:LR1State, psi:usize, nextsym:&str)
-  {  
+  fn addstate(&mut self, mut state:LR1State, psi:usize, nextsymi:usize)
+  {  let nextsym = &self.Gmr.Symbols[nextsymi].sym;
      let newstateindex = self.States.len(); // index of new state
      state.index = newstateindex;
      let lookupkey = if self.lalr {state.hashval_lalr()} else {state.hashval()};
      if let None=self.Statelookup.get(&lookupkey) {
-        self.Statelookup.insert(lookupkey.clone(),LookupSet::new());
+        self.Statelookup.insert(lookupkey,LookupSet::new());
      }
      let indices = self.Statelookup.get_mut(&lookupkey).unwrap();
      let mut toadd = newstateindex; // defaut is add new state (will push)
      if self.lalr {
         for i in indices.iter()
         { 
-           if state.core_eq(&self.States[*i]) {
+           if state.core_eq(&mut self.States[*i]) {
              toadd=*i;
              let mut stateclone = LR1State {
                 index : toadd,
                 items : state.items.clone(),
                 lhss: BTreeSet::new(),
                 //expected : state.expected.clone(),
+                core: state.core.clone(),
              };
              stateclone.merge_states(&self.States[toadd]);
              if stateclone.items.len() > self.States[toadd].items.len() {
@@ -442,7 +458,7 @@ impl Statemachine
      }// add new state
 
      // add to- or change FSM TABLE ...  only Shift or Gotnext added here.
-     let nextsymi = *self.Gmr.Symhash.get(nextsym).expect("GRAMMAR CORRUPTION, UNKOWN SYMBOL");
+//     let nextsymi = *self.Gmr.Symhash.get(nextsym).expect("GRAMMAR CORRUPTION, UNKOWN SYMBOL");
      let gsymbol = &self.Gmr.Symbols[nextsymi]; //self.Gmr.getsym(nextsym).
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
@@ -456,27 +472,27 @@ impl Statemachine
   fn makegotos(&mut self, si:usize)
   {
      let ref /*mut*/ state = self.States[si];
-     // key to following hashmap is the next symbol after pi (the dot)
-     let mut newstates:HashMap<String,LR1State> = HashMap::with_capacity(64);
-     let mut keyvec:Vec<String> = Vec::new(); //keys of newstates
+     // key to following hashmap is the next symbol's index after pi (the dot)
+     let mut newstates:HashMap<usize,LR1State> = HashMap::with_capacity(128);
+     let mut keyvec:Vec<usize> = Vec::new(); //keys of newstates
      for item in &state.items
      {
        let rule = self.Gmr.Rules.get(item.ri).unwrap();
        if item.pi<rule.rhs.len() { // can goto (dot before end of rule)
-          let ref nextsym = rule.rhs[item.pi].sym;
-
-          if let None = newstates.get(nextsym) {
-             newstates.insert(nextsym.to_owned(),LR1State::new());
-             keyvec.push(nextsym.clone());
+          let nextsymi = rule.rhs[item.pi].index;
+          if let None = newstates.get(&nextsymi) {
+             newstates.insert(nextsymi,LR1State::new());
+             keyvec.push(nextsymi);
           }
-          let symstate = newstates.get_mut(nextsym).unwrap();
+          let symstate = newstates.get_mut(&nextsymi).unwrap();
           let newitem = LRitem {
              ri : item.ri,
              pi : item.pi+1,
              la : item.la, //.clone(),
           };
-          let lhssym = &self.Gmr.Rules[item.ri].lhs.sym;
-          symstate.insert(newitem,lhssym);
+          //let lhssym = &self.Gmr.Rules[item.ri].lhs.sym;
+          let lhssymi = self.Gmr.Rules[item.ri].lhs.index; //*self.Gmr.Symhash.get(lhssym).unwrap();
+          symstate.insert(newitem,lhssymi);
           // SHIFT/GOTONEXT actions added by addstate function
        }//can goto
        else // . at end of production, this is a reduce situation
@@ -493,11 +509,11 @@ impl Statemachine
        } // set reduce action
      }// for each item 
      // form closures for all new states and add to self.States list
-     for key in keyvec
+     for key in keyvec // keyvec must be separate to avoid borrow error
      {
         let kernel = newstates.remove(&key).unwrap();
         let fullstate = stateclosure(kernel,&self.Gmr);
-        self.addstate(fullstate,si,&key); //only place addstate called
+        self.addstate(fullstate,si,key); //only place addstate called
      }
   }//makegotos
 
@@ -506,15 +522,16 @@ impl Statemachine
     // create initial state, closure from initial item: 
     // START --> .topsym EOF
     let mut startstate=LR1State::new();
+    let STARTi = *self.Gmr.Symhash.get("START").unwrap();
     startstate.insert( LRitem {
          ri : self.Gmr.Rules.len()-1, // last rule is start
          pi : 0,
          la : *self.Gmr.Symhash.get("EOF").unwrap(),   // must have this in grammar
-       },"START");       
+       },STARTi);       
     startstate = stateclosure(startstate,&self.Gmr);
     //setRactions(startstate); //???????
     self.States.push(startstate); // add start state
-    self.FSM.push(HashMap::with_capacity(64)); // row for state
+    self.FSM.push(HashMap::with_capacity(128)); // row for state
     // now generate closure for state machine (not individual states)
     let mut closed:usize = 0;
     if !self.lalr {
