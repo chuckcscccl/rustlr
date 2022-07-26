@@ -688,7 +688,7 @@ impl<'t> StrTokenizer<'t>
       // terminated without finding end of string
       self.position = self.input.len();
 //        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
-        eprintln!("Tokenizer error: unclosed string, last occurrence starting on line {}",line0);
+        eprintln!("Tokenizer error: unclosed string, line {}, possibly starting earlier",line0);
         let errposition = if (lstart0-1)<pi {pi-lstart0+1} else {0};
         return Some((LexError,line0,pi-lstart0+1)); 
     }//strlit

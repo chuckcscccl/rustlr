@@ -1173,7 +1173,6 @@ impl Grammar
      Fseq
   }//FirstSeqb
 
-
 // procedure to generate lexical scanner from lexname, lexval and lexattribute
 // declarations in the grammar file.  Added for Version 0.2.3.  This procedure
 // is only used by other modules internally
