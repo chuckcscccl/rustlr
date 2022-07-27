@@ -157,6 +157,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     // record table entries in a static array
     let mut totalsize = 0;
     for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
+    if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
     write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
     // generate table to represent FSM
     let mut encode:u64 = 0;
@@ -186,7 +187,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"\npub fn make_parser{}() -> ZCParser<RetTypeEnum{},{}>",&ltopt,&ltopt,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:ZCParser<RetTypeEnum{},{}> = ZCParser::new({},{});\n",&ltopt,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:ZCParser<RetTypeEnum{},{}> = ZCParser::new({},{});\n",&ltopt,extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates to call action fns, cast
      write!(fd," let mut rule = ZCRProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,"start")?; // dummy for init
     for i in 0..self.Gmr.Rules.len() 

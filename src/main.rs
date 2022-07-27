@@ -38,6 +38,9 @@ use parser_writer::*;
 mod ast_writer;
 use ast_writer::*;
 
+mod lalr_statemachine;
+use lalr_statemachine::LALRMachine;
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -53,6 +56,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
   let mut lalr = true;  // changed from false in version 0.2.0
+  let mut newlalr = false;
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
@@ -63,6 +67,7 @@ fn rustle(args:&Vec<String>) // called from main
      match &args[argi][..] {
        "lr1" | "LR1" | "-lr1" => { lalr=false; },
        "lalr" | "LALR" | "-lalr" => {lalr=true; },
+       "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },       
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -121,13 +126,23 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.compute_NullableRf();
   if tracelev>2 {println!("computing First sets");}
   grammar1.compute_FirstIM();
-  let mut fsm0 = Statemachine::new(grammar1);
-  fsm0.lalr = lalr;
-  if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
-  if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
-  fsm0.generatefsm(); //GENERATE THE FSM
+
+  let mut fsm0;
+  if newlalr {
+     let mut lalrfsm = LALRMachine::new(grammar1);
+     println!("Generating NEW LALR machine");
+     lalrfsm.generatefsm();
+     fsm0 = lalrfsm.to_statemachine();
+  }
+  else {
+    fsm0 = Statemachine::new(grammar1);
+    fsm0.lalr = lalr;
+    if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
+    if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
+    fsm0.generatefsm(); //GENERATE THE FSM
+  } // old code
   if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
-  else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
+  else if tracelev>1 && !newlalr {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.rs",&gramname));}
   if fsm0.States.len()>65536  {
     println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
@@ -143,7 +158,7 @@ fn rustle(args:&Vec<String>) // called from main
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
       else {fsm0.writeparser(&parserfile)}
     }; // write_result =
-  if tracelev>0 {eprintln!("{} total states",fsm0.States.len());}
+  if tracelev>0 {eprintln!("{} total states",fsm0.FSM.len());}
   if let Ok(_) = write_result {
      if tracelev>0 {println!("written parser to {}",&parserfile);}
   }

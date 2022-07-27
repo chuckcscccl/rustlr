@@ -135,7 +135,7 @@ impl LR1State
     let mut key=self.items.len()+ self.lhss.len()*10000;
     let limit = usize::MAX/1000 -1;
     let mut cx = 8;
-    for s in &self.lhss {key+=s*1000; cx-=1; if cx==0  || key>=limit {break;}}    
+    for s in &self.lhss {key+=s*1000; cx-=1; if cx==0  || key>=limit {break;}}
     key 
     //self.items.len() + self.lhss.len()*10000
   } // 
@@ -154,9 +154,10 @@ impl LR1State
 
   fn core_eq(&mut self, state2:&mut LR1State) -> bool // for LALR
   {
-     if self.core.len()==0 {self.core = extract_core(&self.items);}
-     if state2.core.len()==0 {state2.core = extract_core(&state2.items);}
-     if self.core.len()!=state2.core.len() {return false;}
+     //if self.core.len()==0 {self.core = extract_core(&self.items);}
+     //if state2.core.len()==0 {state2.core = extract_core(&state2.items);}
+     //if self.core.len()!=state2.core.len() {return false;}
+     if self.hashval_lalr() != state2.hashval_lalr() || (self.core.len()!=state2.core.len()) {return false;}
      for item_core in &self.core
      {
       if !state2.core.contains(item_core) {return false; }
@@ -372,7 +373,7 @@ pub struct Statemachine  // Consumes Grammar
    pub FSM: Vec<HashMap<usize,Stateaction>>,
    pub lalr: bool,
    pub Open: Vec<usize>, // for LALR only, vector of unclosed states
-   sr_conflicts:HashMap<(usize,usize),(bool,bool)>,
+   pub sr_conflicts:HashMap<(usize,usize),(bool,bool)>,
 }
 
 impl Statemachine

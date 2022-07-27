@@ -311,7 +311,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
     write!(fd,"pub fn make_parser() -> RuntimeParser<{},{}>",absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:RuntimeParser<{},{}> = RuntimeParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:RuntimeParser<{},{}> = RuntimeParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates, must pop values from runtime stack
     write!(fd," let mut rule = RProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,"start")?;
     for i in 0..self.Gmr.Rules.len() 
@@ -421,7 +421,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
     write!(fd,"pub fn make_parser() -> RuntimeParser<{},{}>",absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:RuntimeParser<{},{}> = RuntimeParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:RuntimeParser<{},{}> = RuntimeParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates, must pop values from runtime stack
     write!(fd," let mut rule = RProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,"start")?;
     for i in 0..self.Gmr.Rules.len() 
