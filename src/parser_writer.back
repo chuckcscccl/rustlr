@@ -165,7 +165,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let row = &self.FSM[i];        
       for key in row.keys()
       { // see function decode for opposite translation
-        let k = *self.Gmr.Symhash.get(key).unwrap(); // index of symbol
+        let k = *key; //*self.Gmr.Symhash.get(key).unwrap(); // index of symbol
         encode = ((i as u64) << 48) + ((k as u64) << 32);
         match row.get(key) {
           Some(Shift(statei)) => { encode += (*statei as u64) << 16; },

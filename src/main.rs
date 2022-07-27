@@ -55,8 +55,8 @@ fn rustle(args:&Vec<String>) // called from main
   let filepath = &args[1];
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
-  let mut lalr = true;  // changed from false in version 0.2.0
-  let mut newlalr = false;
+  let mut lalr = false;  // changed from false in version 0.2.0
+  let mut newlalr = true;
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
@@ -65,9 +65,10 @@ fn rustle(args:&Vec<String>) // called from main
   while argi<argc
   {
      match &args[argi][..] {
-       "lr1" | "LR1" | "-lr1" => { lalr=false; },
-       "lalr" | "LALR" | "-lalr" => {lalr=true; },
-       "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },       
+       "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
+       "lalr" | "LALR" | "-lalr" => {newlalr=true; },
+       "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
+       "oldlalr" | "-oldlalr" => {newlalr=false; lalr=true;}
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -128,9 +129,9 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.compute_FirstIM();
 
   let mut fsm0;
-  if newlalr {
+  if newlalr { // newlalr takes precedence over other flags
      let mut lalrfsm = LALRMachine::new(grammar1);
-     println!("Generating NEW LALR machine");
+     println!("Generating LALR(1) state machine");
      lalrfsm.generatefsm();
      fsm0 = lalrfsm.to_statemachine();
   }
@@ -138,7 +139,7 @@ fn rustle(args:&Vec<String>) // called from main
     fsm0 = Statemachine::new(grammar1);
     fsm0.lalr = lalr;
     if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
-    if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
+    if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"older LALR"} else {"LR1"},&gramname);}
     fsm0.generatefsm(); //GENERATE THE FSM
   } // old code
   if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }

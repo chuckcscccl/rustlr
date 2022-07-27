@@ -68,39 +68,16 @@ pub fn stateeq(s1:&Itemset, s2:&Itemset) -> bool
    return true;
 }//stateeq
 
-fn extract_core(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
+// works for all but initial kernel START --> topsym, EOF,
+// However, this state will never be encountered again.
+fn extract_kernel(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
 {
-   let mut core0 = HashSet::with_capacity(256);
-   for LRitem{ri:r, pi:p, la} in items  { core0.insert((*r,*p)); }
-   core0
+   let mut kernel0 = HashSet::with_capacity(256);
+   for LRitem{ri:r, pi:p, la} in items  {
+     if *p>0 {kernel0.insert((*r,*p));}
+   }
+   kernel0
 }
-/*
-// checks if every item core in s1 is also in s2, for LALR
-fn sub_core(s1:&Itemset, s2:&Itemset) -> bool // not used
-{
-   for LRitem{ri:r1,pi:p1,la:la1} in s1
-   {
-      let mut bx = false;
-      for LRitem{ri:r2,pi:p2,la} in s2
-      {
-         if r1==r2 && p1==p2 {bx=true; break;}
-      }
-      if !bx {return false;}
-   }
-   return true;
-}//sub_core
-
-fn eq_core(s1:&Itemset, s2:&Itemset) -> bool 
-{
-   let (core1,core2) = (extract_core(s1),extract_core(s2));
-   if core1.len()!=core2.len() {return false;}
-   for item_core in &core1
-   {
-      if !core2.contains(item_core) {return false; }
-   }
-   return true;
-}//eq_core
-*/
 
 #[derive(Clone,Debug)]
 pub struct LR1State
@@ -108,7 +85,7 @@ pub struct LR1State
    index: usize, // index into vector
    items:Itemset,
    lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
-   core: HashSet<(usize,usize)>, // used only by lalr
+   kernel: HashSet<(usize,usize)>, // used only by lalr
    //expected : HashSet<String>, // expected lookaheads for error reporting
 }
 impl LR1State
@@ -119,7 +96,7 @@ impl LR1State
         index : 0,   // need to change
         items : HashSet::with_capacity(512),
         lhss: BTreeSet::new(), // for quick lookup
-        core : HashSet::with_capacity(256),
+        kernel : HashSet::with_capacity(64),
         //expected : HashSet::with_capacity(32),
      }
   }
@@ -141,9 +118,8 @@ impl LR1State
   } // 
   pub fn hashval_lalr(&mut self) -> usize  // note: NOT UNIQUE
   {
-    //let mut key=extract_core(&self.items).len() + self.lhss.len()*10000;
-    if self.core.len()==0 {self.core = extract_core(&self.items); }
-    let mut key=self.core.len() + self.lhss.len()*1000000;    
+    if self.kernel.len()==0 {self.kernel = extract_kernel(&self.items); }
+    let mut key=self.kernel.len() + self.lhss.len()*1000000;    
     let limit = usize::MAX/1000 -1;
     let mut cx = 8;
     for s in &self.lhss {key+=1000*s; cx-=1; if cx==0 || key>=limit {break;}}
@@ -152,20 +128,20 @@ impl LR1State
     
   pub fn contains(&self, x:&LRitem) -> bool {self.items.contains(x)}
 
-  fn core_eq(&mut self, state2:&mut LR1State) -> bool // for LALR
+  fn kernel_eq(&mut self, state2:&mut LR1State) -> bool // for LALR
   {
-     //if self.core.len()==0 {self.core = extract_core(&self.items);}
-     //if state2.core.len()==0 {state2.core = extract_core(&state2.items);}
-     //if self.core.len()!=state2.core.len() {return false;}
-     if self.hashval_lalr() != state2.hashval_lalr() || (self.core.len()!=state2.core.len()) {return false;}
-     for item_core in &self.core
+     //if self.kernel.len()==0 {self.kernel = extract_kernel(&self.items);}
+     //if state2.kernel.len()==0 {state2.kernel = extract_kernel(&state2.items);}
+     //if self.kernel.len()!=state2.kernel.len() {return false;}
+     if self.hashval_lalr() != state2.hashval_lalr() || (self.kernel.len()!=state2.kernel.len()) {return false;}
+     for item_kernel in &self.kernel
      {
-      if !state2.core.contains(item_core) {return false; }
+      if !state2.kernel.contains(item_kernel) {return false; }
      }
      return true;
-  }//core_eq
-  //{ eq_core(&self.items,&state2.items) }
+  }//kernel_eq
 
+  // two states being merged must have same core
   fn merge_states(&mut self, state2:&LR1State) // used by lalr
   {
       for item in &state2.items {self.items.insert(*item);}
@@ -405,14 +381,14 @@ impl Statemachine
      if self.lalr {
         for i in indices.iter()
         { 
-           if state.core_eq(&mut self.States[*i]) {
+           if state.kernel_eq(&mut self.States[*i]) {
              toadd=*i; // toadd changed to index of existing state
              let mut stateclone = LR1State {
                 index : toadd,
                 items : state.items.clone(),
                 lhss: BTreeSet::new(), //state.lhss.clone(), //BTreeSet::new(), // will set by stateclosure
                 //expected : state.expected.clone(),
-                core: state.core.clone(),
+                kernel: state.kernel.clone(),
              };
              stateclone.merge_states(&self.States[toadd]);
              //self.state_merge(&self.States[toadd],&mut stateclone);
@@ -426,7 +402,7 @@ impl Statemachine
                 //}
              } // existing state extended, re-closed, but ...
              break;
-           } // core_eq with another state  
+           } // kernel_eq with another state  
         } // for each index in Statelookup to look at
      }// if lalr
      else {   // lr1
@@ -517,7 +493,7 @@ impl Statemachine
          la : self.Gmr.Symbols.len()-1, //*self.Gmr.Symhash.get("EOF").unwrap(),   // must have this in grammar
        },STARTi);       
     startstate = stateclosure(startstate,&self.Gmr);
-    //setRactions(startstate); //???????
+    startstate.kernel.insert((self.Gmr.Rules.len()-1,0)); //special core (lalr)
     self.States.push(startstate); // add start state, first state
     self.FSM.push(HashMap::with_capacity(128)); // row for state
     // now generate closure for state machine (not individual states)
@@ -580,13 +556,13 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
          if winner==cri {changefsm=false;}
        },
        (Some(Shift(_)), Reduce(rsi)) => {
-         if Gmr.tracelev>1 {
+         if Gmr.tracelev>4 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
          }
          if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
        },
        (Some(Reduce(rsi)), Shift(_)) => {
-         if Gmr.tracelev>1 {
+         if Gmr.tracelev>4 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
          }       
          if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }

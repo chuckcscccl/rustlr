@@ -16,13 +16,22 @@ of grammar rules with expressions such as `a _* b`
 
 <p>
 
-**Version 0.2.97 adds a shared_state variable to the runtime parser that
-can be mutably shared (via `Rc<RefCell<..>>`) by other structures such as the
-tokenizer - allowing the tokenizer to behave dynamically.  See [Chapter 4](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html) of the tutorial.  Version 0.2.95 adds the ability to define
-custom regular expressions and custom token types to the built-in lexical analyzer; the lexterminal and valueterminal directives further simplify the creation of the lexical analyzer.**
 
+**Version 0.2.98 enhanced internal speed of parser generation.
+Version 0.2.97 adds a shared_state variable to the runtime parser that
+can be mutably shared (via `Rc<RefCell<..>>`) by other structures such as the
+tokenizer - allowing the tokenizer to behave dynamically.  See [Chapter 4](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html) of the tutorial.**
 
 ### Major Features and the Versions that Introduced Them
+
+#### Version 0.2.95:
+
+Adds the ability to define custom regular expressions and custom token
+types to the built-in lexical analyzer; the lexterminal and
+valueterminal directives further simplify the creation of the lexical
+analyzer.
+
+
 
 #### Version 0.2.9:
 
