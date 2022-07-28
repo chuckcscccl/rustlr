@@ -142,7 +142,7 @@ fn rustle(args:&Vec<String>) // called from main
     if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"older LALR"} else {"LR1"},&gramname);}
     fsm0.generatefsm(); //GENERATE THE FSM
   } // old code
-  if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
+  if tracelev>2 && !newlalr { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
   else if tracelev>1 && !newlalr {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.rs",&gramname));}
   if fsm0.States.len()>65536  {

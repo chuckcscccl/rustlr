@@ -477,8 +477,16 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
     self.reclose(); // set lookaheads for non-kernel items
     //println!("after reclose");        
     self.set_reduce();
+
+    // optional trace
+    if self.Gmr.tracelev>2 {
+       for state in &self.States {printlalrstate(state,&self.Gmr);}
+    }
+    else if self.Gmr.tracelev>1 {
+       print!("INITIAL STATE: ");
+       printlalrstate(&self.States[0],&self.Gmr);
+    }
   }//generatefsm
-  
 }//impl LALRMachine
 
 
@@ -488,7 +496,7 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
 // purel LR0 state closure
 fn closure0(state: &mut LALRState,Gmr:&Grammar)
 {// assuming kernel is a kernel item and not? in state
-assert!(state.items.len()==0);
+//assert!(state.items.len()==0);
    let mut closure = Vec::new();
    // start with kernel items
    for kitem in state.kernel.iter() {closure.push(*kitem);} // copy!
@@ -513,3 +521,31 @@ assert!(state.items.len()==0);
    }//while !closed
 }//closure0 - pure LR(0)
 
+
+
+//////
+// independent function for tracing
+pub fn printlalrstate(state:&LALRState,Gmr:&Grammar) 
+{
+  println!("-----------\nState {}:",state.index);
+  for (LALRitem(ri,pi),las) in state.lookaheads.iter()
+  {
+     let ref lhs_sym = Gmr.Rules[*ri].lhs.sym;
+     let ref rhs = Gmr.Rules[*ri].rhs;
+     print!("  ({}) {} --> ",ri,lhs_sym);
+     let mut position = 0;
+     for gsym in rhs 
+     {
+       if &position==pi {print!(".");}
+       print!("{} ",gsym.sym);
+       position+=1;
+     }
+     if &position==pi {print!(". ");}
+     print!(" {{ ");
+     for la in las.borrow().iter()
+     {
+       if *la<Gmr.Symbols.len() { print!("{},",Gmr.symref(*la));}
+     }
+     println!(" }}");
+  }//for key
+}//printlalrstate
