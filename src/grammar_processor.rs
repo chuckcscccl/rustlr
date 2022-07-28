@@ -682,7 +682,12 @@ strtok is bstokens[i], but will change
                            breakpoint = true;
                            retoki = &retokisplit[0][..rpp];
                            if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
-                           if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
+                           if retokisplit.len()>1 {
+                             defaultrelab2=retokisplit[1].to_owned();
+                             if !is_alphanum(&defaultrelab2) {
+                               panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
+                             }
+                           }
                         }
                         else {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
                      }
@@ -766,7 +771,14 @@ strtok is bstokens[i], but will change
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
 		   let defaultrelab = format!("_item{}_",i-1-iadjust);
-		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
+		   let relabel = if retoks.len()>1 && retoks[1].len()>0
+                     {
+                         if !is_alphanum(retoks[1]) {
+                            panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
+                         }                     
+                       retoks[1]
+                     }
+                     else {&defaultrelab};
 		   let mut gsympart = strtok[0..strtok.len()-1].trim(); //no *
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
@@ -858,7 +870,12 @@ strtok is bstokens[i], but will change
                   } else {panic!("MALFORMED EXPRESSION LINE {}\n",linenum);}
                   strtok = septoks[0]; // to the left of :, E<,*>
    	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
-		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {septoks[1]} else {&defaultrelab3};
+		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
+                     if !is_alphanum(septoks[1]) {
+                       panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
+                     }
+                     septoks[1]
+                  } else {&defaultrelab3};
     	          let mut gsympart3 = strtok[0..lb].trim(); //before <,*>
                   if gsympart3=="_" {gsympart3="_WILDCARD_TOKEN_";}
    	          let errmsg = format!("UNRECOGNIZED GRAMMAR SYMBOL '{}', LINE {}\n",gsympart3,linenum);
@@ -1060,6 +1077,20 @@ strtok is bstokens[i], but will change
      // reset wildcard type if sametype on all other symbols
      if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
      self.enumhash.insert(self.Absyntype.clone(),0); // 0 reserved
+
+     // final integrity checks
+     for sym in &self.Symbols {
+        if !sym.terminal && &sym.sym!="START" {
+          if let Some(rset) = self.Rulesfor.get(&sym.sym) {
+            if rset.len()<1 {
+             eprintln!("WARNING: The symbol {}, which was declared non-terminal, does not occur on the left-hand side of any production rule.\n",&sym.sym);
+            }
+          } else {
+            self.Rulesfor.insert(sym.sym.clone(),HashSet::new()); 
+          }
+        }
+     }//integrity checks
+
   }//parse_grammar
 }// impl Grammar
 // last rule is always start rule and first state is start state
