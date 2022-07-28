@@ -110,7 +110,8 @@ println!("{}: {}",i,&self.Symbols[i].sym);
              if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
              else {passthru = -2;}
 	    } // with Lbox
-	    else if &self.Symbols[rsymi].rusttype!="()" || rsym.label.len()>0 {  //no Lbox
+	    else if &self.Symbols[rsymi].rusttype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox
+//println!("looking at symbol {}, rusttype {}, label {}",&rsym.sym, &rsym.rusttype, &rsym.label);
               if genstruct {
                 enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
                 ACTION.push_str(&format!("{},",&itemlabel));
