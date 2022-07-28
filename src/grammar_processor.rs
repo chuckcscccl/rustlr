@@ -1053,6 +1053,9 @@ strtok is bstokens[i], but will change
         precedence : 0,
      };
      self.Rules.push(startrule);  // last rule is start rule
+     let mut startrfset = HashSet::new();
+     startrfset.insert(self.Rules.len()-1); // last rule is start rule
+     self.Rulesfor.insert("START".to_owned(),startrfset);
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
@@ -1078,9 +1081,17 @@ strtok is bstokens[i], but will change
      if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
      self.enumhash.insert(self.Absyntype.clone(),0); // 0 reserved
 
+
+     // compute reachability relation.
+     self.reachability(); // in ast_writer module
+     let startreach = self.Reachable.get(&(self.Symbols.len()-2)).unwrap();
      // final integrity checks
      for sym in &self.Symbols {
-        if !sym.terminal && &sym.sym!="START" {
+        // skip wildcard, START and EOF
+        if sym.index>0 && sym.index<self.Symbols.len()-2 && !startreach.contains(&sym.index) {
+          eprintln!("WARNING: The symbol {} is not reachable from the grammar's start symbol.\n",&sym.sym);
+        }
+        if !sym.terminal {
           if let Some(rset) = self.Rulesfor.get(&sym.sym) {
             if rset.len()<1 {
              eprintln!("WARNING: The symbol {}, which was declared non-terminal, does not occur on the left-hand side of any production rule.\n",&sym.sym);
@@ -1088,8 +1099,10 @@ strtok is bstokens[i], but will change
           } else {
             self.Rulesfor.insert(sym.sym.clone(),HashSet::new()); 
           }
-        }
-     }//integrity checks
+        }   // nonterminal actually used on left side
+     }
+     //integrity checks
+     
 
   }//parse_grammar
 }// impl Grammar

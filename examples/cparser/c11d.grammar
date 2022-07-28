@@ -74,6 +74,8 @@ lexterminal GOTO goto
 lexterminal CONTINUE continue
 lexterminal BREAK break
 lexterminal RETURN return
+lexterminal INCLUDE include
+lexterminal DEFINE define
 lexterminal ELLIPSIS ...
 lexterminal Lbrace {
 lexterminal Rbrace }
@@ -91,6 +93,7 @@ lexterminal Lt <
 lexterminal Gt >
 lexterminal ASSIGN =
 lexterminal Quest ?
+#lexterminal Hash #
 terminals [ ] ( )  + - ~ ;
 
 valueterminal TYPEDEF_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().contains(n)~ n
@@ -103,28 +106,34 @@ valueterminal STRING_LITERAL~ &'lt str~ Strlit(s)~ s
 lexattribute add_custom("directive",r"^(?m)^#.*$")
 valueterminal COMPILER_DIRECTIVE~ &'lt str~ Custom("directive",d)~ d
 
-#nonterminals unary_operator constant assignment_operator initializer_list
-#nonterminals conditional_expression struct_declarator_list
+nonterminals primary_expression postfix_expression argument_expression_list
+nonterminals unary_expression unary_operator cast_expression multiplicative_expression
+nonterminals additive_expression shift_expression relational_expression equality_expression
+nonterminals and_expression exclusive_or_expression inclusive_or_expression
+nonterminals logical_and_expression logical_or_expression conditional_expression
 
-nonterminals expression
+nonterminals assignment_expression expression constant_expression
 nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
-nonterminals struct_or_union struct_declaration struct_declaration_list
-nonterminals specifier_qualifier_list struct_declarator
+nonterminals struct_or_union struct_declaration_list struct_declaration
+nonterminals specifier_qualifier_list struct_declarator_list struct_declarator
 nonterminals enum_specifier enumerator_list enumerator type_qualifier
 nonterminals declarator direct_declarator pointer type_qualifier_list
-nonterminals parameter_type_list parameter_declaration
-nonterminals identifier_list type_name abstract_declarator
-nonterminals direct_abstract_declarator initializer
+nonterminals parameter_type_list parameter_list parameter_declaration
+nonterminals identifier_list type_name abstract_declarator declaration_list
+nonterminals direct_abstract_declarator initializer initializer_list
 nonterminals statement labeled_statement compound_statement
-nonterminals expression_statement selection_statement
+nonterminals statement_list expression_statement selection_statement
 nonterminals iteration_statement jump_statement translation_unit
-nonterminals external_declaration function_definition generic_selection
+nonterminals external_declaration function_definition
+
+nonterminals constant stringnt generic_selection assignment_operator
 nonterminals generic_association static_assert_declaration designation
 nonterminals function_specifier alignment_specifier atomic_type_specifier
-nonterminals designator block_item declaration_specifier
+nonterminals designator_list designator block_item declaration_specifier
 nonterminals specifier_qualifier initializer_designation
-nonterminals expression_list expressionS
+nonterminals compiler_directive expression_list expressionS
+#generic_assoc_list
 
 topsym translation_unit
 
@@ -213,7 +222,7 @@ expression ==>
 	| expression PTR_OP IDENTIFIER
 	| expression INC_OP
 	| expression DEC_OP
-        | ( type_name ) Lbrace initializer_designation<Comma+> Comma? Rbrace
+        | ( type_name ) Lbrace initializer_list Comma? Rbrace
 	<==
 
 expression_list --> expression<Comma+>
@@ -425,7 +434,7 @@ specifier_qualifier_list --> specifier_qualifier+
 #	| type_specifier
 #	<==
 
-#struct_declarator_list --> struct_declarator<Comma+>
+struct_declarator_list --> struct_declarator<Comma+>
 #struct_declarator_list ==>
 #	 struct_declarator
 #	| struct_declarator_list Comma struct_declarator
@@ -554,9 +563,20 @@ initializer ==>
 	  expression
 	| Lbrace initializer_designation<Comma+> Comma? Rbrace
 	<==
+
 initializer_designation --> designation? initializer
+#initializer_list --> initializer_designation<Comma+>
+#initializer_list ==>
+#	 initializer
+#	| initializer_list Comma initializer
+#        | designation initializer
+#        | initializer_list Comma designation initializer
+#	<==
 
 designation --> designator+ ASSIGN
+
+designator_list --> designator+
+
 designator --> [ expression ] | Dot IDENTIFIER
 
 static_assert_declaration --> STATIC_ASSERT ( expression Comma STRING_LITERAL ) ;
