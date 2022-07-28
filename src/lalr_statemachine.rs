@@ -427,6 +427,7 @@ fn reclose(&mut self) // set remaining lookaheads
            if !interior.contains(&newitem) {
              closure.push(newitem); // add to "frontier"
            }
+           // newitem cannot be kitem because newitem is non-kernel
            if newitem!=item { //runtime borrow check!
              let mut slas = state.lookaheads.get(&newitem).unwrap().borrow_mut();
              for xla in Xlookaheads.iter() {slas.insert(*xla);}
@@ -473,7 +474,7 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
     //println!("set_propagations");    
     self.propagate_lookaheads();
     //println!("after propagate_lookaheads");    
-self.reclose(); // set lookaheads for non-kernel items
+    self.reclose(); // set lookaheads for non-kernel items
     //println!("after reclose");        
     self.set_reduce();
   }//generatefsm

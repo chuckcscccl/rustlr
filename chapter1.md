@@ -323,7 +323,7 @@ To run the program, **`cargo new`** a new crate and copy
 the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
 under [dependencies]:
 ```
-rustlr = "0.2.9"  
+rustlr = "0.2.98"  
 ```
 **`cargo run "2+3*4"`** will print 14 and `cargo run "(2+3)*4"` will print
 20.
@@ -367,6 +367,11 @@ something like the following:
 assuming that WHITESPACE is a declared terminal symbol and "value" is
 the value you want to be associated with the symbol (usually this is just
 the valuetype::default()).  Whitespace(n) is a variant of [RawToken][rtk].
+
+It is possible to combine a lexname declaration with the declaration of a
+terminal symbol with
+
+>     lexterminal COLON :
 
 The symbol START and terminal EOF will always be added as additional
 symbols to the grammar.  The other symbols that should not be used for
