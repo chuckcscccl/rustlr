@@ -694,7 +694,7 @@ strtok is bstokens[i], but will change
                            if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
                            if retokisplit.len()>1 {
                              defaultrelab2=retokisplit[1].to_owned();
-                             if !is_alphanum(checkboxlabel(&defaultrelab2)) {
+                             if !is_alphanum(&defaultrelab2) {
                                panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
                              }
                            }
@@ -783,7 +783,7 @@ strtok is bstokens[i], but will change
 		   let defaultrelab = format!("_item{}_",i-1-iadjust);
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0
                      {
-                         if !is_alphanum(checkboxlabel(retoks[1])) {
+                         if !is_alphanum(retoks[1]) {
                             panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
                          }                     
                        retoks[1]
@@ -881,7 +881,7 @@ strtok is bstokens[i], but will change
                   strtok = septoks[0]; // to the left of :, E<,*>
    	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
 		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
-                     if !is_alphanum(checkboxlabel(septoks[1])) {
+                     if !is_alphanum(septoks[1]) {
                        panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
                      }
                      septoks[1]

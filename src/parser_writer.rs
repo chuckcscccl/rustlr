@@ -15,7 +15,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 //use std::mem;
-use crate::Statemachine;
+use crate::{Statemachine,checkboxlabel};
 use crate::Stateaction::*;
 
 /////////////////////ENUM VERSION//////////////////////////////////////
@@ -288,13 +288,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
   fn is_lba(t:&str) -> bool {
    t.trim().starts_with("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
   }//is_lba to check type
-
-
-fn checkboxlabel(s:&str) -> &str
-{
-    if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
-}// check if label is of form [x], returns x, or s if not of this form.
-
 
 
 // function to remove lifetime, <'t>, non-alphanums from string
