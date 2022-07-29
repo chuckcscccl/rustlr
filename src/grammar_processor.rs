@@ -109,7 +109,7 @@ pub struct Grammar
   pub topsym : String,
   pub Nullable : HashSet<String>,
   pub First : HashMap<usize,HashSet<usize>>,
-  pub Rulesfor: HashMap<String,HashSet<usize>>,  //rules for a non-terminal
+  pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
   pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
@@ -381,7 +381,7 @@ impl Grammar
                newterm.index = self.Symbols.len();
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
-               self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
+               self.Rulesfor.insert(self.Symbols.len()-1,HashSet::new());
 	    }, //nonterminal
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
@@ -395,7 +395,7 @@ impl Grammar
 		  self.enumhash.insert(newterm.rusttype.clone(), ntcx);
 		  ntcx+=1; 
                   self.Symbols.push(newterm);
-                  self.Rulesfor.insert(stokens[i].to_owned(),HashSet::new());
+                  self.Rulesfor.insert(self.Symbols.len()-1,HashSet::new());
 		  //if TRACE>2 {println!("nonterminal {}",stokens[i]);}
                }
             },
@@ -613,7 +613,7 @@ impl Grammar
                Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
                _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
              };
-
+            let symind2 = *symindex;
              let mut ntcnt = 0; // for generating new nonterminal names
 
               // split by | into separate rules
@@ -767,7 +767,7 @@ strtok is bstokens[i], but will change
                   //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
                   if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
-                  self.Rulesfor.insert(ntname2,rulesforset);
+                  self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
                   strtok = &newtok2;
 //println!("1 strtok now {}",strtok);
                 } // starts with (
@@ -854,7 +854,7 @@ strtok is bstokens[i], but will change
 		   rulesforset.insert(self.Rules.len()-2);
 		   rulesforset.insert(self.Rules.len()-1);
 		   newtok = format!("{}:{}",&newntname,relabel);
-		   self.Rulesfor.insert(newntname,rulesforset);
+		   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
 //println!("2 strtok now {}",strtok);                   
@@ -932,7 +932,7 @@ strtok is bstokens[i], but will change
 		  rulesforset3.insert(self.Rules.len()-2);
 		  rulesforset3.insert(self.Rules.len()-1);
                   newtok3 = format!("{}:{}",&newntname3,relabel3);
-                  self.Rulesfor.insert(newntname3,rulesforset3);
+                  self.Rulesfor.insert(newnt3.index,rulesforset3);
                   // ANOTHER RULE IS NEEDED IF strtok ends in *>
                   if strtok.ends_with("*>") {  // M --> | N
                     let newntname5 = format!("NEWSEPNT2_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
@@ -963,7 +963,7 @@ strtok is bstokens[i], but will change
 		  rulesforset5.insert(self.Rules.len()-2);
 		  rulesforset5.insert(self.Rules.len()-1);
                   newtok3 = format!("{}:{}",&newntname5,relabel3);
-                  self.Rulesfor.insert(newntname5,rulesforset5);
+                  self.Rulesfor.insert(newnt5.index,rulesforset5);
                   } // *> processed
                   strtok = &newtok3; 
                 } // if ends with *> or +>
@@ -1010,7 +1010,7 @@ strtok is bstokens[i], but will change
                 }//match
 	      } // while there are tokens on rhs
 	      // form rule
-	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
+	      //let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}
@@ -1024,10 +1024,10 @@ strtok is bstokens[i], but will change
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
               // Add rules to Rulesfor map
-              if let None = self.Rulesfor.get(LHS) {
-                 self.Rulesfor.insert(String::from(LHS),HashSet::new());
+              if let None = self.Rulesfor.get(&symind2) { //symind2 is LHS
+                 self.Rulesfor.insert(symind2,HashSet::new());
               }
-              let rulesforset = self.Rulesfor.get_mut(LHS).unwrap();
+              let rulesforset = self.Rulesfor.get_mut(&symind2).unwrap();
               rulesforset.insert(self.Rules.len()-1);
             //} 
             } // for rul
@@ -1065,7 +1065,7 @@ strtok is bstokens[i], but will change
      self.Rules.push(startrule);  // last rule is start rule
      let mut startrfset = HashSet::new();
      startrfset.insert(self.Rules.len()-1); // last rule is start rule
-     self.Rulesfor.insert("START".to_owned(),startrfset);
+     self.Rulesfor.insert(self.Symbols.len()-2,startrfset); //for START
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
@@ -1102,12 +1102,12 @@ strtok is bstokens[i], but will change
           eprintln!("WARNING: The symbol {} is not reachable from the grammar's start symbol.\n",&sym.sym);
         }
         if !sym.terminal {
-          if let Some(rset) = self.Rulesfor.get(&sym.sym) {
+          if let Some(rset) = self.Rulesfor.get(&sym.index) {
             if rset.len()<1 {
              eprintln!("WARNING: The symbol {}, which was declared non-terminal, does not occur on the left-hand side of any production rule.\n",&sym.sym);
             }
           } else {
-            self.Rulesfor.insert(sym.sym.clone(),HashSet::new()); 
+            self.Rulesfor.insert(sym.index,HashSet::new()); 
           }
         }   // nonterminal actually used on left side
      }
@@ -1122,7 +1122,7 @@ strtok is bstokens[i], but will change
 //////////////////////  Nullable
 
 //// also sets the RulesFor map for easy lookup of all the rules for
-//// a non-terminal
+//// a non-terminal  **no-longer done!
 impl Grammar
 {
   pub fn compute_NullableRf(&mut self)
@@ -1145,12 +1145,14 @@ impl Grammar
              changed = self.Nullable.insert(rule.lhs.sym.clone()) || changed;
              //if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
           }
+/*
           // add rule index to Rulesfor map:
           if let None = self.Rulesfor.get(&rule.lhs.sym) {
              self.Rulesfor.insert(rule.lhs.sym.clone(),HashSet::new());
           }
           let ruleset = self.Rulesfor.get_mut(&rule.lhs.sym).unwrap();
           ruleset.insert(rulei);
+*/
           rulei += 1;
        } // for each rule
      } //while changed

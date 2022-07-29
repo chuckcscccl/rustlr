@@ -243,7 +243,7 @@ pub fn stateclosure0(state:&mut LR1State, Gmr:&Grammar) // new attempt
           let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
           let nti_lhsi = nti.index;
           let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
-          for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
+          for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
           {
             for lafollow in lookaheads 
             { 
@@ -289,7 +289,7 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
        let nti_lhsi = nti.index; //*Gmr.Symhash.get(&nti.sym).unwrap();
        let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
-       for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
+       for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
        {
           for lafollow in lookaheads 
           { 
@@ -544,7 +544,13 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
      let mut changefsm = true; // add or keep current
      match (currentaction, &newaction) {
        //(_ Accept) | (_,Gotonext(_)) => {},  //part of default
-       (Some(Accept),_) => { changefsm = false; },
+       (None,_) => {},  // most likely: just add
+       (Some(Reduce(rsi)), Shift(_)) => {
+         if Gmr.tracelev>4 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
+         }       
+         if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
+       },
        (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
          let winner = if (cri<nri) {cri} else {nri};
@@ -555,18 +561,13 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
          printrulela(*nri,Gmr,la);
          if winner==cri {changefsm=false;}
        },
+       (Some(Accept),_) => { changefsm = false; },
        (Some(Shift(_)), Reduce(rsi)) => {
          if Gmr.tracelev>4 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
          }
          if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
        },
-       (Some(Reduce(rsi)), Shift(_)) => {
-         if Gmr.tracelev>4 {
-           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
-         }       
-         if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
-       },       
        _ => {}, // default add newstate
      }// match currentaction
      if changefsm { FSM[si].insert(la,newaction); }

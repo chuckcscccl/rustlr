@@ -304,7 +304,7 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
            // this could be the kernel item with dummy
            for ila in itemlas.iter() {Xlookaheads.insert(*ila);}
          }
-         for rulent in self.Gmr.Rulesfor.get(&Xsym.sym).unwrap() {
+         for rulent in self.Gmr.Rulesfor.get(&Xsym.index).unwrap() {
            let newitem = LALRitem(*rulent,0);
            // if newitem!=item for borrow checks?
            let mut slas = self.States[si].lookaheads.get(&newitem).unwrap().borrow_mut();
@@ -422,7 +422,7 @@ fn reclose(&mut self) // set remaining lookaheads
          let mut Xlookaheads = HashSet::new();
          let itemlas = state.lookaheads.get(&item).unwrap().borrow();
          for ila in itemlas.iter() {Xlookaheads.insert(*ila);}
-         for rulent in self.Gmr.Rulesfor.get(&Xsym.sym).unwrap() {
+         for rulent in self.Gmr.Rulesfor.get(&Xsym.index).unwrap() {
            let newitem = LALRitem(*rulent,0);
            if !interior.contains(&newitem) {
              closure.push(newitem); // add to "frontier"
@@ -510,8 +510,8 @@ fn closure0(state: &mut LALRState,Gmr:&Grammar)
      state.insert(item,lhsi); // insert into state.items here
      closed += 1;
      if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {// add closure items
-       let sympi = &rulei.rhs[pi].sym;
-       for rulent in Gmr.Rulesfor.get(sympi).unwrap() {
+       //let sympii = &rulei.rhs[pi].index;
+       for rulent in Gmr.Rulesfor.get(&rulei.rhs[pi].index).unwrap() {
          let newitem = LALRitem(*rulent,0); // can't be kernel again
          if !state.items.contains(&newitem) {
            closure.push(newitem); // add to "frontier"

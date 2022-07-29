@@ -13,7 +13,8 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use crate::{Grammar,is_alphanum};
+use crate::{Grammar,is_alphanum,checkboxlabel};
+//use crate::parser_writer::checkboxlabel;
 
 // auto-generate abstract syntax
 
@@ -61,9 +62,15 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	       let symname = &self.Rules[*ri].rhs[0].sym;
 	       if is_alphanum(symname) { //insert r# into enum variant name
 	         lhslab = symname.clone();
-		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }
+		 if self.Rules[*ri].rhs.len()>1 /*|| self.Rules[*ri].rhs[0].rusttype!="()"*/ { lhslab.push_str(&format!("_{}",ri)); }
 	       }
-	     }
+               /*
+               else if self.Rules[*ri].rhs[0].label.len()>0 && is_alphanum(&self.Rules[*ri].rhs[0].label) {
+                 lhslab = self.Rules[*ri].rhs[0].label.clone();
+		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }                 
+               }
+               */
+	     }  // determine enum variant name based on 1st rhs symbol
 	     self.Rules[*ri].lhs.label = lhslab;
 	  } // set lhs label
 	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
@@ -79,28 +86,47 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	  }
 	  let mut rhsi = 0; // right-side index
 	  let mut passthru:i64 = -1; // index of path-thru NT value
+          let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
-	    let rsymi = *self.Symhash.get(&rsym.sym).unwrap(); //symbol index
-	    let itemlabel = if rsym.label.len()>0 {passthru=-2; rsym.label.clone()} else
-            	            {format!("_item{}_",&rhsi)};
-            rsym.rusttype = self.Symbols[rsymi].rusttype.clone();
+	    //let rsymi = rsym.index; //*self.Symhash.get(&rsym.sym).unwrap();
+            let expectedlabel = format!("_item{}_",&rhsi);
+
+            // check if item has a symbol of the form [x], which forces an
+            // lbox
+            let alreadyislbx =
+              rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
+	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel {
+            // presence of rhs label also cancels passthru
+              passthru=-2; checkboxlabel(&rsym.label).to_owned()
+            } else {expectedlabel}; //{format!("_item{}_",&rhsi)};
             if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
-            if self.Symbols[rsymi].terminal && self.Symbols[rsymi].precedence!=0 { passthru = -2; }
-            // Lbox or no Lbox:
-            if !self.Symbols[rsymi].terminal && &self.Symbols[rsymi].rusttype!="()" && !self.Symbols[rsymi].rusttype.starts_with("Vec") && !self.Symbols[rsymi].rusttype.starts_with("LBox") && !self.Symbols[rsymi].rusttype.starts_with("Option<LBox") {
+            if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
+            // Lbox or no Lbox:  ***************
+            let rsymtype = &rsym.rusttype;
+            // check if rsym is non-terminal and reaches lsym
+            let lhsreachable = match self.Reachable.get(&rsym.index) {
+               None => false,
+               Some(rset) => rset.contains(&lhsi),
+              };
+            if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) && !self.basictypes.contains(&rsymtype[..])) {
+//            && !self.basictypes.contains(&rsymtype[..]) && !(rsymtype.starts_with('&') && !rsymtype.contains("mut")) && !rsymtype.starts_with("Vec") && !rsymtype.starts_with("LBox") && !rsymtype.starts_with("Option<LBox") {
               if genstruct {
                enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
-               ACTION.push_str(&format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel));
+               let semact = if alreadyislbx {format!("{}:{}, ",&itemlabel,&itemlabel)} else {format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel)};
+               ACTION.push_str(&semact);
+//               ACTION.push_str(&format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel));
               }
               else {
                enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
-	       ACTION.push_str(&format!("parser.lbx({},{}),",&rhsi, &itemlabel));
+               let semact = if alreadyislbx {format!("{}, ",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
+	       ACTION.push_str(&semact);
              }// not genstruct
              if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
              else {passthru = -2;}
 	    } // with Lbox
-	    else if &self.Symbols[rsymi].rusttype!="()" {  //no Lbox
+	    else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox
+//println!("looking at symbol {}, rusttype {}, label {}",&rsym.sym, &rsym.rusttype, &rsym.label);
               if genstruct {
                 enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
                 ACTION.push_str(&format!("{},",&itemlabel));
@@ -109,10 +135,12 @@ println!("{}: {}",i,&self.Symbols[i].sym);
                 enumvar.push_str(&format!("{},",&rsym.rusttype));
 	        ACTION.push_str(&format!("{},",&itemlabel));
               }//not genstruct (gen enum)
-//println!("rule {}, rhs sym {}, type {}, lhs type {}",ri,&rsym.rusttype,&rsym.sym,&lhsymtype);
+
+//if *ri==15 {println!("rule {}, rhs sym {}, type {}, lhs type {}, passthru {}",ri,&rsym.sym,&rsym.rusttype,&lhsymtype,passthru);}
+              
               if &rsym.rusttype==&lhsymtype && passthru==-1 {passthru=rhsi;}
-              else {passthru = -2;}            
-	    }// terminal but not unit type
+              else {passthru = -2;}
+	    }// could still be nonterminal but not unit type - no lbox
 	    /*
 	    check special case: only one NT on rhs that has same type as lhs,
 	    and all other symbols have type () AND are marked punctuations.
@@ -142,21 +170,23 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
-    	  ACTION.push_str(" }");
+    	  ACTION.push_str(" }");  // action already has last rbrack
 	  // determine if action and ast enum should be generated:
-          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
-            self.Rules[*ri].action = format!("_item{}_ }}",passthru);
+//          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
+          let mut actbase = augment_action(&self.Rules[*ri].action);
+          if !actbase.ends_with('}') && passthru>=0 && nolhslabel {
+            self.Rules[*ri].action = format!("{} _item{}_ }}",&actbase,passthru);
 //println!("passthru on rule {}, NT {}",ri,&self.Rules[*ri].lhs.sym);
           }
 	  else
-          if self.Rules[*ri].action.len()<=1 && ntsym.rusttype.starts_with(NT) {
-  	    self.Rules[*ri].action = ACTION;
+          if !actbase.ends_with('}') && ntsym.rusttype.starts_with(NT) {
+  	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
 	  }
           else if ntsym.rusttype.starts_with(NT) {  // added for 0.2.94
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
           }
-//println!("Action for rule {}: {}",ri,&self.Rules[*ri].action);
+//println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
 
         if !genstruct {
@@ -201,10 +231,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 use std::marker::PhantomData;
 extern crate rustlr;
 use rustlr::LBox;\n")?;
-     write!(fd,"{}\n",&self.Extras)?;
+     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
+     if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}
      write!(fd,"{}",&ASTS)?;
      println!("Abstract syntax structures created in {}",filename);
-     // add the grammar .extras
+     // add the grammar .extras - these will only be placed in parser file
      self.Extras.push_str("use rustlr::LBox;\n");
      self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
      self.Extras.push_str(&format!("use crate::{}_ast::*;\n",&self.name));     
@@ -229,14 +260,14 @@ use rustlr::LBox;\n")?;
        for (NT, NTrules) in self.Rulesfor.iter()
        {
         let iNT = self.Symhash.get(NT).unwrap();
-        let mut symset = HashSet::new();
+        let mut symset = HashSet::new(); // symbols to be added to NT's reach
         for ri in NTrules
         {
            for sym in &self.Rules[*ri].rhs
            {
-              let symi = *self.Symhash.get(&sym.sym).unwrap();
+              let symi = sym.index; //*self.Symhash.get(&sym.sym).unwrap();
               symset.insert(symi);
-              if !self.Symbols[symi].terminal { // noterminal
+              if !sym.terminal { // noterminal
                  for nsymi in self.Reachable.get(&symi).unwrap().iter()
                  {
                      symset.insert(*nsymi);
@@ -244,7 +275,7 @@ use rustlr::LBox;\n")?;
               }
            } // collect rhs symbols into a set
         }//for ri
-        let ireachable = self.Reachable.get_mut(iNT).unwrap(); // refcell
+        let ireachable = self.Reachable.get_mut(iNT).unwrap();
         for sym in symset
         {
           stillopen =  ireachable.insert(sym) || stillopen;
@@ -255,4 +286,28 @@ use rustlr::LBox;\n")?;
 
 }//impl Grammar
 
+
+// function to see if given semantic action should be replaced or augmented
+// returns String base of action, not closed with } if need auto generation.
+fn augment_action(act0:&str) -> String
+{
+   let act = act0.trim();
+   if act.len()<=1 {return String::new();} // completely regenerate
+   let rbpo = act.rfind('}');
+   if let Some(rbp) = rbpo {
+     let ebpo = act[..rbp].rfind("...");
+     if let Some(ebp)=ebpo { 
+        let mut act2 = String::from(&act[..ebp]) + " ";
+        return act2;
+     }
+   }
+   else {return String::new();} // did not end in }
+   return String::from(act);
+}
+
+  // non-LBox types
+fn nonlbxtype(ty:&str) -> bool
+  {
+     ty=="String" || (ty.starts_with('&') && !ty.contains("mut")) || ty.starts_with("Vec<LBox") || ty.starts_with("LBox") || ty.starts_with("Option<LBox")
+  }//nonlbxtype
 

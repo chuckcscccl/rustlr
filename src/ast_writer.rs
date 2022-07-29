@@ -38,10 +38,11 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 
      // setting of type = NT name done by grammar processor, including ltopt
 
-     for (NT,NTrules) in self.Rulesfor.iter()
+     for (nt,NTrules) in self.Rulesfor.iter()
      {
-        let nti = *self.Symhash.get(NT).unwrap();
+        let nti = *nt; //*self.Symhash.get(NT).unwrap();
         let ntsym = &self.Symbols[nti];
+        let NT = &self.Symbols[nti].sym;
 
         /////// generate ENUM by default
         let mut genstruct = NTrules.len()==1;
@@ -251,7 +252,7 @@ use rustlr::LBox;\n")?;
      let NTs:Vec<_> = self.Rulesfor.keys().collect();
      for NT in NTs
      {
-       self.Reachable.insert(*self.Symhash.get(NT).unwrap(), HashSet::new());
+       self.Reachable.insert(*NT, HashSet::new());
      } // create map skeletons
 
      let mut stillopen = true;
@@ -259,7 +260,7 @@ use rustlr::LBox;\n")?;
        stillopen = false;
        for (NT, NTrules) in self.Rulesfor.iter()
        {
-        let iNT = self.Symhash.get(NT).unwrap();
+        //let iNT = *NT; //self.Symhash.get(NT).unwrap();
         let mut symset = HashSet::new(); // symbols to be added to NT's reach
         for ri in NTrules
         {
@@ -275,7 +276,7 @@ use rustlr::LBox;\n")?;
               }
            } // collect rhs symbols into a set
         }//for ri
-        let ireachable = self.Reachable.get_mut(iNT).unwrap();
+        let ireachable = self.Reachable.get_mut(NT).unwrap();
         for sym in symset
         {
           stillopen =  ireachable.insert(sym) || stillopen;
