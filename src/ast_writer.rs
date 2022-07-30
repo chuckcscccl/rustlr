@@ -46,7 +46,9 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 
         /////// generate ENUM by default
         let mut genstruct = NTrules.len()==1;
-        let mut usedlt = false; // did lt appear in type?
+        let mut simplestruct = false;
+        let mut usedlt = false; // did lt appear in type? - only for genstruct
+
 	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
         if genstruct {AST=format!("#[derive(Default,Debug)]\npub struct {} {{\n",&ntsym.rusttype);}
         
@@ -65,26 +67,35 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	         lhslab = symname.clone();
 		 if self.Rules[*ri].rhs.len()>1 /*|| self.Rules[*ri].rhs[0].rusttype!="()"*/ { lhslab.push_str(&format!("_{}",ri)); }
 	       }
-               /*
-               else if self.Rules[*ri].rhs[0].label.len()>0 && is_alphanum(&self.Rules[*ri].rhs[0].label) {
-                 lhslab = self.Rules[*ri].rhs[0].label.clone();
-		 if self.Rules[*ri].rhs.len()>1 || self.Rules[*ri].rhs[0].rusttype!="()" { lhslab.push_str(&format!("_{}",ri)); }                 
-               }
-               */
 	     }  // determine enum variant name based on 1st rhs symbol
 	     self.Rules[*ri].lhs.label = lhslab;
 	  } // set lhs label
+
+          // determine if simplestruct can be used
+          if genstruct {
+            simplestruct = true;
+            for rs in &self.Rules[*ri].rhs {
+              if rs.label.len()>0 && !rs.label.starts_with("_item") {
+                 simplestruct = false;
+              }
+              if rs.rusttype.contains(&ltopt) || rs.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
+            }
+            simplestruct = simplestruct && usedlt;
+          }//if genstruct, determine if it's a simple struct, calc usedlt
+          if simplestruct {AST = format!("#[derive(Default,Debug)]\npub struct {}(",&ntsym.rusttype);}
+
 	  let lhsymtype = self.Rules[*ri].lhs.rusttype.clone();
 	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
           if genstruct {
-             ACTION=format!("{} {{",NT);
+             if simplestruct {ACTION=format!("{}(",NT);}
+             else {ACTION=format!("{} {{",NT);}
              enumvar = String::new(); // "enumvar" means "struct-fields"
-          }
+          }//genstruct
 	  else if self.Rules[*ri].rhs.len()>0 {
 	    enumvar.push('(');
 	    ACTION.push('(');
-	  }
+	  }//enum
 	  let mut rhsi = 0; // right-side index
 	  let mut passthru:i64 = -1; // index of path-thru NT value
           let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
@@ -101,7 +112,7 @@ println!("{}: {}",i,&self.Symbols[i].sym);
             // presence of rhs label also cancels passthru
               passthru=-2; checkboxlabel(&rsym.label).to_owned()
             } else {expectedlabel}; //{format!("_item{}_",&rhsi)};
-            if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
+//            if rsym.rusttype.contains(&ltopt) || rsym.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
             // Lbox or no Lbox:  ***************
             let rsymtype = &rsym.rusttype;
@@ -113,12 +124,16 @@ println!("{}: {}",i,&self.Symbols[i].sym);
             if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) && !self.basictypes.contains(&rsymtype[..])) {
 //            && !self.basictypes.contains(&rsymtype[..]) && !(rsymtype.starts_with('&') && !rsymtype.contains("mut")) && !rsymtype.starts_with("Vec") && !rsymtype.starts_with("LBox") && !rsymtype.starts_with("Option<LBox") {
               if genstruct {
-               enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
-               let semact = if alreadyislbx {format!("{}:{}, ",&itemlabel,&itemlabel)} else {format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel)};
-               ACTION.push_str(&semact);
-//               ACTION.push_str(&format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel));
-              }
-              else {
+               if simplestruct {
+                enumvar.push_str(&format!("pub LBox<{}>,",&rsym.rusttype));
+                ACTION.push_str(&format!("parser.lbx({},{}), ",&rhsi, &itemlabel));
+               } else {
+                 enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,&rsym.rusttype));
+                 let semact = if alreadyislbx {format!("{}:{}, ",&itemlabel,&itemlabel)} else {format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel)};
+                ACTION.push_str(&semact);
+               }//not simplestruct
+              } //genstruct
+              else { //enum
                enumvar.push_str(&format!("LBox<{}>,",&rsym.rusttype));
                let semact = if alreadyislbx {format!("{}, ",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
 	       ACTION.push_str(&semact);
@@ -129,9 +144,15 @@ println!("{}: {}",i,&self.Symbols[i].sym);
 	    else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox
 //println!("looking at symbol {}, rusttype {}, label {}",&rsym.sym, &rsym.rusttype, &rsym.label);
               if genstruct {
-                enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
+                if simplestruct {
+                  enumvar.push_str("pub ");
+                  enumvar.push_str(&rsym.rusttype);
+                  enumvar.push(',');
+                } else {
+                  enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,&rsym.rusttype));
+                }
                 ACTION.push_str(&format!("{},",&itemlabel));
-              }
+              }//genstruct
 	      else {
                 enumvar.push_str(&format!("{},",&rsym.rusttype));
 	        ACTION.push_str(&format!("{},",&itemlabel));
@@ -156,11 +177,16 @@ println!("{}: {}",i,&self.Symbols[i].sym);
           if genstruct { // this is only rule that forms struct
              if !usedlt && ltopt.len()>0 {
                enumvar.push_str(&format!("  pub phantom:PhantomData<&{} ()>,\n",&self.lifetime));
-               ACTION.push_str("phantom:PhantomData, ");
+               ACTION.push_str("phantom:PhantomData,");
              }
-             enumvar.push_str("}\n");
-             ACTION.push('}');
-          }
+             if simplestruct {
+               enumvar.push_str(");\n\n");
+               ACTION.push(')');
+             } else {
+               enumvar.push_str("}\n");
+               ACTION.push('}');
+             }
+          }//genstruct
           else
           if enumvar.ends_with(',') {
 	      enumvar.pop(); 
