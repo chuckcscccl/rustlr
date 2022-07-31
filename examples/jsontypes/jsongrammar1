@@ -24,13 +24,14 @@ valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
 nonterminal Number
 nonterminal Integer i64
 nonterminal Floatpt f64
-nonterminal Object Vec<LBox<KVPair<'lt>>>
+nonterminal Object Vec<LBox<Pair<'lt>>>
 nonterminal List Vec<LBox<Value<'lt>>>
 #explicit type enables passthru
 nonterminal Boolean bool
-nonterminals Value KVPair
+nonterminals Value
 nonterminal Values Vec<LBox<Value<'lt>>>
-nonterminal Pairs
+nonterminal Pair 
+nonterminal Pairs Vec<LBox<Pair<'lt>>>
 
 topsym Value
 resync COMMA RBRACK RBRACE
@@ -54,15 +55,13 @@ Value:List --> List
 Value --> NULL
 Value --> LPAREN Value RPAREN
 
-KVPair --> STRING COLON Value
+Pair --> STRING:key COLON Value:val
 
-Values -->  Value<COMMA*>
-Pairs --> KVPair<COMMA*>
+Values --> Value:[v] { vec![v] }
+Values --> Values:vs COMMA Value:[v] { vs.push(v); vs }
+Pairs --> Pair:[v] { vec![v] }
+Pairs --> Pairs:vs COMMA Pair:[v] { vs.push(v); vs }
 
-List --> LBRACK Value<COMMA*> RBRACK
-Object --> LBRACE KVPair<COMMA*> RBRACE
-
-EOF
-
-declaring the type of Object explicitly was important otherwise passthru
-is not recognized.
+List --> LBRACK Values?:v RBRACK { v.unwrap_or(vec![]) }
+Object --> LBRACE Pairs?:p RBRACE { p.unwrap_or(vec![]) }
+#Object --> LBRACE Pairs?:p RBRACE { if p.is_none() {vec![]} else {let drm = p.as_deref_mut().unwrap(); std::mem::take(drm)}}
