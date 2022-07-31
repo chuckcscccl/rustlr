@@ -1,4 +1,5 @@
 # Rustlr grammar use with -auto
+
 lifetime 'lt
 lexterminal LBRACE {
 lexterminal RBRACE }
@@ -8,8 +9,11 @@ lexterminal LPAREN (
 lexterminal RPAREN )
 lexterminal COLON :
 lexterminal COMMA ,
+#lexterminal TRUE true
+#lexterminal FALSE false
 lexterminal NULL null
 lexterminal MINUS -
+lexterminal EXP e
 valueterminal TRUE~ bool~ Alphanum("true")~ true
 valueterminal FALSE~ bool~ Alphanum("false")~ false
 valueterminal STRING~ &'lt str~ Strlit(n)~ &n[1..n.len()-1]
@@ -17,18 +21,26 @@ valueterminal NUM~ i64~ Num(n)~ n
 valueterminal FLOAT~ f64~ Float(n)~ n
 valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
 
+nonterminal Number
 nonterminal Integer i64
 nonterminal Floatpt f64
-nonterminal Boolean bool
-nonterminals Number Value KeyValPair
-nonterminal Object Vec<LBox<KeyValPair<'lt>>>
+nonterminal Object Vec<LBox<KVPair<'lt>>>
 nonterminal List Vec<LBox<Value<'lt>>>
+#explicit type enables passthru
+nonterminal Boolean bool
+nonterminals Value KVPair
+nonterminal Values Vec<LBox<Value<'lt>>>
+nonterminal Pairs
 
 topsym Value
 resync COMMA RBRACK RBRACE
 
+# Json values:
 Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
-Floatpt --> MINUS?:m FLOAT:n {if m.is_some() {-1.0*n} else {n}} 
+Floatpt ==> MINUS?:m FLOAT:n (EXP Integer)?:e {
+  let f = if m.is_some() {-1.0*n} else {n}; 
+  if let Some(exponent)=e {f*10_f64.powi(exponent as i32)} else {f}
+ } <==
 Number:Bignum --> MINUS?:m BIGNUM
 Number:Int --> Integer
 Number:Float --> Floatpt
@@ -41,9 +53,14 @@ Value:Object --> Object
 Value:List --> List
 Value --> NULL
 Value --> LPAREN Value RPAREN
-KeyValPair --> STRING COLON Value
+
+KVPair --> STRING COLON Value
+
+Values -->  Value<COMMA*>
+Pairs --> KVPair<COMMA*>
+
 List --> LBRACK Value<COMMA*> RBRACK
-Object --> LBRACE KeyValPair<COMMA*> RBRACE
+Object --> LBRACE KVPair<COMMA*> RBRACE
 
 EOF
 
