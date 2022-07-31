@@ -106,13 +106,17 @@ valueterminal COMPILER_DIRECTIVE~ &'lt str~ Custom("directive",d)~ d
 #nonterminals unary_operator constant assignment_operator initializer_list
 #nonterminals conditional_expression struct_declarator_list
 
+$#[derive(Default,Debug)]
+$pub struct Declarator<'t>(pub Option<pointer<'t>>, pub direct_declarator<'t>);
+nonterminal declarator Declarator<'lt>
+#nonterminal direct_ab_base
 nonterminals expression
 nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
 nonterminals struct_or_union struct_declaration struct_declaration_list
 nonterminals specifier_qualifier_list struct_declarator
 nonterminals enum_specifier enumerator_list enumerator type_qualifier
-nonterminals declarator direct_declarator pointer type_qualifier_list
+nonterminals direct_declarator pointer type_qualifier_list
 nonterminals parameter_type_list parameter_declaration
 nonterminals identifier_list type_name abstract_declarator
 nonterminals direct_abstract_declarator initializer
@@ -308,7 +312,7 @@ expressionS --> expression_list
 
 
 #!use crate::c11_ast::init_declarator::*;
-!use crate::c11_ast::declarator::*;
+#!use crate::c11_ast::declarator::*;
 !use crate::c11_ast::declaration::*;
 !use crate::c11_ast::direct_declarator::*;
 #!use crate::c11_ast::declaration_specifiers::*;
@@ -316,21 +320,7 @@ expressionS --> expression_list
 !use crate::c11_ast::storage_class_specifier::*;
 
 declaration:DecSpec --> declaration_specifiers ;
-declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il ; 
-  { if let (declaration_specifiers{_item0_:tdl}, ils) = (&ds,&il)  {
-     if let storage(typedeff) = &*tdl[0] {
-      if let TYPEDEF = &**typedeff {
-       if let init_declarator {declarator:nplid, initializer} = &*ils[0] {
-        match &**nplid {
-          no_pointer(lid) | with_pointer(_,lid) => {
-             if let IDENTIFIER(id) = &**lid {
-               parser.shared_state.borrow_mut().insert(id);
-             }
-          },
-          _ => {},
-        }
-    }}}}  ...
-  } <==
+declaration:DecSpecList --> declaration_specifiers:ds init_declarator<Comma+>:il ;
 declaration:Statassert --> static_assert_declaration
 
 declaration_specifier:storage --> storage_class_specifier
@@ -462,10 +452,11 @@ function_specifier --> INLINE | NORETURN
 alignment_specifier --> ALIGNAS ( type_name ) 
 alignment_specifier --> ALIGNAS ( expression )
 
-#declarator --> pointer?:ptropt direct_declarator:direct_dec
-declarator:with_pointer -->  pointer direct_declarator
-declarator:no_pointer -->  direct_declarator
-#	<==
+#declarator --> pointer?:ptr direct_declarator:direct_dec
+#declarator:with_pointer -->  pointer direct_declarator
+#declarator:no_pointer -->  direct_declarator
+declarator -->  pointer:ptr direct_declarator:direct {Declarator(Some(ptr),direct)}
+declarator -->  direct_declarator:direct {Declarator(None,direct)}
 
 # we can't replace all type_qualifier_list with type_qualifier+
 # below because the left context (plus one lookahead), won't be
@@ -489,7 +480,6 @@ direct_declarator ==>
 	| direct_declarator ( identifier_list )
 	| direct_declarator ( )
 	<==
-#	| direct_declarator [ expression ]
 
 pointer --> Star type_qualifier*:tql pointer?:ptr
 #pointer ==>
@@ -530,6 +520,7 @@ abstract_declarator ==>
 	| pointer direct_abstract_declarator
 	<==
 
+
 direct_abstract_declarator ==>
 	 ( abstract_declarator )
 	| [ ]
@@ -548,7 +539,7 @@ direct_abstract_declarator ==>
 	| direct_abstract_declarator ( )
 	| direct_abstract_declarator ( parameter_type_list )
 	<==
-#	| [ expression ]
+
 
 initializer ==>
 	  expression
@@ -637,3 +628,35 @@ function_definition --> declaration_specifiers declarator declaration* compound_
 
 
 EOF
+
+
+
+declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il ;
+  { if let (declaration_specifiers{_item0_:tdl}, ils) = (&ds,&il)  {
+     if let storage(typedeff) = &*tdl[0] {
+      if let TYPEDEF = &**typedeff {
+       if let init_declarator {declarator:nplid, initializer} = &*ils[0] {
+        match &**nplid {
+          no_pointer(lid) | with_pointer(_,lid) => {
+             if let IDENTIFIER(id) = &**lid {
+               parser.shared_state.borrow_mut().insert(id);
+             }
+          },
+          _ => {},
+        }
+    }}}}  ...
+  } <==
+
+   
+direct_ab_base ==>
+     [ ]
+   | [ Star ]
+   | [ STATIC type_qualifier* expression ]
+   | [ type_qualifier_list STATIC?:s expression ]
+   | [ expression ]
+   | ( )
+   | ( parameter_type_list )
+   <==
+direct_abstract_declarator --> direct_ab_base+
+direct_abstract_declarator --> direct_ab_base+ [ type_qualifier_list ]
+direct_abstract_declarator --> ( abstract_declarator )
