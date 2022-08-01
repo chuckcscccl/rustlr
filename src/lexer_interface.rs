@@ -407,7 +407,9 @@ impl<'t> StrTokenizer<'t>
   {
     let decuint = Regex::new(r"^\d+").unwrap();
     let hexnum = Regex::new(r"^0x[\dABCDEFabcdef]+").unwrap();
-    let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
+    let floatp = Regex::new(r"^\d*\x2E\d+([eE][+-]?\d+)?").unwrap();
+    // not allowing +- before numbers is right decision.  How to tokenize 1-2?
+    //let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();

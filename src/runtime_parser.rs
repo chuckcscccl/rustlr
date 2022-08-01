@@ -326,6 +326,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       while k>0
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
+        let gsymtype = gsym.gettype(&self.Gmr);
 	if gsym.label.len()>1 && gsym.label.find('@').is_some() { // if-let pattern
 	  let atindex = gsym.label.find('@').unwrap();
 	  let varlab = if atindex>0 {gsym.label[0..atindex].to_string()} 
@@ -336,7 +337,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
 	  write!(fd," let mut {}=",&varlab)?;	  
 	}
 	else if gsym.label.len()>0 { // simple pattern, no need for if-let
-	  if gsym.rusttype.len()>=3 && &gsym.rusttype[0..3]=="mut" {
+	  if gsymtype.len()>=3 && &gsymtype[0..3]=="mut" {
 	    write!(fd," let mut {}:{}=",&gsym.label,absyn)?;
 	  }
           else {write!(fd," let {}:{}=",&gsym.label,absyn)?;}
@@ -360,7 +361,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction,decode_action}};\n")?;
       while k>0 // k-1 indexes backwards rhs of grammar rule
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
-        if gsym.label.len()>0 && &gsym.rusttype[0..3]=="mut"
+        if gsym.label.len()>0 && &gsymtype[0..3]=="mut"
           { write!(fd," let mut {}:{}=",gsym.label,absyn)?; }        
         else if gsym.label.len()>0
           { write!(fd," let {}:{}=",gsym.label,absyn)?; }
@@ -432,7 +433,8 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
       while k>0
       {
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
-        if gsym.label.len()>0 && &gsym.rusttype[0..3]=="mut"
+        let gsymtype = gsym.gettype(&self.Gmr);
+        if gsym.label.len()>0 && &gsymtype[0..3]=="mut"
           { write!(fd," let mut {}:{}=",gsym.label,absyn)?; }        
         else if gsym.label.len()>0
           { write!(fd," let {}:{}=",gsym.label,absyn)?; }

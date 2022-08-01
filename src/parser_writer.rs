@@ -42,12 +42,12 @@ impl Statemachine
     for ri in 0..rlen
     {
       let lhs = &self.Gmr.Rules[ri].lhs.sym;
-      let lhsi = self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
-      let rettype = &self.Gmr.Symbols[*lhsi].rusttype; // return type=rusttype
+      let lhsi = self.Gmr.Rules[ri].lhs.index; //self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
+      let rettype = &self.Gmr.Symbols[lhsi].rusttype; // return type=rusttype
       let ltoptr = if has_lt || (lifetime.len()>0 && rettype.contains(lifetime))
         {format!("<{}>",lifetime)} else {String::from("")};
       let mut fndef = format!("\nfn _semaction_rule_{}_{}(parser:&mut ZCParser<RetTypeEnum{},{}>) -> {} {{\n",ri,&ltoptr,&ltopt,extype,rettype);
-
+//if rettype=="()" {println!("() type for {}",lhs);}
       let mut k = self.Gmr.Rules[ri].rhs.len(); //k=len of rhs of rule ri
       //form if-let labels and patterns as we go...
       let mut labels = String::from("(");
@@ -75,7 +75,8 @@ impl Statemachine
           _ => {},
         }//match
         let poppedlab = plab.as_str();
-        let ref symtype = gsym.rusttype;  // type of this symbol on rhs
+//        let ref symtype = gsym.rusttype;  // type of this symbol on rhs
+        let symtype=&self.Gmr.Symbols[gsym.index].rusttype;
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR",&symtype);
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
         //form RetTypeEnum::Enumvariant_{eindex}(popped value)

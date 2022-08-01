@@ -163,5 +163,8 @@ fn rustle(args:&Vec<String>) // called from main
   if let Ok(_) = write_result {
      if tracelev>0 {println!("written parser to {}",&parserfile);}
   }
+  else if let Err(err) = write_result {
+     println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
+  }
 }//rustle
 

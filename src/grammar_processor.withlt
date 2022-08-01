@@ -52,9 +52,6 @@ impl Gsym
   { self.rusttype = String::from(rt); }
   pub fn setprecedence(&mut self, p:i32)
   { self.precedence = p; }
-  pub fn gettype<'t>(&self,Gmr:&'t Grammar) -> &'t str
-  { &Gmr.Symbols[self.index].rusttype }
-  
 }// impl for Gsym
 
 
@@ -132,7 +129,6 @@ pub struct Grammar
 //  pub transform_function: String, // for 0.2.96
   pub basictypes : HashSet<&'static str>,
   pub ASTExtras : String,
-  pub haslt_base: HashSet<usize>,
 }
 
 impl Default for Grammar {
@@ -174,7 +170,6 @@ impl Grammar
 //       transform_function: String::new(),
        basictypes : btypes,
        ASTExtras: String::new(),
-       haslt_base: HashSet::new(), //terminals that contains lifetime
      }
   }//new grammar
 
@@ -229,11 +224,6 @@ impl Grammar
          _ => false,
        }
   }
-  pub fn lookuptype(&self,t:&str) -> &str
-  {
-     if let Some(ti) = self.Symhash.get(t) {&self.Symbols[*ti].rusttype}
-     else {""}
-  }
 
 ////// meta (grammar) parser
   pub fn parse_grammar(&mut self, filename:&str)
@@ -255,8 +245,14 @@ impl Grammar
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true); // special terminal
-     wildcard.rusttype="(usize,usize)".to_owned();
-     self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
+
+     // need to add new flag in main to allow wildcard without genabsyn
+     //if self.genabsyn {wildcard.rusttype="()".to_owned();}
+//     if self.genabsyn {
+       wildcard.rusttype="(usize,usize)".to_owned();
+       self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
+//     }
+//     else {wildcard.rusttype="()".to_owned();}
      wildcard.index = self.Symbols.len();
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
      self.Symbols.push(wildcard); // wildcard is first symbol.
@@ -356,10 +352,7 @@ impl Grammar
 	       self.enumhash.insert(nttype.to_owned(), ntcx);  ntcx+=1;
                newterm.index = self.Symbols.len();
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
-               if self.lifetime.len()>0 && nttype.contains(&self.lifetime) {
-                 self.haslt_base.insert(newterm.index);
-               }
-               self.Symbols.push(newterm);
+               self.Symbols.push(newterm);           
 	    }, //typed terminals
 	    "nonterminal" | "typednonterminal" if stage==0 && stokens.len()>1 => {   // with type
 	       if self.Symhash.get(stokens[1]).is_some() {
@@ -374,38 +367,16 @@ impl Grammar
                }
                // set rusttype
                let mut nttype = tokentype.trim().to_owned();
-               //if nttype.len()<1 && self.genabsyn {
-	         //nttype = format!("{}{}",stokens[1],&ltopt); //do nothing
-	       //}  // genabsyn
-	       if nttype.contains('@') {// copy type from other NT
-                let mut limit =self.Symbols.len()+1;
-                loop {
-                 let mut copynt="";
-                 let (mut start,mut end) = (0,0);
-                 if nttype.starts_with('@') {
-                    copynt = nttype[1..].trim();
-                    start = 0; end = nttype.len();
-                 }
-                 if let Some(pos1)=nttype.find("<@") {
-                   if let Some(pos2)=nttype[pos1+2..].find('>') {
-                       copynt = &nttype[pos1+2..pos1+2+pos2];
-                       start = pos1+1; end = pos1+2+pos2;
-                   }
-                 }
-                 if copynt.len()>0 {
-  	          let onti = *self.Symhash.get(copynt).expect(&format!("UNRECOGNIZED NON-TERMINAL SYMBOL {} TO COPY TYPE FROM (ORDER OF DECLARATION MATTERS), line {} of grammar",copynt,linenum));
-		  if !self.genabsyn {
-                    nttype.replace_range(start..end,&self.Symbols[onti].rusttype);
-                  }//if !auto, need to set type now
-                 }
-                 limit -= 1;
-                 if !nttype.contains('@') || limit==0 {break;}
-                }//loop
+               if nttype.len()<1 && self.genabsyn {
+	         nttype = format!("{}{}",stokens[1],&ltopt);
+	       }  // genabsyn
+	       else if nttype.starts_with('*') {// copy type from other NT
+	         let copynt = nttype[1..].trim();
+	         let onti = *self.Symhash.get(copynt).expect(&format!("UNRECOGNIZED NON-TERMINAL SYMBOL {} TO COPY TYPE FROM (ORDER OF DECLARATION MATTERS), line {} of grammar",copynt,linenum));
+		 nttype = self.Symbols[onti].rusttype.clone();
 	       } // *NT copy type from other NT
-               if nttype.len()<1 && !self.genabsyn {nttype = self.Absyntype.clone()};
-	       if !nttype.contains('@') {self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;}
-               if &nttype!=&self.Absyntype {self.sametype=false;}
-               
+               if nttype.len()<1 {nttype = self.Absyntype.clone()};
+	       self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;
 	       newterm.rusttype = nttype;
                newterm.index = self.Symbols.len();
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
@@ -417,10 +388,15 @@ impl Grammar
 	          let mut newterm = Gsym::new(stokens[i],false);
                   newterm.index = self.Symbols.len();                  
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
-		  if !self.genabsyn {newterm.rusttype = self.Absyntype.clone();}
+                  if self.genabsyn {
+		    newterm.rusttype = format!("{}{}",stokens[i],&ltopt);
+		  }
+		  else {newterm.rusttype = self.Absyntype.clone();}
+		  self.enumhash.insert(newterm.rusttype.clone(), ntcx);
 		  ntcx+=1; 
                   self.Symbols.push(newterm);
                   self.Rulesfor.insert(self.Symbols.len()-1,HashSet::new());
+		  //if TRACE>2 {println!("nonterminal {}",stokens[i]);}
                }
             },
 	    "topsym" | "startsymbol" /*if stage==0*/ => {
@@ -431,7 +407,7 @@ impl Grammar
                     let toptype = &self.Symbols[*tsi].rusttype;
                     if toptype != &self.Absyntype && !self.genabsyn && toptype.len()>0 {
                        eprintln!("Type of Grammar start symbol {} set to {}",stokens[1],&self.Absyntype);
-                       if !self.genabsyn {self.Symbols[*tsi].rusttype = self.Absyntype.clone();}
+                       self.Symbols[*tsi].rusttype = self.Absyntype.clone();
                     }
                  },
                  _ => { panic!("top symbol {} not found in declared non-terminals; check ordering of declarations, line {}",stokens[1],linenum);
@@ -484,6 +460,7 @@ impl Grammar
                }
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Absyntype = String::from(line[pos..].trim());
+               //if !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // set wildcard type
             },
             "externtype" | "externaltype" if stage==0 => {
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -559,9 +536,6 @@ impl Grammar
                self.enumhash.insert(newterm.rusttype.clone(),ntcx); ntcx+=1;
                newterm.index = self.Symbols.len();
                self.Symhash.insert(termname.to_owned(),self.Symbols.len());
-               if self.lifetime.len()>0 && newterm.rusttype.contains(&self.lifetime) {
-                 self.haslt_base.insert(newterm.index);
-               }
                self.Symbols.push(newterm);
 	       let mut valform = String::new(); // equiv to lexvalue...
 	       for i in 3 .. dtokens.len()
@@ -583,8 +557,10 @@ impl Grammar
                }
                let termname = stokens[1].trim();
                let mut newterm = Gsym::new(termname,true);
-               if self.genabsyn { newterm.settype("()"); }
-               else {newterm.settype(&self.Absyntype);}
+               //if self.genabsyn { newterm.settype("()"); }
+               //else {newterm.settype(&self.Absyntype);}
+               newterm.settype("()");
+               if "()"!=&self.Absyntype {self.sametype=false;}
                newterm.index = self.Symbols.len();
                self.Symhash.insert(termname.to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
@@ -747,8 +723,7 @@ strtok is bstokens[i], but will change
                      if igsym.precedence.abs()>precd {precd =igsym.precedence;}
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
-                       //newnt2.rusttype = igsym.rusttype.clone();
-                       newnt2.rusttype = format!("@{}",&igsym.sym);
+                       newnt2.rusttype = igsym.rusttype.clone();
                        // or put * before it, fill-in later
                      }
                      else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
@@ -763,7 +738,6 @@ strtok is bstokens[i], but will change
                   }// while i<=bstokens.len()
                   if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
                   iadjust += jk as usize;
-                  /*
                   if passthru<0 {
                     newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
                     if !self.enumhash.contains_key(&newnt2.rusttype) {
@@ -771,9 +745,8 @@ strtok is bstokens[i], but will change
                     }
                     // this assumes -auto
                     // action will be written by ast_writer
-                  }  dont set type yet
-                  */
-                  if passthru>=0 { // set action of new rule to be passthru
+                  }
+                  else { // set action of new rule to be passthru
                     newrule2.action = format!(" _item{}_ }}",passthru);
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
@@ -782,7 +755,7 @@ strtok is bstokens[i], but will change
                   newnt2.index = self.Symbols.len();
                   newrule2.lhs.index = newnt2.index;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
-                  //newrule2.lhs.rusttype = newnt2.rusttype.clone();
+                  newrule2.lhs.rusttype = newnt2.rusttype.clone();
                   self.Symbols.push(newnt2);
                   // register new rule
                    if self.tracelev>3 {
@@ -828,56 +801,48 @@ strtok is bstokens[i], but will change
                    // part of ast type unless there is a given label: -?:m
                    if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
 		     newnt.rusttype = if strtok.ends_with('?') {
-                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with("LBox") {
-                        if self.genabsyn {format!("Option<@{}>",&self.Symbols[gsymi].sym)} else {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} }
-                       else {
-                        if self.genabsyn {format!("Option<LBox<@{}>>",&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with("LBox") {format!("Option<{}>",&self.Symbols[gsymi].rusttype)}
+                       else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)}
                      }
-                     else {
-                       if self.genabsyn {format!("Vec<LBox<@{}>>",&self.Symbols[gsymi].sym)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)} };
+                     else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
                    }
-                   // else type stays () (,*)
-                   /*  later
 		   if !self.enumhash.contains_key(&newnt.rusttype) {
  		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
 		     ntcx+=1;
 		   }
-                   */
                    newnt.index = self.Symbols.len();
 		   self.Symhash.insert(newntname.clone(),self.Symbols.len());
 		   self.Symbols.push(newnt.clone());
 		   // add new rules
 		   let mut newrule1 = Grule::new_skeleton(&newntname);
-		   //newrule1.lhs.rusttype = newnt.rusttype.clone();
+		   newrule1.lhs.rusttype = newnt.rusttype.clone();
                    newrule1.lhs.index = newnt.index;
-                   let nr1type = &self.Symbols[newnt.index].rusttype;
                    newrule1.precedence = self.Symbols[gsymi].precedence;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if nr1type.starts_with("Option<LBox<") {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if nr1type.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
+                     if newrule1.lhs.rusttype.starts_with("Option<LBox<") {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if newrule1.lhs.rusttype.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if nr1type!="()" {
+                     if &newrule1.lhs.rusttype!="()" {
 		       newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
                      }
 		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
-		   //newrule0.lhs.rusttype = newnt.rusttype.clone();
-                   let nr0type = &self.Symbols[newnt.index].rusttype;
+		   newrule0.lhs.rusttype = newnt.rusttype.clone();
                    newrule0.lhs.index = newnt.index;
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
-                     if nr0type!="()" {
+                     if &newrule0.lhs.rusttype!="()" {
 		       newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
                      }
 		   }// ends with +
-		   else if strtok.ends_with('*') && nr0type!="()" {
+		   else if strtok.ends_with('*') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" Vec::new() }");
 		   }
-		   else if strtok.ends_with('?') && nr0type!="()" {
+		   else if strtok.ends_with('?') && &newrule0.lhs.rusttype!="()" {
 		     newrule0.action = String::from(" None }");
 		   }
                    if self.tracelev>3 {
@@ -930,26 +895,24 @@ strtok is bstokens[i], but will change
 	          let mut newnt3 = Gsym::new(&newntname3,false);
                   newnt3.rusttype = "()".to_owned();
                   if &self.Symbols[gsymi].rusttype!="()" || (septoks.len()>1 && septoks[1].len()>0) {
-		     newnt3.rusttype = format!("Vec<LBox<@{}>>",&self.Symbols[gsymi].sym);
+		     newnt3.rusttype = format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype);
                   } // else rusttype stays ()
                   // note: if types are not being generated, what should this
                   // type be? can note that it should follow from
                   // type of a symbol, in special format like Expr* or
                   // can create map inside Grammar with this info.
-                  /*
 	          if !self.enumhash.contains_key(&newnt3.rusttype) {
  		     self.enumhash.insert(newnt3.rusttype.clone(),ntcx);
 		     ntcx+=1;
 		  }
-                  */
                   newnt3.index = self.Symbols.len();
 		  self.Symhash.insert(newntname3.clone(),self.Symbols.len());
 		  self.Symbols.push(newnt3.clone()); // register new nt
 		   // add new rules
 		  let mut newrule3 = Grule::new_skeleton(&newntname3);
 		  let mut newrule4 = Grule::new_skeleton(&newntname3);
-  		  //newrule3.lhs.rusttype = newnt3.rusttype.clone();
-  		  //newrule4.lhs.rusttype = newnt3.rusttype.clone();
+  		  newrule3.lhs.rusttype = newnt3.rusttype.clone();
+  		  newrule4.lhs.rusttype = newnt3.rusttype.clone();
                   newrule3.lhs.index = newnt3.index;
                   newrule4.lhs.index = newnt3.index;
                   newrule3.precedence = self.Symbols[termi].precedence;
@@ -985,8 +948,8 @@ strtok is bstokens[i], but will change
                     self.Symbols.push(newnt5.clone()); // register new nt
                     let mut newrule5 = Grule::new_skeleton(&newntname5);
                     let mut newrule6 = Grule::new_skeleton(&newntname5);
-  		    //newrule5.lhs.rusttype = newnt5.rusttype.clone();
-  		    //newrule6.lhs.rusttype = newnt5.rusttype.clone();
+  		    newrule5.lhs.rusttype = newnt5.rusttype.clone();
+  		    newrule6.lhs.rusttype = newnt5.rusttype.clone();
                     newrule5.lhs.index = newnt5.index; // simplify
                     newrule6.lhs.index = newnt5.index;
                     // 0 precedence for rule, newrule5 has empty rhs
@@ -1027,7 +990,7 @@ strtok is bstokens[i], but will change
                        panic!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum);
                      }
 		     let mut newsym = sym.clone();
-                     if newsym.rusttype.len()<1 && !self.genabsyn {newsym.rusttype = self.Absyntype.clone();}
+                     if newsym.rusttype.len()<1 {newsym.rusttype = self.Absyntype.clone();}
 		     
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
@@ -1055,7 +1018,7 @@ strtok is bstokens[i], but will change
 	      //let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
-              //if newlhs.rusttype.len()<1 && !self.genabsyn {newlhs.rusttype = self.Absyntype.clone();}
+              if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}
               if manual_precedence!=0 {maxprec=manual_precedence;} //0.2.97
 	      let rule = Grule {
 	        lhs : newlhs,
@@ -1085,10 +1048,6 @@ strtok is bstokens[i], but will change
      // add start,eof and starting rule:
      let mut startnt = Gsym::new("START",false);
      let mut eofterm = Gsym::new("EOF",true);
-     if self.genabsyn || !self.sametype {
-       startnt.rusttype="()".to_owned(); // this doesn't matter
-     }
-     else {startnt.rusttype = self.Absyntype.clone();}
      if self.genabsyn || !self.sametype {eofterm.rusttype = "()".to_owned();}
      else {eofterm.rusttype = self.Absyntype.clone();}
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true);
@@ -1118,18 +1077,25 @@ strtok is bstokens[i], but will change
      if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
         self.Absyntype = topgsym.rusttype.clone();
      }
-     /*
      for ri in 1..self.Symbols.len() // exclude Symbols[0] for wildcard
      {
-        if &self.Symbols[ri].rusttype!=&self.Absyntype {
-//	  println!("NOT SAME TYPE: {} for {} and {}",&self.Symbols[ri].rusttype,&self.Symbols[ri].sym,&self.Absyntype);	
-          self.sametype = false;
+        let rtype = &self.Symbols[ri].rusttype;
+        if rtype.len()<1 {
+          self.Symbols[ri].settype(&self.Absyntype);
         }
+        else if rtype!=&self.Absyntype {
+	//println!("NOT SAME TYPE: {} and {}",rtype,&self.Absyntype);	
+          self.sametype = false;
+          if !self.enumhash.contains_key(rtype) {
+            self.enumhash.insert(rtype.to_owned(),ntcx); ntcx+=1;
+	    //eprintln!("SHOULDNT BE HERE");
+          }
+        }// set enumindex
      }//compute sametype
-     */
      // reset wildcard type if sametype on all other symbols
      if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
-     if !self.genabsyn {self.enumhash.insert(self.Absyntype.clone(),0);} // 0 reserved
+     self.enumhash.insert(self.Absyntype.clone(),0); // 0 reserved
+
 
      // compute reachability relation.
      self.reachability(); // in ast_writer module

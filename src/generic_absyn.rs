@@ -131,7 +131,15 @@ impl<T:?Sized> AsMut<T> for LBox<T>
 {
   fn as_mut(&mut self) -> &mut T  { &mut *self.exp }
 }
-
+impl<T:Default+?Sized> LBox<T>
+{
+   /// replaces the boxed value with T::default() and returns the value
+   pub fn take(&mut self) -> T
+   {   let mut res = T::default();
+       std::mem::swap(&mut res, self.as_mut());
+       res
+   }
+}
 impl<'t> LBox<dyn Any+'t>
 {
   /// emulates [Box::downcast] function, when `LBox<dyn Any>` is used as

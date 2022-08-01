@@ -558,7 +558,8 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     for ri in 0..rlen
     {
       let lhs = &self.Gmr.Rules[ri].lhs.sym;
-      let lhsi = self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
+      let lhsi = &self.Gmr.Rules[ri].lhs.index;
+      //self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
       let rettype = &self.Gmr.Symbols[*lhsi].rusttype; // return type
       let ltoptr = if has_lt || (lifetime.len()>0 && rettype.contains(lifetime))
         {format!("<{}>",lifetime)} else {String::from("")};
@@ -571,7 +572,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       while k>0 // k is length of right-hand side
       {
         let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs symbols right to left...
-        let gsymi = *self.Gmr.Symhash.get(&gsym.sym).unwrap();
+        let gsymi = gsym.index; //*self.Gmr.Symhash.get(&gsym.sym).unwrap();
         let findat = gsym.label.find('@');
         let mut plab = format!("_item{}_",k-1);
         match &findat {
@@ -580,7 +581,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
           _ => {},
         }//match
         let poppedlab = plab.as_str();
-        let ref symtype = gsym.rusttype;
+        let ref symtype = self.Gmr.Symbols[gsymi].rusttype; //gsym.rusttype;
         let mut stat = format!("let mut {} = lbdown!(parser.popstack().value,{}); ",poppedlab,symtype);  // no longer stackitem but lbdown!
         if symtype.len()<2 || symtype=="LBox<dyn Any>" || symtype=="LBox<Any>" {
            stat = format!("let mut {} = parser.popstack().value; ",poppedlab);
