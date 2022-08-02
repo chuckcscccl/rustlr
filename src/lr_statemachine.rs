@@ -603,7 +603,8 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
           printrulela(*ri,Gmr,la);
        }
      } // reduce
-     else if iprec>0 {
+     
+     else if iprec==-128 {  //NOT BEING USED!
        clearly_resolved = true;  // but internally!
        resolution = true;
        if Gmr.tracelev>0 {
@@ -611,12 +612,12 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
          printrulela(*ri,Gmr,la);
        }
      }//iprecedence resolution
+     
      else {
        clearly_resolved=false;
        // report unclear case
        println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
        printrulela(*ri,Gmr,la);
-println!("IPREC: {}",iprec);
      }
      conflicts.insert((*ri,la),(clearly_resolved,resolution));
      resolution
