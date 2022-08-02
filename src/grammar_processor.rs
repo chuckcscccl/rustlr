@@ -68,6 +68,7 @@ pub struct Grule  // struct for a grammar rule
   pub rhs : Vec<Gsym>, // right-hand side symbols (cloned from Symbols)
   pub action : String, //string representation of Ruleaction
   pub precedence : i32, // set to rhs symbol with highest |precedence|
+  pub iprecedence : i8, // for internally generated rules to support REs
 }
 impl Grule
 {
@@ -77,7 +78,8 @@ impl Grule
        lhs : Gsym::new(lh,false),
        rhs : Vec::new(),
        action : String::default(),
-       precedence : DEFAULTPRECEDENCE,   
+       precedence : DEFAULTPRECEDENCE,
+       iprecedence : 0,
      }
   }
   pub fn from_lhs(nt:&Gsym) -> Grule
@@ -86,7 +88,8 @@ impl Grule
        lhs : nt.clone(),
        rhs : Vec::new(),
        action : String::default(),
-       precedence : DEFAULTPRECEDENCE,   
+       precedence : DEFAULTPRECEDENCE,
+       iprecedence : 0,
      }     
   }
 }//impl Grule
@@ -779,6 +782,7 @@ strtok is bstokens[i], but will change
                   }
                   // register new symbol
                   newrule2.precedence = precd;
+                  newrule2.iprecedence = 6;   // IPRECEDENCE SET
                   newnt2.index = self.Symbols.len();
                   newrule2.lhs.index = newnt2.index;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
@@ -852,6 +856,7 @@ strtok is bstokens[i], but will change
                    newrule1.lhs.index = newnt.index;
                    let nr1type = &self.Symbols[newnt.index].rusttype;
                    newrule1.precedence = self.Symbols[gsymi].precedence;
+                   newrule1.iprecedence = 2;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type.starts_with("Option<LBox<") {
@@ -883,7 +888,8 @@ strtok is bstokens[i], but will change
                    if self.tracelev>3 {
                      printrule(&newrule0,self.Rules.len());
                      printrule(&newrule1,self.Rules.len()+1);   
-                   }                   
+                   }
+                   newrule0.iprecedence = 4;
 		   self.Rules.push(newrule0);
 		   self.Rules.push(newrule1);
 		   let mut rulesforset = HashSet::with_capacity(2);
@@ -963,7 +969,9 @@ strtok is bstokens[i], but will change
                   if newnt3.rusttype.starts_with("Vec") {
                     newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
                     newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
-                  } // else leave at default
+                  } // else leave at default for ()
+                  newrule3.iprecedence = 3;
+                  newrule4.iprecedence = 1;
                   if self.tracelev>3 {
                     printrule(&newrule3,self.Rules.len());
                     printrule(&newrule4,self.Rules.len()+1);
@@ -995,6 +1003,8 @@ strtok is bstokens[i], but will change
                        newrule5.action = String::from(" vec![] }");
                        newrule6.action = String::from("_item0_ }");
                     }
+                    newrule5.iprecedence = 7;  // iprecedence!
+                    newrule6.iprecedence = 5;
                   if self.tracelev>3 {
                     printrule(&newrule5,self.Rules.len());
                     printrule(&newrule6,self.Rules.len()+1);
@@ -1062,6 +1072,7 @@ strtok is bstokens[i], but will change
 		rhs : rhsyms,
 		action: semaction.to_owned(),
 		precedence : maxprec,
+                iprecedence : 0,
 	      };
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
@@ -1106,7 +1117,8 @@ strtok is bstokens[i], but will change
         lhs:startnt,
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
         action: String::default(),
-        precedence : 0,
+        precedence : DEFAULTPRECEDENCE,
+        iprecedence : 0,
      };
      self.Rules.push(startrule);  // last rule is start rule
      let mut startrfset = HashSet::new();

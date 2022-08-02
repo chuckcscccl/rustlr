@@ -106,10 +106,11 @@ valueterminal COMPILER_DIRECTIVE~ &'lt str~ Custom("directive",d)~ d
 #nonterminals unary_operator constant assignment_operator initializer_list
 #nonterminals conditional_expression struct_declarator_list
 
-nonterminals expression struct_declarator
+nonterminals expression
 nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
-nonterminals struct_or_union struct_declaration
+nonterminals struct_or_union struct_declaration struct_declaration_list
+nonterminals specifier_qualifier_list struct_declarator
 nonterminals enum_specifier enumerator_list enumerator type_qualifier
 nonterminals declarator direct_declarator pointer type_qualifier_list
 nonterminals parameter_type_list parameter_declaration
@@ -307,7 +308,7 @@ expressionS --> expression_list
 
 
 #!use crate::c11_ast::init_declarator::*;
-#!use crate::c11_ast::declarator::*;
+!use crate::c11_ast::declarator::*;
 !use crate::c11_ast::declaration::*;
 !use crate::c11_ast::direct_declarator::*;
 #!use crate::c11_ast::declaration_specifiers::*;
@@ -325,11 +326,22 @@ declaration_specifier:funcspec --> function_specifier
 declaration_specifier:alignspec --> alignment_specifier
 
 declaration_specifiers --> declaration_specifier+
+#declaration_specifiers ==>
+#	 storage_class_specifier
+#        | type_specifier
+#        | type_specifier declaration_specifiers
+#	| type_qualifier
+#	| type_qualifier declaration_specifiers
+#        | function_specifier
+#        | function_specifier declaration_specifiers
+#        | alignment_specifier
+#        | alignment_specifier declaration_specifiers
+#	<==
 
 # this rule corresponds to typedef: set next identifier to be TYPE_NAME
 #declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
 
-init_declarator --> declarator:decl (ASSIGN initializer)?:initializer
+init_declarator --> declarator:declarator (ASSIGN initializer)?:initializer
 
 #storage_class_specifier:Typedef --> TYPEDEF
 storage_class_specifier ==>
@@ -362,7 +374,7 @@ type_specifier ==>
 
 
 struct_or_union_specifier ==>
-	 struct_or_union IDENTIFIER? Lbrace struct_declaration+ Rbrace
+	 struct_or_union IDENTIFIER? Lbrace struct_declaration_list Rbrace
 	| struct_or_union IDENTIFIER
 	<==
 
@@ -371,14 +383,25 @@ struct_or_union --> STRUCT:x
 struct_or_union --> UNION:x
 
 struct_declaration ==>
-         specifier_qualifier+ struct_declarator<Comma*> ;
+         specifier_qualifier_list struct_declarator<Comma*> ;
        | static_assert_declaration
        <==
+#struct_declaration ==>
+#         specifier_qualifier+ struct_declarator<Comma*>
+#       | static_assert_declaration
+#       <==
+#         specifier_qualifier_list struct_declarator<Comma*>       
+#       | specifier_qualifier_list
 
-#struct_declaration_list --> struct_declaration+
+
+#struct_declaration_list ==>
+#	 struct_declaration
+#	| struct_declaration_list struct_declaration
+#	<==
+struct_declaration_list --> struct_declaration+
 
 specifier_qualifier --> type_specifier | type_qualifier
-#specifier_qualifier_list --> specifier_qualifier+
+specifier_qualifier_list --> specifier_qualifier+
 
 # note that the rule is right-recursive, does it matter?
 #specifier_qualifier_list ==>
@@ -426,8 +449,7 @@ alignment_specifier --> ALIGNAS ( type_name )
 alignment_specifier --> ALIGNAS ( expression )
 
 # PROBLEMATIC LINE
-declarator --> pointer? direct_declarator
-#declarator --> pointer?:ptropt direct_declarator:direct_dec
+declarator --> pointer?:ptropt direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
 #declarator:no_pointer -->  direct_declarator
 #	<==
@@ -487,7 +509,7 @@ parameter_declaration ==>
 
 identifier_list --> IDENTIFIER<Comma+>
 
-type_name --> specifier_qualifier+ abstract_declarator?
+type_name --> specifier_qualifier_list abstract_declarator?
 
 abstract_declarator ==>
 	 pointer

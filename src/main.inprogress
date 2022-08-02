@@ -35,6 +35,9 @@ use zc_parser::*;
 mod parser_writer;
 use parser_writer::*;
 
+mod ast_writer;
+use ast_writer::*;
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -50,15 +53,18 @@ fn rustle(args:&Vec<String>) // called from main
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
   let mut lalr = true;  // changed from false in version 0.2.0
+  let mut newlalr = false;
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
   let mut genlex = false;
+  let mut genabsyn = false;
   while argi<argc
   {
      match &args[argi][..] {
        "lr1" | "LR1" | "-lr1" => { lalr=false; },
        "lalr" | "LALR" | "-lalr" => {lalr=true; },
+       "lalr1" | "LALR1" | "lalr1" => {newlalr=true; },       
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -69,6 +75,7 @@ fn rustle(args:&Vec<String>) // called from main
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
        "genlex" | "-genlex" => {genlex=true; },
+       "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {
@@ -87,16 +94,12 @@ fn rustle(args:&Vec<String>) // called from main
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
   let mut grammar1 = Grammar::new();
   grammar1.genlex = genlex;
+  grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
   grammar1.parse_grammar(filepath);
   // Check grammar integrity:
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
-
-  if tracelev>2 {println!("computing Nullable set");}
-  grammar1.compute_NullableRf();
-  if tracelev>2 {println!("computing First sets");}
-  grammar1.compute_FirstIM();
   if grammar1.name.len()<2  { // derive grammar name from filepath
      let doti = if let Some(p)= filepath.rfind('.') {p} else {filepath.len()};
      let mut slashi = if let Some(p) = filepath.rfind('/') {p+1} else {0};
@@ -106,14 +109,31 @@ fn rustle(args:&Vec<String>) // called from main
      grammar1.name = filepath[slashi..doti].to_string();
   }// derive grammar name
   let gramname = grammar1.name.clone();
+
+  if genabsyn {
+     let mut slashpos = parserfile.rfind('/');
+     if let None = slashpos {slashpos = parserfile.rfind('\\');}
+     let mut astpath = format!("{}_ast.rs",&gramname);
+     if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
+     let wres = grammar1.writeabsyn(&astpath);
+     if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
+  }
+
+  if tracelev>2 {println!("computing Nullable set");}
+  grammar1.compute_NullableRf();
+  if tracelev>2 {println!("computing First sets");}
+  grammar1.compute_FirstIM();
+
   let mut fsm0 = Statemachine::new(grammar1);
+
+
   fsm0.lalr = lalr;
   if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
   if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
   fsm0.generatefsm(); //GENERATE THE FSM
   if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
   else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
-  if parserfile.len()<1 {parserfile = format!("{}parser.rs",&gramname);}
+  if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.rs",&gramname));}
   if fsm0.States.len()>65536  {
     println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
     return;

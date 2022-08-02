@@ -180,13 +180,13 @@ impl Grammar
               };
             if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) /* && !self.basictypes.contains(&rsymtype[..]) */) {
               if genstruct {
-               if simplestruct {
+               if simplestruct {  // action formed here
                 enumvar.push_str(&format!("pub LBox<{}>,",rsymtype));
                 ACTION.push_str(&format!("parser.lbx({},{}), ",&rhsi, &itemlabel));
                } else {
                  enumvar.push_str(&format!("  pub {}:LBox<{}>,\n",&itemlabel,rsymtype));
                  let semact = if alreadyislbx {format!("{}:{}, ",&itemlabel,&itemlabel)} else {format!("{}:parser.lbx({},{}), ",&itemlabel,&rhsi, &itemlabel)};
-                ACTION.push_str(&semact);
+                ACTION.push_str(&semact); 
                }//not simplestruct
               } //genstruct
               else { //enum
@@ -207,7 +207,7 @@ impl Grammar
                 } else {
                   enumvar.push_str(&format!("  pub {}:{},\n",&itemlabel,rsymtype));
                 }
-                ACTION.push_str(&format!("{},",&itemlabel));
+                ACTION.push_str(&format!("{},",&itemlabel)); //simplestruct too
               }//genstruct
 	      else {
                 enumvar.push_str(&format!("{},",rsymtype));

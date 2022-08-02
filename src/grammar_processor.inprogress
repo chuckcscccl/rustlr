@@ -19,7 +19,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 
-pub const DEFAULTPRECEDENCE:i32 = 0;   // 20
+pub const DEFAULTPRECEDENCE:i32 = 0;
 pub const TRACE:usize = 0;
 
 #[derive(Clone)]
@@ -74,8 +74,17 @@ impl Grule
        lhs : Gsym::new(lh,false),
        rhs : Vec::new(),
        action : String::default(),
-       precedence : 0,   
+       precedence : DEFAULTPRECEDENCE,   
      }
+  }
+  pub fn from_lhs(nt:&Gsym) -> Grule
+  {
+     Grule {
+       lhs : nt.clone(),
+       rhs : Vec::new(),
+       action : String::default(),
+       precedence : DEFAULTPRECEDENCE,   
+     }     
   }
 }//impl Grule
 
@@ -99,8 +108,8 @@ pub struct Grammar
   pub Rules: Vec<Grule>,
   pub topsym : String,
   pub Nullable : HashSet<String>,
-  pub First : HashMap<String,HashSet<String>>,
-  pub Rulesfor: HashMap<String,HashSet<usize>>,  //rules for a non-terminal
+  pub First : HashMap<usize,HashSet<usize>>,
+  pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
   pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
@@ -119,6 +128,7 @@ pub struct Grammar
   pub Reachable:HashMap<usize,HashSet<usize>>, //usize indexes self.Symbols
 //  pub transform_function: String, // for 0.2.96
   pub basictypes : HashSet<&'static str>,
+  pub ASTExtras : String,
 }
 
 impl Default for Grammar {
@@ -158,7 +168,8 @@ impl Grammar
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
 //       transform_function: String::new(),
-       basictypes : btypes
+       basictypes : btypes,
+       ASTExtras: String::new(),
      }
   }//new grammar
 
@@ -167,7 +178,7 @@ impl Grammar
    let ty=ty0.trim();
    if self.basictypes.contains(ty) {return true;}
    if ty.starts_with('&') && !ty.contains("mut") {return true;}
-   return false;
+   false
   }
 
   pub fn getsym(&self,s:&str) -> Option<&Gsym>
@@ -276,9 +287,12 @@ impl Grammar
        else if linelen>1 && &line[0..1]=="!" {
            self.Extras.push_str(&line[1..]);
            if line[1..].trim().starts_with("pub ") {
-             eprintln!("WARNING: public declarations may result in redundancy and conflicts, line {}",linenum);
+             eprintln!("WARNING: this public declaration may result in redundancy and conflicts, line {}",linenum);
            }
        }
+       else if linelen>1 && &line[0..1]=="$" {
+           self.ASTExtras.push_str(&line[1..]);
+       }       
        else if linelen>1 && &line[0..1]!="#" {
          let toksplit = line.split_whitespace();
          let stokens:Vec<&str> = toksplit.collect();
@@ -300,6 +314,11 @@ impl Grammar
                let pbi = line.find('!').unwrap();
                self.Extras.push_str(&line[pbi+1..]);
                self.Extras.push_str("\n");                             
+            },
+            "$" => {  // Place only in AST
+               let pbi = line.find('$').unwrap();
+               self.ASTExtras.push_str(&line[pbi+1..]);
+               self.ASTExtras.push_str("\n");
             },
             "grammarname" => {
                self.name = String::from(stokens[1]);
@@ -362,7 +381,7 @@ impl Grammar
                newterm.index = self.Symbols.len();
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
-               self.Rulesfor.insert(stokens[1].to_owned(),HashSet::new());
+               self.Rulesfor.insert(self.Symbols.len()-1,HashSet::new());
 	    }, //nonterminal
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
@@ -376,7 +395,7 @@ impl Grammar
 		  self.enumhash.insert(newterm.rusttype.clone(), ntcx);
 		  ntcx+=1; 
                   self.Symbols.push(newterm);
-                  self.Rulesfor.insert(stokens[i].to_owned(),HashSet::new());
+                  self.Rulesfor.insert(self.Symbols.len()-1,HashSet::new());
 		  //if TRACE>2 {println!("nonterminal {}",stokens[i]);}
                }
             },
@@ -594,7 +613,7 @@ impl Grammar
                Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
                _ => {panic!("unrecognized non-terminal symbol {}, line {}",LHS,linenum);},
              };
-
+            let symind2 = *symindex;
              let mut ntcnt = 0; // for generating new nonterminal names
 
               // split by | into separate rules
@@ -673,7 +692,12 @@ strtok is bstokens[i], but will change
                            breakpoint = true;
                            retoki = &retokisplit[0][..rpp];
                            if (retoki.len()<1) {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
-                           if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
+                           if retokisplit.len()>1 {
+                             defaultrelab2=retokisplit[1].to_owned();
+                             if !is_alphanum(checkboxlabel(&defaultrelab2)) {
+                               panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
+                             }
+                           }
                         }
                         else {panic!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum);}
                      }
@@ -700,6 +724,7 @@ strtok is bstokens[i], but will change
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        newnt2.rusttype = igsym.rusttype.clone();
+                       // or put * before it, fill-in later
                      }
                      else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
                      {passthru=-2;}
@@ -728,9 +753,10 @@ strtok is bstokens[i], but will change
                   // register new symbol
                   newrule2.precedence = precd;
                   newnt2.index = self.Symbols.len();
+                  newrule2.lhs.index = newnt2.index;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
-                  self.Symbols.push(newnt2.clone());
                   newrule2.lhs.rusttype = newnt2.rusttype.clone();
+                  self.Symbols.push(newnt2);
                   // register new rule
                    if self.tracelev>3 {
                      printrule(&newrule2,self.Rules.len());
@@ -742,7 +768,7 @@ strtok is bstokens[i], but will change
                   //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
                   if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
-                  self.Rulesfor.insert(ntname2,rulesforset);
+                  self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
                   strtok = &newtok2;
 //println!("1 strtok now {}",strtok);
                 } // starts with (
@@ -756,19 +782,26 @@ strtok is bstokens[i], but will change
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
 		   let defaultrelab = format!("_item{}_",i-1-iadjust);
-		   let relabel = if retoks.len()>1 && retoks[1].len()>0 {retoks[1]} else {&defaultrelab};
+		   let relabel = if retoks.len()>1 && retoks[1].len()>0
+                     {
+                         if !is_alphanum(checkboxlabel(retoks[1])) {
+                            panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
+                         }                     
+                       retoks[1]
+                     }
+                     else {&defaultrelab};
 		   let mut gsympart = strtok[0..strtok.len()-1].trim(); //no *
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
-		   let newntname = format!("NEWNT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
+		   let newntname = format!("NEWRENT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
                    // following means symbols such as -? will not be
                    // part of ast type unless there is a given label: -?:m
                    if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
 		     newnt.rusttype = if strtok.ends_with('?') {
-                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec") /*self.basictypes.contains(&self.Symbols[gsymi].rusttype[..])*/ {format!("Option<{}>",&self.Symbols[gsymi].rusttype)}
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with("LBox") {format!("Option<{}>",&self.Symbols[gsymi].rusttype)}
                        else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)}
                      }
                      else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)};
@@ -783,6 +816,7 @@ strtok is bstokens[i], but will change
 		   // add new rules
 		   let mut newrule1 = Grule::new_skeleton(&newntname);
 		   newrule1.lhs.rusttype = newnt.rusttype.clone();
+                   newrule1.lhs.index = newnt.index;
                    newrule1.precedence = self.Symbols[gsymi].precedence;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
@@ -798,6 +832,7 @@ strtok is bstokens[i], but will change
 		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
 		   newrule0.lhs.rusttype = newnt.rusttype.clone();
+                   newrule0.lhs.index = newnt.index;
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
                      if &newrule0.lhs.rusttype!="()" {
@@ -820,7 +855,7 @@ strtok is bstokens[i], but will change
 		   rulesforset.insert(self.Rules.len()-2);
 		   rulesforset.insert(self.Rules.len()-1);
 		   newtok = format!("{}:{}",&newntname,relabel);
-		   self.Rulesfor.insert(newntname,rulesforset);
+		   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
 		   // change strtok to new form
 		   strtok = &newtok;
 //println!("2 strtok now {}",strtok);                   
@@ -846,7 +881,12 @@ strtok is bstokens[i], but will change
                   } else {panic!("MALFORMED EXPRESSION LINE {}\n",linenum);}
                   strtok = septoks[0]; // to the left of :, E<,*>
    	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
-		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {septoks[1]} else {&defaultrelab3};
+		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
+                     if !is_alphanum(checkboxlabel(septoks[1])) {
+                       panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
+                     }
+                     septoks[1]
+                  } else {&defaultrelab3};
     	          let mut gsympart3 = strtok[0..lb].trim(); //before <,*>
                   if gsympart3=="_" {gsympart3="_WILDCARD_TOKEN_";}
    	          let errmsg = format!("UNRECOGNIZED GRAMMAR SYMBOL '{}', LINE {}\n",gsympart3,linenum);
@@ -857,6 +897,10 @@ strtok is bstokens[i], but will change
                   if &self.Symbols[gsymi].rusttype!="()" || (septoks.len()>1 && septoks[1].len()>0) {
 		     newnt3.rusttype = format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype);
                   } // else rusttype stays ()
+                  // note: if types are not being generated, what should this
+                  // type be? can note that it should follow from
+                  // type of a symbol, in special format like Expr* or
+                  // can create map inside Grammar with this info.
 	          if !self.enumhash.contains_key(&newnt3.rusttype) {
  		     self.enumhash.insert(newnt3.rusttype.clone(),ntcx);
 		     ntcx+=1;
@@ -869,6 +913,8 @@ strtok is bstokens[i], but will change
 		  let mut newrule4 = Grule::new_skeleton(&newntname3);
   		  newrule3.lhs.rusttype = newnt3.rusttype.clone();
   		  newrule4.lhs.rusttype = newnt3.rusttype.clone();
+                  newrule3.lhs.index = newnt3.index;
+                  newrule4.lhs.index = newnt3.index;
                   newrule3.precedence = self.Symbols[termi].precedence;
                   //PRECEDENCE SET TO SEPARATOR SYMBOL
                   newrule4.precedence = self.Symbols[termi].precedence;
@@ -891,7 +937,7 @@ strtok is bstokens[i], but will change
 		  rulesforset3.insert(self.Rules.len()-2);
 		  rulesforset3.insert(self.Rules.len()-1);
                   newtok3 = format!("{}:{}",&newntname3,relabel3);
-                  self.Rulesfor.insert(newntname3,rulesforset3);
+                  self.Rulesfor.insert(newnt3.index,rulesforset3);
                   // ANOTHER RULE IS NEEDED IF strtok ends in *>
                   if strtok.ends_with("*>") {  // M --> | N
                     let newntname5 = format!("NEWSEPNT2_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
@@ -904,6 +950,8 @@ strtok is bstokens[i], but will change
                     let mut newrule6 = Grule::new_skeleton(&newntname5);
   		    newrule5.lhs.rusttype = newnt5.rusttype.clone();
   		    newrule6.lhs.rusttype = newnt5.rusttype.clone();
+                    newrule5.lhs.index = newnt5.index; // simplify
+                    newrule6.lhs.index = newnt5.index;
                     // 0 precedence for rule, newrule5 has empty rhs
                     newrule6.rhs.push(newnt3.clone());
                     if newnt5.rusttype.starts_with("Vec") {
@@ -920,9 +968,9 @@ strtok is bstokens[i], but will change
 		  rulesforset5.insert(self.Rules.len()-2);
 		  rulesforset5.insert(self.Rules.len()-1);
                   newtok3 = format!("{}:{}",&newntname5,relabel3);
-                  self.Rulesfor.insert(newntname5,rulesforset5);
-                  } // *>
-                  strtok = &newtok3;
+                  self.Rulesfor.insert(newnt5.index,rulesforset5);
+                  } // *> processed
+                  strtok = &newtok3; 
                 } // if ends with *> or +>
 
 
@@ -967,7 +1015,7 @@ strtok is bstokens[i], but will change
                 }//match
 	      } // while there are tokens on rhs
 	      // form rule
-	      let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
+	      //let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
 	      if findcsplit.len()>1 {newlhs.label = findcsplit[1].to_owned();}
               if newlhs.rusttype.len()<1 {newlhs.rusttype = self.Absyntype.clone();}
@@ -981,10 +1029,10 @@ strtok is bstokens[i], but will change
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
               // Add rules to Rulesfor map
-              if let None = self.Rulesfor.get(LHS) {
-                 self.Rulesfor.insert(String::from(LHS),HashSet::new());
+              if let None = self.Rulesfor.get(&symind2) { //symind2 is LHS
+                 self.Rulesfor.insert(symind2,HashSet::new());
               }
-              let rulesforset = self.Rulesfor.get_mut(LHS).unwrap();
+              let rulesforset = self.Rulesfor.get_mut(&symind2).unwrap();
               rulesforset.insert(self.Rules.len()-1);
             //} 
             } // for rul
@@ -1020,6 +1068,9 @@ strtok is bstokens[i], but will change
         precedence : 0,
      };
      self.Rules.push(startrule);  // last rule is start rule
+     let mut startrfset = HashSet::new();
+     startrfset.insert(self.Rules.len()-1); // last rule is start rule
+     self.Rulesfor.insert(self.Symbols.len()-2,startrfset); //for START
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
@@ -1044,6 +1095,30 @@ strtok is bstokens[i], but will change
      // reset wildcard type if sametype on all other symbols
      if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
      self.enumhash.insert(self.Absyntype.clone(),0); // 0 reserved
+
+
+     // compute reachability relation.
+     self.reachability(); // in ast_writer module
+     let startreach = self.Reachable.get(&(self.Symbols.len()-2)).unwrap();
+     // final integrity checks
+     for sym in &self.Symbols {
+        // skip wildcard, START and EOF
+        if sym.index>0 && sym.index<self.Symbols.len()-2 && !startreach.contains(&sym.index) {
+          eprintln!("WARNING: The symbol {} is not reachable from the grammar's start symbol.\n",&sym.sym);
+        }
+        if !sym.terminal {
+          if let Some(rset) = self.Rulesfor.get(&sym.index) {
+            if rset.len()<1 {
+             eprintln!("WARNING: The symbol {}, which was declared non-terminal, does not occur on the left-hand side of any production rule.\n",&sym.sym);
+            }
+          } else {
+            self.Rulesfor.insert(sym.index,HashSet::new()); 
+          }
+        }   // nonterminal actually used on left side
+     }
+     //integrity checks
+     
+
   }//parse_grammar
 }// impl Grammar
 // last rule is always start rule and first state is start state
@@ -1052,7 +1127,7 @@ strtok is bstokens[i], but will change
 //////////////////////  Nullable
 
 //// also sets the RulesFor map for easy lookup of all the rules for
-//// a non-terminal
+//// a non-terminal  **no-longer done!
 impl Grammar
 {
   pub fn compute_NullableRf(&mut self)
@@ -1075,50 +1150,51 @@ impl Grammar
              changed = self.Nullable.insert(rule.lhs.sym.clone()) || changed;
              //if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
           }
+/*
           // add rule index to Rulesfor map:
           if let None = self.Rulesfor.get(&rule.lhs.sym) {
              self.Rulesfor.insert(rule.lhs.sym.clone(),HashSet::new());
           }
           let ruleset = self.Rulesfor.get_mut(&rule.lhs.sym).unwrap();
           ruleset.insert(rulei);
+*/
           rulei += 1;
        } // for each rule
      } //while changed
   }//nullable
 
-  // calculate the First set of each non-terminal  (not used- use compute_FirstIM)
+  // calculate the First set of each non-terminal
 // with interior mutability, no need to clone HashSets. // USE THIS ONE!
   pub fn compute_FirstIM(&mut self)
   {
-     let mut FIRST:HashMap<String,RefCell<HashSet<String>>> = HashMap::new();
+     let mut FIRST:HashMap<usize,RefCell<HashSet<usize>>> = HashMap::new();
      let mut changed = true;
      while changed 
      {
        changed = false;
        for rule in &self.Rules
        {
-         let ref nt = rule.lhs.sym; // left symbol of rule is non-terminal
-	 if !FIRST.contains_key(nt) {
+         let nti = rule.lhs.index; // left symbol of rule is non-terminal
+	 if !FIRST.contains_key(&nti) {
             changed = true;
-	    FIRST.insert(String::from(nt),RefCell::new(HashSet::new()));
+	    FIRST.insert(nti,RefCell::new(HashSet::new()));
          } // make sure set exists for this non-term
-	 let mut Firstnt = FIRST.get(nt).unwrap().borrow_mut();
+	 let mut Firstnt = FIRST.get(&nti).unwrap().borrow_mut();
 	 // now look at rhs
 	 let mut i = 0;
 	 let mut isnullable = true;
  	 while i< rule.rhs.len() && isnullable
          {
-            let gs = &rule.rhs[i];
+            let gs = &rule.rhs[i]; // rhs grammar symbol
 	    if gs.terminal {
-	      changed=Firstnt.insert(gs.sym.clone()) || changed;
-//if TRACE>2 {println!("{} added to First set of {}",gs.sym,nt);}
+	      changed=Firstnt.insert(gs.index) || changed;
               isnullable = false;
             }
-            else if &gs.sym!=nt {   // non-terminal
-              if let Some(firstgs) = FIRST.get(&gs.sym) {
+            else if gs.index!=nti {   // non-terminal
+              if let Some(firstgs) = FIRST.get(&gs.index) {
                   let firstgsb = firstgs.borrow();
-                  for sym in firstgsb.iter() {
-                    changed=Firstnt.insert(sym.clone())||changed;
+                  for symi in firstgsb.iter() {
+                    changed=Firstnt.insert(*symi) || changed;
                   }
               } // if first set exists for gs
             } // non-terminal 
@@ -1130,33 +1206,33 @@ impl Grammar
      // Eliminate RefCells and place in self.First
      for nt in FIRST.keys() {
         if let Some(rcell) = FIRST.get(nt) {
-          self.First.insert(nt.to_owned(),rcell.take());
+          self.First.insert(*nt,rcell.take());
         }
      }
   }//compute_FirstIM
 
 
   // First set of a sequence of symbols
-  pub fn Firstseq(&self, Gs:&[Gsym], la:&str) -> HashSet<String>
+  pub fn Firstseq(&self, Gs:&[Gsym], la:usize) -> HashSet<usize>
   {
      let mut Fseq = HashSet::new();
      let mut i = 0;
      let mut nullable = true;
      while nullable && i<Gs.len() 
      {
-         if (Gs[i].terminal) {Fseq.insert(Gs[i].sym.clone()); nullable=false; }
+         if (Gs[i].terminal) {Fseq.insert(Gs[i].index); nullable=false; }
 	 else  // Gs[i] is non-terminal
          {
-            let firstgsym = self.First.get(&Gs[i].sym).unwrap();
-	    for s in firstgsym { Fseq.insert(s.to_owned()); }
+            //println!("symbol {}, index {}", &Gs[i].sym, Gs[i].index);
+            let firstgsym = self.First.get(&Gs[i].index).unwrap();
+	    for s in firstgsym { Fseq.insert(*s); }
 	    if !self.Nullable.contains(&Gs[i].sym) {nullable=false;}
          }
 	 i += 1;
      }//while
-     if nullable {Fseq.insert(la.to_owned());}
+     if nullable {Fseq.insert(la);}
      Fseq
   }//FirstSeqb
-
 
 // procedure to generate lexical scanner from lexname, lexval and lexattribute
 // declarations in the grammar file.  Added for Version 0.2.3.  This procedure
@@ -1334,6 +1410,11 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 
 }//impl Grammar continued
 
+
+pub fn checkboxlabel(s:&str) -> &str
+{
+    if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
+}// check if label is of form [x], returns x, or s if not of this form.
 
 // used by genlexer routines
 pub fn is_alphanum(x:&str) -> bool

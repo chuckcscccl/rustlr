@@ -106,12 +106,18 @@ valueterminal COMPILER_DIRECTIVE~ &'lt str~ Custom("directive",d)~ d
 #nonterminals unary_operator constant assignment_operator initializer_list
 #nonterminals conditional_expression struct_declarator_list
 
-nonterminals expression struct_declarator
+$#[derive(Default,Debug)]
+$pub struct Declarator<'t>(pub Option<pointer>, pub direct_declarator<'t>);
+nonterminal declarator Declarator<'lt>
+
+#nonterminal direct_ab_base
+nonterminals expression
 nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
-nonterminals struct_or_union struct_declaration
+nonterminals struct_or_union struct_declaration struct_declaration_list
+nonterminals specifier_qualifier_list struct_declarator
 nonterminals enum_specifier enumerator_list enumerator type_qualifier
-nonterminals declarator direct_declarator pointer type_qualifier_list
+nonterminals direct_declarator pointer type_qualifier_list
 nonterminals parameter_type_list parameter_declaration
 nonterminals identifier_list type_name abstract_declarator
 nonterminals direct_abstract_declarator initializer
@@ -315,7 +321,7 @@ expressionS --> expression_list
 !use crate::c11_ast::storage_class_specifier::*;
 
 declaration:DecSpec --> declaration_specifiers ;
-declaration:DecSpecList --> declaration_specifiers:ds init_declarator<Comma+>:il ; 
+declaration:DecSpecList --> declaration_specifiers:ds init_declarator<Comma+>:il ;
 declaration:Statassert --> static_assert_declaration
 
 declaration_specifier:storage --> storage_class_specifier
@@ -325,11 +331,22 @@ declaration_specifier:funcspec --> function_specifier
 declaration_specifier:alignspec --> alignment_specifier
 
 declaration_specifiers --> declaration_specifier+
+#declaration_specifiers ==>
+#	 storage_class_specifier
+#        | type_specifier
+#        | type_specifier declaration_specifiers
+#	| type_qualifier
+#	| type_qualifier declaration_specifiers
+#        | function_specifier
+#        | function_specifier declaration_specifiers
+#        | alignment_specifier
+#        | alignment_specifier declaration_specifiers
+#	<==
 
 # this rule corresponds to typedef: set next identifier to be TYPE_NAME
 #declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
 
-init_declarator --> declarator:decl (ASSIGN initializer)?:initializer
+init_declarator --> declarator:declarator (ASSIGN initializer)?:initializer
 
 #storage_class_specifier:Typedef --> TYPEDEF
 storage_class_specifier ==>
@@ -362,7 +379,7 @@ type_specifier ==>
 
 
 struct_or_union_specifier ==>
-	 struct_or_union IDENTIFIER? Lbrace struct_declaration+ Rbrace
+	 struct_or_union IDENTIFIER? Lbrace struct_declaration_list Rbrace
 	| struct_or_union IDENTIFIER
 	<==
 
@@ -371,14 +388,25 @@ struct_or_union --> STRUCT:x
 struct_or_union --> UNION:x
 
 struct_declaration ==>
-         specifier_qualifier+ struct_declarator<Comma*> ;
+         specifier_qualifier_list struct_declarator<Comma*> ;
        | static_assert_declaration
        <==
+#struct_declaration ==>
+#         specifier_qualifier+ struct_declarator<Comma*>
+#       | static_assert_declaration
+#       <==
+#         specifier_qualifier_list struct_declarator<Comma*>       
+#       | specifier_qualifier_list
 
-#struct_declaration_list --> struct_declaration+
+
+#struct_declaration_list ==>
+#	 struct_declaration
+#	| struct_declaration_list struct_declaration
+#	<==
+struct_declaration_list --> struct_declaration+
 
 specifier_qualifier --> type_specifier | type_qualifier
-#specifier_qualifier_list --> specifier_qualifier+
+specifier_qualifier_list --> specifier_qualifier+
 
 # note that the rule is right-recursive, does it matter?
 #specifier_qualifier_list ==>
@@ -425,12 +453,11 @@ function_specifier --> INLINE | NORETURN
 alignment_specifier --> ALIGNAS ( type_name ) 
 alignment_specifier --> ALIGNAS ( expression )
 
-# PROBLEMATIC LINE
-declarator --> pointer? direct_declarator
-#declarator --> pointer?:ptropt direct_declarator:direct_dec
+#declarator --> pointer?:ptr direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
 #declarator:no_pointer -->  direct_declarator
-#	<==
+declarator -->  pointer:ptr direct_declarator:direct {Declarator(Some(ptr),direct)}
+declarator -->  direct_declarator:direct {Declarator(None,direct)}
 
 # we can't replace all type_qualifier_list with type_qualifier+
 # below because the left context (plus one lookahead), won't be
@@ -454,7 +481,6 @@ direct_declarator ==>
 	| direct_declarator ( identifier_list )
 	| direct_declarator ( )
 	<==
-#	| direct_declarator [ expression ]
 
 pointer --> Star type_qualifier*:tql pointer?:ptr
 #pointer ==>
@@ -487,13 +513,14 @@ parameter_declaration ==>
 
 identifier_list --> IDENTIFIER<Comma+>
 
-type_name --> specifier_qualifier+ abstract_declarator?
+type_name --> specifier_qualifier_list abstract_declarator?
 
 abstract_declarator ==>
 	 pointer
 	| direct_abstract_declarator
 	| pointer direct_abstract_declarator
 	<==
+
 
 direct_abstract_declarator ==>
 	 ( abstract_declarator )
@@ -513,7 +540,7 @@ direct_abstract_declarator ==>
 	| direct_abstract_declarator ( )
 	| direct_abstract_declarator ( parameter_type_list )
 	<==
-#	| [ expression ]
+
 
 initializer ==>
 	  expression
@@ -604,7 +631,8 @@ function_definition --> declaration_specifiers declarator declaration* compound_
 EOF
 
 
-declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il ; 
+
+declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il ;
   { if let (declaration_specifiers{_item0_:tdl}, ils) = (&ds,&il)  {
      if let storage(typedeff) = &*tdl[0] {
       if let TYPEDEF = &**typedeff {
@@ -619,3 +647,17 @@ declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il
         }
     }}}}  ...
   } <==
+
+   
+direct_ab_base ==>
+     [ ]
+   | [ Star ]
+   | [ STATIC type_qualifier* expression ]
+   | [ type_qualifier_list STATIC?:s expression ]
+   | [ expression ]
+   | ( )
+   | ( parameter_type_list )
+   <==
+direct_abstract_declarator --> direct_ab_base+
+direct_abstract_declarator --> direct_ab_base+ [ type_qualifier_list ]
+direct_abstract_declarator --> ( abstract_declarator )
