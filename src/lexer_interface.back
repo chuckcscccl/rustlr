@@ -23,6 +23,8 @@ use std::collections::{HashSet,BTreeMap};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
+//use std::rc::Rc;
+//use std::cell::RefCell;
 
 /// **This structure is deprecated by [TerminalToken]**.
 /// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
@@ -228,6 +230,8 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the absolute character position of the tokenizer.  The
   /// default implementation returns 0;
   fn position(&self) -> usize { 0 }
+  // returns (line, column) information based on given position
+  //fn get_line_column(&self, position:usize) -> (usize,usize) { (0,0) }
   /*
   /// returns the previous position (before as opposed to after the current token).
   /// The default implementation returns 0.
@@ -296,7 +300,7 @@ pub enum RawToken<'t>
   BigNumber(&'t str),
   /// single character inside single quotes.
   Char(char), 
-  /// String literal, allows for nested quotes
+  /// String literal, allows for nested quotes.  **String literals always contain the enclosing double quotes**
   Strlit(&'t str),
   /// Alphanumeric sequence, staring with an alphabetical character or '_',
   /// and followed by arbitrary numbers of alphabetical, numeric or _.
@@ -394,6 +398,7 @@ pub struct StrTokenizer<'t>
    src:&'t str, // source name
    /// vector of starting byte position of each line, position 0 not used.
    pub line_positions:Vec<usize>, // starting position of each line
+   //pub shared_state: dyn for <ET:Default> Rc<RefCell<ET>>,
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -456,7 +461,7 @@ impl<'t> StrTokenizer<'t>
   /// order in which they where declared in the grammar file.
   pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
   {
-    let reg = if reg_expr.starts_with('^') {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
+    let reg = if reg_expr.starts_with('^') || reg_expr.starts_with("(?m") {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
     let re = Regex::new(&reg).expect(&format!("Error compiling custom regular expression \"{}\"",reg_expr));
     //self.custom_defined.insert(tkind,re);
     self.custom_defined.push((tkind,re));
@@ -682,7 +687,9 @@ impl<'t> StrTokenizer<'t>
       }// while ci < input.len()
       // terminated without finding end of string
       self.position = self.input.len();
-        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
+//        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
+        eprintln!("Tokenizer error: unclosed string, line {}, possibly starting earlier",line0);
+        let errposition = if (lstart0-1)<pi {pi-lstart0+1} else {0};
         return Some((LexError,line0,pi-lstart0+1)); 
     }//strlit
     
@@ -906,3 +913,21 @@ impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
    fn current_line(&self) -> &str  {self.contents}   
 }//impl Tokenizer for charscanner
 
+// binary range search
+// given position, return line number and starting position of that line
+fn brsearch(ps:&[usize], p:usize) -> (usize,usize) // returns (0,0) none
+{
+   let mut min = 1;
+   let mut max = ps.len();
+   while min<max
+   {
+      let mid = (min+max)/2;
+      if ps[mid]>p {max = mid;}
+      else { // possible., p>=ps[mid]
+        if mid == ps.len()-1 || p<ps[mid+1] {return (mid,ps[mid]);}
+        else {min = mid+1;}
+      }
+   }
+   (0,0)  // not found, there's no line 0
+}// determine line based on position
+// given (l,s), column is calculated py p-s+1.

@@ -316,7 +316,6 @@ impl Grammar
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
-use std::marker::PhantomData;
 extern crate rustlr;
 use rustlr::LBox;\n")?;
      if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
@@ -336,8 +335,7 @@ use rustlr::LBox;\n")?;
 /////  Floyd/Warshall reachability - sort of
   pub fn reachability(&mut self)
   {
-     let NTs:Vec<_> = self.Rulesfor.keys().collect();
-     for NT in NTs
+     for NT in self.Rulesfor.keys()
      {
        self.Reachable.insert(*NT, HashSet::new());
      } // create map skeletons

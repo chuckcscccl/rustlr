@@ -134,7 +134,6 @@ impl Statemachine
 #![allow(dead_code)]
 #![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::cell::RefCell;
 extern crate rustlr;

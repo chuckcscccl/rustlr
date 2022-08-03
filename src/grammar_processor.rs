@@ -62,13 +62,14 @@ impl Gsym
 // This will be used only statically: the action is a string.
 // The Gsym structures are repeated on the right-hand side because each
 // one can have a different label
+#[derive(Clone)]
 pub struct Grule  // struct for a grammar rule
 {
   pub lhs : Gsym,  // left-hand side of rule
   pub rhs : Vec<Gsym>, // right-hand side symbols (cloned from Symbols)
   pub action : String, //string representation of Ruleaction
   pub precedence : i32, // set to rhs symbol with highest |precedence|
-  pub iprecedence : i8, // for internally generated rules to support REs
+//  pub iprecedence : i8, // for internally generated rules to support REs
 }
 impl Grule
 {
@@ -79,7 +80,7 @@ impl Grule
        rhs : Vec::new(),
        action : String::default(),
        precedence : DEFAULTPRECEDENCE,
-       iprecedence : 0,
+//       iprecedence : 0,
      }
   }
   pub fn from_lhs(nt:&Gsym) -> Grule
@@ -89,7 +90,7 @@ impl Grule
        rhs : Vec::new(),
        action : String::default(),
        precedence : DEFAULTPRECEDENCE,
-       iprecedence : 0,
+//       iprecedence : 0,
      }     
   }
 }//impl Grule
@@ -136,6 +137,7 @@ pub struct Grammar
   pub basictypes : HashSet<&'static str>,
   pub ASTExtras : String,
   pub haslt_base: HashSet<usize>,
+  pub delaymarkers: HashMap<usize,BTreeSet<(usize,usize)>>,
 }
 
 impl Default for Grammar {
@@ -178,6 +180,7 @@ impl Grammar
        basictypes : btypes,
        ASTExtras: String::new(),
        haslt_base: HashSet::new(), //terminals that contains lifetime
+       delaymarkers:HashMap::new(), // delayed LR markers for transformation
      }
   }//new grammar
 
@@ -675,6 +678,7 @@ impl Grammar
               let mut maxprec:i32 = 0;
               let mut seenerrsym = false;
               let mut iadjust = 0;
+              let mut markers = Vec::new(); // record delay markers
               while i<bstokens.len() {
 	        let mut strtok = bstokens[i];
 		i+=1;
@@ -683,6 +687,8 @@ impl Grammar
                    semaction = rul.split_at(position+1).1;
 		   break;
                 }
+// look for delay marker and record
+                if strtok=="#" {markers.push(i-1-iadjust); iadjust+=1; continue; }
 
 /*
 Strategfy for parsing EBNF syntax:
@@ -782,7 +788,7 @@ strtok is bstokens[i], but will change
                   }
                   // register new symbol
                   newrule2.precedence = precd;
-                  newrule2.iprecedence = 6;   // IPRECEDENCE SET
+//                  newrule2.iprecedence = 6;   // IPRECEDENCE SET
                   newnt2.index = self.Symbols.len();
                   newrule2.lhs.index = newnt2.index;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
@@ -856,7 +862,7 @@ strtok is bstokens[i], but will change
                    newrule1.lhs.index = newnt.index;
                    let nr1type = &self.Symbols[newnt.index].rusttype;
                    newrule1.precedence = self.Symbols[gsymi].precedence;
-                   newrule1.iprecedence = 2;
+//                   newrule1.iprecedence = 2;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type.starts_with("Option<LBox<") {
@@ -889,7 +895,7 @@ strtok is bstokens[i], but will change
                      printrule(&newrule0,self.Rules.len());
                      printrule(&newrule1,self.Rules.len()+1);   
                    }
-                   newrule0.iprecedence = 4;
+//                   newrule0.iprecedence = 4;
 		   self.Rules.push(newrule0);
 		   self.Rules.push(newrule1);
 		   let mut rulesforset = HashSet::with_capacity(2);
@@ -970,8 +976,8 @@ strtok is bstokens[i], but will change
                     newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
                     newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
                   } // else leave at default for ()
-                  newrule3.iprecedence = 3;
-                  newrule4.iprecedence = 1;
+//                  newrule3.iprecedence = 3;
+//                  newrule4.iprecedence = 1;
                   if self.tracelev>3 {
                     printrule(&newrule3,self.Rules.len());
                     printrule(&newrule4,self.Rules.len()+1);
@@ -1003,8 +1009,8 @@ strtok is bstokens[i], but will change
                        newrule5.action = String::from(" vec![] }");
                        newrule6.action = String::from("_item0_ }");
                     }
-                    newrule5.iprecedence = 7;  // iprecedence!
-                    newrule6.iprecedence = 5;
+//                    newrule5.iprecedence = 7;  // iprecedence!
+//                    newrule6.iprecedence = 5;
                   if self.tracelev>3 {
                     printrule(&newrule5,self.Rules.len());
                     printrule(&newrule6,self.Rules.len()+1);
@@ -1061,6 +1067,25 @@ strtok is bstokens[i], but will change
                    }
                 }//match
 	      } // while there are tokens on rhs
+
+              ///// at this point, we can transform grammar to apply delays
+              let ruleindex = self.Rules.len();
+              if markers.len()%2==1 {panic!("ERROR: DELAY MARKERS MUST COME IN PAIRS, LINE {}\n",linenum);}
+              else if markers.len()>=2 {
+                self.delaymarkers.insert(ruleindex,BTreeSet::new());
+              }
+              let mut i = 0;
+              while i+1<markers.len()
+              {
+                 let dbegin = markers[i];
+                 let dend = markers[i+1];
+                 i += 2;
+                 if dend>dbegin+1 {
+                   self.delaymarkers.get_mut(&ruleindex).unwrap().insert((dbegin,dend));
+                 }
+              }// while there are delay transformations to record
+              ///// delays
+
 	      // form rule
 	      //let symind2 = *self.Symhash.get(LHS).unwrap(); //reborrowed
               let mut newlhs = self.Symbols[symind2].clone(); //lhsym.clone();
@@ -1072,7 +1097,7 @@ strtok is bstokens[i], but will change
 		rhs : rhsyms,
 		action: semaction.to_owned(),
 		precedence : maxprec,
-                iprecedence : 0,
+//                iprecedence : 0,
 	      };
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
@@ -1089,6 +1114,10 @@ strtok is bstokens[i], but will change
          }//match first word
        }// not an empty or comment line
      } // while !atEOF
+
+     self.delay_transform(); // hope this works!
+
+     // at the very end, add start, eof symbols, startrule
      if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF") || self.Symhash.contains_key("ANY_ERROR")
      {
         panic!("Error in grammar: START and EOF are reserved symbols");
@@ -1118,7 +1147,7 @@ strtok is bstokens[i], but will change
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
         action: String::default(),
         precedence : DEFAULTPRECEDENCE,
-        iprecedence : 0,
+//        iprecedence : 0,
      };
      self.Rules.push(startrule);  // last rule is start rule
      let mut startrfset = HashSet::new();

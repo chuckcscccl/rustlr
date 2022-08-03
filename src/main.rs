@@ -40,6 +40,7 @@ use ast_writer::*;
 
 mod lalr_statemachine;
 use lalr_statemachine::LALRMachine;
+mod selmlk;
 
 fn main() 
 {

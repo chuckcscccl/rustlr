@@ -252,7 +252,7 @@ impl LALRMachine
      let gsymbol = &self.Gmr.Symbols[nextsymi];
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
-     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts);
+     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,false);  // no need to check conflicts with these actions
   }  //addstate
 
 
@@ -393,10 +393,10 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
              
              let isaccept = (ri == self.Gmr.Rules.len()-1 && la==&(self.Gmr.Symbols.len()-1));
              if isaccept {
-               add_action(&mut self.FSM,&self.Gmr,Accept,si,*la,&mut self.sr_conflicts);
+               add_action(&mut self.FSM,&self.Gmr,Accept,si,*la,&mut self.sr_conflicts,false);  // don't check conflicts here
              }
              else {
-               add_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,*la,&mut self.sr_conflicts);
+               add_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,*la,&mut self.sr_conflicts,true);  // check conflicts here
 //println!("added Reduced({}) to state {}, la {}",ri,si,la);
              }
            } // for each la

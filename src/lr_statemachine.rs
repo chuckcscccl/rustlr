@@ -157,7 +157,7 @@ impl LR1State
        if res {
           answer = true;
           let newaction = Stateaction::Reduce(item.ri);
-          add_action(FSM,Gmr,newaction,state2.index,item.la,&mut self.sr_conflicts);
+          add_action(FSM,Gmr,newaction,state2.index,item.la,&mut self.sr_conflicts,true);
        }// proper addtion, meaning only the lookahead was not there before
      }//for each item in state2
      answer
@@ -426,7 +426,7 @@ impl Statemachine
      let gsymbol = &self.Gmr.Symbols[nextsymi]; //self.Gmr.getsym(nextsym).
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
-     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts);
+     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,true);
      // reduce rules are only added with . at end, nextsymbol terminal,
      // so a "reduce-gotonext" conflict is not possible
   }  //addstate
@@ -464,10 +464,10 @@ impl Statemachine
        {
           let isaccept = (item.ri == self.Gmr.Rules.len()-1 && self.Gmr.symref(item.la)=="EOF");
           if isaccept {
-            add_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts);
+            add_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts,true);
           }
           else {
-            add_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts);
+            add_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts,true);
           }
           // only place addreduce is called
        } // set reduce action
@@ -538,8 +538,12 @@ pub fn decode_action(code:u64) -> Stateaction
 
 
   // add_action unifies elements of previous addstate and addreduce 3/22
-pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>)
+pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>, checkconflict:bool)
   {
+     if !checkconflict {
+       FSM[si].insert(la,newaction);
+       return;
+     }
      let currentaction = FSM[si].get(&la);
      let mut changefsm = true; // add or keep current
      match (currentaction, &newaction) {
@@ -586,7 +590,7 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
      let lasym = &Gmr.Symbols[la];
      let lapred = lasym.precedence;
      let rulepred = Gmr.Rules[*ri].precedence;
-     let iprec = Gmr.Rules[*ri].iprecedence;
+//     let iprec = Gmr.Rules[*ri].iprecedence;
      if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
        /* default */
      } // right-associative lookahead, return shift
@@ -603,7 +607,7 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
           printrulela(*ri,Gmr,la);
        }
      } // reduce
-     
+     /*
      else if iprec==-128 {  //NOT BEING USED!
        clearly_resolved = true;  // but internally!
        resolution = true;
@@ -612,7 +616,7 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
          printrulela(*ri,Gmr,la);
        }
      }//iprecedence resolution
-     
+     */
      else {
        clearly_resolved=false;
        // report unclear case

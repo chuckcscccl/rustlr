@@ -90,12 +90,14 @@ mod ast_writer;
 
 mod lalr_statemachine;
 
+mod selmlk; // experimental
+
 pub use lr_statemachine::{Stateaction,decode_action};
 pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.2.99";
+pub const VERSION:&'static str = "0.3.0";
 
 ////// main function, called from main with command-line args
 

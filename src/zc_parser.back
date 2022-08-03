@@ -397,10 +397,10 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     let mut encode:u64 = 0;
     for i in 0..self.FSM.len() // for each state index i
     {
-      let row = &self.FSM[i];
+      let row = &self.FSM[i]; // this is a hashmap<usize,stateaction>
       for key in row.keys()
       { // see function decode for opposite translation
-        let k = *self.Gmr.Symhash.get(key).unwrap(); // index of symbol
+        let k = *key; //*self.Gmr.Symhash.get(key).unwrap(); // index of symbol
         encode = ((i as u64) << 48) + ((k as u64) << 32);
         match row.get(key) {
           Some(Shift(statei)) => { encode += (*statei as u64) << 16; },
@@ -418,7 +418,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"pub fn make_parser{}() -> ZCParser<{},{}>",&ltopt,absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates, must pop values from runtime stack
     write!(fd," let mut rule = ZCRProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,"start")?;
     for i in 0..self.Gmr.Rules.len() 
@@ -658,7 +658,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let row = &self.FSM[i];                          ////////LBA VERSION
       for key in row.keys()
       { // see function decode for opposite translation
-        let k = *self.Gmr.Symhash.get(key).unwrap(); // index of symbol
+        let k = *key; //*self.Gmr.Symhash.get(key).unwrap(); // index of symbol
         encode = ((i as u64) << 48) + ((k as u64) << 32);
         match row.get(key) {
           Some(Shift(statei)) => { encode += (*statei as u64) << 16; },
@@ -679,7 +679,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"\npub fn make_parser{}() -> ZCParser<{},{}>",&ltopt,absyn,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.States.len())?;
+    write!(fd," let mut parser1:ZCParser<{},{}> = ZCParser::new({},{});\n",absyn,extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates to call action fns
      write!(fd," let mut rule = ZCRProduction::<{},{}>::new_skeleton(\"{}\");\n",absyn,extype,"start")?; // dummy for init
     for i in 0..self.Gmr.Rules.len() 
