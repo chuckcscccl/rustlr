@@ -24,11 +24,12 @@ impl Grammar
    fn prepare(&mut self) -> String
    {
      // reachability already called by grammar parser
+     
      // assign types to all non-terminal symbols
      // first pass: assign types to "" types, skip all others
      let mut ntcx = self.ntcxmax+1;
      for nt in self.Rulesfor.keys() { // for each nonterminal index
-       if self.Symbols[*nt].rusttype.len()==0 {
+       if self.Symbols[*nt].rusttype.len()==0 { // type "" means generate type
          // determine if lifetime needed.
          let reach = self.Reachable.get(nt).unwrap();
          let mut needlt = false;
@@ -46,77 +47,115 @@ impl Grammar
          ntcx+=1;
        }//need type assignment during first pass
      }// first pass
-     //// second pass: change *EXPR to actual type
+
+     // Set of nti that will extend other types
+     let mut toextend = HashMap::new();  // usize->usize nti's
+
+     //// second pass: change @EXPR to actual type, change +Expr to direct
      for nt in self.Rulesfor.keys() {
-       // two possibilities : @expr, or <@expr>
+       // two possibilities : @expr, or <@expr> or +Expr
        // assume only one.
+       let addtoextend = self.Symbols[*nt].rusttype.starts_with(':');
        let mut addtosymhash = false; // because already added above
        let mut limit = self.Symbols.len()+1;
-       while self.Symbols[*nt].rusttype.contains('@') && limit>0
+       let mut indirect = true;
+       while (indirect || self.Symbols[*nt].rusttype.contains('@')) && limit>0
        {
+         indirect = false;
          addtosymhash = true;
-         let stype = &self.Symbols[*nt].rusttype;
+         let stype = &self.Symbols[*nt].rusttype; //reborrow
          let mut symtocopy = ""; // symbol to copy type from
-         let (mut start,mut end) = (0,0);
-         if stype.starts_with('@') {
-          symtocopy = stype[1..].trim();
-          start = 0; end = stype.len();
-         }
-         else if let Some(pos1)=stype.find("<@") {
+         let (mut start,mut end) = (0,stype.len());
+         if stype.starts_with(':') || stype.starts_with('@') {
+           symtocopy = stype[1..].trim();
+         } else if let Some(pos1)=stype.find("<@") {
            if let Some(pos2)=stype[pos1+2..].find('>') {
               symtocopy = &stype[pos1+2..pos1+2+pos2];
               start = pos1+1; end = pos1+2+pos2;
            }
-         }
+         } else if let Some(pos1)=stype.find("<+") {
+           if let Some(pos2)=stype[pos1+2..].find('>') {
+              symtocopy = &stype[pos1+2..pos1+2+pos2];
+              start = pos1+1; end = pos1+2+pos2;
+              indirect = true; // make sure              
+           }
+         }         
          if symtocopy.len()>0 {
            let symi = *self.Symhash.get(symtocopy).unwrap();
+           let mut replacetype = self.Symbols[symi].rusttype.clone();
+           if replacetype.starts_with(':') {indirect = true;}
+           else if addtoextend {
+              toextend.insert(*nt,symi);
+//println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);              
+           }
+
            // change type to actual type.
+           
            let mut newtype = stype.clone();
-           newtype.replace_range(start..end,&self.Symbols[symi].rusttype);
+           newtype.replace_range(start..end,&replacetype);
            self.Symbols[*nt].rusttype = newtype;
-         }
+         } // if symtocopy.len>0
          limit -= 1;
        }//while still contains @ - keep doing it
        if addtosymhash && limit>0 {self.enumhash.insert(self.Symbols[*nt].rusttype.clone(),ntcx); ntcx+=1;}
        else if limit==0 {
-          panic!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES ({})",&self.Symbols[*nt].rusttype);
+          eprintln!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES (type {} for nonterminal {}). THIS TYPE WILL BE RESET AND REGENERATED",&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym);
+          self.Symbols[*nt].rusttype = String::new();
        }
      }//second pass
+     
      // third pass on all instances of symbols:
      // don't need to reclone types ! - will never look at instance type
      // final pass sets enumhash
      self.ntcxmax = ntcx;
      // grammar_processor also needs to set enumhash if not -auto
-     
 
+     // setup hashmap from nt numbers to ASTS
+     let mut ASTmap:HashMap<usize,String> = HashMap::new();
      let mut ASTS = String::new(); // all asts
+
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
-     // self.Rulesfor hashmap from nonterminals to set of usize indices
-
-     // setting of type = NT name done loops above, including ltopt
-
-     for (nt,NTrules) in self.Rulesfor.iter()
+          
+     //main loop: for each nt and its rules
+     for (nt,NTrules) in self.Rulesfor.iter() // for each nt and its rules
      {
         let nti = *nt; //*self.Symhash.get(NT).unwrap();
-        let ntsym = &self.Symbols[nti];
+        let mut ntsym = &self.Symbols[nti];
+        let willextend = toextend.contains_key(nt);
+//println!("NT {}, type {}, willextend {}",&ntsym.sym,&ntsym.rusttype,willextend);
+
+        if !ntsym.rusttype.starts_with(&ntsym.sym) && !willextend  {continue;}
+
+        // default for new enum
+	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
+
+/*
+// check that the type should append an existing enum, continue...
+//        if ntsym.rusttype.starts_with(':') {
+        if willextend {
+          let copysym = ntsym.rusttype.clone();
+println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nti].rusttype);          
+          self.Symbols[nti].rusttype = copysym;
+          AST = String::new();
+        }// append existing enum - which enum???
+*/
+//        ntsym = &self.Symbols[nti];   // re-borrow
+        if willextend {AST=String::new();}
         let NT = &self.Symbols[nti].sym;
 
-        /////// generate ENUM by default
-        let mut genstruct = NTrules.len()==1;
+        /////// generate new ENUM by default
+        let mut genstruct = NTrules.len()==1 && !willextend;  //check lhs label
         let mut simplestruct = false;
-        //let mut usedlt = false; // did lt appear in type? - only for genstruct
 
-	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
-        if genstruct {AST=format!("#[derive(Default,Debug)]\npub struct {} {{\n",&ntsym.rusttype);}
-        
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           //if self.Rules[*ri].rhs.len()<1 {genstruct=false;}
 	  //self.Rules[*ri].lhs.rusttype = self.Symbols[nti].rusttype.clone();
 	  // look at rhs of rule to form enum variant + action of each rule
           let mut nolhslabel = false;
-	  if self.Rules[*ri].lhs.label.len()<1 { // make up lhs label
+	  if self.Rules[*ri].lhs.label.len()>0 { genstruct = false; }
+	  else { // make up lhs label
              nolhslabel = true;
 	     let mut lhslab = format!("{}_{}",NT,ri);
 	     if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
@@ -130,6 +169,8 @@ impl Grammar
 	  } // set lhs label
 
           // determine if simplestruct can be used
+//          genstruct = genstruct && self.Rules[*ri].lhs.label.len()==0;
+//println!("***genstruct for lhs {}, label {}: {}",&self.Rules[*ri].lhs.sym,&self.Rules[*ri].lhs.label,genstruct);
           if genstruct {
             simplestruct = true;
              for rs in &self.Rules[*ri].rhs {
@@ -138,15 +179,17 @@ impl Grammar
                }
               //if rs.rusttype.contains(&ltopt) || rs.rusttype.contains(&format!("&{}",&self.lifetime))  {usedlt=true;}
              }
-            //simplestruct = simplestruct && (usedlt || ltopt.len()==0);
-          }//if genstruct, determine if it's a simple struct, calc usedlt
-          if simplestruct {AST = format!("#[derive(Default,Debug)]\npub struct {}(",&ntsym.rusttype);}
+            if simplestruct {AST = format!("#[derive(Default,Debug)]\npub struct {}(",&ntsym.rusttype);}
+            else  {AST=format!("#[derive(Default,Debug)]\npub struct {} {{\n",&ntsym.rusttype);}
+          } //if genstruct, determine if it's a simple struct, change AST
           
           let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
 	  let lhsymtype = self.Symbols[lhsi].rusttype.clone();
-	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
+//	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
+          let enumname = &self.Symbols[*toextend.get(nt).unwrap_or(nt)].sym;
+	  let mut ACTION = format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
-          if genstruct {
+          if genstruct { // name can only be same as non-terminal
              if simplestruct {ACTION=format!("{}(",NT);}
              else {ACTION=format!("{} {{",NT);}
              enumvar = String::new(); // "enumvar" means "struct-fields"
@@ -231,17 +274,11 @@ impl Grammar
 	    rhsi += 1;
 	  }// for each symbol on rhs of rule ri
           if genstruct { // this is only rule that forms struct
-             /*
-             if !usedlt && ltopt.len()>0 {
-               enumvar.push_str(&format!("  pub phantom:PhantomData<&{} ()>,\n",&self.lifetime));
-               ACTION.push_str("phantom:PhantomData,");
-             }
-             */
              if simplestruct {
                enumvar.push_str(");\n\n");
                ACTION.push(')');
              } else {
-               enumvar.push_str("}\n");
+               enumvar.push_str("}\n\n");
                ACTION.push('}');
              }
           }//genstruct
@@ -258,40 +295,62 @@ impl Grammar
     	  ACTION.push_str(" }");  // action already has last rbrack
 	  // determine if action and ast enum should be generated:
 //          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
+          let shouldpush = ntsym.rusttype.starts_with(NT) || toextend.contains_key(nt);
           let mut actbase = augment_action(&self.Rules[*ri].action);
           if !actbase.ends_with('}') && passthru>=0 && nolhslabel {
             self.Rules[*ri].action = format!("{} _item{}_ }}",&actbase,passthru);
 //println!("passthru on rule {}, NT {}",ri,&self.Rules[*ri].lhs.sym);
           }
 	  else
-          if !actbase.ends_with('}') && ntsym.rusttype.starts_with(NT) {
+          if !actbase.ends_with('}') && shouldpush {
   	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
 	  }
-          else if ntsym.rusttype.starts_with(NT) {  // added for 0.2.94
+          else if shouldpush {  // added for 0.2.94
 	    AST.push_str(&enumvar); if !genstruct {AST.push_str(",\n");}
           }
 //println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
 
-        if !genstruct {
+        ////////////////// KEEP ENUM OPEN, INSERT INTO HASHMAP
+        
+        
+
+        let mut storedAST;
+        if willextend {
+            let targetnti = toextend.get(&nti).unwrap();
+            storedAST = ASTmap.remove(targetnti).unwrap_or(String::new());
+            storedAST.push_str(&AST);
+            ASTmap.insert(*targetnti,storedAST);            
+        }
+        else {  // check if something already exist, if so add before it
+          storedAST = ASTmap.remove(&nti).unwrap_or(String::new());
+          storedAST = format!("{}{}",&AST,&storedAST);
+          ASTmap.insert(nti,storedAST);
+        }
+        
+
+/*
+        if !genstruct {  // CLOSE THE ENUM  -DO THIS AT END!
 	// coerce Nothing to carry a dummy lifetime if necessary
-	let defaultvar = format!("{}_Nothing",NT);
-	let defaultvarinst = format!("{}_Nothing",NT);
-        /*
-	if self.lifetime.len()>0 {
-	  defaultvar = format!("{}_Nothing(&{} ())",NT,&self.lifetime);
-	  defaultvarinst = format!("{}_Nothing(&())",NT);
-	}
-        */
-	AST.push_str(&format!("  {},\n}}\n",&defaultvar));
-        let uselt = if self.lifetime.len()>0 && ntsym.rusttype.contains(&self.lifetime) {&ltopt} else {""};
-	AST.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",uselt,&ntsym.rusttype,NT,&defaultvarinst));
-        } // !genstruct
         
         // rule only added if there's no override
         if ntsym.rusttype.starts_with(NT) { ASTS.push_str(&AST); }
+*/
      }//for each non-terminal and set of rules (NT, NTRules)
+
+     // Now close all unclosed enums
+     for (nt,ntast) in ASTmap.iter() {
+       if ntast.starts_with("#[derive(Debug)]") { // enum
+ 	let defaultvar = format!("{}_Nothing",&self.Symbols[*nt].sym);
+        let mut ast = format!("{}  {},\n}}\n",ntast,&defaultvar);
+        
+        let uselt = if self.lifetime.len()>0 && self.Symbols[*nt].rusttype.contains(&self.lifetime) {&ltopt} else {""};
+	ast.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",uselt,&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym,&defaultvar));
+        ASTS.push_str(&ast);
+       } // !genstruct - is enum
+       else { ASTS.push_str(ntast); }
+     }// closing all enums and add to ASTS
 
      // set Absyntype
      let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist

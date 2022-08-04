@@ -570,6 +570,7 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
          if Gmr.tracelev>4 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
          }
+         // look in state to see which item caused the conflict...
          if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
        },
        _ => {}, // default add newstate

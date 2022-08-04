@@ -101,7 +101,7 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.genlex = genlex;
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
-  grammar1.parse_grammar(filepath);
+  grammar1.parse_grammar(filepath);  //  ***
   // Check grammar integrity: now done inside parse
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
@@ -115,7 +115,7 @@ fn rustle(args:&Vec<String>) // called from main
   }// derive grammar name
   let gramname = grammar1.name.clone();
 
-  if genabsyn {
+  if grammar1.genabsyn {
      let mut slashpos = parserfile.rfind('/');
      if let None = slashpos {slashpos = parserfile.rfind('\\');}
      let mut astpath = format!("{}_ast.rs",&gramname);

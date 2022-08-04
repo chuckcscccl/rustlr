@@ -341,9 +341,18 @@ impl Grammar
             "grammarname" => {
                self.name = String::from(stokens[1]);
             },
+            "auto" | "genabsyn" => {
+               if stage==0 {self.genabsyn=true;} else if !self.genabsyn {
+                 eprintln!("ERROR: Place 'auto' at beginning of the grammar or run with -auto option, directive may not be effective.");
+               }
+            },
             "EOF" => {atEOF=true},
             ("terminal" | "terminals") if stage==0 => {
                for i in 1..stokens.len() {
+                 if self.Symhash.contains_key(stokens[i]) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[i],linenum);
+                   continue;
+                 }               
 	          let mut newterm = Gsym::new(stokens[i],true);
 		  if self.genabsyn {
   		    newterm.rusttype = "()".to_owned();
@@ -357,6 +366,10 @@ impl Grammar
                }
             }, //terminals
 	    "typedterminal" if stage==0 && stokens.len()>2 => {
+                 if self.Symhash.contains_key(stokens[1]) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum);
+                   continue;
+                 }            
 	       let mut newterm = Gsym::new(stokens[1],true);
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
@@ -388,9 +401,18 @@ impl Grammar
                }
                // set rusttype
                let mut nttype = tokentype.trim().to_owned();
-               //if nttype.len()<1 && self.genabsyn {
-	         //nttype = format!("{}{}",stokens[1],&ltopt); //do nothing
-	       //}  // genabsyn
+               // check non-transitive extension:
+               if nttype.starts_with(':') {
+                loop {
+                 let copynt = nttype[1..].trim();
+                 let copynti = *self.Symhash.get(copynt).expect(&format!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum));
+                 if self.Symbols[copynti].rusttype.starts_with(':') {
+//                   eprintln!("WARNING: TYPE EXTENSIONS ARE NOT TRANSITIVE: THIS MAY NOT WORK, LINE {}\n\n",linenum);
+                   nttype = self.Symbols[copynti].rusttype.clone();
+                 } else {break;}
+                }//loop
+               }//check extension type integrity
+               
 	       if nttype.contains('@') {// copy type from other NT
                 let mut limit =self.Symbols.len()+1;
                 loop {
@@ -417,7 +439,7 @@ impl Grammar
                 }//loop
 	       } // *NT copy type from other NT
                if nttype.len()<1 && !self.genabsyn {nttype = self.Absyntype.clone()};
-	       if !nttype.contains('@') {self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;}
+	       if !nttype.contains('@') && !nttype.starts_with(':') {self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;}
                if &nttype!=&self.Absyntype {self.sametype=false;}
                
 	       newterm.rusttype = nttype;
@@ -428,6 +450,11 @@ impl Grammar
 	    }, //nonterminal
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
+                 if self.Symhash.contains_key(stokens[i]) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[i],linenum);
+                   continue;
+                 }
+                 
 	          let mut newterm = Gsym::new(stokens[i],false);
                   newterm.index = self.Symbols.len();                  
                   self.Symhash.insert(stokens[i].to_owned(),self.Symbols.len());
@@ -564,7 +591,11 @@ impl Grammar
 	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
 	         continue;
 	       }  // valueterminal ID: String: Alphanum(n) if ... : n.to_owned()
-               let termname = dtokens[0].trim();               
+               let termname = dtokens[0].trim();
+                 if self.Symhash.contains_key(termname) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",termname,linenum);
+                   continue;
+                 }               
                let mut newterm = Gsym::new(termname,true);
                let termtype = dtokens[1].trim();
                if termtype.len()<1 {newterm.settype(&self.Absyntype);}
@@ -596,6 +627,10 @@ impl Grammar
 	         //continue;
                }
                let termname = stokens[1].trim();
+                 if self.Symhash.contains_key(termname) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",termname,linenum);
+                   continue;
+                 }                              
                let mut newterm = Gsym::new(termname,true);
                if self.genabsyn { newterm.settype("()"); }
                else {newterm.settype(&self.Absyntype);}
@@ -693,6 +728,9 @@ impl Grammar
                 if strtok.len()>0 && &strtok[0..1]=="{" {
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
+                   if semaction.contains("return ") {
+                     eprintln!("WARNING: USING \"return\" INSIDE SEMANTIC ACTIONS COULD CAUSE CONFLICTS WITH AUTOMATIC CODE GENERATION, LINE {}\n",linenum);
+                   }
 		   break;
                 }
 // look for delay marker and record
@@ -1164,7 +1202,7 @@ strtok is bstokens[i], but will change
      let mut startrfset = HashSet::new();
      startrfset.insert(self.Rules.len()-1); // last rule is start rule
      self.Rulesfor.insert(self.startnti,startrfset); //for START
-     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
+//     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
      if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
@@ -1203,8 +1241,7 @@ strtok is bstokens[i], but will change
         }   // nonterminal actually used on left side
      }
      //integrity checks
-     
-
+     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
   }//parse_grammar
 }// impl Grammar
 // last rule is always start rule and first state is start state

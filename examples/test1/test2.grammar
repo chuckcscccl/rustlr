@@ -1,0 +1,23 @@
+# Unambiguous LR grammar for simple calculator.
+
+auto
+nonterminal E
+nonterminal T : E
+nonterminal F : E
+terminals + * ( )
+valueterminal num ~ i64 ~ Num(n) ~ n
+nonterminal G
+topsym E
+
+E:plus --> E:e + T:t
+E --> T
+T:times --> T:t * F:f
+T --> F
+F --> ( E )
+F --> num
+
+G --> num:a num:b num
+
+EOF
+
+Everything after EOF is ignored can be use used for more comments
