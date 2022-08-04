@@ -26,7 +26,7 @@ impl Grammar
      // reachability already called by grammar parser
      // assign types to all non-terminal symbols
      // first pass: assign types to "" types, skip all others
-     let mut ntcx = self.Symbols.len()+2; //restart enumhash index to safe val
+     let mut ntcx = self.ntcxmax+1;
      for nt in self.Rulesfor.keys() { // for each nonterminal index
        if self.Symbols[*nt].rusttype.len()==0 {
          // determine if lifetime needed.
@@ -85,7 +85,7 @@ impl Grammar
      // third pass on all instances of symbols:
      // don't need to reclone types ! - will never look at instance type
      // final pass sets enumhash
-     
+     self.ntcxmax = ntcx;
      // grammar_processor also needs to set enumhash if not -auto
      
 

@@ -1,0 +1,48 @@
+# simplest example of applying delays
+
+terminals a b c d x y
+nonterminals S A B M M2
+topsym S
+
+S --> A | B
+A --> # M c:xx # x
+B --> a b c y
+M --> a b
+
+EOF
+
+LR(0) grammar
+S --> A | B
+A --> a b c x
+B --> a b c y
+
+Conflict grammar, non-lr(1)
+
+S --> A | B
+A --> M c x
+B --> a b c y
+M --> a b
+
+# noconflict with delays, manual
+S --> A | B
+A --> M2 x
+B --> a b c y
+M2 --> a b c
+
+
+Idea is to mark manually where grammar transformation should occur:
+
+A --> [M c] x
+
+keep map between rule number, and positions on rhs where [ and ] occurs.
+
+// positions must be accurate.
+
+HashMap<usize,HashSet<(usize,usize)>>
+
+or M#1 c.
+same hashmap type, second part of pair is length.
+
+---- how to transfer semantic values.
+system will generate let labeln = pop, labeln-1 =pop.
+shift label names, which are mut anyway.  can't because of type.

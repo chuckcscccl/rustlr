@@ -103,7 +103,7 @@ pub fn printrule(rule:&Grule,ri:usize)  //independent function
       if s.label.len()>0 {print!(":{}",s.label);}
       print!(" ");
    }
-   println!("{{ {}, precedence {}",rule.action.trim(),rule.precedence);  // {{ is \{
+   println!(" action{{ {}, precedence {}",rule.action.trim(),rule.precedence);  // {{ is \{
 }
 
 /////main global class, roughly corresponds to "metaparser"
@@ -138,6 +138,10 @@ pub struct Grammar
   pub ASTExtras : String,
   pub haslt_base: HashSet<usize>,
   pub delaymarkers: HashMap<usize,BTreeSet<(usize,usize)>>,
+  pub ntcxmax : usize,
+  pub startnti: usize,
+  pub eoftermi: usize,
+  pub startrulei: usize,
 }
 
 impl Default for Grammar {
@@ -181,6 +185,10 @@ impl Grammar
        ASTExtras: String::new(),
        haslt_base: HashSet::new(), //terminals that contains lifetime
        delaymarkers:HashMap::new(), // delayed LR markers for transformation
+       ntcxmax : 0,
+       startnti : 0,
+       eoftermi : 0,
+       startrulei : 0,
      }
   }//new grammar
 
@@ -1115,7 +1123,7 @@ strtok is bstokens[i], but will change
        }// not an empty or comment line
      } // while !atEOF
 
-     self.delay_transform(); // hope this works!
+     self.ntcxmax = ntcx;
 
      // at the very end, add start, eof symbols, startrule
      if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF") || self.Symhash.contains_key("ANY_ERROR")
@@ -1135,8 +1143,10 @@ strtok is bstokens[i], but will change
 //     let anyerr = Gsym::new("ANY_ERROR",true);
      startnt.index = self.Symbols.len();
      eofterm.index = self.Symbols.len()+1;
-     self.Symhash.insert(String::from("START"),self.Symbols.len());
-     self.Symhash.insert(String::from("EOF"),self.Symbols.len()+1);
+     self.startnti = startnt.index;
+     self.eoftermi = eofterm.index;
+     self.Symhash.insert(String::from("START"),self.startnti);
+     self.Symhash.insert(String::from("EOF"),self.eoftermi);
 //   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+3);
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
@@ -1150,9 +1160,10 @@ strtok is bstokens[i], but will change
 //        iprecedence : 0,
      };
      self.Rules.push(startrule);  // last rule is start rule
+     self.startrulei = self.Rules.len()-1;
      let mut startrfset = HashSet::new();
      startrfset.insert(self.Rules.len()-1); // last rule is start rule
-     self.Rulesfor.insert(self.Symbols.len()-2,startrfset); //for START
+     self.Rulesfor.insert(self.startnti,startrfset); //for START
      if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)

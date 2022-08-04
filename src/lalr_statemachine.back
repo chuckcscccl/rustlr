@@ -17,6 +17,10 @@ use crate::grammar_processor::*;
 use crate::lr_statemachine::{Stateaction,Statemachine,printrulela,add_action,sr_resolve};
 use crate::lr_statemachine::Stateaction::*;
 
+// temporary
+//use std::time::{Duration,SystemTime};
+
+
 #[derive(Copy,Clone,PartialEq,Eq,Hash,Debug,PartialOrd,Ord)]
 pub struct LALRitem(usize,usize);   // rule index, position of the dot
 
@@ -61,23 +65,28 @@ impl LALRState
      }
     inserted
   }
-  /*
-  fn additem(&mut self,item:LALRitem, lhs:usize) -> bool
-  {
-     let inserted = self.items.insert(item);
-     self.lhss.insert(lhs);
-     inserted
-  }  
-  */
+
   pub fn hashval_lalr(&mut self) -> usize  // note: NOT UNIQUE
   {
     let mut key=self.items.len() + self.lhss.len()*1000000;    
     let limit = usize::MAX/1000 -1;
-    let mut cx = 8;
+    let mut cx = 6;  //8
     for s in &self.lhss {key+=1000*s; cx-=1; if cx==0 || key>=limit {break;}}
     key
   }
 
+/*
+  pub fn hashval_lalr(&mut self) -> usize  // note: NOT UNIQUE
+  {
+    let mut key=self.items.len()<<24 + self.lhss.len()<<16;
+    let limit = usize::MAX/1000 -1;
+    let mut cx = 8;
+    for LALRitem(ri,pi) in &self.kernel {
+      key += 500*ri+pi;
+    }
+    key
+  }
+*/
   pub fn state_eq(&self, state2:&LALRState) -> bool
   {
      // ignore index - set later
@@ -243,7 +252,7 @@ impl LALRMachine
      let gsymbol = &self.Gmr.Symbols[nextsymi];
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
-     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts);
+     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,false);  // no need to check conflicts with these actions
   }  //addstate
 
 
@@ -304,7 +313,7 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
            // this could be the kernel item with dummy
            for ila in itemlas.iter() {Xlookaheads.insert(*ila);}
          }
-         for rulent in self.Gmr.Rulesfor.get(&Xsym.sym).unwrap() {
+         for rulent in self.Gmr.Rulesfor.get(&Xsym.index).unwrap() {
            let newitem = LALRitem(*rulent,0);
            // if newitem!=item for borrow checks?
            let mut slas = self.States[si].lookaheads.get(&newitem).unwrap().borrow_mut();
@@ -384,10 +393,10 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
              
              let isaccept = (ri == self.Gmr.Rules.len()-1 && la==&(self.Gmr.Symbols.len()-1));
              if isaccept {
-               add_action(&mut self.FSM,&self.Gmr,Accept,si,*la,&mut self.sr_conflicts);
+               add_action(&mut self.FSM,&self.Gmr,Accept,si,*la,&mut self.sr_conflicts,false);  // don't check conflicts here
              }
              else {
-               add_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,*la,&mut self.sr_conflicts);
+               add_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,*la,&mut self.sr_conflicts,true);  // check conflicts here
 //println!("added Reduced({}) to state {}, la {}",ri,si,la);
              }
            } // for each la
@@ -422,7 +431,7 @@ fn reclose(&mut self) // set remaining lookaheads
          let mut Xlookaheads = HashSet::new();
          let itemlas = state.lookaheads.get(&item).unwrap().borrow();
          for ila in itemlas.iter() {Xlookaheads.insert(*ila);}
-         for rulent in self.Gmr.Rulesfor.get(&Xsym.sym).unwrap() {
+         for rulent in self.Gmr.Rulesfor.get(&Xsym.index).unwrap() {
            let newitem = LALRitem(*rulent,0);
            if !interior.contains(&newitem) {
              closure.push(newitem); // add to "frontier"
@@ -439,6 +448,7 @@ fn reclose(&mut self) // set remaining lookaheads
    } // for each kernel item
   } //for each state
 }//reclose   -- adding too many
+
 
 pub fn generatefsm(&mut self)
   {
@@ -461,7 +471,8 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
     self.FSM.push(HashMap::with_capacity(128)); // row for state
     // now generate closure for state machine (not individual states)
     let mut closed:usize = 0;
-    //println!("before makegotos");    
+    //println!("before makegotos");
+//let timer = SystemTime::now();    
     while closed<self.States.len()
     {
        self.makegotos(closed);
@@ -469,15 +480,28 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
     }//while not closed
     //println!("after makegotos");
     //println!("states generated: {}",self.States.len());
+//let t1 = timer.elapsed().unwrap_or(Duration::ZERO);    
     self.States[0].lookaheads.get(&startitem).unwrap().borrow_mut().insert(EOFi);  // initial lookahead
     self.set_propagations();
-    //println!("set_propagations");    
+    //println!("set_propagations");
+//let t2 = timer.elapsed().unwrap_or(t1);    
     self.propagate_lookaheads();
-    //println!("after propagate_lookaheads");    
+    //println!("after propagate_lookaheads");
+//let t3 = timer.elapsed().unwrap_or(t2);        
     self.reclose(); // set lookaheads for non-kernel items
-    //println!("after reclose");        
+    //println!("after reclose");
+//let t4 = timer.elapsed().unwrap_or(t3);            
     self.set_reduce();
-
+/*    
+let t5 = timer.elapsed().unwrap_or(t4);
+let (t1m,t2m,t3m) = (t1.as_millis(),t2.as_millis(),t3.as_millis());
+let (t4m,t5m) =(t4.as_millis(),t5.as_millis());
+println!("time to call makegotos, LR(0) state table: {}",t1m);
+println!("time to call set_propagation marks: {}",t2m-t1m);
+println!("time to propagate_lookaheads: {}",t3m-t2m);
+println!("time to reclose and finalize lookaheads: {}",t4m-t3m);
+println!("time to set_reduce: {}",t5m-t4m);
+*/
     // optional trace
     if self.Gmr.tracelev>2 {
        for state in &self.States {printlalrstate(state,&self.Gmr);}
@@ -510,8 +534,8 @@ fn closure0(state: &mut LALRState,Gmr:&Grammar)
      state.insert(item,lhsi); // insert into state.items here
      closed += 1;
      if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {// add closure items
-       let sympi = &rulei.rhs[pi].sym;
-       for rulent in Gmr.Rulesfor.get(sympi).unwrap() {
+       //let sympii = &rulei.rhs[pi].index;
+       for rulent in Gmr.Rulesfor.get(&rulei.rhs[pi].index).unwrap() {
          let newitem = LALRitem(*rulent,0); // can't be kernel again
          if !state.items.contains(&newitem) {
            closure.push(newitem); // add to "frontier"

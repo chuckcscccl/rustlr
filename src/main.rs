@@ -102,7 +102,7 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
   grammar1.parse_grammar(filepath);
-  // Check grammar integrity:
+  // Check grammar integrity: now done inside parse
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
   if grammar1.name.len()<2  { // derive grammar name from filepath
@@ -123,6 +123,9 @@ fn rustle(args:&Vec<String>) // called from main
      let wres = grammar1.writeabsyn(&astpath);
      if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
   }
+
+ grammar1.delay_transform(); // hope this works!
+
 
   if tracelev>2 {println!("computing Nullable set");}
   grammar1.compute_NullableRf();
@@ -168,4 +171,3 @@ fn rustle(args:&Vec<String>) // called from main
      println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
   }
 }//rustle
-

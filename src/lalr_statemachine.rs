@@ -24,7 +24,7 @@ use crate::lr_statemachine::Stateaction::*;
 #[derive(Copy,Clone,PartialEq,Eq,Hash,Debug,PartialOrd,Ord)]
 pub struct LALRitem(usize,usize);   // rule index, position of the dot
 
-// use Grammar.Symbols.len()+1 for the hash mark
+// use Grammar.Symbols.len()+1 for the dummy mark
 
 //propagation stores for each item if lookaheads should be propagated to
 //(symindex,item). symindex identifies nextstate: FSM[si][symindex] lookup.
@@ -351,7 +351,7 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
          for item in &self.States[si].kernel { //-borrow checker!
            let (ri,pi) = (item.0, item.1);
            //println!("propagate_lookahead looking at kernel item {:?}, state {}",&item,si);
-           //if pi>0 || ri == self.Gmr.Rules.len()-1 {  // kernel item
+           //if pi>0 || ri == self.Gmr.startrulei {  // kernel item
              let itemlas = self.States[si].lookaheads.get(&item).unwrap().borrow();
              let props = self.States[si].propagation.get(&item).unwrap();
 //println!("props len {}", props.len());
@@ -391,7 +391,7 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
              if *la>=self.Gmr.Symbols.len() {continue;} // skip the dummy
              //println!("adding reduce/accept rule {}, la {}",ri,&self.Gmr.Symbols[*la].sym);
              
-             let isaccept = (ri == self.Gmr.Rules.len()-1 && la==&(self.Gmr.Symbols.len()-1));
+             let isaccept = (ri == self.Gmr.startrulei && la==&(self.Gmr.eoftermi));
              if isaccept {
                add_action(&mut self.FSM,&self.Gmr,Accept,si,*la,&mut self.sr_conflicts,false);  // don't check conflicts here
              }
@@ -461,10 +461,7 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
     // create initial state, closure from initial item: 
     // START --> .topsym EOF
     let mut startstate=LALRState::new(self.Gmr.Rules.len());
-    let EOFi = self.Gmr.Symbols.len()-1;
-    //let STARTi = self.Gmr.Symbols.len()-2;
-    let startrule = self.Gmr.Rules.len()-1;
-    let startitem = LALRitem(startrule,0);
+    let startitem = LALRitem(self.Gmr.startrulei,0);
     startstate.kernel.insert(startitem);
     closure0(&mut startstate,&self.Gmr);
     self.States.push(startstate); // add start state, first state
@@ -481,7 +478,7 @@ for i in 0..self.Gmr.Rules.len() {println!("rule {}: {}-->length {}",i,&self.Gmr
     //println!("after makegotos");
     //println!("states generated: {}",self.States.len());
 //let t1 = timer.elapsed().unwrap_or(Duration::ZERO);    
-    self.States[0].lookaheads.get(&startitem).unwrap().borrow_mut().insert(EOFi);  // initial lookahead
+    self.States[0].lookaheads.get(&startitem).unwrap().borrow_mut().insert(self.Gmr.eoftermi);  // initial lookahead
     self.set_propagations();
     //println!("set_propagations");
 //let t2 = timer.elapsed().unwrap_or(t1);    

@@ -462,7 +462,7 @@ impl Statemachine
        }//can goto
        else // . at end of production, this is a reduce situation
        {
-          let isaccept = (item.ri == self.Gmr.Rules.len()-1 && self.Gmr.symref(item.la)=="EOF");
+          let isaccept = (item.ri == self.Gmr.startrulei && self.Gmr.symref(item.la)=="EOF");
           if isaccept {
             add_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts,true);
           }
@@ -486,14 +486,14 @@ impl Statemachine
     // create initial state, closure from initial item: 
     // START --> .topsym EOF
     let mut startstate=LR1State::new();
-    let STARTi = self.Gmr.Symbols.len()-2; //*self.Gmr.Symhash.get("START").unwrap();
+    let STARTi = self.Gmr.startnti; //*self.Gmr.Symhash.get("START").unwrap();
     startstate.insert( LRitem {
-         ri : self.Gmr.Rules.len()-1, // last rule is start
+         ri : self.Gmr.startrulei, //self.Gmr.Rules.len()-1, 
          pi : 0,
-         la : self.Gmr.Symbols.len()-1, //*self.Gmr.Symhash.get("EOF").unwrap(),   // must have this in grammar
+         la : self.Gmr.eoftermi, //self.Gmr.Symbols.len()-1, //*self.Gmr.Symhash.get("EOF").unwrap(),   // must have this in grammar
        },STARTi);       
     startstate = stateclosure(startstate,&self.Gmr);
-    startstate.kernel.insert((self.Gmr.Rules.len()-1,0)); //special core (lalr)
+    startstate.kernel.insert((self.Gmr.startrulei,0)); //special core (lalr)
     self.States.push(startstate); // add start state, first state
     self.FSM.push(HashMap::with_capacity(128)); // row for state
     // now generate closure for state machine (not individual states)
@@ -626,6 +626,4 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
      conflicts.insert((*ri,la),(clearly_resolved,resolution));
      resolution
   }//sr_resolve
-  
-
 
