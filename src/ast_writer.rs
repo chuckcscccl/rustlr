@@ -112,7 +112,7 @@ impl Grammar
 
      // setup hashmap from nt numbers to ASTS
      let mut ASTmap:HashMap<usize,String> = HashMap::new();
-     let mut ASTS = String::new(); // all asts
+     let mut ASTS = String::from("\n"); // all asts
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
