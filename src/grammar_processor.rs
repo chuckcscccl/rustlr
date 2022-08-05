@@ -1012,7 +1012,6 @@ strtok is bstokens[i], but will change
                  }
                  else { // need to generate new set of terms and rules ***
 		  let newntname3 = format!("NEWSEPNT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
-
 	          let mut newnt3 = Gsym::new(&newntname3,false);
                   newnt3.rusttype = "()".to_owned();
                   if &self.Symbols[gsymi].rusttype!="()" || (septoks.len()>1 && septoks[1].len()>0) {
@@ -1067,6 +1066,9 @@ strtok is bstokens[i], but will change
                   if !strtok.ends_with("*>") {
                     NEWNTs.insert(hashkey,newnt3.index);
                   } else { // M --> null | N for *>
+                    //still enter newnt3 into NEWNTs map as it could be useful
+                    let hashkey2 = format!("{}+>",&hashkey[..hashkey.len()-2]);
+                    NEWNTs.insert(hashkey2,newnt3.index);                    
                     let newntname5 = format!("NEWSEPNT2_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
                     let mut newnt5 = Gsym::new(&newntname5,false);
                     newnt5.rusttype = newnt3.rusttype.clone();

@@ -323,7 +323,7 @@ To run the program, **`cargo new`** a new crate and copy
 the contents of [main.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/main.rs) and [test1parser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/test1/src/test1parser.rs) to src/main.rs and src/test1parser.rs respectively.  Add to Cargo.toml
 under [dependencies]:
 ```
-rustlr = "0.2.99"  
+rustlr = "0.3"  
 ```
 **`cargo run "2+3*4"`** will print 14 and `cargo run "(2+3)*4"` will print
 20.
@@ -342,7 +342,7 @@ The following symbols should also NOT be used as non-terminals in your grammar:
 >     START valuetype absyntype grammarname resync resynch topsym errsym 
 >     nonterminal terminal nonterminals terminals lexvalue lexname typedterminal
 >     left right externtype externaltype lifetime lexattribute
->     any symbol starting with `SEQ` or `NEWNT` may potentially, but unlikely, cause conflict.
+>     any symbol starting with `SEQ` or `NEW..NT` may potentially, but unlikely, cause conflict.
 
 For example, if ":" is to be one of the terminal symbols of your
 language, then you should call it something like COLON instead in the
