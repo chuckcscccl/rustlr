@@ -51,9 +51,9 @@ impl Grammar
      // Set of nti that will extend other types
      let mut toextend = HashMap::new();  // usize->usize nti's
 
-     //// second pass: change @EXPR to actual type, change +Expr to direct
+     //// second pass: change @EXPR to actual type, change :Expr to direct
      for nt in self.Rulesfor.keys() {
-       // two possibilities : @expr, or <@expr> or +Expr
+       // two possibilities : @expr, or <@expr> or :Expr
        // assume only one.
        let addtoextend = self.Symbols[*nt].rusttype.starts_with(':');
        let mut addtosymhash = false; // because already added above
@@ -73,7 +73,7 @@ impl Grammar
               symtocopy = &stype[pos1+2..pos1+2+pos2];
               start = pos1+1; end = pos1+2+pos2;
            }
-         } else if let Some(pos1)=stype.find("<+") {
+         } else if let Some(pos1)=stype.find("<:") {
            if let Some(pos2)=stype[pos1+2..].find('>') {
               symtocopy = &stype[pos1+2..pos1+2+pos2];
               start = pos1+1; end = pos1+2+pos2;
@@ -125,7 +125,11 @@ impl Grammar
         let willextend = toextend.contains_key(nt);
 //println!("NT {}, type {}, willextend {}",&ntsym.sym,&ntsym.rusttype,willextend);
 
-        if !ntsym.rusttype.starts_with(&ntsym.sym) && !willextend  {continue;}
+/* BUT SEMANTIC ACTIONS ARE ALSO SKIPPED ?
+        if !ntsym.rusttype.starts_with(&ntsym.sym) && !willextend  {
+println!("SKIPPING nt {}, type {}",&ntsym.sym, &ntsym.rusttype);        
+continue;}
+*/
 
         // default for new enum
 	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
@@ -341,6 +345,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
 
      // Now close all unclosed enums
      for (nt,ntast) in ASTmap.iter() {
+       if !self.Symbols[*nt].rusttype.starts_with(&self.Symbols[*nt].sym) {continue;}
        if ntast.starts_with("#[derive(Debug)]") { // enum
  	let defaultvar = format!("{}_Nothing",&self.Symbols[*nt].sym);
         let mut ast = format!("{}  {},\n}}\n",ntast,&defaultvar);
@@ -350,7 +355,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
         ASTS.push_str(&ast);
        } // !genstruct - is enum
        else { ASTS.push_str(ntast); }
-     }// closing all enums and add to ASTS
+     }// closing all enums and add to ASTS (for loop)
 
      // set Absyntype
      let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist

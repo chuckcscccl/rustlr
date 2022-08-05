@@ -114,12 +114,17 @@ pub enum Expr<'lt> {
 impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing } }
 ```
 Compare these types with the manually written ones in [Chapter 2][chap2]: they
-are not so different, which is what we want.  Generally speaking, a new
-type is created for each non-terminal symbol of the grammar, which will
-also share the same name as the non-terminal itself.  But this would mean that
-separate types would be created for `LetExpr` and `UnaryExpr` as well, which
-would lead to convoluted types that serve no purpose.  Their creation was
-avoided with the following declarations:
+are not so different.
+For example, the expression `5 - 7 - -9` will be represented in
+abstract syntax as `Minus(Minus(Val(5), Val(7)), Neg(Val(9)))`.  This is
+exactly what we want.
+
+Generally speaking, a new type is created for each non-terminal symbol
+of the grammar, which will also share the same name as the
+non-terminal itself.  But this would mean that separate types would be
+created for `LetExpr` and `UnaryExpr` as well, which would lead to
+convoluted types that serve no purpose.  Their creation was avoided
+with the following declarations:
 ```
 nonterminal UnaryExpr : Expr
 nonterminal LetExpr : Expr
@@ -129,7 +134,7 @@ the rules for `UnaryExpr` and `LetExpr` would *extend* the enum that would
 be created for `Expr`.  The type created for Expr must be an enum for this
 to work (it would not work if it was a struct).
 Leave out the `: Expr` portion from the declarations and we will get instead
-[these types](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcb_ast.rs) instead.  They would be more cumbersome to work with. 
+[these types](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcb_ast.rs) instead.  They would be more cumbersome to work with.  
 
 
 #### Rules of AST Generation
@@ -147,7 +152,7 @@ will result in a variant `acase((),LBox<E>)`
 
 A struct is created for any non-terminal symbol that appears on the
 left-hand side of exactly one production rule, unless the type of that
-nonterminal is declared to "extend" another, enum type as explained above.
+nonterminal is declared to "extend" another type as explained above.
 You can also force an enum to be created instead of a struct by
 giving the singleton rule a left-hand side label, in which case the label
 will name the sole variant of the enum (besides the `_Nothing` default).
@@ -179,7 +184,9 @@ will produce an a `struct whileloop(expr,expr);`  Be careful to avoid
 using Rust keywords as the names of non-terminals.
 
 The struct may be empty if all right-hand-side symbols of the single production
-rule are associated with the unit type and do not have labels.
+rule are associated with the unit type and do not have labels. Rustlr will
+generate code to derive the Debug and Default traits for all structs (this
+works fine for recursive structs).
 
 Rustlr also calculates a reachability closure so it is aware of which
 non-terminals are mutually recursive.  It uses this information to
@@ -202,70 +209,80 @@ Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
 
 Recall from [Chapter 2][chap2] that a label of the form `[a]` means that the semantic value associated with the symbol is enclosed in an [LBox][2].
 
-The production rule `Expr --> ( Expr )` is also treated in a special way:
-note that there is no variant that correspond to this rule in the generated enum.  Rustlr infers from the fact that
-  1. there is no left-hand side label to the nonterminal.
-  2. `Expr` is the only grammar symbol on the right-hand side that has a non-unit
+
+There are three production rules in the grammar that do not
+correspond to enum variants: `Expr --> UnaryExpr`, `LetExpr --> Expr`
+and `UnaryExpr --> ( LetExpr )`. 
+Rustlr infers from the fact that
+  1. there is no left-hand side label for any of these rules
+  2. There is exactly one grammar symbol on the right-hand side that has a non-unit
      type, and that type is the same as the type of the left-hand side symbol.
+     The other symbols, if any, are of unit type
   3. There are no labels nor operator precedence/associativity declarations for the other symbols.
      
-In other words, it infers that the parentheses on the right hand side carry
-no meaning at the AST level, and thus generates a semantic action for this rule
+For the rule `UnaryExpr --> ( LetExpr )`, it therefore infers that the parentheses on the right hand side carry no meaning at the AST level, and thus generates a semantic action for this rule
 that would be equivalent to:
 ```
-  Expr --> ( Expr:e ) { e }
+  UnaryExpr --> ( LetExpr:e ) { e }
 ```
 We refer to such cases as "pass-thru" cases.  If the automatically
 inferred "meaning" of this rule is not what's desired, it can be
 altered by using an explicit left-side label: this will generate a
 separate enum variant (at the cost of an extra LBox) that
-distinguishes the presence of the parentheses.  The rule
-`Expr(600):Neg --> - Expr` was not recognized as a pass-thru case for
-two reasons: it has a left-side label (`Neg`), and the minus sign was
-assigned a precedence and associativity.
+distinguishes the presence of the parentheses.  Note that the 
+rule `UnaryExpr:Neg --> - UnaryExpr`, was not recognized by as a pass-thru
+case by virtue of the left-hand side label `Neg`.  Unlike the parentheses,
+the minus symbol certain has meaning at the semantic level.
 We can also force the minus sign to be
-included in the AST by giving it an explicit lable such as `-:minus Expr`.
-
+included in the AST by giving it an explicit lable such as `-:minus UnaryExpr`.
+This would create an enum variant that includes a unit type value.
 
 In general, the usage of labels greatly affect how the AST datatype is
 generated.  Labels on the left-hand side of a production rule give
 names to enum variants.  Their presence also cancel "pass-thru"
-recognition by always generating a type or enum variant for the rule.
+recognition by always generating an enum variant for the rule.
+A left-hand side label will also prevent a struct from being generated even
+when a nonterminal has but a single production rule.
 Labels on the right-hand side give names to struct components.  Their
-presence on unit-typed grammar symbols means that symbol won't be
+presence on unit-typed grammar symbols means that the symbols won't be
 ignored and will be included in the the type.  If a non-terminal has a
-single production rule, the lack of labels on the right-hand side leads
+single production rule, the lack of any labels left or right leads
 to the creation of a simpler tuple struct.  Finally, the use of box
 labels such as [e] forces the semantic value to be wrapped inside an LBox
 whether or not it is required to define recursive types.
 
+
 #### Overriding Types and Actions
 
-It is always possible to override the automatically generated type and action.
-In case of ExprList, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is slightly non-optimal for LR parsing (the parse stack grows until the last element of the list before ExprList-reductions take place).  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ExprList` as follows:
+It is always possible to override the automatically generated types and actions.
+In case of ExprList, the labels 'nil' and 'cons' are sufficient for rustlr to create a linked-list data structure.  However, the right-recursive grammar rule is slightly non-optimal for LR parsing (the parse stack grows until the last element of the list before ExprList-reductions take place).  One might wish to use a left-recursive rule and a Rust vector to represent a sequence of expressions.  This can be done in several ways, one of which is by making the following changes to the grammar.  First, change the declaration of the non-terminal symbol `ExprList` as follows:
 
 ```
 nonterminal ExprList Vec<LBox<Expr<'lt>>>
 ```
-
+You probably want to use an LBox even inside a Vec to record the line/column
+position information.
 Then replace the two production rules for `ExprList` with the following:
 
 ```rust
-ExprList --> Expr:[e] ; { vec![e] }
-ExprList --> ExprList:v Expr:[e] ;  { v.push(e); v }
-
+ExprList --> { vec![] }
+ExprList --> ExprList:ev LetExpr:[e] ; { ev.push(e); ev }
 ```
-The presence of a non-empty semantic action will override automatic AST generation.
-It is also possible to inject custom code into the
+When writing your own types and actions alongside automatically generated ones,
+it's best to examine the types that are generated to determine their correct
+usage: for example, whether a lifetime parameter is required for `Expr`.
+
+The presence of a non-empty semantic action will override automatic AST generation. It is also possible to inject custom code into the
 automatically generated code:
 ```
-ExprList --> Expr ; {println!("starting a new ExprList sequence"); ... }
+ExprList -->  {println!("starting a new ExprList sequence"); ... }
 ```
 The ellipsis are allowed only before the closing right-brace.  This indicates
 that the automatically generated portion of the semantic action should follow.
 The ellipsis cannot appear anywhere else.
 
-An easier way to parse a sequence of expressions separated by ; is to
+An easier way to parse a sequence of expressions separated by ; and to
+create a vector is to
 use the special suffixes `+`, `*`, `?`, `<_*>` and `<_+>`.  These are described below.
 
 ```
@@ -277,15 +294,29 @@ use the special suffixes `+`, `*`, `?`, `<_*>` and `<_+>`.  These are described 
 
 ### Automatically Adding New Rules with *, + and ?
 
-A relatively new feature of rustlr (since verion 0.2.9) allows the use of regular-expression style symbols *, + and ? to automatically generate new production rules.  However, these symbols cannot be used unrestrictedly to form arbitrary
-regular expressions. They cannot be nested.  They are also guaranteed to only fully work in the -auto mode.
+Rustlr allows the use of regular-expression style symbols *, + and ?
+to automatically generate new production rules.  However, these
+symbols cannot be used unrestrictedly to form arbitrary regular
+expressions. They cannot be nested.  They are also guaranteed to only
+fully work in the -auto mode.
 
 Another way to achieve the same effects as the above (to derive a vector for symbol ExprList) is to use the following alternative grammar declarations:
 
 ```
 nonterminal ExprList Vec<LBox<Expr<'lt>>>
-ExprList --> (Expr ;)*
+ExprList --> (LetExpr ;)*
 ```
+This would lead to the generation of a tuple struct for type ExprList:
+```
+#[derive(Default,Debug)]
+pub struct ExprList<'lt>(pub Vec<LBox<Expr<'lt>>>,);
+```
+You can also eliminate the extra type for `ExprList` entirely by manually
+defining the type as:
+```
+nonterminal ExprList Vec<LBox<Expr<'lt>>>
+```
+This would cause
 
 The operator **`*`** means a sequence of zero or more.  This is done by generating several new non-terminal symbols internally.  Essentially, these correspond to
 
@@ -340,7 +371,7 @@ as independent terminal symbols.  For example, `( Expr ; ) *` is not valid.
 Yet another alternative is to manually define the type of ExprList, from which Rustlr will infer that no struct/enum needs to be created for it:
 ```
 nonterminal ExprList Vec<LBox<Expr<'lt>>>
-ExprList --> (Expr ;)*
+ExprList --> (LetExpr ;)*
 ```
 This is because rustlr generates an internal non-terminal to represent the right-hand side `*` expression and assigns it type `Vec<LBox<Expr<'lt>>>`.
 It then recognizes that this is the only symbol on the
@@ -383,7 +414,8 @@ automatically.  But much work needs to be done before we can parse
 arbitrary EBNF syntax.  We are currently exploring extensions of LR
 parsing including *delayed reductions*, which can potentially allow
 non-ambiguous grammars to be more easily composed without running into
-new conflicts.
+new conflicts: see the [Appendix][apnd] of this tutorial for experimental
+features.
 
 
 ### Invoking the Parser
@@ -401,9 +433,7 @@ Since the grammar also contains lexer generation directives, all we need to do i
 The `parse_with` and `parse_train_with` functions were also backported for
 grammars with a single *absyntype.*
 
-Please note that all generated enums for the grammar will attempt to derive the Debug trait (as well as implement the Default trait).
-
-Please also note that using [LBox][2] is already included in all parsers generated with the `-genabsyn` or `-auto` option, so do not use `!use ...` to include
+Please note that using [LBox][2] is already included in all parsers generated with the `-genabsyn` or `-auto` option, so do not use `!use ...` to include
 it again.
 
    ----------------
@@ -577,3 +607,4 @@ moved to a new chapter.*
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
 [take]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html#method.take
 [c11]:https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar
+[apnd]:  https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html

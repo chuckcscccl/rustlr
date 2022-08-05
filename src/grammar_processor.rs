@@ -396,6 +396,7 @@ impl Grammar
 		 continue;
 	       }
 	       let mut newterm = Gsym::new(stokens[1],false);
+              if stokens.len()>2 { // type specified, else stays ""
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
                   tokentype.push_str(&stokens[i][..]);
@@ -450,8 +451,8 @@ impl Grammar
                if nttype.len()<1 && !self.genabsyn {nttype = self.Absyntype.clone()};
 	       if !nttype.contains('@') && !nttype.starts_with(':') {self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;}
                if &nttype!=&self.Absyntype {self.sametype=false;}
-               
 	       newterm.rusttype = nttype;
+              } // type specified
                newterm.index = self.Symbols.len();
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);

@@ -49,7 +49,7 @@ choice if the last symbol is `x`.
 It is possible to save the situation, however, by *delaying* the choice
 to reduce until more have been read *and* more reductions applied.  
 This is done by a "Marcus-Leermakers"
-transformation, as named in a [paper][bns] by Bertsch, Nederhof and Schmitz.
+transformation, as named in a [research paper][bns] by Bertsch, Nederhof and Schmitz.
 ```
 S --> A | B
 C --> c | C c
@@ -136,14 +136,15 @@ shift or reduce strategy might not work, but we solved the problem with
 ```
 declarator --> # pointer?  direct_declarator #
 ```
-And know that the solution is correct by theoretical properties of the
-transformation.
+This particular transformation attaches `direct_declarator` to the end of the
+two productions for `P`, thereby recovering the original LALR grammar. But
+the transformation is internal: we get to write a different style of grammar
+and generate ASTs, write semantic actions for them as such.
 
 Regular expressions are well-liked by most programmers, and many
 modern parser generators allow them.  But there is a fundamental
 distinction between Regex and CFGs that cannot be ignored. Regex offer
-full referential transparency.  You cannot
-write an ambiguous regex.  You can use `*`, `+` and `?` in any
+full referential transparency.  You can use `*`, `+` and `?` in any
 combination and we can build a deterministic finite state machine for
 it in the end.  Two regular expressions juxtaposed, like `A*A*`, is
 still a regular expression.  Of course we can translate A* into a
@@ -153,21 +154,22 @@ the second one end?? Grammars cannot be composed that way without losing
 their properties.  Of course, you could invent your own notion of what
 a "grammar"
 means, and *declare* the grammar to be unambiguous.  In fact, there
-is a well-known type of "grammar" that technically can never be ambiguous.
+are "grammars" that technically can never be ambiguous.
 A parser generator for such "grammar" would not be able to even give
-a warning that something is wrong, because according to definition nothing
+a warning that something is wrong because according to definition nothing
 can ever be wrong.  It's like writing a program with
 a bunch of type errors and still have it compile and run, because the
 language considers them not errors but features.
-Nobody can ever be unhappy in a happy house.
-Such an approach is surely popular, however, because most programmers, in
+Nobody can ever be unhappy in the happy house.
+Such an approach is popular, however, because most programmers, in
 academia as well as industry, are only interested in "getting something to work."  They are not as interested in something that "should not work."
-The difference
+The contrast between
 strongly, statically typed programming languages and untyped scripting
 languages is a good analogy for the difference between LR-style parser generators
 and some other approaches.  The later are easier to learn and use,
 especially if you only want to get something to work quickly, while the former
-has a steeper learning curve but offer long-term benefits.  Rustlr is a parser generator for Rust programmers, so you should already know which side you're on.
+has a steeper learning curve but offer long-term benefits.
+If you chose to be a Rust programmer then you should already know which side you're on.
 Programmers who write `S --> A* A*` do not deserve a working parser because
 they have not thought carefully as to what they really want.
 
