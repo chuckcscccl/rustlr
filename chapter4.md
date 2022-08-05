@@ -1,54 +1,95 @@
 ## Chapter 4: Automatically Generating the AST and Using Regex in Grammars
 
-One of the advantages of writing ambiguous grammars, e.g., `E-->E+E` instead of `E-->E+T`, is that it becomes easier to generate reasonable abstract syntax representations automatically.  Extra symbols such as `T` that are required for unambiguous grammars generally have no meaning at the abstract syntax level and will only lead to convoluted ASTs.  Rustlr is capable of automatically generating the data structures (enums and structs) for the abstract syntax of a language as well as the semantic actions required to create instances of those structures.  For beginners new to writing grammars and parsers, we **do not** recommend starting with an automatically generated AST.  The user must understand clearly the relationship between concrete and abstract syntax and the best way to learn this relationship is by writing ASTs by hand, as demonstrated in the previous chapters.  Even with Rustlr capable of generating nearly everything one might need from a parser, it is still likely that careful fine tuning will be required.
+Rustlr is capable of automatically generating the data types
+(enums and structs) for the abstract syntax of a language as well as
+the semantic actions required to create instances of those types.
+For beginners new to writing grammars and parsers, we **do not**
+recommend starting with an automatically generated AST.  The user must
+understand clearly the relationship between concrete and abstract
+syntax and the best way to learn this relationship is by writing ASTs
+by hand, as demonstrated in the previous chapters.  Even with Rustlr
+capable of generating nearly everything one might need from a parser,
+it is still possible that careful fine tuning will be required.
 
-We redo the enhanced calculator example from [Chapter 2][chap2].  The following grammar is found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/calcauto.grammar).
+We redo the enhanced calculator example from [Chapter 2][chap2].
+Although some form of abstract syntax can be generated for any
+grammar, the format of the grammar can greatly influence the form of
+the AST types.  To illustrate the various choices, this grammar is a
+hybrid between the purely unambiguous grammar of [Chapter
+1][chap1] and the one in [Chapter 2][chap2] in that operator
+precedence declarations are only given for the binary arithmetic
+operators.  For the unary minus and the `=` sign in let-expressions,
+we choose to define different syntactic categories in the form of
+extra non-terminal symbols `UnaryExpr` and `LetExpr`.  Along with
+`Expr` they define three levels of precedence from weakest to
+strongest: `LetExpr`, `Expr`, and `UnaryExpr`.  Writing ambiguous
+grammars with operator precedence/associativity declarations is
+convenient and can make the grammar more readable.  They also lead to
+more reasonable abstract syntax.  Symbols such as `T` in `E --> T`
+often have no meaning at the abstract syntax level.  However, when
+there are a large number of operators and precedence levels, using such
+declarations alone may be problematic (See the original [ANSI C][c11] grammar).
+Besides, these categories sometimes have genuine semantic meaning,
+such as the distinction between lvalues and rvalues.  
 
-```rust
+The following grammar is found
+[here](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/calcauto.grammar).
+```
+# the auto directive means AST types and semantic actions will be generated
+auto
 lifetime 'lt
-nonterminals Expr ExprList
-terminals + - * / ( ) =
+terminals + - * / ( ) = ;
 terminals let in
-lexterminal SEMICOLON ;
-valueterminal int i64 Num(n) n
-valueterminal var~ &'lt str~ Alphanum(n)~ n
+valueterminal int ~ i64 ~ Num(n) ~ n
+valueterminal var ~ &'lt str ~ Alphanum(n) ~ n
 lexattribute set_line_comment("#")
+
+nonterminals Expr ExprList
+nonterminal UnaryExpr : Expr
+nonterminal LetExpr : Expr
+
 topsym ExprList
-resync SEMICOLON
+resync ;
 
 left * 500
 left / 500
 left + 400
 left - 400
-left = 300
 
-Expr:Val --> int
-Expr:Var --> var
-Expr:Letexp --> let var = Expr in Expr
+UnaryExpr:Val --> int
+UnaryExpr:Var --> var
+UnaryExpr:Neg --> - UnaryExpr
+UnaryExpr --> ( LetExpr )
+
+Expr --> UnaryExpr
 Expr:Plus --> Expr + Expr
 Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
 Expr:Times --> Expr * Expr
-Expr(600):Neg --> - Expr
-Expr --> ( Expr )
+
+LetExpr --> Expr
+LetExpr:Let --> let var = Expr in LetExpr
+
 ExprList:nil -->
-ExprList:cons --> Expr SEMICOLON ExprList
+ExprList:cons --> LetExpr ; ExprList
+
 EOF
 ```
 
-Note the following differences between this grammar and the one presented in [Chapter 2][chap2]:
-
+Note the following, further differences between this grammar and the one presented in [Chapter 2][chap2]:
 1. There are no semantic actions
-2. There is no "absyntype" or "valuetype" declaration; any such declaration would be ignored when used with the -auto (or -genabsyn) option.
-3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal` or `valueterminal`).  A `valueterminal` declaration is
-just a combination of a `typedterminal` and a `lexvalue` declaration, while
-a `lexterminal` line combines a `terminal` and a `lexname` declaration.
+2. There is no "absyntype" or "valuetype" declaration; any such declaration would be ignored when using the `auto` option, which is enabled by the `auto`
+directive at the top of the grammar, or by the `-auto` flag given to the
+rustlr executable.
+3. Only the types of values carried by certain terminal symbols must be declared (with `typedterminal` or `valueterminal`).
+A `valueterminal` declaration is
+just a combination of a `typedterminal` and a `lexvalue` declaration, with `~` separating the components.  The other terminals all have type () (unit).
+
 4. The non-terminal symbol on the left-hand side of a production rule may carry a label.  These labels will become the names of enum variants to be created.
 
-Process the grammar with **`rustlr calcauto.grammar -auto`** (or **`-genabsyn`**).   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be, in the
+Process the grammar with **`rustlr calcauto.grammar`** (without the `auto` directive inside the grammar, run rustlr with the `-auto` option).   Two files are created.  Besides **[calcautoparser.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcautoparser.rs)** there will be, in the
 same folder as the parser, a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcauto_ast.rs)** with the following (principal) contents:
-
-```
+```rust
 #[derive(Debug)]
 pub enum ExprList<'lt> {
   nil,
@@ -60,23 +101,43 @@ thing } }
 
 #[derive(Debug)]
 pub enum Expr<'lt> {
-  Times(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Div(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Neg(LBox<Expr<'lt>>),
-  Var(&'lt str),
-  Minus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
   Plus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
-  Letexp(&'lt str,LBox<Expr<'lt>>,LBox<Expr<'lt>>),
+  Minus(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
+  Div(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
+  Times(LBox<Expr<'lt>>,LBox<Expr<'lt>>),
+  Var(&'lt str),
+  Neg(LBox<Expr<'lt>>),
   Val(i64),
+  Let(&'lt str,LBox<Expr<'lt>>,LBox<Expr<'lt>>),
   Expr_Nothing,
 }
 impl<'lt> Default for Expr<'lt> { fn default()->Self { Expr::Expr_Nothing } }
 ```
+Compare these types with the manually written ones in [Chapter 2][chap2]: they
+are not so different, which is what we want.  Generally speaking, a new
+type is created for each non-terminal symbol of the grammar, which will
+also share the same name as the non-terminal itself.  But this would mean that
+separate types would be created for `LetExpr` and `UnaryExpr` as well, which
+would lead to convoluted types that serve no purpose.  Their creation was
+avoided with the following declarations:
+```
+nonterminal UnaryExpr : Expr
+nonterminal LetExpr : Expr
+```
+The syntax means that instead of generating new types, the ASTs representing
+the rules for `UnaryExpr` and `LetExpr` would *extend* the enum that would
+be created for `Expr`.  The type created for Expr must be an enum for this
+to work (it would not work if it was a struct).
+Leave out the `: Expr` portion from the declarations and we will get instead
+[these types](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcb_ast.rs) instead.  They would be more cumbersome to work with. 
+
+
+#### Rules of AST Generation
 
 An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules. The name of the enum is the
 same as the name of the non-terminal.
 The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).  A special `Nothing` variant is also created to represent a default.
-There is essentially an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
+There is normally an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
 symbols of the rule that are associated with non-unit types.  Unit typed values
 can also become part of the enum if the symbol is given a label.  For example:
   **` E:acase -->  a E `**  where terminal symbol `a` is of unit type, will result in a enum variant
@@ -85,8 +146,15 @@ can also become part of the enum if the symbol is given a label.  For example:
 will result in a variant `acase((),LBox<E>)`
 
 A struct is created for any non-terminal symbol that appears on the
-left-hand side of exactly one production rule. The name of the struct
-is the same as the non-terminal.  If any of the grammar symbols
+left-hand side of exactly one production rule, unless the type of that
+nonterminal is declared to "extend" another, enum type as explained above.
+You can also force an enum to be created instead of a struct by
+giving the singleton rule a left-hand side label, in which case the label
+will name the sole variant of the enum (besides the `_Nothing` default).
+This would be required when you know that the type will be extended with
+other variants, as demonstrated above.
+
+The name of the struct is the same as the non-terminal.  If any of the grammar symbols
 on the right-hand side of the rule is given a label, it would create a struct
 with the fields of each struct named by these labels, or
 with `_item{i}_` if
@@ -115,7 +183,7 @@ rule are associated with the unit type and do not have labels.
 
 Rustlr also calculates a reachability closure so it is aware of which
 non-terminals are mutually recursive.  It uses this information to
-determine where a smart pointer is needed when defining these
+determine where smart pointer are required when defining these
 recursive types.  Rustlr always uses its [LBox][2] custom smartpointer
 to also include line/column information.  Notice that the variant
 `enum::cons` has only the second component in an LBox.  One can, for
@@ -508,3 +576,4 @@ moved to a new chapter.*
 [zcp]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
 [take]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html#method.take
+[c11]:https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar

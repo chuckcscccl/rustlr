@@ -3,7 +3,11 @@
 ### Delayed Reductions
 
 One of the main difficulties faced by writers of context-free grammars is,
-borrowing a term from functional programming, the lack of *referential transparency*.  Take, for example, the following simple grammar:
+borrowing a term from functional programming, the lack of *referential transparency*.  By this we mean the ability to compose grammars from smaller grammars,
+to worry about isolated components of the grammar apart from the whole, and
+to substitute a part of the grammar with something equivalent.
+
+Take, for example, the following simple grammar:
 ```
 S --> A | B
 A --> a b c d x
@@ -12,7 +16,7 @@ B --> a b c d y
 This obviously unambiguous grammar is LL(5), but it's LR(0).  That's right,
 no lookahead is needed even though the ambiguity between A and B is not
 resolved until an `x` or a `y` is read at the end.  When an LR parser *shifts*,
-it is naturally *delaying* the decison as to which nonterminal symbol to
+it is naturally *delaying* the decision as to which nonterminal symbol to
 reduce to.  The LR(0) statemachine will keep both the A and B productions
 as candidates for reduction until something distinguishes them.  Even if
 we were to replace c with a non-terminal:
@@ -22,8 +26,8 @@ C --> c | C c
 A --> a b C d x
 B --> a b C d y
 ```
-This grammar is still LR(0).
-Unfortunately, this example does not mean that we can substitute one LR grammar into another and still get an LR grammar in general.
+This grammar is still LR(0).  Had we used a right-recursive rule for C,
+it would be LR(1).  Unfortunately, this example does not mean that we can substitute one LR grammar into another and still get an LR grammar in general.
 The referential transparency breaks easily.  Consider
 ```
 S --> A | B
@@ -34,7 +38,7 @@ M --> a b
 ```
 Surely this is still unambiguous and equivalent to the above grammar,
 but it's no longer an LR(k) grammar for any k.  After we have read `a
-b` and the next symbol is `c`, we would not be able to decide to
+b` and the next symbol is `c`, we would not know whether to
 reduce it to `M`, or to shift `c` with a fixed number of
 lookaheads. In such a situation, most LR generators will give a
 warning and then resort to a default choice (usually shift over
@@ -55,8 +59,8 @@ MCd --> a b C d
 ```
 The idea is to create a new non-terminal symbol that associates the
 original non-terminal with some amount of its right-context.  The
-right context can consists of terminal as well as non-terminal
-symbols.  The right-hand side of the rules of the symbol consists of
+right context can consist of terminal as well as non-terminal
+symbols.  The right-hand side of the rules of the symbol consist of
 the right-hand sides of the original, plus the right-context being delayed.
 Roughly speaking, it's like extending the number of
 lookahead symbols, except the symbols can be *non-terminal*.  The transformation can be done internally: the transformed grammar relates to the original
@@ -72,11 +76,11 @@ be selective, and the amount of right-context to absorb should be flexible
 lest further non-determinism may be introduced.
 The original grammar is called an "selML(2,1)" grammar because it absorbs
 at most 2 symbols of a nonterminal's right-context, and relies on one
-lookahead in the traditional sense.  selML(k,m) grammars contains
-contain LR(m) grammars, and are still unambiguous.  They still
+lookahead in the traditional sense.  selML(k,m) grammars
+contain LR(m) grammars, and are always unambiguous.  They
 describe the same class of languages as LR grammars, but more grammars
 are selML then are LR.
-Their paper gives an algorithm that
+The paper gives an algorithm that
 automatically applies the required transformations to a grammar, up to a fixed
 maximum k.  However, only a prototype of the algorithm was ever implemented
 and was never applied on a large scale.  The algorithm does not appear to
@@ -86,7 +90,7 @@ in the Dragon Book).
 We are experimenting with implementations of this
 algorithm to see if it's practical beyond small grammars. In the meantime,
 Rustlr allows a very simple mechanism that costs minimal overhead: the
-grammar writer can mark where the transformation needs to occur:
+grammar writer can mark where the transformations need to occur:
 ```
 S --> A | B
 C --> c | C c
@@ -103,7 +107,7 @@ before an LR(1) or LALR(1) engine is build.
 While not nearly as powerful as the generalized algorithm (it cannot
 apply transformations to the internally generated productions
 themselves), this simple mechanism is already a useful addition.  From a
-pratical standpoint, it allows us to recover a degree of referential
+practical standpoint, it allows us to recover a degree of referential
 transparency with minimal effort (both human effort and computational cost).
 In the published Yacc grammar for ANSI C (2011 edition), we find the following
 productions:
@@ -118,7 +122,7 @@ declarator -->  pointer?  direct_declarator
 ```
 This is not just easier to write, but when generating the AST for C automatically, we'd prefer to have a simple tuple struct
 (` struct declarator(Option<pointer>,direct_declarator)`)  instead of
-an enum with two variants.  Rustlr allows the ? operators and transforms this
+an enum with two variants.  Rustlr recognizes the ? operator and transforms this
 to
 ```
 declarator --> P  direct_declarator
@@ -132,10 +136,13 @@ shift or reduce strategy might not work, but we solved the problem with
 ```
 declarator --> # pointer?  direct_declarator #
 ```
+And know that the solution is correct by theoretical properties of the
+transformation.
 
 Regular expressions are well-liked by most programmers, and many
-modern parser generators allow their use.  But there is a fundamental
-distinction bewteen Regex and Cfgs that cannot be ignored.  You cannot
+modern parser generators allow them.  But there is a fundamental
+distinction between Regex and CFGs that cannot be ignored. Regex offer
+full referential transparency.  You cannot
 write an ambiguous regex.  You can use `*`, `+` and `?` in any
 combination and we can build a deterministic finite state machine for
 it in the end.  Two regular expressions juxtaposed, like `A*A*`, is
@@ -150,20 +157,26 @@ is a well-known type of "grammar" that technically can never be ambiguous.
 A parser generator for such "grammar" would not be able to even give
 a warning that something is wrong, because according to definition nothing
 can ever be wrong.  It's like writing a program with
-a bunch of type errors and still have it compile and run, because someone
-has rigged a type system in which all programs are well-typed.
+a bunch of type errors and still have it compile and run, because the
+language considers them not errors but features.
 Nobody can ever be unhappy in a happy house.
 Such an approach is surely popular, however, because most programmers, in
 academia as well as industry, are only interested in "getting something to work."  They are not as interested in something that "should not work."
-Programmars who write `S --> A* A*` do not deserve a working parser because
+The difference
+strongly, statically typed programming languages and untyped scripting
+languages is a good analogy for the difference between LR-style parser generators
+and some other approaches.  The later are easier to learn and use,
+especially if you only want to get something to work quickly, while the former
+has a steeper learning curve but offer long-term benefits.  Rustlr is a parser generator for Rust programmers, so you should already know which side you're on.
+Programmers who write `S --> A* A*` do not deserve a working parser because
 they have not thought carefully as to what they really want.
 
 Given an ambiguous grammar, like most LR parser generators, Rustlr will
 at least give you a warning before applying any defaults.  Sometimes defaults
 work correctly, like for the dangling-else problem.  But as we've shown
-above, they do not always work.  This is why we are so interested in
+above, they do not always work.  This is why we are interested in
 more rigorous approaches to extend LR parsing.  We are hopeful in our
-conjectures that delayed reductions will allow unambiguous grammars to be more
+conjecture that delayed reductions will allow unambiguous grammars to be more
 compositional, that is to say, more easy to use.
 
 
@@ -200,7 +213,7 @@ F --> b | _
 ```
 Rustlr works by treating `_` (represented internally as
 `_WILDCARD_TOKEN_`) like any other terminal symbol when generating the
-LR state machine.  The wildcard role of the symbol is only signifcant
+LR state machine.  The wildcard role of the symbol is only significant
 during parsing when a token is encountered that **does not have a**
 regular transition defined for the current state.  Normally, such a
 situation results in a parsing error.  However, if the state defines a
