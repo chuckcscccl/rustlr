@@ -1,43 +1,18 @@
-//! Rustlr is an LR(1)/LALR(1) parser generator for Rust.  Advanced features
+//! Rustlr is an LR-style parser generator for Rust.  Advanced features
 //! include:
-//!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible
-//!  2. Ability to train the parser interactively for better error reporting
-//!  3. External state access allows parsers go to beyond CFGs
-//!  4. Support for using *, ? +, and "unexpected token" _ in grammar productions.
+//!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible.
+//!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
+//!  the writing of grammars and allow better ASTs to be created.
+//!  3. Experimental features include the ability to signal *delayed reduction*
+//!  transformations on a grammar.
+//!  4. The ability to train the parser interactively for better error reporting
+//!  5. External state access allows parsers go to beyond CFGs
 //!
 //! A [**tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is separately available that will explain the
 //! format of grammars and how to generate and deploy parsers for several 
-//! examples.
-//!
-//! **Recent Updates:** *Version 0.2.3*
-//! added the ability to automatically generate a usable lexical scanner from a minimal set of specifications.
-//! *Version 0.2.5* added the ability for semantics actions to return values of
-//! different types.  *Version 0.2.8* introduced the ability to automatically
-//! generate the abstract syntax data types and the
-//! corresponding semantic actions.  Support for *, + and ? expressions as well
-//! as an experimental *wildcard* expression were introduced in version *0.2.9.*
-//!
-//! In addition to creating LR/LALR state machines using the classic algorithms,
-//! rustlr is capable of recognizing operator precedence and
-//! associativity declarations that allow the use of ambiguous grammars.
-//! Parsers also have optional access to *external state* information that allows
-//! them to recognize more than just context-free languages.  Rustlr implements
-//! methods of error recovery similar to those found in other LR generators.
-//! For error reporting, however, rustlr parsers can run in
-//! *training mode*: when a parse error is encountered, the human 
-//! trainer can augment the parser's state transition table with an
-//! appropriate error message. The augmented parser is automatically saved
-//! along with a training script that can be used to retrain a new parser after
-//! a grammar has been modified.
-//! See the [ZCParser::parse_train] and [ZCParser::train_from_script] functions.
-//!
-//! The parser generator can also generate a lexical scanner using
-//! the built-in [StrTokenizer] from a minimal set 
-//! of declarations.  The generated scanner is "zero-copy" and good enough
-//! for processing most text.  However, any scanner can be used by 
-//! adopting it to the [Tokenizer] trait.  A separate chapter of the tutorial
-//! will be devoted to manually adopting a tokenizer.
+//! examples.  The documentation found here should be used as a technical
+//! reference.
 //!
 //! Rustlr should be installed as an executable (cargo install rustlr).
 //! Many of the items exported by this crate are only required by the parsers

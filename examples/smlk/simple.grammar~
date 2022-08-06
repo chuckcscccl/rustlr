@@ -1,0 +1,11 @@
+# simplest example of applying delays
+
+terminals a b c d x y
+nonterminals S A B M
+
+S --> A | B
+A --> a b c x
+B --> a b c y
+
+EOF
+

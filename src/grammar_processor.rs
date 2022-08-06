@@ -396,6 +396,7 @@ impl Grammar
 		 continue;
 	       }
 	       let mut newterm = Gsym::new(stokens[1],false);
+               if !self.genabsyn {newterm.rusttype = self.Absyntype.clone();}
               if stokens.len()>2 { // type specified, else stays ""
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
@@ -738,7 +739,7 @@ impl Grammar
                 if strtok.len()>0 && &strtok[0..1]=="{" {
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
-                   if semaction.contains("return ") {
+                   if self.genabsyn && semaction.contains("return ") {
                      eprintln!("WARNING: USING \"return\" INSIDE SEMANTIC ACTIONS COULD CAUSE CONFLICTS WITH AUTOMATIC CODE GENERATION, LINE {}\n",linenum);
                    }
 		   break;

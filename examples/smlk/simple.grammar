@@ -1,12 +1,14 @@
 # simplest example of applying delays
 
 terminals a b c d x y
-nonterminals S A B M M2
+nonterminals S A B C M M2
 topsym S
 
 S --> A | B
-A --> # M c:xx # x
-B --> a b c y
+C --> c | c C
+#C --> c*
+A --> d # M C d # x
+B --> d a b C d y
 M --> a b
 
 EOF

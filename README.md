@@ -6,21 +6,25 @@
 Among the features that Rustlr supports are:
 
 1. The option of automatically creating the abstract syntax data types and semantic actions from the grammar.
-2. operator precedence and associativity declarations allow the use of ambiguous grammars.
-3. use of patterns in describing semantic values directly in the grammar
-4. The ability to train the parser, interactively or from script for better error reporting.
-5. Semantic actions have access to mutable external state, which (with manually written actions) can recognize some non-context free languages.
-6. Experimental features including a "wildcard token" that allows the writing
-of grammar rules with expressions such as `a _* b`
+2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
+the writing of grammars and allow better ASTs to be created.
+3. Experimental features include the ability to signal *delayed reduction*
+transformations on a grammar.
+4. Operator precedence and associativity declarations further allow grammars
+to be written that's closer to EBNF syntax.
+5. The ability to train the parser, interactively or from script, for better error reporting.
+6. Semantic actions have access to mutable external state, which (with manually written actions) can recognize some non-context free languages.
 
 
 <p>
 
 
-**Version 0.2.99 improves the way ASTs are automatically generated.
-Version 0.2.98 enhances the internal speed of parser generation.**
-
 ### Major Features and the Versions that Introduced Them
+
+#### Version 0.3.0: Experimental feature: markers that allow delayed-reduction
+grammar transformations.  Improved ability to generate reasonable abstract
+syntax.
+
 
 #### Version 0.2.95:
 

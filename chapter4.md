@@ -11,6 +11,8 @@ by hand, as demonstrated in the previous chapters.  Even with Rustlr
 capable of generating nearly everything one might need from a parser,
 it is still possible that careful fine tuning will be required.
 
+Rustlr Version 0.3.0 has significantly upgraded the ability to generate abstract syntax from earlier versions.
+
 We redo the enhanced calculator example from [Chapter 2][chap2].
 Although some form of abstract syntax can be generated for any
 grammar, the format of the grammar can greatly influence the form of
@@ -133,13 +135,13 @@ The syntax means that instead of generating new types, the ASTs representing
 the rules for `UnaryExpr` and `LetExpr` would *extend* the enum that would
 be created for `Expr`.  The type created for Expr must be an enum for this
 to work (it would not work if it was a struct).
-Leave out the `: Expr` portion from the declarations and we will get instead
+Leave out the `: Expr` portion from the declarations and we will get
 [these types](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/calcb_ast.rs) instead.  They would be more cumbersome to work with.  
 
 
 #### Rules of AST Generation
 
-An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules. The name of the enum is the
+An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules, unless the type of the non-terminal is declared to "extend" another type as explained above. The name of the enum is the
 same as the name of the non-terminal.
 The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).  A special `Nothing` variant is also created to represent a default.
 There is normally an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
@@ -152,7 +154,7 @@ will result in a variant `acase((),LBox<E>)`
 
 A struct is created for any non-terminal symbol that appears on the
 left-hand side of exactly one production rule, unless the type of that
-nonterminal is declared to "extend" another type as explained above.
+nonterminal is declared to extend another type.
 You can also force an enum to be created instead of a struct by
 giving the singleton rule a left-hand side label, in which case the label
 will name the sole variant of the enum (besides the `_Nothing` default).
@@ -230,9 +232,9 @@ inferred "meaning" of this rule is not what's desired, it can be
 altered by using an explicit left-side label: this will generate a
 separate enum variant (at the cost of an extra LBox) that
 distinguishes the presence of the parentheses.  Note that the 
-rule `UnaryExpr:Neg --> - UnaryExpr`, was not recognized by as a pass-thru
+rule `UnaryExpr:Neg --> - UnaryExpr`, was not recognized as a pass-thru
 case by virtue of the left-hand side label `Neg`.  Unlike the parentheses,
-the minus symbol certain has meaning at the semantic level.
+the minus symbol certain has meaning beyond the syntactic level.
 We can also force the minus sign to be
 included in the AST by giving it an explicit lable such as `-:minus UnaryExpr`.
 This would create an enum variant that includes a unit type value.
@@ -498,7 +500,9 @@ Note that the **`valueterminal`** lines, which combine `typedterminal` with
 a **`~`**.  The line for terminal STRING strips the string literal returned
 by the tokenizer of this enclosing double quotes.
 
-The AST types that are created by this JSON parser are
+The grammar is a hybrid with some manually defined types and actions
+along with mostly automatically generated ones.
+The AST types that are created by this grammar are
 ```
 #[derive(Debug)]
 pub enum Number<'lt> {
@@ -567,7 +571,7 @@ pair inside the vector created by `<COMMA*>` is wrapped inside an LBox.
 We can take the value from the box with [LBox::take][take] (which leaves
 a default value inside the box).
 
-The debug output of the same JSON source would now be:
+The debug output of the AST from the same JSON source would now be:
 ```
 Object({"age": Number(Int(30)), "isAlive": Boolean(true), "children": List([Str("Catherine"), Str("Thomas"), Str("Trevor")]), "firstName": Str("John"), "address": Object({"state": Str("NY"), "streetAddress": Str("121 2nd Street"), "postalCode": Str("10021-3100"), "city": Str("New York")}), "spouse": NULL, "lastName": Str("Smith"), "phoneNumbers": List([Object({"type": Str("home"), "number": Str("212 555-1234")}), Object({"number": Str("646 555-4567"), "type": Str("office")})])})
 ```
