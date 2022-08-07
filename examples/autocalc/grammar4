@@ -1,0 +1,68 @@
+# Grammar testing automatic generation of abstract syntax
+# Hybrid approach
+
+auto
+lifetime 'lt
+terminals + - * / ( ) = ;
+terminals let in
+#typedterminal int i64
+valueterminal int ~ i64 ~ Num(n) ~ n
+valueterminal var ~ &'lt str ~ Alphanum(n) ~ n
+#typedterminal var &'lt str
+#lexvalue int Num(n) n
+#lexvalue var Alphanum(x) x
+lexattribute set_line_comment("#")
+
+nonterminal Expr
+nonterminal ExprList
+#nonterminal ExprList Vec<LBox<Expr<'lt>>>
+nonterminal UnaryExpr : Expr
+nonterminal LetExpr : Expr
+#nonterminal UnaryExpr
+#nonterminal LetExpr
+nonterminal Txpr : Expr
+nonterminal Sxpr
+
+topsym ExprList
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+
+# rule for testing AST generation:
+#lexvalue bigint BigNumber(n) n
+Txpr --> ; int int ;
+Expr --> Sxpr ; Sxpr
+Sxpr --> Txpr ; Txpr
+
+UnaryExpr:Val --> int
+UnaryExpr:Var --> var
+UnaryExpr:Neg --> - UnaryExpr
+UnaryExpr --> ( LetExpr )
+
+Expr --> UnaryExpr
+Expr:Plus --> Expr + Expr
+Expr:Minus --> Expr - Expr
+Expr:Div --> Expr / Expr
+Expr:Times --> Expr * Expr
+
+LetExpr --> Expr
+LetExpr:Let --> let var = Expr in LetExpr
+
+ExprList:nil -->
+ExprList:cons --> LetExpr ; ExprList
+#ExprList --> { vec![] }
+#ExprList --> ExprList:cdr LetExpr:car ; { cdr.push(car); cdr }
+#ExprList --> (LetExpr ;)+
+
+EOF
+
+notes:
+
+passthru will not change the type of a non-terminal.
+However, when generating a one-time use nonterminal when processing
++, ?, passthru will set the type of nonterminal, so E --> F means E
+will inherit the type of F.  But in writing a grammar, this is only
+possible if E and F have the same type.

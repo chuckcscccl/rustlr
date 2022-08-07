@@ -1,0 +1,38 @@
+ML delays
+
+A --> # P B #   add delay til B reduced.
+P --> d
+P --> P d
+
+This is being translated as
+
+A --> PB
+PB --> d B
+PB --> P d B
+P --> d
+P --> P d
+
+This is wrong?  why?  not even ambiguous!  But with input d d B
+We will have in state
+PB --> . d B, ?la in Follow(A)
+PB --> . P d B, ?la
+P --> . d, la d
+P --> . P d, d
+
+Then
+
+PB --> d . B, ?la in Follow(A)
+P --> d ., d
+CONFLICT IF  first(d) in ?la but not likely?
+
+-----
+A --> PB
+PB --> d B
+PB --> Pd B
+Pd --> d d
+Pd --> P d d
+P --> d
+P --> P d
+Yikes!
+
+
