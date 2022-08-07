@@ -1,0 +1,621 @@
+# ANSI C YACC Grammar 2011 version adopted to Rustlr
+# from http://www.quut.com/c/ANSI-C-grammar-y.html
+# intended for use with rustlr -auto
+
+lifetime 'lt
+externtype HashSet<&'lt str>
+
+# new keywords
+lexterminal FUNC_NAME __func__
+lexterminal INLINE inline
+lexterminal RESTRICT restrict
+lexterminal ALIGNAS _Alignas
+lexterminal ALIGNOF _Alignof
+lexterminal ATOMIC _Atomic
+lexterminal BOOL _Bool
+lexterminal COMPLEX _Complex
+lexterminal GENERIC _Generic
+lexterminal IMAGINARY _Imaginary
+lexterminal NORETURN _Noreturn
+lexterminal STATIC_ASSERT _Static_assert
+lexterminal THREAD_LOCAL _Thread_local
+
+# from original 
+lexterminal PTR_OP ->
+lexterminal INC_OP ++
+lexterminal DEC_OP --
+lexterminal LEFT_OP <<
+lexterminal RIGHT_OP >>
+lexterminal LE_OP <=
+lexterminal GE_OP >=
+lexterminal EQ_OP ==
+lexterminal NE_OP !=
+lexterminal AND_OP &&
+lexterminal OR_OP ||
+lexterminal MUL_ASSIGN *=
+lexterminal DIV_ASSIGN /=
+lexterminal MOD_ASSIGN %=
+lexterminal ADD_ASSIGN +=
+lexterminal SUB_ASSIGN -=
+lexterminal LEFT_ASSIGN <<=
+lexterminal RIGHT_ASSIGN >>=
+lexterminal AND_ASSIGN &=
+lexterminal XOR_ASSIGN ^=
+lexterminal OR_ASSIGN |=
+lexterminal SIZEOF sizeof
+lexterminal TYPEDEF typedef
+lexterminal EXTERN extern
+lexterminal STATIC static
+lexterminal AUTO auto
+lexterminal REGISTER register
+lexterminal CHAR char
+lexterminal SHORT short
+lexterminal INT int
+lexterminal LONG long
+lexterminal SIGNED signed
+lexterminal UNSIGNED unsigned
+lexterminal FLOAT float
+lexterminal DOUBLE double
+lexterminal CONST const
+lexterminal VOLATILE volatile
+lexterminal VOID void
+lexterminal STRUCT struct
+lexterminal UNION union
+lexterminal ENUM enum
+lexterminal CASE case
+lexterminal DEFAULT default
+lexterminal IF if
+lexterminal ELSE else
+lexterminal SWITCH switch
+lexterminal WHILE while
+lexterminal DO do
+lexterminal FOR for
+lexterminal GOTO goto
+lexterminal CONTINUE continue
+lexterminal BREAK break
+lexterminal RETURN return
+lexterminal ELLIPSIS ...
+lexterminal Lbrace {
+lexterminal Rbrace }
+lexterminal Amp &
+lexterminal Bang !
+lexterminal Bar |
+lexterminal Hat ^
+lexterminal Dot .
+lexterminal Comma ,
+lexterminal Colon :
+lexterminal Star *
+lexterminal Div /
+lexterminal Percent %
+lexterminal Lt <
+lexterminal Gt >
+lexterminal ASSIGN =
+lexterminal Quest ?
+terminals [ ] ( )  + - ~ ;
+
+valueterminal TYPEDEF_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().contains(n)~ n
+# this has to change
+valueterminal IDENTIFIER~ &'lt str~ Alphanum(n)~ n
+valueterminal ENUMERATION_CONSTANT~ &'lt str~ Alphanum(n)~ n
+valueterminal I_CONSTANT~ i32~ Num(n)~ (n as i32)
+valueterminal F_CONSTANT~ f64~ Float(n)~ n
+valueterminal STRING_LITERAL~ &'lt str~ Strlit(s)~ s
+lexattribute add_custom("directive",r"^(?m)^#.*$")
+valueterminal COMPILER_DIRECTIVE~ &'lt str~ Custom("directive",d)~ d
+
+#nonterminals unary_operator constant assignment_operator initializer_list
+#nonterminals conditional_expression struct_declarator_list
+
+nonterminals expression struct_declarator
+nonterminals declaration declaration_specifiers init_declarator
+nonterminals storage_class_specifier type_specifier struct_or_union_specifier
+nonterminals struct_or_union struct_declaration
+nonterminals enum_specifier enumerator_list enumerator type_qualifier
+nonterminals declarator direct_declarator pointer type_qualifier_list
+nonterminals parameter_type_list parameter_declaration
+nonterminals identifier_list type_name abstract_declarator
+nonterminals direct_abstract_declarator initializer
+nonterminals statement labeled_statement compound_statement
+nonterminals expression_statement selection_statement
+nonterminals iteration_statement jump_statement translation_unit
+nonterminals external_declaration function_definition generic_selection
+nonterminals generic_association static_assert_declaration designation
+nonterminals function_specifier alignment_specifier atomic_type_specifier
+nonterminals designator block_item declaration_specifier
+nonterminals specifier_qualifier initializer_designation
+nonterminals expression_list expressionS
+
+topsym translation_unit
+
+# added for Rustlr edition to resolve dangling else problem:
+left IF 10
+left ELSE 20
+left ( 3000
+left ATOMIC 10
+# These just avoids warning messages, since default is shift anyway.
+
+# associativity and precedence
+right ASSIGN 100
+right MUL_ASSIGN 100
+right DIV_ASSIGN 100
+right MOD_ASSIGN 100
+right ADD_ASSIGN 100
+right SUB_ASSIGN 100
+right LEFT_ASSIGN 100
+right RIGHT_ASSIGN 100
+right AND_ASSIGN 100
+right XOR_ASSIGN 100
+right OR_ASSIGN 100
+right Quest 150
+#right Colon 150
+left OR_OP 200
+left AND_OP 250
+left Bar 300
+left Hat 350
+left Amp 400
+left EQ_OP 450
+left NE_OP 450
+left Lt 500
+left Gt 500
+left LE_OP 500
+left GE_OP 500
+left LEFT_OP 550
+left RIGHT_OP 550
+left + 600
+left - 600
+left Star 650
+left Div 650
+left Percent 650
+left SIZEOF 655
+# type cast expressions have higher precedence
+
+#unary operators
+# Amp, +, *, -, are also unary operators.  So can't use declarations
+# for them.  So preserve it's own class unary-expressions.
+right Bang 800
+right ~ 800
+right INC_OP 750
+right DEC_OP 750
+right Dot 3000
+right PTR_OP 3000
+left [ 2500
+left ( 2800
+left Comma 5   -- always reduce before a comma when conflict
+
+# added to distinguish between IDENTIFIER and TYPE_NAME
+#transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
+
+
+expression:ID --> IDENTIFIER
+expression:Iconst --> I_CONSTANT
+expression:Fconst --> F_CONSTANT
+expression:Econst --> ENUMERATION_CONSTANT
+expression:Stringlit --> STRING_LITERAL
+expression:funcname --> FUNC_NAME
+expression --> ( expression )
+expression --> generic_selection
+
+generic_selection --> GENERIC ( expression Comma generic_association<Comma+> )
+
+generic_association ==>
+         type_name Colon expression
+       | DEFAULT Colon expression 
+       <==
+
+
+# [ any exp ] but outside cannot be.  can't have 3[x]
+expression ==>
+	  expression [ expression ]
+	| expression ( )        
+	| expression ( expression_list )
+	| expression Dot IDENTIFIER
+	| expression PTR_OP IDENTIFIER
+	| expression INC_OP
+	| expression DEC_OP
+        | ( type_name ) Lbrace initializer_designation<Comma+> Comma? Rbrace
+	<==
+
+expression_list --> expression<Comma+>
+
+expression ==>
+	  INC_OP expression
+	| DEC_OP expression
+	| SIZEOF expression
+	| SIZEOF ( type_name )
+        | ALIGNOF ( type_name )
+	<==
+
+expression:Not --> Bang expression
+expression(-800):Ref --> Amp expression
+expression(-800):Ustar --> Star expression
+expression(-800):Uplus --> + expression
+expression(-800):Uminus --> - expression
+expression:Comp --> ~ expression
+
+expression --> ( type_name ) expression
+
+# precedence determined here
+
+expression ==>
+	  expression Star expression
+	| expression Div expression
+	| expression Percent expression
+	<==
+
+expression ==>
+	  expression + expression
+	| expression - expression
+	<==
+
+expression ==>
+	  expression LEFT_OP expression
+	| expression RIGHT_OP expression
+	<==
+
+expression ==>
+	  expression Lt expression
+	| expression Gt expression
+	| expression LE_OP expression
+	| expression GE_OP expression
+        <==
+        
+expression ==>
+	  expression EQ_OP expression
+	| expression NE_OP expression
+	<==
+
+expression:Band --> expression Amp expression
+expression:Xor --> expression Hat expression
+expression:Bor --> expression Bar expression
+expression:And --> expression AND_OP expression
+expression:Or --> expression OR_OP expression
+
+expression --> expression Quest expression Colon expression
+
+# this has lowest precedence (note it's right-associative, = is right-assoc)
+#expression(100) --> expression assignment_operator expression
+#assignment_operator ==>
+#	 ASSIGN
+#	| MUL_ASSIGN
+#	| DIV_ASSIGN
+#	| MOD_ASSIGN
+#	| ADD_ASSIGN
+#	| SUB_ASSIGN
+#	| LEFT_ASSIGN
+#	| RIGHT_ASSIGN
+#	| AND_ASSIGN
+#	| XOR_ASSIGN
+#	| OR_ASSIGN
+#	<==
+
+expression:Assign --> expression ASSIGN expression
+expression:Teq --> expression MUL_ASSIGN expression
+expression:Deq --> expression DIV_ASSIGN expression
+expression:Meq --> expression MOD_ASSIGN expression
+expression:Aeq --> expression ADD_ASSIGN expression
+expression:Subeq --> expression SUB_ASSIGN expression
+expression:Leq --> expression LEFT_ASSIGN expression
+expression:Req --> expression RIGHT_ASSIGN expression
+expression:Andeq --> expression AND_ASSIGN expression
+expression:Xeq --> expression XOR_ASSIGN expression
+expression:Oreq --> expression OR_ASSIGN expression
+
+expressionS --> expression_list
+
+# the following rule was marked "with constraints"
+#constant_expression --> conditional_expression
+
+
+#!use crate::c11_ast::init_declarator::*;
+#!use crate::c11_ast::declarator::*;
+!use crate::c11_ast::declaration::*;
+!use crate::c11_ast::direct_declarator::*;
+#!use crate::c11_ast::declaration_specifiers::*;
+!use crate::c11_ast::declaration_specifier::*;
+!use crate::c11_ast::storage_class_specifier::*;
+
+declaration:DecSpec --> declaration_specifiers ;
+declaration:DecSpecList --> declaration_specifier+:ds init_declarator<Comma+>:il ;
+declaration:Statassert --> static_assert_declaration
+
+declaration_specifier:storage --> storage_class_specifier
+declaration_specifier:typespec --> type_specifier
+declaration_specifier:typequal --> type_qualifier
+declaration_specifier:funcspec --> function_specifier
+declaration_specifier:alignspec --> alignment_specifier
+
+declaration_specifiers --> declaration_specifier+
+
+# this rule corresponds to typedef: set next identifier to be TYPE_NAME
+#declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
+
+init_declarator --> declarator:decl (ASSIGN initializer)?:initializer
+
+#storage_class_specifier:Typedef --> TYPEDEF
+storage_class_specifier ==>
+	EXTERN
+	| STATIC
+	| AUTO
+	| REGISTER
+        | THREAD_LOCAL
+        | TYPEDEF
+	<==
+
+type_specifier:Typename --> TYPEDEF_NAME        
+type_specifier ==>
+	 VOID
+	| CHAR
+	| SHORT
+	| INT
+	| LONG
+	| FLOAT
+	| DOUBLE
+	| SIGNED
+	| UNSIGNED
+        | BOOL
+        | COMPLEX
+        | IMAGINARY
+	| struct_or_union_specifier
+	| enum_specifier
+        | atomic_type_specifier
+	<==
+
+
+struct_or_union_specifier ==>
+	 struct_or_union IDENTIFIER? Lbrace struct_declaration+ Rbrace
+	| struct_or_union IDENTIFIER
+	<==
+
+# labels ensure enum generated.
+struct_or_union --> STRUCT:x
+struct_or_union --> UNION:x
+
+struct_declaration ==>
+         specifier_qualifier+ struct_declarator<Comma*> ;
+       | static_assert_declaration
+       <==
+
+#struct_declaration_list --> struct_declaration+
+
+specifier_qualifier --> type_specifier | type_qualifier
+#specifier_qualifier_list --> specifier_qualifier+
+
+# note that the rule is right-recursive, does it matter?
+#specifier_qualifier_list ==>
+# 	  type_qualifier specifier_qualifier_list
+#	| type_qualifier
+# 	| type_specifier specifier_qualifier_list
+#	| type_specifier
+#	<==
+
+#struct_declarator_list --> struct_declarator<Comma+>
+#struct_declarator_list ==>
+#	 struct_declarator
+#	| struct_declarator_list Comma struct_declarator
+#	<==
+
+struct_declarator ==>
+	 declarator
+	| Colon expression
+	| declarator Colon expression
+	<==
+
+enum_specifier ==>
+	 ENUM Lbrace enumerator_list Comma? Rbrace
+	| ENUM IDENTIFIER Lbrace enumerator_list Comma? Rbrace
+	| ENUM IDENTIFIER
+	<==
+#	 ENUM Lbrace enumerator_list Comma? Rbrace
+enumerator_list(5) --> enumerator<Comma+>
+#enumerator_list ==>
+#	 enumerator
+#	| enumerator_list Comma enumerator
+#	<==
+
+# change IDENTIFIER TO ENUMERATION_CONSTANT?
+enumerator --> ENUMERATION_CONSTANT (ASSIGN expression)?
+
+atomic_type_specifier --> ATOMIC ( type_name )
+
+type_qualifier --> CONST | VOLATILE | ATOMIC | RESTRICT
+
+
+function_specifier --> INLINE | NORETURN
+
+alignment_specifier --> ALIGNAS ( type_name ) 
+alignment_specifier --> ALIGNAS ( expression )
+
+# PROBLEMATIC LINE
+declarator --> # pointer? direct_declarator #
+#declarator --> pointer?:ptropt direct_declarator:direct_dec
+#declarator:with_pointer -->  pointer direct_declarator
+#declarator:no_pointer -->  direct_declarator
+#	<==
+
+# we can't replace all type_qualifier_list with type_qualifier+
+# below because the left context (plus one lookahead), won't be
+# able to distinguish between the identical productions that are
+# generated dynamically.  Plus it's not as efficient.
+# .. but there are places where the opposite is true.
+
+direct_declarator ==>
+	 IDENTIFIER
+	| ( declarator )
+	| direct_declarator [ ]
+        | direct_declarator [ Star ]
+        | direct_declarator [ STATIC type_qualifier_list expression ]
+        | direct_declarator [ STATIC expression ]
+        | direct_declarator [ type_qualifier_list Star ]
+        | direct_declarator [ type_qualifier_list expression ]
+        | direct_declarator [ type_qualifier_list STATIC expression ]
+        | direct_declarator [ type_qualifier_list ]
+        | direct_declarator [ expression ]        
+	| direct_declarator ( parameter_type_list )
+	| direct_declarator ( identifier_list )
+	| direct_declarator ( )
+	<==
+#	| direct_declarator [ expression ]
+
+pointer --> Star type_qualifier*:tql pointer?:ptr
+#pointer ==>
+#	 Star
+#	| Star type_qualifier_list
+#	| Star pointer
+#	| Star type_qualifier_list pointer
+#	<==
+
+type_qualifier_list --> type_qualifier+
+#type_qualifier_list ==>
+#          type_qualifier
+#	| type_qualifier_list type_qualifier
+#	<==
+
+
+parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS)?:ellipsis
+#	| parameter_list Comma ELLIPSIS
+#	<==
+
+#parameter_list --> parameter_declaration<Comma+>
+#parameter_list --> parameter_list Comma parameter_declaration
+
+
+parameter_declaration ==>
+	 declaration_specifiers declarator
+	| declaration_specifiers abstract_declarator
+	| declaration_specifiers
+	<==
+
+identifier_list --> IDENTIFIER<Comma+>
+
+type_name --> specifier_qualifier+ abstract_declarator?
+
+abstract_declarator ==>
+	 pointer
+	| direct_abstract_declarator
+	| pointer direct_abstract_declarator
+	<==
+
+direct_abstract_declarator ==>
+	 ( abstract_declarator )
+	| [ ]
+        | [ Star ]
+        | [ STATIC type_qualifier* expression ]
+        | [ type_qualifier_list STATIC?:s expression? ]
+        | [ expression ]
+	| direct_abstract_declarator [ ]
+	| direct_abstract_declarator [ Star ]        
+	| direct_abstract_declarator [ STATIC type_qualifier* expression ]
+	| direct_abstract_declarator [ type_qualifier_list STATIC?:s expression ]        
+	| direct_abstract_declarator [ type_qualifier_list ]
+	| direct_abstract_declarator [ expression ]                
+	| ( )
+	| ( parameter_type_list )
+	| direct_abstract_declarator ( )
+	| direct_abstract_declarator ( parameter_type_list )
+	<==
+#	| [ expression ]
+
+initializer ==>
+	  expression
+	| Lbrace initializer_designation<Comma+> Comma? Rbrace
+	<==
+initializer_designation --> designation? initializer
+
+designation --> designator+ ASSIGN
+designator --> [ expression ] | Dot IDENTIFIER
+
+static_assert_declaration --> STATIC_ASSERT ( expression Comma STRING_LITERAL ) ;
+
+statement ==>
+	 labeled_statement
+	| compound_statement
+	| expression_statement
+	| selection_statement
+	| iteration_statement
+	| jump_statement
+	<==
+
+labeled_statement ==>
+	 IDENTIFIER Colon statement
+	| CASE expression Colon statement
+	| DEFAULT Colon statement
+	<==
+
+compound_statement --> Lbrace block_item*:statements Rbrace
+
+block_item:Declaration --> declaration
+block_item:Statement --> statement
+
+# not needed?
+#declaration_list ==> 
+#	 declaration
+#	| declaration_list declaration
+#	<==
+#statement_list ==>
+#	 statement
+#	| statement_list statement
+#	<==
+
+expression_statement --> expressionS? ;
+
+selection_statement ==>
+	 IF ( expressionS ) statement
+	| IF ( expressionS ) statement ELSE statement
+	| SWITCH ( expressionS ) statement
+	<==
+
+iteration_statement ==>
+	 WHILE ( expressionS ) statement
+	| DO statement WHILE ( expressionS ) ;
+	| FOR ( expression_statement expression_statement expressionS? ) statement
+        | FOR ( declaration expression_statement expressionS? ) statement
+	<==
+
+jump_statement ==>
+	 GOTO IDENTIFIER ;
+	| CONTINUE ;
+	| BREAK ;
+	| RETURN ;
+	| RETURN expressionS ;
+	<==
+
+translation_unit --> external_declaration+
+#	 external_declaration
+#	| translation_unit external_declaration
+#	<==
+
+external_declaration ==>
+	 function_definition
+	| declaration
+	<==
+external_declaration:directive --> COMPILER_DIRECTIVE
+#compiler_directive:Include --> Hash INCLUDE Lt _* Gt
+#compiler_directive:Define --> DEFINITION
+
+
+function_definition --> declaration_specifiers declarator declaration* compound_statement
+
+#	| declaration_specifiers declarator compound_statement
+#	| declarator declaration_list compound_statement
+#	| declarator compound_statement
+#	<==
+
+
+EOF
+
+
+declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il ; 
+  { if let (declaration_specifiers{_item0_:tdl}, ils) = (&ds,&il)  {
+     if let storage(typedeff) = &*tdl[0] {
+      if let TYPEDEF = &**typedeff {
+       if let init_declarator {declarator:nplid, initializer} = &*ils[0] {
+        match &**nplid {
+          no_pointer(lid) | with_pointer(_,lid) => {
+             if let IDENTIFIER(id) = &**lid {
+               parser.shared_state.borrow_mut().insert(id);
+             }
+          },
+          _ => {},
+        }
+    }}}}  ...
+  } <==

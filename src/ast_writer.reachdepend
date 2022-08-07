@@ -32,12 +32,17 @@ impl Grammar
        if self.Symbols[*nt].rusttype.len()==0 { // type "" means generate type
          // determine if lifetime needed.
          let reach = self.Reachable.get(nt).unwrap();
+/////
+for r in reach.iter() {println!("{} reaches {}",&self.Symbols[*nt].sym,&self.Symbols[*r].sym);}
+/////
          let mut needlt = false;
          if self.lifetime.len()>0 {
            for ti in self.haslt_base.iter() {
+//println!("{} reachable from {}: {}",&self.Symbols[*ti].sym,&self.Symbols[*nt].sym,reach.contains(ti));
              if reach.contains(ti) {needlt = true; break;}
            }
          }//if lifetime check needed
+//println!("NT {} need lifetime: {}",&self.Symbols[*nt].sym,needlt);	 
          if needlt {
            self.Symbols[*nt].rusttype = format!("{}<{}>",&self.Symbols[*nt].sym,&self.lifetime);
          } else {
@@ -396,39 +401,47 @@ use rustlr::LBox;\n")?;
 // NOTE including all of Extras (one big string) might cause repeated
 // definitions - best to not include as pubs.
 
-/////  Floyd/Warshall reachability - sort of
+/////  Floyd/Warshall reachability - sort of // new for 0.3.1
   pub fn reachability(&mut self)
   {
-     for NT in self.Rulesfor.keys()
+     for (NT,NTrules) in self.Rulesfor.iter()
      {
-       self.Reachable.insert(*NT, HashSet::new());
-     } // create map skeletons
-
-     let mut stillopen = true;
-     while stillopen {
-       stillopen = false;
-       for (NT, NTrules) in self.Rulesfor.iter()
-       {
-        //let iNT = *NT; //self.Symhash.get(NT).unwrap();
-        let mut symset = HashSet::new(); // symbols to be added to NT's reach
-        for ri in NTrules
+       let mut ntreach = HashSet::new();
+       // seed reachable sets with type dependencies like Term : Expr
+       let nttype = &self.Symbols[*NT].rusttype;
+       if nttype.starts_with(':') {
+         if let Some(othernti)=self.Symhash.get(nttype[1..].trim()) {
+	     ntreach.insert(*othernti);
+	 }
+       }
+       for ri in NTrules // seed based on rhs of rules (just one level)
         {
            for sym in &self.Rules[*ri].rhs
            {
-              let symi = sym.index; //*self.Symhash.get(&sym.sym).unwrap();
-              symset.insert(symi);
-              if !sym.terminal { // noterminal
-                 for nsymi in self.Reachable.get(&symi).unwrap().iter()
-                 {
-                     symset.insert(*nsymi);
-                 }
-              }
-           } // collect rhs symbols into a set
-        }//for ri
-        let ireachable = self.Reachable.get_mut(NT).unwrap();
+	      ntreach.insert(sym.index);
+           } // collect rhs symbols into 1st level reachable set
+       }//for ri       
+       self.Reachable.insert(*NT, ntreach);
+     } // create map skeletons
+     // create closure
+     let mut stillopen = true;
+     while stillopen {
+       stillopen = false;
+       for NT in self.Rulesfor.keys()
+       {
+        let ireachable1 = self.Reachable.get(NT).unwrap();	
+        let mut symset = HashSet::new(); // symbols to be added to NT's reach
+        for ni in ireachable1.iter() { // for next nt that can be reached
+          if !self.Symbols[*ni].terminal {
+	     let nireachable = self.Reachable.get(ni).unwrap();
+	     for nsymi in nireachable.iter() { symset.insert(*nsymi); }
+	  }
+        }// for each intermediate symbol
+        let ireachable = self.Reachable.get_mut(NT).unwrap(); //re-borrow
         for sym in symset
         {
-          stillopen =  ireachable.insert(sym) || stillopen;
+	  if ireachable.insert(sym) && !stillopen {stillopen=true;}
+          //stillopen =  ireachable.insert(sym) || stillopen;
         }
        }//(NT,NTrules)
      }//stillopen
