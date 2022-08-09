@@ -76,7 +76,7 @@ impl Statemachine
         }//match
         let poppedlab = plab.as_str();
         let symtype=&self.Gmr.Symbols[gsym.index].rusttype;
-        let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU USE THE -auto OPTION?",&symtype);
+        let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
         //form RetTypeEnum::Enumvariant_{eindex}(popped value)
         let stat;

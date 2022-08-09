@@ -22,6 +22,8 @@ nonterminal LetExpr : Expr
 #nonterminal LetExpr
 nonterminal Txpr : Expr
 nonterminal Sxpr
+nonterminal Aexpr
+nonterminal Bexpr : Aexpr
 
 topsym ExprList
 resync ;
@@ -36,6 +38,9 @@ left - 400
 Txpr --> ; int int ;
 Expr --> Sxpr ; Sxpr
 Sxpr --> Txpr ; Txpr
+Aexpr:ae --> int
+Bexpr:be --> var
+Expr --> ; ; Aexpr
 
 UnaryExpr:Val --> int
 UnaryExpr:Var --> var
