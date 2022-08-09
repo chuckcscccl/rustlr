@@ -23,7 +23,8 @@ impl Grammar
 {
    fn prepare(&mut self) -> String
    {
-     // reachability already called by grammar parser
+     // reachability already called by grammar parser, call reachability_types:
+     self.reachability_types();
      
      // assign types to all non-terminal symbols
      // first pass: assign types to "" types, skip all others
@@ -402,16 +403,112 @@ use rustlr::LBox;\n")?;
 /////  Floyd/Warshall reachability - sort of // new for 0.3.1
   pub fn reachability(&mut self)
   {
+     for NT in self.Rulesfor.keys()
+     {
+       self.Reachable.insert(*NT, HashSet::new());
+     } // create map skeletons
+
+     let mut stillopen = true;
+     while stillopen {
+       stillopen = false;
+       for (NT, NTrules) in self.Rulesfor.iter()
+       {
+        //let iNT = *NT; //self.Symhash.get(NT).unwrap();
+        let mut symset = HashSet::new(); // symbols to be added to NT's reach
+        for ri in NTrules
+        {
+           for sym in &self.Rules[*ri].rhs
+           {
+              let symi = sym.index; //*self.Symhash.get(&sym.sym).unwrap();
+              symset.insert(symi);
+              if !sym.terminal { // noterminal
+                 for nsymi in self.Reachable.get(&symi).unwrap().iter()
+                 {
+                     symset.insert(*nsymi);
+                 }
+              }
+           } // collect rhs symbols into a set
+        }//for ri
+        let ireachable = self.Reachable.get_mut(NT).unwrap();
+        for sym in symset
+        {
+          stillopen =  ireachable.insert(sym) || stillopen;
+        }
+       }//(NT,NTrules)
+     }//stillopen
+  }// reachability closure - part 1
+
+  // extend the reachability relation to include type dependencies
+  // assumes that reachability has already been called.
+  pub fn reachability_types(&mut self)
+  {
+     let mut needtoclose = false;
      for (NT,NTrules) in self.Rulesfor.iter()
      {
-       let mut ntreach = HashSet::new();
+       let mut ntreach = self.Reachable.get_mut(NT).unwrap();
+       // seed reachable sets with type dependencies like Term : Expr
+       let nttype = &self.Symbols[*NT].rusttype;
+       if nttype.starts_with(':') {
+         if let Some(othernti)=self.Symhash.get(nttype[1..].trim()) {
+	     if ntreach.insert(*othernti) && !needtoclose {needtoclose=true;}
+	     let otherreach=self.Reachable.get_mut(othernti).unwrap();
+	     if otherreach.insert(*NT) && !needtoclose {needtoclose=true;}
+	     // w/r to reachability for ast gen purposes.
+	     // nt reaches othernt because because if bnt-->nt bnt must know
+	     // that nt can reach othernt to calculate lifetime,etc.
+	     // othernt reach nt because, since the cases of nt are included
+	     // as cases under type of othernt, it's as if othernt had more
+	     // productions.
+	 }
+       } // if : starts type
+     } // create map skeletons (for loop)
+     // create closure
+     while needtoclose {
+       needtoclose = false;
+       for NT in self.Rulesfor.keys()
+       {
+        let ireachable1 = self.Reachable.get(NT).unwrap();	
+        let mut symset = HashSet::new(); // symbols to be added to NT's reach
+        for ni in ireachable1.iter() { // for next nt that can be reached
+          if !self.Symbols[*ni].terminal {
+	     let nireachable = self.Reachable.get(ni).unwrap();
+	     for nsymi in nireachable.iter() { symset.insert(*nsymi); }
+	  }
+        }// for each intermediate symbol
+        let ireachable = self.Reachable.get_mut(NT).unwrap(); //re-borrow
+        for sym in symset
+        {
+	  if ireachable.insert(sym) && !needtoclose {needtoclose=true;}
+        }
+       }//(NT,NTrules)
+     }//stillopen, needtoclose
+  }// reachability closure
+
+/*  COMBINED VERSION
+  pub fn reachability(&mut self)
+  {
+     for NT in self.Rulesfor.keys() {
+       self.Reachable.insert(*NT,HashSet::new());
+     }
+     for (NT,NTrules) in self.Rulesfor.iter()
+     {
+       let mut ntreach = self.Reachable.get_mut(NT).unwrap();
        // seed reachable sets with type dependencies like Term : Expr
        let nttype = &self.Symbols[*NT].rusttype;
        if nttype.starts_with(':') {
          if let Some(othernti)=self.Symhash.get(nttype[1..].trim()) {
 	     ntreach.insert(*othernti);
+	     let otherreach=self.Reachable.get_mut(othernti).unwrap();
+	     otherreach.insert(*NT);  // nt, othernt should be considered same
+	     // w/r to reachability for ast gen purposes.
+	     // nt reaches othernt because because if bnt-->nt bnt must know
+	     // that nt can reach othernt to calculate lifetime,etc.
+	     // othernt reach nt because, since the cases of nt are included
+	     // as cases under type of othernt, it's as if othernt had more
+	     // productions.
 	 }
        }
+       ntreach = self.Reachable.get_mut(NT).unwrap();       //re-borrow
        for ri in NTrules // seed based on rhs of rules (just one level)
         {
            for sym in &self.Rules[*ri].rhs
@@ -419,7 +516,7 @@ use rustlr::LBox;\n")?;
 	      ntreach.insert(sym.index);
            } // collect rhs symbols into 1st level reachable set
        }//for ri       
-       self.Reachable.insert(*NT, ntreach);
+//       self.Reachable.insert(*NT, ntreach);
      } // create map skeletons
      // create closure
      let mut stillopen = true;
@@ -443,7 +540,8 @@ use rustlr::LBox;\n")?;
         }
        }//(NT,NTrules)
      }//stillopen
-  }// reachability closure
+  }// reachability closure  - combined version
+*/
 
 }//impl Grammar
 
