@@ -1,16 +1,17 @@
 ## Chapter 1: Unambiguous LR Grammar for Simple Calculator.
 
-Please note that this tutorial has been rewritten for **[Rustlr version 0.3][drs]**,
+Please note that this tutorial has been rewritten for **[Rustlr version 0.2.95][drs]**,
+which can now **automatically generate a lexical scanner from a minimal set of
+declarations.**
 Parsers created since version 0.1.3 remain compatible.  The original version of this chapter
 is available [here](https://cs.hofstra.edu/~cscccl/rustlr_project/test1grammar0.html).
 
 This tutorial is written for those with sufficient background in computer
 science and in Rust programming, with some knowledge of context free grammars
-and basic bottom-up parsing concepts.
+and basic LR parsing concepts.
 Those who are already
 familiar with similar LR parser generation tools may wish to skip to the
-more advanced example in [Chapter 2](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html) or [Chapter 4][chap4].
-.
+more advanced example in [Chapter 2](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html).
 
 The tutorial will start with a sample grammar.
 ```ignore
@@ -415,7 +416,6 @@ few extra features of Rustlr.
 [5]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html#method.lbox
 [sitem]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html
 [chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/test1grammar.html
-[chap4]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html
