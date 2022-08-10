@@ -10,7 +10,7 @@ and basic bottom-up parsing concepts.
 Those who are already
 familiar with similar LR parser generation tools may wish to skip to the
 more advanced example in [Chapter 2](https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html) or [Chapter 4][chap4].
-.
+
 
 The tutorial will start with a sample grammar.
 ```ignore

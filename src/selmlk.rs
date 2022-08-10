@@ -40,7 +40,7 @@ impl Grammar
        if NT1.terminal {
          eprintln!("WARNING: STARTING DELAY MARKER MUST PRECEED NONTERMINAL SYMBOL, RULE {} IN GRAMMAR.  MARKERS IGNORED",ri); continue;
        }// NT1 is non-terminal
-       // construct suffix delta
+       // construct suffix delta to be added to each rule
        let mut delta = Vec::new();
 //println!("!!!!dbegin:{}, dend:{}, ri:{}",dbegin,dend,ri);
 //printrule(&self.Rules[*ri],*ri);
@@ -114,7 +114,7 @@ impl Grammar
            rset.insert(self.Rules.len()-1);
          }// for each rule for this NT1 to be delayed, add suffix
          self.Rulesfor.insert(newnt.index,rset);
-       } // newnt is actually a new symbol, else it and it's rules exists
+       } // newnt is actually a new symbol, else it and its rules exist
        // change original rule ri to refer to newnt
        let mut newrhs = Vec::with_capacity(self.Rules[*ri].rhs.len()-1);
        if *dbegin>0 {
@@ -159,10 +159,63 @@ impl Grammar
 
 
 
-
-
-
-
+//// generic structure bijective hashmap
+#[derive(Default,Debug)]
+pub struct Bimap<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone>
+{
+  pub forward: HashMap<TA,TB>,
+  pub backward: HashMap<TB,TA>,
+}
+impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
+{
+  pub fn new() -> Self {
+    Bimap { forward:HashMap::new(), backward:HashMap::new() }
+  }
+  pub fn with_capacity(cap:usize) -> Self {
+    Bimap { forward:HashMap::with_capacity(cap), backward:HashMap::with_capacity(cap) }  
+  }
+  pub fn insert(&mut self, x:TA,y:TB) -> bool {
+    let (x2,y2) = (x.clone(),y.clone());
+    let fopt = &self.forward.remove(&x);
+    if let Some(y0) = fopt {
+      self.backward.remove(y0);
+    }
+    let bopt = &self.backward.remove(&y);
+    if let Some(x0) = bopt {
+      self.forward.remove(x0);
+    }
+    self.forward.insert(x,y);
+    self.backward.insert(y2,x2);
+    fopt.is_none() && bopt.is_none()
+  }//insert
+  pub fn get(&self,x:&TA) -> Option<&TB> { self.forward.get(x) }
+  pub fn get_mut(&mut self,x:&TA) -> Option<&mut TB> { self.forward.get_mut(x) }
+  pub fn rget(&self,x:&TB) -> Option<&TA> { self.backward.get(x) }
+  pub fn rget_mut(&mut self,x:&TB) -> Option<&mut TA> { self.backward.get_mut(x) }
+  pub fn len(&self)->usize {self.forward.len()}
+  pub fn delete(&mut self, x:&TA) -> Option<TB> {
+    if let Some(y) = self.forward.remove(x) {
+      self.backward.remove(&y);
+      Some(y)
+    } else {None}
+  }
+  pub fn rdelete(&mut self, x:&TB) -> Option<TA> {
+    if let Some(y) = self.backward.remove(x) {
+      self.forward.remove(&y);
+      Some(y)
+    } else {None}
+  }
+  pub fn keys(&self) -> std::collections::hash_map::Keys<'_,TA,TB> {
+    self.forward.keys()
+  }
+  pub fn rkeys(&self) -> std::collections::hash_map::Keys<'_,TB,TA> {
+    self.backward.keys()
+  }
+  pub fn iter(&self) -> std::collections::hash_map::Iter<'_,TA,TB> {
+    self.forward.iter()
+  }
+}//impl Bimap
+// will be used to map nonterminal symbols to vectors of symbols
 
 
 ////////////////////////////////////////////////////////////////////////////

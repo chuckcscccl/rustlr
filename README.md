@@ -18,6 +18,7 @@ to be written that's closer to EBNF syntax.
 
 <p>
 
+**Version 0.3.1 consists of minor patches**
 
 ### Major Features and the Versions that Introduced Them
 

@@ -2,6 +2,7 @@
 # from http://www.quut.com/c/ANSI-C-grammar-y.html
 # intended for use with rustlr -auto
 
+auto
 lifetime 'lt
 externtype HashSet<&'lt str>
 
@@ -314,8 +315,8 @@ expressionS --> expression_list
 !use crate::c11_ast::declaration_specifier::*;
 !use crate::c11_ast::storage_class_specifier::*;
 
-declaration:DecSpec --> declaration_specifiers ;
-declaration:DecSpecList --> declaration_specifiers:ds init_declarator<Comma+>:il ; 
+declaration:DecSpec --> declaration_specifier+ ;
+declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc ;
 declaration:Statassert --> static_assert_declaration
 
 declaration_specifier:storage --> storage_class_specifier
@@ -324,7 +325,7 @@ declaration_specifier:typequal --> type_qualifier
 declaration_specifier:funcspec --> function_specifier
 declaration_specifier:alignspec --> alignment_specifier
 
-declaration_specifiers --> declaration_specifier+
+#declaration_specifiers --> declaration_specifier+
 
 # this rule corresponds to typedef: set next identifier to be TYPE_NAME
 #declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
@@ -426,7 +427,7 @@ alignment_specifier --> ALIGNAS ( type_name )
 alignment_specifier --> ALIGNAS ( expression )
 
 # PROBLEMATIC LINE
-declarator --> pointer? direct_declarator
+declarator --> # pointer? direct_declarator #
 #declarator --> pointer?:ptropt direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
 #declarator:no_pointer -->  direct_declarator
@@ -480,9 +481,9 @@ parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS
 
 
 parameter_declaration ==>
-	 declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	 declaration_specifier+ declarator
+	| declaration_specifier+ abstract_declarator
+	| declaration_specifier+
 	<==
 
 identifier_list --> IDENTIFIER<Comma+>
@@ -593,7 +594,7 @@ external_declaration:directive --> COMPILER_DIRECTIVE
 #compiler_directive:Define --> DEFINITION
 
 
-function_definition --> declaration_specifiers declarator declaration* compound_statement
+function_definition --> declaration_specifier+ declarator declaration* compound_statement
 
 #	| declaration_specifiers declarator compound_statement
 #	| declarator declaration_list compound_statement
@@ -604,8 +605,8 @@ function_definition --> declaration_specifiers declarator declaration* compound_
 EOF
 
 
-declaration:DecSpecList ==> declaration_specifiers:ds init_declarator<Comma+>:il ; 
-  { if let (declaration_specifiers{_item0_:tdl}, ils) = (&ds,&il)  {
+declaration:DecSpecList ==> declaration_specifier+:ds init_declarator<Comma+>:il ; 
+  { if let (declaration_specifier+{_item0_:tdl}, ils) = (&ds,&il)  {
      if let storage(typedeff) = &*tdl[0] {
       if let TYPEDEF = &**typedeff {
        if let init_declarator {declarator:nplid, initializer} = &*ils[0] {

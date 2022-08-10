@@ -1,6 +1,7 @@
 //! Rustlr is an LR-style parser generator for Rust.  Advanced features
 //! include:
-//!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible.
+//!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible.  The types generated do not necessarily
+//! reflect the format of the grammar.
 //!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
 //!  3. Experimental features include the ability to signal *delayed reduction*
@@ -72,7 +73,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.3.0";
+pub const VERSION:&'static str = "0.3.1";
 
 ////// main function, called from main with command-line args
 

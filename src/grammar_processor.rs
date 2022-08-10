@@ -762,7 +762,7 @@ strtok is bstokens[i], but will change
 // NEWNTs table not used - so duplicates may result
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  let ntname2 = format!("NEWSEQNT_{}_{}",self.Rules.len(),ntcnt);
+                  let mut ntname2 = format!("NEWSEQNT_{}_{}",self.Rules.len(),ntcnt);
                   ntcnt+=1;
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
@@ -844,12 +844,21 @@ strtok is bstokens[i], but will change
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
+                  //// form hashkey from rhs of newrule2
+                  let mut hashkey = String::from("(");
+                  for s in &newrule2.rhs {
+                    hashkey.push_str(&s.sym); hashkey.push(' ');
+                  }
+                  hashkey.push(')');
+                  if let Some(snti) = NEWNTs.get(&hashkey) { //reuse
+                    ntname2 = self.Symbols[*snti].sym.clone();
+println!("REUSING {}",&ntname2);                    
+                  }// reuse nt
+                  else { // create new nt, rule
                   newrule2.precedence = precd;
-//                  newrule2.iprecedence = 6;   // IPRECEDENCE SET
                   newnt2.index = self.Symbols.len();
                   newrule2.lhs.index = newnt2.index;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
-                  //newrule2.lhs.rusttype = newnt2.rusttype.clone();
                   self.Symbols.push(newnt2);
                   // register new rule
                    if self.tracelev>3 {
@@ -858,15 +867,16 @@ strtok is bstokens[i], but will change
                   self.Rules.push(newrule2);
                   let mut rulesforset = HashSet::new();
                   rulesforset.insert(self.Rules.len()-1);
-                  // i-1 is now at token with )* or )+
-                  //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
-                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
-                  newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
+                  // i-1 is now at token with )* or )+
+                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
+                  NEWNTs.insert(hashkey,self.Symbols.len()-1); //record
+                  }// create new nt       
+                  newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   strtok = &newtok2;
-//println!("1 strtok now {}",strtok);
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
+
 
 
 		// add code to recognize E*, E+ and E?, aftert ()'s removed -
