@@ -66,8 +66,7 @@ impl MLState
     key
   }
 
-    
-  pub fn contains(&self, x:&LRitem) -> bool {self.items.contains(x)}
+  fn contains(&self, x:&LRitem) -> bool {self.items.contains(x)}
 
   fn kernel_eq(&mut self, state2:&mut MLState) -> bool // for LALR
   {
@@ -85,7 +84,39 @@ impl MLState
       for item in &state2.items {self.items.insert(*item);}
   }//merge_states
 
+  //// put here for now: affects both items and conflicts sets
+  fn conflict_prop(mut self, Gmr:&Grammar) -> Self
+  {
+     let mut moreitems = true;
+     let mut moreconflicts = true;
+     while moreitems || moreconflicts
+     { moreitems=false; moreconflicts = false;
+       let mut newitems:HashSet<LRitem> = HashSet::new();
+       let mut newconflicts = HashSet::new();
+       for item@LRitem{ri,pi,la} in self.items.iter() {
+         for LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
+            if *cpi==0 && *pi==Gmr.Rules[*ri].rhs.len()-1 && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index { //conflict propagation
+              newconflicts.insert(*item);
+            }
+            else if *cpi==0 && *pi<Gmr.Rules[*ri].rhs.len()-1 && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index { //conflict extension *****
+              /////// got to create new symbol, rule, then insert into
+              /////// items (closed), and deprecate others.
+              // maybe dynamically create new symbol, change rule here...***
+
+              //newitems.insert...
+            }
+         }//inner for each conflict item
+       }//for each conflict and closed item
+       for c in newconflicts {moreconflicts=self.conflicts.insert(c)||moreconflicts;}
+       for n in newitems {moreitems=self.items.insert(n)||moreitems; } //MUST RECLOSE!
+       moreconflicts = moreconflicts || moreitems;
+     }//while more
+     mlclosure(self,Gmr)
+  }//conflict_prop
+  // should incorporate mlclosure into same loop!
+
 }// impl MLState
+
 
 impl PartialEq for MLState
 {
@@ -172,7 +203,7 @@ impl MLStatemachine
      {
         let kernel = newstates.remove(&key).unwrap();
         let fullstate = mlclosure(kernel,&self.Gmr);
-        //self.addstate(fullstate,si,key); //only place addstate called
+        self.mladdstate(fullstate,si,key); //only place addstate called
      }
   }//mlmakegotos
 
@@ -314,7 +345,7 @@ pub  fn mladd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, ne
      }// match currentaction
      if changefsm { FSM[si].insert(la,newaction); }
      answer
-  }//add_action
+  }//mladd_action
 
 
 
@@ -380,21 +411,13 @@ pub fn mlclosure(mut state:MLState, Gmr:&Grammar/*,conflicts:&mut HashMap<(usize
 
 
 //////////////////////////////////////
+//////////////////////////////////////
 // implemented marked delaying transformations.
 impl Grammar
 {
   // this must be called before start symbol, eof and startrule added to grammar!
   pub fn delay_transform(&mut self)
   {
-  /*
-    if self.delaymarkers.iter().next().is_none() {return;}
-    self.Rulesfor.remove(&(self.Symbols.len()-2)); // start rule for START
-    self.Symhash.remove("START");
-    self.Symhash.remove("EOF");
-    let mut eofterm = self.Symbols.pop().unwrap();
-    let mut startnt = self.Symbols.pop().unwrap();
-    let startrule = self.Rules.pop().unwrap();
-  */
     let mut ntcx = self.ntcxmax+1;
     for (ri, delaymarks) in self.delaymarkers.iter() {
      for (dbegin,dend) in delaymarks.iter() {
@@ -447,7 +470,7 @@ impl Grammar
            // need to call/refer action for original rule for NT1
            // need to form a tuple.
            // internal variable symbol.
-           let newvar = format!("_del_{}_{}_",&newnt.index,dbegin);
+           let newvar = format!("_delvar_{}_{}_",&newnt.index,dbegin);
 // check for return at end of last action.
 
            let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
@@ -459,9 +482,13 @@ impl Grammar
            let mut dtuple = format!("({},",&newvar);
            let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
            for sym in &delta {
-             let defaultlabel =format!("_item{}_",&labi); 
+             let defaultlabel =format!("_item_del{}_{}_",&labi,self.Rules.len());
              let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
-               else {&defaultlabel};
+               else {
+               // set label!
+               newrule.rhs[labi].label = defaultlabel.clone();
+                &defaultlabel
+             };
              dtuple.push_str(&format!("{},",slabel));
              labi+=1;
            }
