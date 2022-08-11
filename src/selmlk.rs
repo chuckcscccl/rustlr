@@ -15,8 +15,371 @@ use std::cell::{RefCell,Ref,RefMut};
 use std::hash::{Hash,Hasher};
 use std::io::{self,Read,Write,BufReader,BufRead};
 use crate::grammar_processor::*;
+use crate::lr_statemachine::*;
+use crate::Stateaction::*;
+
+pub struct MLState // emulates LR1/oldlalr engine
+{
+   index: usize, // index into vector
+   items:Itemset,
+   lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
+   kernel: HashSet<(usize,usize)>, // used only by lalr
+   conflicts:Itemset,
+   deprecated:Itemset,
+}
+impl MLState
+{
+  pub fn new() -> MLState
+  {
+     MLState {
+        index : 0,   // need to change
+        items : HashSet::with_capacity(512),
+        lhss: BTreeSet::new(), // for quick lookup
+        kernel : HashSet::with_capacity(64),
+        conflicts: HashSet::new(),
+        deprecated:HashSet::new(),
+     }
+  }
+  pub fn insert(&mut self, item:LRitem, lhs:usize) -> bool
+  {
+     let inserted = self.items.insert(item);
+     self.lhss.insert(lhs);
+     inserted
+  }
+  
+  pub fn hashval(&self) -> usize  // note: NOT UNIQUE
+  { 
+    let mut key=self.items.len()+ self.lhss.len()*10000;
+    let limit = usize::MAX/1000 -1;
+    let mut cx = 8;
+    for s in &self.lhss {key+=s*1000; cx-=1; if cx==0  || key>=limit {break;}}
+    key 
+    //self.items.len() + self.lhss.len()*10000
+  } //
+  pub fn hashval_lalr(&mut self) -> usize  // note: NOT UNIQUE
+  {
+    if self.kernel.len()==0 {self.kernel = extract_kernel(&self.items); }
+    let mut key=self.kernel.len() + self.lhss.len()*1000000;    
+    let limit = usize::MAX/1000 -1;
+    let mut cx = 8;
+    for s in &self.lhss {key+=1000*s; cx-=1; if cx==0 || key>=limit {break;}}
+    key
+  }
+
+    
+  pub fn contains(&self, x:&LRitem) -> bool {self.items.contains(x)}
+
+  fn kernel_eq(&mut self, state2:&mut MLState) -> bool // for LALR
+  {
+     if self.hashval_lalr() != state2.hashval_lalr() || (self.kernel.len()!=state2.kernel.len()) {return false;}
+     for item_kernel in &self.kernel
+     {
+      if !state2.kernel.contains(item_kernel) {return false; }
+     }
+     return true;
+  }//kernel_eq
+
+  // two states being merged must have same core
+  fn merge_states(&mut self, state2:&MLState) // used by lalr
+  {
+      for item in &state2.items {self.items.insert(*item);}
+  }//merge_states
+
+}// impl MLState
+
+impl PartialEq for MLState
+{
+   fn eq(&self, other:&MLState) -> bool
+   {stateeq(&self.items,&other.items)}
+   fn ne(&self, other:&MLState) ->bool
+   {!stateeq(&self.items,&other.items)}
+}
+impl Eq for MLState {}
 
 
+pub struct MLStatemachine  // Consumes Grammar
+{
+   pub Gmr: Grammar,
+   pub States: Vec<MLState>, 
+   pub Statelookup: HashMap<usize,LookupSet<usize>>,
+   pub FSM: Vec<HashMap<usize,Stateaction>>,
+   pub lalr: bool,
+   pub Open: Vec<usize>, // for LALR only, vector of unclosed states
+   pub sr_conflicts:HashMap<(usize,usize),(bool,bool)>,
+}
+impl MLStatemachine
+{
+  pub fn new(gram:Grammar) -> Self
+  { 
+       MLStatemachine {
+          Gmr: gram,
+          States: Vec::with_capacity(8*1024), // reserve 8K states
+          Statelookup: HashMap::with_capacity(1024),
+          FSM: Vec::with_capacity(8*1024),
+          lalr: true,  //DEFAULT! different from lr engine
+          Open: Vec::new(), // not used for lr1, set externally if lalr
+          sr_conflicts:HashMap::new(),
+       }
+  }//new
+
+// generate the GOTO sets of a state with index si, creates new states
+  fn mlmakegotos(&mut self, si:usize)
+  {
+     // key to following hashmap is the next symbol's index after pi (the dot)
+     // the values of the map are the "kernels" of the next state to generate
+     let mut newstates:HashMap<usize,MLState> = HashMap::with_capacity(128);
+     let mut keyvec:Vec<usize> = Vec::with_capacity(128); //keys of newstates
+     let mut allconflicts = Vec::new();
+     for item in &self.States[si].items
+     {
+       let rule = self.Gmr.Rules.get(item.ri).unwrap();
+       if item.pi<rule.rhs.len() { // can goto (dot before end of rule)
+          let nextsymi = rule.rhs[item.pi].index;
+          if let None = newstates.get(&nextsymi) {
+             newstates.insert(nextsymi,MLState::new());
+             keyvec.push(nextsymi); // push only if unqiue
+          }
+          let symstate = newstates.get_mut(&nextsymi).unwrap();
+          let newitem = LRitem { // this will be a kernel item in new state
+             ri : item.ri,
+             pi : item.pi+1,
+             la : item.la, 
+          };
+          //let lhssym = &self.Gmr.Rules[item.ri].lhs.sym;
+          let lhssymi = self.Gmr.Rules[item.ri].lhs.index; //*self.Gmr.Symhash.get(lhssym).unwrap();
+          symstate.insert(newitem,lhssymi);
+          // SHIFT/GOTONEXT actions added by addstate function
+       }//can goto
+       else // . at end of production, this is a reduce situation
+       {
+          let isaccept = (item.ri == self.Gmr.startrulei && self.Gmr.symref(item.la)=="EOF");
+          let mut newconflicts;
+          if isaccept {
+          
+            newconflicts=mladd_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts,true);
+          }
+          else {
+            newconflicts=mladd_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts,true);
+          }
+          allconflicts.append(&mut newconflicts);
+       } // set reduce action
+     }// for each item
+
+     for c in allconflicts { self.States[si].conflicts.insert(c); }
+
+     // form closures for all new states and add to self.States list
+     for key in keyvec // keyvec must be separate to avoid borrow error
+     {
+        let kernel = newstates.remove(&key).unwrap();
+        let fullstate = mlclosure(kernel,&self.Gmr);
+        //self.addstate(fullstate,si,key); //only place addstate called
+     }
+  }//mlmakegotos
+
+
+// psi is previous state index, nextsym is next symbol
+  fn mladdstate(&mut self, mut state:MLState, psi:usize, nextsymi:usize)
+  {  let nextsym = &self.Gmr.Symbols[nextsymi].sym;
+     let newstateindex = self.States.len(); // index of new state
+     state.index = newstateindex;
+     let lookupkey = if self.lalr {state.hashval_lalr()} else {state.hashval()};
+     if let None=self.Statelookup.get(&lookupkey) {
+        self.Statelookup.insert(lookupkey,LookupSet::new());
+     }
+     let indices = self.Statelookup.get_mut(&lookupkey).unwrap();
+     let mut toadd = newstateindex; // defaut is add new state (will push)
+     if self.lalr {
+        for i in indices.iter()
+        { 
+           if state.kernel_eq(&mut self.States[*i]) { //found existing state
+             toadd=*i; // toadd changed to index of existing state
+             let mut stateclone = MLState {
+                index : toadd,
+                items : state.items.clone(),
+                lhss: BTreeSet::new(), //state.lhss.clone(), //BTreeSet::new(), // will set by stateclosure
+                kernel: state.kernel.clone(),
+                conflicts: state.conflicts.clone(),
+                deprecated: state.deprecated.clone(),
+             };
+             stateclone.merge_states(&self.States[toadd]);
+             //self.state_merge(&self.States[toadd],&mut stateclone);
+             if stateclone.items.len() > self.States[toadd].items.len() {
+                self.States[toadd] = mlclosure(stateclone,&self.Gmr);
+                // now need to call makegotos again on this state - add
+                // to end of open vector.
+                self.Open.push(toadd);
+                
+             } // existing state extended, re-closed, but ...
+             break;
+           } // kernel_eq with another state  
+        } // for each index in Statelookup to look at
+     }// if lalr
+     else {   // lr1
+       for i in indices.iter()
+       {
+         if &state==&self.States[*i] {toadd=*i; break; } // state i exists
+       }
+     }// lalr or lr1
+
+     if self.Gmr.tracelev>3 {println!("Transition to state {} from state {}, symbol {}..",toadd,psi,nextsym);}
+     if toadd==newstateindex {  // add new state
+       indices.insert(newstateindex); // add to StateLookup index hashset
+       self.States.push(state);
+       self.FSM.push(HashMap::with_capacity(128)); // always add row to fsm at same time
+       if self.lalr {self.Open.push(newstateindex)}  //lalr
+     }// add new state
+
+     // add to- or change FSM TABLE ...  only Shift or Gotnext added here.
+//     let nextsymi = *self.Gmr.Symhash.get(nextsym).expect("GRAMMAR CORRUPTION, UNKOWN SYMBOL");
+     let gsymbol = &self.Gmr.Symbols[nextsymi]; //self.Gmr.getsym(nextsym).
+     let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
+        else {Stateaction::Gotonext(toadd)};
+
+// toadd is index of next state, new or old
+
+     let mut newconflicts = mladd_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,true);
+     // append conflicts to the state just added.
+     for c in newconflicts { self.States[psi].conflicts.insert(c);}
+
+     newconflicts = vec![];
+     for LRitem{ri,pi,la} in self.States[toadd].conflicts.iter() {
+       if *pi>0 {newconflicts.push(LRitem{ri:*ri,pi:pi-1,la:*la});}
+     }
+     // Addconflict to previous state, according to selml alg
+     for nc in newconflicts {self.States[psi].conflicts.insert(nc);}
+     // once conflicts added to psi state, must compute other conflicts in
+     // same state
+
+     // but how do new conflicts added here get percolated to the previous
+     // states of psi? ...
+     
+  }  //mladdstate
+
+}//impl MLStatemachine
+
+
+///// mladd_action must detect conflicts and build .conflicts set.
+pub  fn mladd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>, checkconflict:bool) -> Vec<LRitem> //return conflict items
+  {
+     let mut answer = Vec::new();
+     if !checkconflict {
+       FSM[si].insert(la,newaction);
+       return answer;
+     }
+     let currentaction = FSM[si].get(&la);
+     let mut changefsm = true; // add or keep current
+     match (currentaction, &newaction) {
+       (None,_) => {},  // most likely: just add
+       (Some(Reduce(rsi)), Shift(_)) => {
+         if Gmr.tracelev>4 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
+         }
+
+         //// construct conflict item as return value
+         answer.push(LRitem {ri:*rsi, pi:Gmr.Rules[*rsi].rhs.len(), la:la});
+         //// does it matter if we change the FSM here?  it should
+
+         //maybe force changfsm to true to keep shift action.
+         changefsm = true;
+         if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
+       },
+       (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
+       (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
+         let winner = if (cri<nri) {cri} else {nri};
+         println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
+//         printrule(&Gmr.Rules[*cri]);
+//         printrule(&Gmr.Rules[*nri]);
+         printrulela(*cri,Gmr,la);
+         printrulela(*nri,Gmr,la);
+
+         answer.push(LRitem{ri:*cri,pi:Gmr.Rules[*cri].rhs.len(),la:la});
+         answer.push(LRitem{ri:*nri,pi:Gmr.Rules[*nri].rhs.len(),la:la});
+
+         changefsm = false; // dont change if conflict detected        
+         //if winner==cri {changefsm=false;}
+       },
+       (Some(Accept),_) => { changefsm = false; },
+       (Some(Shift(_)), Reduce(rsi)) => {
+         if Gmr.tracelev>4 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
+         }
+         // look in state to see which item caused the conflict...
+
+         answer.push(LRitem {ri:*rsi, pi:Gmr.Rules[*rsi].rhs.len(), la:la});
+         // maybe force changefsm to false to keep shift action.
+         changefsm = false;
+         //if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
+       },
+       _ => {}, // default add newstate
+     }// match currentaction
+     if changefsm { FSM[si].insert(la,newaction); }
+     answer
+  }//add_action
+
+
+
+
+//whenever a state's item set has been expanded, we need to put it back
+//on the Open list - LR or LALR - to call closure and makegotos again.
+// As soon as step "extension" is applied, adding new NT, new rules and
+// new item to a state, we should recompute the state's closure  -- bad idea,
+// Better to completely compute the conflicts set and deprecate set first before
+// calling it a state!   but later it could change.
+
+
+pub fn mlclosure(mut state:MLState, Gmr:&Grammar/*,conflicts:&mut HashMap<(usize,usize),(bool,bool)>*/) -> MLState
+{
+  let mut closed =MLState::new();  // closed set,
+  closed.index = state.index;
+  while state.items.len()>0
+  {  
+     let nextitem = state.items.iter().next().unwrap().clone();
+     let item = state.items.take(&nextitem).unwrap();
+     let (ri,pi,la) = (item.ri,item.pi,item.la);
+     let rulei = &Gmr.Rules[ri]; 
+     let lhsi = rulei.lhs.index; 
+     closed.insert(nextitem,lhsi); // place item in interior
+     if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
+       let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
+       let nti_lhsi = nti.index; 
+       let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
+       for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
+       {
+          for lafollow in lookaheads 
+          { 
+            let newitem = LRitem {
+               ri: *rulent,
+               pi: 0,
+               la: *lafollow, 
+            };
+            if !closed.items.contains(&newitem)  {
+              state.insert(newitem,nti_lhsi); // add to "frontier"
+            }
+          }//for each possible lookahead following non-terminal
+       }// for each rule in this non-terminal
+     } // add items to closure for this item
+     // find conflicts -- do it here or later?
+     // much better to detect conflicts on the fly.. forget about
+     // operator precedence for now.
+     /*
+     let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi..],la);
+     for item in state.items.iter() {
+        if item.pi >= Gmr.Rules[item.ri].rhs.len() && lookaheads.contains(&item.la){ closed.conflicts.insert(*item); }
+     }
+     */
+  }  // while not closed  // closed complete
+  // conflicts are calculated when we add state and find conflict.
+  closed.conflicts = state.conflicts; // transfer over
+  closed.deprecated = state.deprecated;
+  closed
+}//stateclosure generation
+
+
+
+
+
+
+//////////////////////////////////////
 // implemented marked delaying transformations.
 impl Grammar
 {

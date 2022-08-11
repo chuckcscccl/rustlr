@@ -22,9 +22,9 @@ use crate::Stateaction::*;
 #[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
 pub struct LRitem
 {
-   ri: usize, // rule index
-   pi: usize, // position of dot
-   la: usize, // lookahead symbol index
+   pub ri: usize, // rule index
+   pub pi: usize, // position of dot
+   pub la: usize, // lookahead symbol index
    //interior : bool,  // can't have this here if deriving Eq
 }
 
@@ -70,7 +70,7 @@ pub fn stateeq(s1:&Itemset, s2:&Itemset) -> bool
 
 // works for all but initial kernel START --> topsym, EOF,
 // However, this state will never be encountered again.
-fn extract_kernel(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
+pub fn extract_kernel(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
 {
    let mut kernel0 = HashSet::with_capacity(256);
    for LRitem{ri:r, pi:p, la} in items  {

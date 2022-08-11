@@ -30,6 +30,7 @@ impl Grammar
      // first pass: assign types to "" types, skip all others
      let mut ntcx = self.ntcxmax+1;
      for nt in self.Rulesfor.keys() { // for each nonterminal index
+//println!("TYPE FOR {}: {}",&self.Symbols[*nt].sym,&self.Symbols[*nt].rusttype);       
        if self.Symbols[*nt].rusttype.len()==0 { // type "" means generate type
          // determine if lifetime needed.
          let reach = self.Reachable.get(nt).unwrap();

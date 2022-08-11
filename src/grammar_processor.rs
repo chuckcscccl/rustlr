@@ -818,7 +818,7 @@ strtok is bstokens[i], but will change
                        // or put * before it, fill-in later
                      }
                      else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
-                     {passthru=-2;}
+                     {passthru=-2; newnt2.rusttype=String::new();}
                      newrule2.rhs.push(self.Symbols[gsymi].clone());
                      //if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
                      if breakpoint {break;}
@@ -829,16 +829,6 @@ strtok is bstokens[i], but will change
                   }// while i<=bstokens.len()
                   if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
                   iadjust += jk as usize;
-                  /*
-                  if passthru<0 {
-                    newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
-                    if !self.enumhash.contains_key(&newnt2.rusttype) {
-                      self.enumhash.insert(newnt2.rusttype.clone(),ntcx); ntcx+=1;
-                    }
-                    // this assumes -auto
-                    // action will be written by ast_writer
-                  }  dont set type yet
-                  */
                   if passthru>=0 { // set action of new rule to be passthru
                     newrule2.action = format!(" _item{}_ }}",passthru);
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
@@ -852,7 +842,6 @@ strtok is bstokens[i], but will change
                   hashkey.push(')');
                   if let Some(snti) = NEWNTs.get(&hashkey) { //reuse
                     ntname2 = self.Symbols[*snti].sym.clone();
-println!("REUSING {}",&ntname2);                    
                   }// reuse nt
                   else { // create new nt, rule
                   newrule2.precedence = precd;
