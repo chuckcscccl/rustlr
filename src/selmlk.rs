@@ -85,7 +85,7 @@ impl MLState
   }//merge_states
 
   //// put here for now: affects both items and conflicts sets
-  fn conflict_prop(mut self, Gmr:&Grammar) -> Self
+  fn conflict_close(&mut self, Gmr:&Grammar)
   {
      let mut moreitems = true;
      let mut moreconflicts = true;
@@ -95,10 +95,10 @@ impl MLState
        let mut newconflicts = HashSet::new();
        for item@LRitem{ri,pi,la} in self.items.iter() {
          for LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
-            if *cpi==0 && *pi==Gmr.Rules[*ri].rhs.len()-1 && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index { //conflict propagation
+            if *cpi==0 && *pi==Gmr.Rules[*ri].rhs.len()-1 && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
               newconflicts.insert(*item);
             }
-            else if *cpi==0 && *pi<Gmr.Rules[*ri].rhs.len()-1 && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index { //conflict extension *****
+            else if *cpi==0 && *pi<Gmr.Rules[*ri].rhs.len()-1 && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && la==cla { //conflict extension *****
               /////// got to create new symbol, rule, then insert into
               /////// items (closed), and deprecate others.
               // maybe dynamically create new symbol, change rule here...***
@@ -107,13 +107,29 @@ impl MLState
             }
          }//inner for each conflict item
        }//for each conflict and closed item
+       // now re-close items
+       for item@LRitem{ri,pi,la} in self.items.iter() {
+          if *pi<Gmr.Rules[*ri].rhs.len() && !Gmr.Rules[*ri].rhs[*pi].terminal {
+             let lookaheads = &Gmr.Firstseq(&Gmr.Rules[*ri].rhs[pi+1..],*la);
+             for rulent in Gmr.Rulesfor.get(&Gmr.Rules[*ri].rhs[*pi].index).unwrap() {
+               for lafollow in lookaheads {
+                 let newitem = LRitem {
+                   ri: *rulent,
+                   pi: 0,
+                   la: *lafollow,
+                 };
+                 newitems.insert(newitem);
+               } //for each possible la
+             }//for rulent
+          }// add newitem
+       } //reclose loop
+       
        for c in newconflicts {moreconflicts=self.conflicts.insert(c)||moreconflicts;}
        for n in newitems {moreitems=self.items.insert(n)||moreitems; } //MUST RECLOSE!
-       moreconflicts = moreconflicts || moreitems;
+       //moreconflicts = moreconflicts || moreitems;
      }//while more
-     mlclosure(self,Gmr)
-  }//conflict_prop
-  // should incorporate mlclosure into same loop!
+  }//conflict_close
+  // incorporates mlclosure into same loop!
 
 }// impl MLState
 
@@ -137,6 +153,7 @@ pub struct MLStatemachine  // Consumes Grammar
    pub lalr: bool,
    pub Open: Vec<usize>, // for LALR only, vector of unclosed states
    pub sr_conflicts:HashMap<(usize,usize),(bool,bool)>,
+   pub prev_states : HashMap<usize,HashSet<(usize,usize)>>,
 }
 impl MLStatemachine
 {
@@ -150,6 +167,7 @@ impl MLStatemachine
           lalr: true,  //DEFAULT! different from lr engine
           Open: Vec::new(), // not used for lr1, set externally if lalr
           sr_conflicts:HashMap::new(),
+          prev_states:HashMap::new(), //state --> symbol,state parent
        }
   }//new
 
@@ -201,9 +219,9 @@ impl MLStatemachine
      // form closures for all new states and add to self.States list
      for key in keyvec // keyvec must be separate to avoid borrow error
      {
-        let kernel = newstates.remove(&key).unwrap();
-        let fullstate = mlclosure(kernel,&self.Gmr);
-        self.mladdstate(fullstate,si,key); //only place addstate called
+        let mut kernel = newstates.remove(&key).unwrap();
+        kernel.conflict_close(&self.Gmr); //mlclosure(kernel,&self.Gmr);
+        self.mladdstate(kernel,si,key); //only place addstate called
      }
   }//mlmakegotos
 
@@ -235,7 +253,9 @@ impl MLStatemachine
              stateclone.merge_states(&self.States[toadd]);
              //self.state_merge(&self.States[toadd],&mut stateclone);
              if stateclone.items.len() > self.States[toadd].items.len() {
-                self.States[toadd] = mlclosure(stateclone,&self.Gmr);
+                stateclone.conflict_close(&self.Gmr);
+                self.States[toadd] = stateclone;
+                //self.States[toadd] = mlclosure(stateclone,&self.Gmr);
                 // now need to call makegotos again on this state - add
                 // to end of open vector.
                 self.Open.push(toadd);
@@ -257,8 +277,14 @@ impl MLStatemachine
        indices.insert(newstateindex); // add to StateLookup index hashset
        self.States.push(state);
        self.FSM.push(HashMap::with_capacity(128)); // always add row to fsm at same time
+       let mut prev_set = HashSet::new();
+       prev_set.insert((nextsymi,psi));
+       self.prev_states.insert(newstateindex,prev_set);
        if self.lalr {self.Open.push(newstateindex)}  //lalr
      }// add new state
+     else { // add to prev_states
+       self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
+     }
 
      // add to- or change FSM TABLE ...  only Shift or Gotnext added here.
 //     let nextsymi = *self.Gmr.Symhash.get(nextsym).expect("GRAMMAR CORRUPTION, UNKOWN SYMBOL");
@@ -279,10 +305,9 @@ impl MLStatemachine
      // Addconflict to previous state, according to selml alg
      for nc in newconflicts {self.States[psi].conflicts.insert(nc);}
      // once conflicts added to psi state, must compute other conflicts in
-     // same state
+     // same state - call conflict_close, which then invokes itself on
+     // previous state?
 
-     // but how do new conflicts added here get percolated to the previous
-     // states of psi? ...
      
   }  //mladdstate
 
@@ -357,8 +382,8 @@ pub  fn mladd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, ne
 // Better to completely compute the conflicts set and deprecate set first before
 // calling it a state!   but later it could change.
 
-
-pub fn mlclosure(mut state:MLState, Gmr:&Grammar/*,conflicts:&mut HashMap<(usize,usize),(bool,bool)>*/) -> MLState
+/* not used
+pub fn mlclosure(mut state:MLState, Gmr:&Grammar) -> MLState
 {
   let mut closed =MLState::new();  // closed set,
   closed.index = state.index;
@@ -392,19 +417,13 @@ pub fn mlclosure(mut state:MLState, Gmr:&Grammar/*,conflicts:&mut HashMap<(usize
      // find conflicts -- do it here or later?
      // much better to detect conflicts on the fly.. forget about
      // operator precedence for now.
-     /*
-     let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi..],la);
-     for item in state.items.iter() {
-        if item.pi >= Gmr.Rules[item.ri].rhs.len() && lookaheads.contains(&item.la){ closed.conflicts.insert(*item); }
-     }
-     */
   }  // while not closed  // closed complete
   // conflicts are calculated when we add state and find conflict.
   closed.conflicts = state.conflicts; // transfer over
   closed.deprecated = state.deprecated;
   closed
 }//stateclosure generation
-
+*/
 
 
 
@@ -482,7 +501,7 @@ impl Grammar
            let mut dtuple = format!("({},",&newvar);
            let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
            for sym in &delta {
-             let defaultlabel =format!("_item_del{}_{}_",&labi,self.Rules.len());
+             let defaultlabel =format!("_item_del{}_{}_",&labi,ntri);
              let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
                else {
                // set label!
