@@ -33,6 +33,7 @@ use std::mem;
 use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine};
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
+use crate::{lbup,lbdown,lbget};
 
 /// this structure is only exported because it is required by the generated parsers.
 /// There is no reason to use it in other programs.

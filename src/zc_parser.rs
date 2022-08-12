@@ -37,6 +37,7 @@ use std::mem;
 use crate::{TRACE,Stateaction,Statemachine,TerminalToken,Tokenizer};
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
+use crate::{lbup,lbdown,lbget};
 //extern crate termion;
 //use termion::{color,style};
 

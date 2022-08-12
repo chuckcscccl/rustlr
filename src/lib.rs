@@ -5,7 +5,8 @@
 //!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
 //!  3. Experimental features include the ability to signal *delayed reduction*
-//!  transformations on a grammar.
+//!  transformations on a grammar.  This extends the class of grammars usable
+//!  with Rustlr beyond traditional LR and LALR grammars.
 //!  4. The ability to train the parser interactively for better error reporting
 //!  5. External state access allows parsers go to beyond CFGs
 //!
