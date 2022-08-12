@@ -89,7 +89,7 @@ impl MLState
 //// put here for now: affects both items and conflicts sets,
   // conflict detection is done by mladd_action.
   //returns continue for true, failure for false
-  fn conflict_close(&mut self, Gmr:&Grammar, combing:&Bimap<usize,Vec<usize>>) -> bool // close state si
+  fn conflict_close(&mut self, Gmr:&mut Grammar, combing:&Bimap<usize,Vec<usize>>) -> bool // close state si
   {
      let mut open = true;
      let mut moreconflicts = false;
@@ -117,8 +117,9 @@ impl MLState
               /////// got to create new symbol, rule, then insert into
               /////// items (closed), and deprecate others.
               // maybe dynamically create new symbol, change rule here...***
-
-              // detect failure
+              let eri=Gmr.delay_extend(*ri,*pi,pi+1); // extend one at a time
+              // this return index of new rule with longer delay
+              newitems.insert(LRitem{ri:eri, pi:*pi, la:*la});
 
               //newitems.insert...
             }
@@ -342,129 +343,6 @@ impl MLStatemachine
      false
   }  //mladdstate
 
-// moved from impl grammar
-pub fn delay_extend(&mut self,ri:usize,dbegin:usize,dend:usize)
-  {
-    let mut ntcx = self.Gmr.ntcxmax+1;
-//forget about delay markers.  called with rule number, dbegin and dend
-       // check if first symbol at marker is a nonterminal
-       let NT1 = &self.Gmr.Rules[ri].rhs[dbegin];
-       //let mut rulei = self.Gmr.Rules[ri].clone();
-       // construct suffix delta to be added to each rule
-       let mut delta = Vec::new();
-       for i in dbegin+1..dend {
-         delta.push(self.Gmr.Rules[ri].rhs[i].clone());
-       }
-       // construct new nonterminal name ([Mdelta])
-       let mut newntname = format!("NEWDELAYNT_{}",&NT1.sym);
-       for s in &delta {newntname.push_str(&format!("_{}",&s.index));}
-       // check that no such name already exists
-       // construct new nonterminal
-       let mut newnt = Gsym::new(&newntname,false);
-       if let Some(nti) = self.Gmr.Symhash.get(&newntname) {
-          newnt = self.Gmr.Symbols[*nti].clone();
-       } else { // really new
-
-         let mut nttype = String::from("(");
-         for i in dbegin .. dend {
-           let rsymi = self.Gmr.Rules[ri].rhs[i].index;
-           nttype.push_str(&format!("{},",&self.Gmr.Symbols[rsymi].rusttype));
-         }
-         nttype.push(')');
-         self.Gmr.enumhash.insert(nttype.clone(),ntcx); ntcx+=1;
-         newnt.rusttype = nttype;
-         newnt.index = self.Gmr.Symbols.len();
-         self.Gmr.Symbols.push(newnt.clone());
-         self.Gmr.Symhash.insert(newntname.clone(),self.Gmr.Symbols.len()-1);
-
-         let NTrules:Vec<_> = self.Gmr.Rulesfor.get(&NT1.index).unwrap().iter().collect();
-         let mut rset = HashSet::new(); // rules set for newnt (delayed nt)
-         for ntri in NTrules {
-           // create new rule
-           let mut newrule = Grule::from_lhs(&newnt);
-           newrule.rhs = self.Gmr.Rules[*ntri].rhs.clone();
-           for d in &delta { newrule.rhs.push(d.clone()); } //extend
-
-           //////// set semantic action for new rule.
-           // need to call/refer action for original rule for NT1
-           // need to form a tuple.
-           // internal variable symbol.
-           let newvar = format!("_delvar_{}_{}_",&newnt.index,dbegin);
-// check for return at end of last action.
-
-           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Gmr.Rules[*ntri].action); // retrieves value from original action.
-           // need to assign values to new items added to delta
-           // they will be popped off of the stack by parser_writer as
-           // item2, item1 item0...  because parser writer will write an action
-           // for the extended rule. [Mc] --> abc
-           
-           let mut dtuple = format!("({},",&newvar);
-           let mut labi = self.Gmr.Rules[*ntri].rhs.len(); // original rule rhs len
-           for sym in &delta {
-             let defaultlabel =format!("_item_del{}_{}_",&labi,ntri);
-             let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
-               else {
-               // set label!
-               newrule.rhs[labi].label = defaultlabel.clone();
-                &defaultlabel
-             };
-             dtuple.push_str(&format!("{},",slabel));
-             labi+=1;
-           }
-           actionri.push_str(&format!("{}) }}",&dtuple));  //rparen added here.
-           newrule.action = actionri;
-
-           if self.Gmr.tracelev>1 {
-             print!("COMBINED DELAY RULE: ");
-             printrule(&newrule,self.Gmr.Rules.len());
-           }
-
-           self.Gmr.Rules.push(newrule);
-           rset.insert(self.Gmr.Rules.len()-1);
-         }// for each rule for this NT1 to be delayed, add suffix
-         self.Gmr.Rulesfor.insert(newnt.index,rset);
-       } // newnt is actually a new symbol, else it and its rules exist
-
-       ////// do not change original rule, form a new rule.
-       let mut newrulei = Grule::from_lhs(&self.Gmr.Rules[ri].lhs); //copy
-       let mut newrhs = Vec::with_capacity(self.Gmr.Rules[ri].rhs.len()-1);
-       if dbegin>0 {
-         for i in 0..dbegin {newrhs.push(self.Gmr.Rules[ri].rhs[i].clone());}
-       }
-       let mut clonenewnt = newnt.clone();
-       let ntlabel = format!("_delayeditem{}_",dbegin);
-       clonenewnt.label = ntlabel.clone();
-       newrhs.push(clonenewnt); // newnt added to rule!
-       for i in dend .. self.Gmr.Rules[ri].rhs.len() {
-         newrhs.push(self.Gmr.Rules[ri].rhs[i].clone());
-       }
-
-       /////// change semantic action of original rule.
-       let mut newaction = String::from(" ");
-       // break up tuple
-       //let mut labi = 0;
-       for i in dbegin..dend {
-          let defaultlab = format!("_item{}_",i);
-          let symi = &self.Gmr.Rules[ri].rhs[i]; // original rule
-          let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
-            else {&defaultlab};
-          newaction.push_str(&format!("let mut {} = {}.{}; ",labeli,&ntlabel,i-dbegin));
-          //labi+=1;
-       }// break up tuple
-       // anything to do with the other values?  they have labels, but indexes
-       // may be off - but original actions will refer to them as-is.
-       newaction.push_str(&self.Gmr.Rules[ri].action);
-       newrulei.rhs = newrhs; // change rhs of rule
-       newrulei.action = newaction;
-       //register new rule
-       self.Gmr.Rulesfor.get_mut(&newrulei.lhs.index).unwrap().insert(self.Gmr.Rules.len());
-       
-       if self.Gmr.tracelev>1 {
-         print!("TRANSFORMED RULE FOR DELAY: ");
-         printrule(&newrulei,ri);
-       }
-       self.Gmr.Rules.push(newrulei);
-  }// delay_extend
 
 // replaces genfsm procedure
   pub fn selml(&mut self, k:usize) // algorithm according to paper (k=max delay)
@@ -477,7 +355,7 @@ pub fn delay_extend(&mut self,ri:usize,dbegin:usize,dend:usize)
      while agenda.len()>0
      {
         let si:usize = agenda.pop().unwrap();
-        self.States[si].conflict_close(&self.Gmr,&self.combing);
+        self.States[si].conflict_close(&mut self.Gmr,&self.combing);
         for ((symi,psi)) in self.prev_states.get(&si).unwrap().iter() {
           let mut newconfs = HashSet::new(); //backwards propagation
           for LRitem{ri,pi,la} in self.States[si].conflicts.iter() {
@@ -687,6 +565,134 @@ pub fn mlclosure(mut state:MLState, Gmr:&Grammar) -> MLState
 // implemented marked delaying transformations.
 impl Grammar
 {
+  // version that does not change existing rule
+  pub fn delay_extend(&mut self,ri:usize,dbegin:usize,dend:usize) -> usize
+  {
+    let mut ntcx = self.ntcxmax+1;
+//forget about delay markers.  called with rule number, dbegin and dend
+       // check if first symbol at marker is a nonterminal
+       let NT1 = &self.Rules[ri].rhs[dbegin];
+       //let mut rulei = self.Rules[ri].clone();
+       // construct suffix delta to be added to each rule
+       let mut delta = Vec::new();
+       for i in dbegin+1..dend {
+         delta.push(self.Rules[ri].rhs[i].clone());
+       }
+       // construct new nonterminal name ([Mdelta])
+       let mut newntname = format!("NEWDELAYNT_{}",&NT1.sym);
+       for s in &delta {newntname.push_str(&format!("_{}",&s.index));}
+       // check that no such name already exists
+       // construct new nonterminal
+       let mut newnt = Gsym::new(&newntname,false);
+       if let Some(nti) = self.Symhash.get(&newntname) {
+          newnt = self.Symbols[*nti].clone();
+       } else { // really new
+
+         let mut nttype = String::from("(");
+         for i in dbegin .. dend {
+           let rsymi = self.Rules[ri].rhs[i].index;
+           nttype.push_str(&format!("{},",&self.Symbols[rsymi].rusttype));
+         }
+         nttype.push(')');
+         self.enumhash.insert(nttype.clone(),ntcx); ntcx+=1;
+         newnt.rusttype = nttype;
+         newnt.index = self.Symbols.len();
+         self.Symbols.push(newnt.clone());
+         self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
+
+         let NTrules:Vec<_> = self.Rulesfor.get(&NT1.index).unwrap().iter().collect();
+         let mut rset = HashSet::new(); // rules set for newnt (delayed nt)
+         for ntri in NTrules {
+           // create new rule
+           let mut newrule = Grule::from_lhs(&newnt);
+           newrule.rhs = self.Rules[*ntri].rhs.clone();
+           for d in &delta { newrule.rhs.push(d.clone()); } //extend
+
+           //////// set semantic action for new rule.
+           // need to call/refer action for original rule for NT1
+           // need to form a tuple.
+           // internal variable symbol.
+           let newvar = format!("_delvar_{}_{}_",&newnt.index,dbegin);
+// check for return at end of last action.
+
+           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+           // need to assign values to new items added to delta
+           // they will be popped off of the stack by parser_writer as
+           // item2, item1 item0...  because parser writer will write an action
+           // for the extended rule. [Mc] --> abc
+           
+           let mut dtuple = format!("({},",&newvar);
+           let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
+           for sym in &delta {
+             let defaultlabel =format!("_item_del{}_{}_",&labi,ntri);
+             let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
+               else {
+               // set label!
+               newrule.rhs[labi].label = defaultlabel.clone();
+                &defaultlabel
+             };
+             dtuple.push_str(&format!("{},",slabel));
+             labi+=1;
+           }
+           actionri.push_str(&format!("{}) }}",&dtuple));  //rparen added here.
+           newrule.action = actionri;
+
+           if self.tracelev>1 {
+             print!("COMBINED DELAY RULE: ");
+             printrule(&newrule,self.Rules.len());
+           }
+
+           self.Rules.push(newrule);
+           rset.insert(self.Rules.len()-1);
+         }// for each rule for this NT1 to be delayed, add suffix
+         self.Rulesfor.insert(newnt.index,rset);
+       } // newnt is actually a new symbol, else it and its rules exist
+
+       ////// do not change original rule, form a new rule.
+       let mut newrulei = Grule::from_lhs(&self.Rules[ri].lhs); //copy
+       let mut newrhs = Vec::with_capacity(self.Rules[ri].rhs.len()-1);
+       if dbegin>0 {
+         for i in 0..dbegin {newrhs.push(self.Rules[ri].rhs[i].clone());}
+       }
+       let mut clonenewnt = newnt.clone();
+       let ntlabel = format!("_delayeditem{}_",dbegin);
+       clonenewnt.label = ntlabel.clone();
+       newrhs.push(clonenewnt); // newnt added to rule!
+       for i in dend .. self.Rules[ri].rhs.len() {
+         newrhs.push(self.Rules[ri].rhs[i].clone());
+       }
+
+       /////// change semantic action of original rule.
+       let mut newaction = String::from(" ");
+       // break up tuple
+       //let mut labi = 0;
+       for i in dbegin..dend {
+          let defaultlab = format!("_item{}_",i);
+          let symi = &self.Rules[ri].rhs[i]; // original rule
+          let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
+            else {&defaultlab};
+          newaction.push_str(&format!("let mut {} = {}.{}; ",labeli,&ntlabel,i-dbegin));
+          //labi+=1;
+       }// break up tuple
+       // anything to do with the other values?  they have labels, but indexes
+       // may be off - but original actions will refer to them as-is.
+       newaction.push_str(&self.Rules[ri].action);
+       newrulei.rhs = newrhs; // change rhs of rule
+       newrulei.action = newaction;
+       //register new rule
+       self.Rulesfor.get_mut(&newrulei.lhs.index).unwrap().insert(self.Rules.len());
+       
+       if self.tracelev>1 {
+         print!("TRANSFORMED RULE FOR DELAY: ");
+         printrule(&newrulei,ri);
+       }
+       self.Rules.push(newrulei);
+       self.Rules.len()-1
+  }// delay_extend
+
+
+
+////////////////// don't touch - in use!
   // this must be called before start symbol, eof and startrule added to grammar!
   pub fn delay_transform(&mut self)
   {
