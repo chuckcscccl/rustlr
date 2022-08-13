@@ -89,7 +89,7 @@ impl MLState
 //// put here for now: affects both items and conflicts sets,
   // conflict detection is done by mladd_action.
   //returns continue for true, failure for false
-  fn conflict_close(&mut self, Gmr:&mut Grammar, combing:&Bimap<usize,Vec<usize>>) -> bool // close state si
+  fn conflict_close(&mut self, Gmr:&mut Grammar, combing:&mut Bimap<usize,Vec<usize>>) -> bool // close state si
   {
      let mut open = true;
      let mut moreconflicts = false;
@@ -117,7 +117,8 @@ impl MLState
               /////// got to create new symbol, rule, then insert into
               /////// items (closed), and deprecate others.
               // maybe dynamically create new symbol, change rule here...***
-              let eri=Gmr.delay_extend(*ri,*pi,pi+1); // extend one at a time
+              // extend one at a time              
+              let eri=Gmr.delay_extend(*ri,*pi,pi+1,combing);
               // this return index of new rule with longer delay
               newitems.insert(LRitem{ri:eri, pi:*pi, la:*la});
 
@@ -355,7 +356,7 @@ impl MLStatemachine
      while agenda.len()>0
      {
         let si:usize = agenda.pop().unwrap();
-        self.States[si].conflict_close(&mut self.Gmr,&self.combing);
+        self.States[si].conflict_close(&mut self.Gmr,&mut self.combing);
         for ((symi,psi)) in self.prev_states.get(&si).unwrap().iter() {
           let mut newconfs = HashSet::new(); //backwards propagation
           for LRitem{ri,pi,la} in self.States[si].conflicts.iter() {
@@ -566,7 +567,7 @@ pub fn mlclosure(mut state:MLState, Gmr:&Grammar) -> MLState
 impl Grammar
 {
   // version that does not change existing rule
-  pub fn delay_extend(&mut self,ri:usize,dbegin:usize,dend:usize) -> usize
+  pub fn delay_extend(&mut self,ri:usize,dbegin:usize,dend:usize,combing:&mut Bimap<usize,Vec<usize>>) -> usize
   {
     let mut ntcx = self.ntcxmax+1;
 //forget about delay markers.  called with rule number, dbegin and dend
@@ -599,6 +600,12 @@ impl Grammar
          newnt.index = self.Symbols.len();
          self.Symbols.push(newnt.clone());
          self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
+
+         // register new combed NT with combing map
+         let defvec = vec![self.Rules[ri].rhs[dbegin].index];
+         let mut oldvec = combing.get(&self.Rules[ri].rhs[dbegin].index).unwrap_or(&defvec).clone();
+         oldvec.push(self.Rules[ri].rhs[dend-1].index);
+         combing.insert(newnt.index,oldvec);
 
          let NTrules:Vec<_> = self.Rulesfor.get(&NT1.index).unwrap().iter().collect();
          let mut rset = HashSet::new(); // rules set for newnt (delayed nt)
