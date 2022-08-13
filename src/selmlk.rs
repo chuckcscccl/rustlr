@@ -193,7 +193,7 @@ impl MLStatemachine
           States: Vec::with_capacity(8*1024), // reserve 8K states
           Statelookup: HashMap::with_capacity(1024),
           FSM: Vec::with_capacity(8*1024),
-          lalr: true,  //DEFAULT! different from lr engine
+          lalr: false, 
           Open: Vec::new(), // not used for lr1, set externally if lalr
           sr_conflicts:HashMap::new(),
           prev_states:HashMap::new(), //state --> symbol,state parent
@@ -202,7 +202,7 @@ impl MLStatemachine
        }
   }//new
 
-  fn simplemakegotos(&mut self,si:usize,agenda:&mut Vec<usize>)
+  fn simplemakegotos(&mut self,si:usize,agenda:&mut Vec<usize>) //LR1
   {
      // key to following hashmap is the next symbol's index after pi (the dot)
      // the values of the map are the "kernels" of the next state to generate
@@ -252,7 +252,7 @@ impl MLStatemachine
      }
      let indices = self.Statelookup.get_mut(&lookupkey).unwrap();
      let mut toadd = newstateindex; // defaut is add new state (will push)
-     //if self.lalr {
+     if self.lalr {
         for i in indices.iter()
         { 
            if state.kernel_eq(&mut self.States[*i]) { //found existing state
@@ -280,17 +280,18 @@ impl MLStatemachine
              break;
            } // kernel_eq with another state  
         } // for each index in Statelookup to look at
-     //}// if lalr
-     /*
+     }// if lalr
      else {   // lr1
        for i in indices.iter()
        {
          if &state==&self.States[*i] {toadd=*i; break; } // state i exists
        }
      }// lalr or lr1
-     */
 
 //     if self.Gmr.tracelev>3 {println!("Transition to state {} from state {}, symbol {}..",toadd,psi,nextsym);}
+
+     // toadd is either a new stateindex or an existing one
+
      if toadd==newstateindex {  // add new state
        indices.insert(newstateindex); // add to StateLookup index hashset
        self.States.push(state);
@@ -345,13 +346,69 @@ impl MLStatemachine
   }  //mladdstate
 
 
+// set reduce/accept actions at the end, starting with startrule
+  fn mlset_reduce(&mut self)
+  {
+     let mut interior:HashSet<usize> = HashSet::new();
+     let mut frontier = vec![self.Gmr.startrulei];
+     while frontier.len()>0
+     {
+       let si = frontier.pop().unwrap();
+       interior.insert(si);
+       // expand frontier
+       for (_,action) in self.FSM[si].iter() {
+         match action {
+           Shift(nsi) | Gotonext(nsi) => {
+             if !interior.contains(nsi) {frontier.push(*nsi);} 
+           },
+           _ => {},
+         }//match
+       } // expand frontier
+       // process this item - insert actions
+       for item in &self.States[si].items
+       {
+         let (ri,pi,la) = (item.ri,item.pi,item.la);
+         if pi==self.Gmr.Rules[ri].rhs.len() { //dot at end of rhs
+             //println!("adding reduce/accept rule {}, la {}",ri,&self.Gmr.Symbols[*la].sym);
+             let isaccept = (ri== self.Gmr.startrulei && la==self.Gmr.eoftermi);
+             if isaccept {
+               add_action(&mut self.FSM,&self.Gmr,Accept,si,la,&mut self.sr_conflicts,false);  // don't check conflicts here
+             }
+             else {
+               add_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,la,&mut self.sr_conflicts,true);  // check conflicts here
+             }
+         }//if reduce situation
+       } // for each item
+     }// while frontier exists
+     // eliminate extraneous states
+     for si in 0..self.FSM.len() {
+       if !interior.contains(&si) { self.FSM[si] = HashMap::new(); }
+     }
+  }//mlset_reduce
+
+
 // replaces genfsm procedure
   pub fn selml(&mut self, k:usize) // algorithm according to paper (k=max delay)
   {
+
+     // modify startrule
+     let sri = self.Gmr.startrulei;
+     for i in 1..MAXK {
+      self.Gmr.Rules[sri].rhs.push(self.Gmr.Symbols[self.Gmr.eoftermi].clone());
+     }
      // agenda is a state index, possibly indicating just a kernel
 
      // construct initial state for START --> . topsym EOF^k, EOF
      // place in agenda
+     let mut startstate = MLState::new();
+     startstate.insert( LRitem {
+         ri : self.Gmr.startrulei, //self.Gmr.Rules.len()-1, 
+         pi : 0,
+         la : self.Gmr.eoftermi,
+       },self.Gmr.startnti);
+     self.States.push(startstate); //index always 0
+     self.FSM.push(HashMap::with_capacity(128)); // row for state
+     self.prev_states.insert(0,HashSet::new());
      let mut agenda = vec![0]; // start with start state
      while agenda.len()>0
      {
@@ -382,8 +439,8 @@ impl MLStatemachine
         self.simplemakegotos(si,&mut agenda); //won't detect conflicts
         // create version that does not detect conflicts.  But then
         // when should reduce actions be added?  at the end.
-        
      }//while agenda exists
+     self.mlset_reduce()
   }//selml
 
 }//impl MLStatemachine
@@ -447,7 +504,8 @@ pub  fn mladd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, ne
      answer
   }//mladd_action
 
-
+// startstate may get transformed to something else, which changes where
+// the Accept action should be inserted.  Tracing is important
 
 
 //whenever a state's item set has been expanded, we need to put it back
@@ -686,15 +744,20 @@ impl Grammar
        newaction.push_str(&self.Rules[ri].action);
        newrulei.rhs = newrhs; // change rhs of rule
        newrulei.action = newaction;
-       //register new rule
-       self.Rulesfor.get_mut(&newrulei.lhs.index).unwrap().insert(self.Rules.len());
-       
-       if self.tracelev>1 {
-         print!("TRANSFORMED RULE FOR DELAY: ");
-         printrule(&newrulei,ri);
-       }
-       self.Rules.push(newrulei);
-       self.Rules.len()-1
+
+       // special case: newrule becomes startrule if startrule changed.
+       if newrulei.lhs.index == self.startnti {
+         self.Rules[self.startrulei] = newrulei;
+         return self.startrulei;
+       } else {      //register new rule
+         self.Rulesfor.get_mut(&newrulei.lhs.index).unwrap().insert(self.Rules.len());
+         if self.tracelev>1 {
+           print!("TRANSFORMED RULE FOR DELAY: ");
+           printrule(&newrulei,ri);
+         }
+         self.Rules.push(newrulei);
+         return self.Rules.len()-1;
+       }// new rule added (not start rule, which is replaced).
   }// delay_extend
 
 
@@ -891,59 +954,3 @@ impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
   }
 }//impl Bimap
 // will be used to map nonterminal symbols to vectors of symbols
-
-
-////////////////////////////////////////////////////////////////////////////
-// Experimental module to implement selML(k,1) parsers introduced roughly by
-// Bertsch, Nederhof and Schmitz.
-
-// nonterminals consists of a symbol plus a fixed k-size array of symbols.
-// symbol unused represents nothing and allows us to use fixed arrays.
-
-// usize is the type of grammar symbols (as an index)
-/*
-use crate::grammar_processor::*;
-use crate::selmlk::GSymbol::*;
-
-//pub struct Nonterminal<const K:usize>(usize,[usize;K]);
-#[derive(Copy,Clone,Debug,Hash,Ord,PartialOrd,Eq,PartialEq)]
-pub enum GSymbol<const K:usize> {
-   Terminal(usize),
-   Nonterminal(usize,[usize;K]),
-}
-impl<const K:usize> GSymbol<K>
-{
-   fn tostr(&self, Gmr:&Grammar) -> String
-   {
-      match self {
-        Terminal(ti) => Gmr.Symbols[*ti].sym.clone(),
-        Nonterminal(ni,D) => {
-           let mut s = format!("[{},",&Gmr.Symbols[*ni].sym);
-           for ti in D {
-             if *ti == Hash {s.push('#');}
-             else { s.push_str(&Gmr.Symbols[*ti].sym); s.push(','); }
-           }
-           s.push(']'); s
-        },
-      }//match
-   }//tostr
-}
-// a special usize index, perhaps 0 or usize::MAX, will represent a dummy
-// filler so we can have fixed size arrays and const generics.
-
-const Hash:usize = usize::MAX;
-//const HASH:GSymbol = GSymbol::Terminal(Hash);
-//static Hashes<const K:usize> = [Hash;K];
-
-//compile time production
-pub struct Production<const K:usize> {
-  pub lhs: GSymbol<K>, 
-  pub rhs: Vec<GSymbol<K>>,
-}
-
-// use these on top of grammar_processor constructs
-
-// semantic values
-#[derive(Copy,Clone,Debug)]
-pub struct Values<AT:Default, const K:usize>([AT;K]);
-*/
