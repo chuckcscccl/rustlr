@@ -41,6 +41,7 @@ use ast_writer::*;
 mod lalr_statemachine;
 use lalr_statemachine::LALRMachine;
 mod selmlk;
+use selmlk::MLStatemachine;
 
 fn main() 
 {
@@ -63,13 +64,15 @@ fn rustle(args:&Vec<String>) // called from main
   let mut zc = true;
   let mut genlex = false;
   let mut genabsyn = false;
+  let mut lrsd = false;
   while argi<argc
   {
      match &args[argi][..] {
        "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
-       "oldlalr" | "-oldlalr" => {newlalr=false; lalr=true;}
+       "oldlalr" | "-oldlalr" | "-selML" => {newlalr=false; lalr=true;}
+       "-lrsd" | "lrsd" => {newlalr=false; lalr=false; lrsd=true;}       
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -133,6 +136,13 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.compute_FirstIM();
 
   let mut fsm0;
+  if lrsd {
+    let mut lrsdfsm = MLStatemachine::new(grammar1);
+    println!("Generating Experimental Selective Delay State Machine");
+    lrsdfsm.selml();
+    fsm0 = lrsdfsm.to_statemachine();
+    
+  } else
   if newlalr { // newlalr takes precedence over other flags
      let mut lalrfsm = LALRMachine::new(grammar1);
      println!("Generating LALR(1) state machine");
