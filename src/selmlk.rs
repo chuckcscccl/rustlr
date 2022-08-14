@@ -18,7 +18,7 @@ use crate::grammar_processor::*;
 use crate::lr_statemachine::*;
 use crate::Stateaction::*;
 
-pub const MAXK:usize = 2;
+pub const MAXK:usize = 3;
 
 pub struct MLState // emulates LR1/oldlalr engine
 {
@@ -28,6 +28,7 @@ pub struct MLState // emulates LR1/oldlalr engine
    lr0kernel: HashSet<(usize,usize)>, // used only by lalr
    conflicts:Itemset,
    deprecated:Itemset,
+   lrkernel : HashSet<LRitem>,
    
 }
 impl MLState
@@ -41,6 +42,7 @@ impl MLState
         lr0kernel : HashSet::with_capacity(64),
         conflicts: HashSet::new(),
         deprecated:HashSet::new(),
+        lrkernel : HashSet::new(),
      }
   }
   pub fn insert(&mut self, item:LRitem, lhs:usize) -> bool
@@ -87,6 +89,58 @@ impl MLState
       for item in &state2.items {self.items.insert(*item);}
   }//merge_states
 
+// new closure method, based on kernels,
+// returns false on failure. (?)
+  fn close_all(&mut self, Gmr:&mut Grammar, combing:&mut Bimap<usize,Vec<usize>>) -> bool
+  {
+     // start with kernel items.
+     let mut closure = Vec::new();
+     let mut closed = 0;
+     for item in self.lrkernel.iter() {closure.push(*item);} //copy
+     while closed < closure.len()
+     {
+        let item = closure[closed]; //copy
+        self.items.insert(item); // maybe duplicate
+        closed+=1;
+        let (ri,pi,la) = (&item.ri,&item.pi,&item.la);
+        if *pi<Gmr.Rules[*ri].rhs.len() && !Gmr.Rules[*ri].rhs[*pi].terminal {
+             let lookaheads = &Gmr.Firstseq(&Gmr.Rules[*ri].rhs[pi+1..],*la);
+             for rulent in
+                 Gmr.Rulesfor.get(&Gmr.Rules[*ri].rhs[*pi].index).unwrap() {
+               for lafollow in lookaheads {
+                 let newitem = LRitem {
+                   ri: *rulent,
+                   pi: 0,
+                   la: *lafollow,
+                 };
+                 if !self.deprecated.contains(&newitem) && !self.items.contains(&newitem) {
+                  closure.push(newitem);
+
+                 }
+               } //for each possible la
+             }//for rulent
+        }// add new, non-closureitem (if)
+        // detect conflicts -- when should this be done?  on the fly
+        // add conflict due to conflict propagation -these can't lead to
+        // new closure items because they can't be extended
+        let mut newconflicts = HashSet::new();
+        for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
+            if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
+              newconflicts.insert(item);
+//println!("CONFLICT PROPAGATION {:?}",item);              
+            }
+        }//for each conflict item
+        for nc in newconflicts {self.conflicts.insert(nc);}
+
+        // add deprecated items after extension
+        
+     }// while !closed
+
+     true
+  }//close_all
+  
+
+
 //// put here for now: affects both items and conflicts sets,
   // conflict detection is done by mladd_action.
   //returns continue for true, failure for false
@@ -98,24 +152,25 @@ impl MLState
      { open = false;
        let mut newitems:HashSet<LRitem> = HashSet::new();
        let mut newconflicts = HashSet::new();
+       let mut oldconflicts = HashSet::new();       
        let mut reduce_candidates = HashSet::new();
        for item@LRitem{ri,pi,la} in self.items.iter() {
          if *pi==Gmr.Rules[*ri].rhs.len() {reduce_candidates.insert(*item);}
        }
        for item@LRitem{ri,pi,la} in self.items.iter() {
-         for LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
-            if *cpi==0 && pi+1<Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
+         for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
+            if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
               newconflicts.insert(*item);
 println!("CONFLICT PROPAGATION {:?}",item);              
             }
-            else if *cpi==0 && pi+1<Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index { //conflict extension *****
+            else if *cpi==0 && pi+1<Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && Gmr.Firstseq(&Gmr.Rules[*ri].rhs[pi+1..],*la).contains(cla) { //conflict extension *****
 
               let nti = Gmr.Rules[*ri].rhs[*pi].index;
               let defaultcomb = vec![nti];
               let comb = combing.get(&nti).unwrap_or(&defaultcomb);
               if comb.len()>MAXK {return false;}
 
-print!("EXTENSION OF: "); printrule(&Gmr.Rules[*ri],*ri);
+print!("EXTENSION OF: "); printitem(item,Gmr);
 
               self.deprecated.insert(*item);
               // deprecate "shorter" item
@@ -138,7 +193,8 @@ print!("EXTENSION OF: "); printrule(&Gmr.Rules[*ri],*ri);
               // this return index of new rule with longer delay
               newitems.insert(LRitem{ri:eri, pi:*pi, la:*la});
 
-              //newitems.insert...
+              // remove conflict item so it won't cause inf loop
+              oldconflicts.insert(*citem);
             }
          }//inner for each conflict item
          // look for new items
@@ -152,11 +208,14 @@ print!("EXTENSION OF: "); printrule(&Gmr.Rules[*ri],*ri);
                    pi: 0,
                    la: *lafollow,
                  };
-                 newitems.insert(newitem);
+                 if !self.deprecated.contains(&newitem) {
+                   newitems.insert(newitem);
+                 }
                } //for each possible la
              }//for rulent
           }// add newitem
-          // detect conflicts
+          // detect conflicts - resolve by precedence?  why not.
+          // only include if sr_resolve returns an not-clearly resolved result
           for rc in reduce_candidates.iter() {
             if rc!=item && ((item.pi==Gmr.Rules[*ri].rhs.len() &&rc.la==*la) || (item.pi<Gmr.Rules[*ri].rhs.len() && Gmr.Firstseq(&Gmr.Rules[*ri].rhs[*pi..],*la).contains(&rc.la))) {
               newconflicts.insert(*rc);
@@ -170,7 +229,20 @@ print!("EXTENSION OF: "); printrule(&Gmr.Rules[*ri],*ri);
          moreconflicts = moreconflicts || inserted;
          open = inserted || open;
        }
-       for n in newitems {open=self.items.insert(n)||open; } //MUST RECLOSE!
+
+       // remove oldconflict  -- temp fix
+       for oldconf in oldconflicts.iter() { self.conflicts.remove(oldconf);}
+       
+       for n in newitems {
+//print!("Adding item "); printitem(&n,Gmr);
+         open=self.items.insert(n)||open;
+       } //MUST RECLOSE!
+       for d in self.deprecated.iter() {
+         if self.items.remove(d) {
+//print!("Removed deprecated "); printitem(d,Gmr);
+         }
+       }//remove deprecated
+       
      }//while more
      true
   }//conflict_close
@@ -276,6 +348,7 @@ impl MLStatemachine
                 items : state.items.clone(),
                 lhss: BTreeSet::new(), //state.lhss.clone(), //BTreeSet::new(), // will set by stateclosure
                 lr0kernel: state.lr0kernel.clone(),
+                lrkernel: state.lrkernel.clone(),
                 conflicts: state.conflicts.clone(),
                 deprecated: state.deprecated.clone(),
              };
@@ -363,7 +436,7 @@ impl MLStatemachine
   fn mlset_reduce(&mut self)
   {
      let mut interior:HashSet<usize> = HashSet::new();
-     let mut frontier = vec![self.Gmr.startrulei];
+     let mut frontier = vec![0]; //start with state (not rule) 0
      while frontier.len()>0
      {
        let si = frontier.pop().unwrap();
@@ -429,14 +502,15 @@ impl MLStatemachine
         let si:usize = agenda.pop().unwrap();
         // redundant for now:        
         self.States[si].conflict_close(&mut self.Gmr,&mut self.combing);
-
+/*
      println!("STATE {} ITEMS:",si);
      for item in self.States[si].items.iter() {printitem(item,&self.Gmr);}
      println!("STATE {} CONFLICTS:",si);
-     for item in self.States[si].conflicts.iter() {printitem(item,&self.Gmr);}     
+     for item in self.States[si].conflicts.iter() {printitem(item,&self.Gmr);} 
+*/
 
         // states closed as they are created? won't reclose!
-        let mut resetprev = false;
+        let mut removeprevs = HashSet::new();
         for ((symi,psi)) in self.prev_states.get(&si).unwrap().iter() {
           // must remove entry from previous_states!
           let mut newconfs = HashSet::new(); //backwards propagation
@@ -450,10 +524,11 @@ println!("backward prop conflict {:?}  sym is {}",&LRitem{ri:*ri,pi:pi-1,la:*la}
           for nc in newconfs {
             if self.States[*psi].conflicts.insert(nc) {added=true;}
           }
-          if added {agenda.push(*psi);}
-          resetprev = added|| resetprev;
+          if added {agenda.push(*psi); removeprevs.insert((*symi,*psi));}
         } // for each conflict and previous state
-        if resetprev {self.prev_states.insert(si,HashSet::new());} //reset (remove)        
+        // remove oldprevs
+        let prevssi = self.prev_states.get_mut(&si).unwrap();
+        for rp in removeprevs.iter() {prevssi.remove(rp);}
         // for loop will not run at first for start state
 
 
@@ -471,11 +546,13 @@ println!("backward prop conflict {:?}  sym is {}",&LRitem{ri:*ri,pi:pi-1,la:*la}
      }//while agenda exists
      self.mlset_reduce();
 
+     /*
      // print all rules
      println!("ALL RULES OF TRANSFORMED GRAMMAR");
      for ri in 0..self.Gmr.Rules.len() {
        printrule(&self.Gmr.Rules[ri],ri);
      }
+     */
   }//selml
 
   pub fn to_statemachine(self) -> Statemachine // transfer before writeparser
@@ -706,6 +783,10 @@ impl Grammar
          newnt.index = self.Symbols.len();
          self.Symbols.push(newnt.clone());
          self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
+         // set First, which is no longer called.
+         let mut ntfirsts = self.Firstseq(&self.Rules[ri].rhs[dbegin..dend],self.Symbols.len());
+         ntfirsts.remove(&self.Symbols.len());
+         self.First.insert(newnt.index,ntfirsts);
 
          // register new combed NT with combing map
          let defvec = vec![self.Rules[ri].rhs[dbegin].index];
@@ -853,7 +934,8 @@ impl Grammar
          newnt.index = self.Symbols.len();
          self.Symbols.push(newnt.clone());
          self.Symhash.insert(newntname.clone(),self.Symbols.len()-1);
-
+         // First set computed after delay_transform called.
+         // change rules by adding suffix
          let NTrules:Vec<_> = self.Rulesfor.get(&NT1.index).unwrap().iter().collect();
          let mut rset = HashSet::new(); // rules set for newnt (delayed nt)
          for ntri in NTrules {
@@ -1002,6 +1084,7 @@ impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
   }
 }//impl Bimap
 // will be used to map nonterminal symbols to vectors of symbols
+
 
 fn printitem(item:&LRitem, Gmr:&Grammar)
 {
