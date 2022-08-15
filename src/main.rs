@@ -138,7 +138,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut fsm0;
   if lrsd {
     let mut lrsdfsm = MLStatemachine::new(grammar1);
-    println!("Generating Experimental Selective Delay State Machine");
+    println!("Generating Experimental LR-Selective Delay State Machine");
     lrsdfsm.selml();
     fsm0 = lrsdfsm.to_statemachine();
     
@@ -173,7 +173,7 @@ fn rustle(args:&Vec<String>) // called from main
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
       else {fsm0.writeparser(&parserfile)}
     }; // write_result =
-  if tracelev>0 {eprintln!("{} total states",fsm0.FSM.len());}
+  if tracelev>0 && !lrsd {eprintln!("{} total states",fsm0.FSM.len());}
   if let Ok(_) = write_result {
      if tracelev>0 {println!("written parser to {}",&parserfile);}
   }

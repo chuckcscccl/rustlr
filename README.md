@@ -9,7 +9,8 @@ Among the features that Rustlr supports are:
 2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
 3. Experimental features include the ability to signal *delayed reduction*
-transformations on a grammar.
+transformations on a grammar.  This allows Rustlr to accept a class of
+grammars larger than traditional LR.  
 4. Operator precedence and associativity declarations further allow grammars
 to be written that's closer to EBNF syntax.
 5. The ability to train the parser, interactively or from script, for better error reporting.
@@ -18,7 +19,7 @@ to be written that's closer to EBNF syntax.
 
 <p>
 
-**Version 0.3.1 consists of minor patches**
+**Versions 0.3.1, 0.3.2 consist of minor patches**
 
 ### Major Features and the Versions that Introduced Them
 
