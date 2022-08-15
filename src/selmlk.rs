@@ -106,13 +106,11 @@ impl MLState
         // add conflict due to conflict propagation -these can't lead to
         // new closure items because they can't be extended
         let mut newconflicts = HashSet::new();
-        //let mut oldconflicts = HashSet::new();
         let clas = if pi+1<Gmr.Rules[*ri].rhs.len() {Gmr.Firstseq(&Gmr.Rules[*ri].rhs[pi+1..],*la)} else {HashSet::new()};
-//print!("...CHECKING item "); printitem(&item,Gmr); print!("...AGAINST CONFLICTS: ");
         for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
             if self.deprecated.contains(citem) {continue;}
-
-//printitem(citem,Gmr);
+//print!("...CHECKING item "); printitem(&item,Gmr);
+//print!("...AGAINST CONFLICTS: "); printitem(citem,Gmr);
 
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
               newconflicts.insert(item);
@@ -152,7 +150,15 @@ impl MLState
              } // can extend
             } // conflict extension
         }//for each conflict item
-        for nc in newconflicts {self.conflicts.insert(nc);}
+        let mut added = false;
+        for nc in newconflicts {added=self.conflicts.insert(nc)||added;}
+        // all the items have to now be re-checked against new confs
+        if added {
+          closure.clear();
+          self.items.clear();
+          for item in self.lrkernel.iter() {closure.push(*item);} //copy
+          closed = 0;
+        }
      }// while !closed
 
      answer
@@ -441,7 +447,7 @@ if si==0 {
        if self.States[si].deprecated.contains(item) {continue;}
        printitem(item,&self.Gmr);
      } 
-println!("AGENDA: {:?}",&agenda);
+//println!("AGENDA: {:?}",&agenda);
 }
 */
 
@@ -522,8 +528,9 @@ println!("AGENDA: {:?}",&agenda);
 // calling it a state!   but later it could change.
 
 // try-add returns option<not-clearly resolved conflict>
-pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, printout:bool) -> Option<(bool,usize,usize)>
-  {  let mut answer = None;
+pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool) -> Option<(bool,usize,usize)>
+  {  //printout=true;
+     let mut answer = None;
      let currentaction = FSM[si].get(&la);
      let mut changefsm = true; // add or keep current
      match (currentaction, &newaction) {
