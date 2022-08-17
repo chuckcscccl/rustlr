@@ -20,20 +20,19 @@ use crate::Stateaction::*;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 4;
+pub const MAXK:usize = 2;
 
 type AGENDATYPE = BTreeSet<usize>;
 type COMBINGTYPE = HashMap<usize,Vec<usize>>;
-type ITEMSETTYPE = HashSet<LRitem>;
 
 pub struct MLState // emulates LR1/oldlalr engine
 {
    index: usize, // index into vector
-   items:ITEMSETTYPE,
+   items:Itemset,
    lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
    lr0kernel: HashSet<(usize,usize)>, // used only by lalr
-   conflicts:HashSet<LRitem>,
-   deprecated:HashSet<LRitem>,
+   conflicts:Itemset,
+   deprecated:Itemset,
    lrkernel : HashSet<LRitem>,
 }
 impl MLState
@@ -353,10 +352,9 @@ impl MLStatemachine
        if self.States[si].deprecated.contains(&ncf) {continue;}
        inserted = self.States[si].conflicts.insert(ncf) || inserted;
      } // insert new conflicts into CURRENT state
-     if /* reagenda && */ inserted  &&
+     if reagenda && inserted  &&
        agenda.insert(si) {
-if true || LTRACE{       println!("state {} added back to agenda due to new conflicts",si);}
-       return;  // re-agenda'ed
+if LTRACE{       println!("state {} added back to agenda due to new null-production conflicts",si);}
      } // re-agenda
 
      // form closures for all new states and add to self.States list
@@ -401,7 +399,7 @@ if LTRACE {println!("new state {} added to agenda from state {}",newstateindex,p
      }// add new state
      else { // add to prev_states
 if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
-       self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
+       //self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
        // propagate conflicts backwards
        let mut backconfs = HashSet::new();
        for item@LRitem{ri,pi,la} in self.States[toadd].conflicts.iter() {
@@ -426,7 +424,7 @@ if true || LTRACE {println!("state {} pushed back onto agenda because of backwar
             return;
        }
        else {  // add back link only if not propagated backwards
-          //self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
+          self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
        }       // instead of deprecating conflict alltogether
      }// existing state
 
@@ -444,7 +442,7 @@ if true || LTRACE {println!("state {} pushed back onto agenda because of backwar
             Some((false,r1,la1)) => {
               let confitem = LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:*la1};
               if !self.States[psi].deprecated.contains(&confitem) && self.States[psi].conflicts.insert(confitem) { agenda.insert(psi);
-if true || LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&confitem,psi);}
+if true || LTRACE {println!("new conflict {:?} detected for state {}, re-agenda",&confitem,psi);}
               }
             },
 
@@ -586,7 +584,7 @@ if LTRACE {println!("backward prop from state {} back to state {} conflict {:?} 
       
       let prevssi = self.prev_states.get_mut(&si).unwrap();
 
-      //for rp in removeprevs.iter() { prevssi.remove(rp); } //need? later
+      for rp in removeprevs.iter() { prevssi.remove(rp); } //need? later
 
       //if there are not such conflicts in si:
       if removeprevs.len()==0 {
@@ -644,7 +642,7 @@ if LTRACE && added {println!("State {} added back to agenda",psi);}
             }
           }// clear prev_states for next states of si
           self.FSM[si].clear();
-
+        
           // now call makegotos, create kernels of new states, call addstate...
           self.simplemakegotos(si,&mut agenda); //will detect conflicts
         } // if there are no conflicts to back-prop, recomp FSM

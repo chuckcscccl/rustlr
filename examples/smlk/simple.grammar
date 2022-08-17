@@ -1,16 +1,17 @@
 # simplest example of applying delays
 
 terminals a b c d x y
-nonterminals S A B C M M2
+nonterminals S A B C M G
 topsym S
 
 S --> A | B
 C --> c | c C
 #C --> c*
-A --> d # M C d # x
-B --> d a b C d y
+A --> d M C x
+B --> d a b C y
 M --> a b
-
+#S --> G
+#G --> G c | 
 EOF
 
 LR(0) grammar

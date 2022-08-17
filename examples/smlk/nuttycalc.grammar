@@ -1,0 +1,19 @@
+# nutty calculator mixing infix and postfix
+
+nonterminals E E2 E3
+terminals num float ( ) mark1 mark2
+lexterminal PLUS +
+lexterminal MINUS -
+lexterminal TIMES *
+lexterminal DIV /
+topsym E
+
+left PLUS 100
+left MINUS 100
+
+E --> num
+#E --> E PLUS E
+#E --> E MINUS E
+E --> ( E num  TIMES )
+E --> ( num num DIV )
+E --> ( E )

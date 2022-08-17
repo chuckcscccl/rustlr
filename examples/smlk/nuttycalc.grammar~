@@ -1,0 +1,6 @@
+// nutty calculator mixing infix and postfix
+
+left + 100
+
+E --> E + E
+E --> 

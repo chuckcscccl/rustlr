@@ -22,7 +22,7 @@ const LTRACE:bool = false; //true;
 
 pub const MAXK:usize = 4;
 
-type AGENDATYPE = BTreeSet<usize>;
+type AGENDATYPE = Vec<usize>;
 type COMBINGTYPE = HashMap<usize,Vec<usize>>;
 type ITEMSETTYPE = HashSet<LRitem>;
 
@@ -285,7 +285,7 @@ impl MLStatemachine
   }//new
 
 // calle on fully closed state si, produces new state kernels:
-  fn simplemakegotos(&mut self,si:usize,agenda:&mut AGENDATYPE) //LR1
+  fn simplemakegotos(&mut self,si:usize,agenda:&mut AGENDATYPE, agendaset:&mut HashSet<usize>) //LR1
   {
      // key to following hashmap is the next symbol's index after pi (the dot)
      // the values of the map are the "kernels" of the next state to generate
@@ -353,8 +353,8 @@ impl MLStatemachine
        if self.States[si].deprecated.contains(&ncf) {continue;}
        inserted = self.States[si].conflicts.insert(ncf) || inserted;
      } // insert new conflicts into CURRENT state
-     if /* reagenda && */ inserted  &&
-       agenda.insert(si) {
+     if /* reagenda && */ inserted  && agendaset.insert(si) {
+       agenda.push(si); 
 if true || LTRACE{       println!("state {} added back to agenda due to new conflicts",si);}
        return;  // re-agenda'ed
      } // re-agenda
@@ -363,13 +363,13 @@ if true || LTRACE{       println!("state {} added back to agenda due to new conf
      for key in keyvec // keyvec must be separate to avoid borrow error
      {
         let mut kernel = newstates.remove(&key).unwrap();
-        self.mladdstate(kernel,si,key,agenda); //only place addstate called
+        self.mladdstate(kernel,si,key,agenda,agendaset); //only place addstate called
         // don't know if this will be new state or previous state
      }
   }//simplemakegotos
 
 // psi is previous state index, nextsym is next symbol, gets kernel
-  fn mladdstate(&mut self, mut state:MLState, psi:usize, nextsymi:usize, agenda:&mut AGENDATYPE)
+  fn mladdstate(&mut self, mut state:MLState, psi:usize, nextsymi:usize, agenda:&mut AGENDATYPE, agendaset:&mut HashSet<usize>)
   {  let nextsym = &self.Gmr.Symbols[nextsymi].sym;
      let newstateindex = self.States.len(); // index of new state
      state.index = newstateindex;
@@ -396,7 +396,7 @@ if true || LTRACE{       println!("state {} added back to agenda due to new conf
        prev_set.insert((nextsymi,psi));
        self.prev_states.insert(newstateindex,prev_set);
        //if self.lalr {self.Open.push(newstateindex)}  //lalr
-       agenda.insert(newstateindex);
+       if agendaset.insert(newstateindex) {agenda.push(newstateindex);}
 if LTRACE {println!("new state {} added to agenda from state {}",newstateindex,psi);}
      }// add new state
      else { // add to prev_states
@@ -419,7 +419,7 @@ if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
            // break link from toadd back to psi, or rather don't insert it
          }
        }//for bc
-       if bchanged && agenda.insert(psi) {
+       if bchanged && agendaset.insert(psi) { agenda.push(psi);
 if true || LTRACE {println!("state {} pushed back onto agenda because of backward conflict prop",psi);}
             // since previous state pushed back to agenda, should not
             // form actions from previous state to toadd state
@@ -443,7 +443,7 @@ if true || LTRACE {println!("state {} pushed back onto agenda because of backwar
      match &isconflict {
             Some((false,r1,la1)) => {
               let confitem = LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:*la1};
-              if !self.States[psi].deprecated.contains(&confitem) && self.States[psi].conflicts.insert(confitem) { agenda.insert(psi);
+              if !self.States[psi].deprecated.contains(&confitem) && self.States[psi].conflicts.insert(confitem) && agendaset.insert(psi) { agenda.push(psi);
 if true || LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&confitem,psi);}
               }
             },
@@ -452,7 +452,7 @@ if true || LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agen
 //println!("YIKES!!!!!!");            
               let res1 = self.States[psi].conflicts.insert(LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:nextsymi});
               let res2 = self.States[psi].conflicts.insert(LRitem{ri:*r2,pi:self.Gmr.Rules[*r2].rhs.len(),la:nextsymi});
-              if res1 || res2 {agenda.insert(psi);} //need re-closure
+              if (res1 || res2) && agendaset.insert(psi) {agenda.push(psi);} //need re-closure
             },
 
             _ => {},
@@ -523,11 +523,12 @@ if true || LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agen
      self.FSM.push(HashMap::with_capacity(128)); // row for state
      self.prev_states.insert(0,HashSet::new());
 
-     let mut agenda = AGENDATYPE::new();     agenda.insert(0);
+     let mut agenda = vec![0];
+     let mut agendaset = HashSet::new();  agendaset.insert(0);
      while agenda.len()>0
      {
-        let si:usize = *agenda.iter().next().unwrap();
-        agenda.remove(&si);
+        let si:usize = agenda.pop().unwrap();
+        agendaset.remove(&si);
 
 if LTRACE {println!("agenda removed state {}, grammar size {}",&si,self.Gmr.Rules.len());}
 
@@ -580,7 +581,7 @@ if si!=0 {
 if LTRACE {println!("backward prop from state {} back to state {} conflict {:?}  sym is {}",si,psi,bc,&self.Gmr.Symbols[*symi].sym);}
              }
           }
-          if added {agenda.insert(*psi); removeprevs.insert((*symi,*psi));}
+          if added && agendaset.insert(*psi) {agenda.push(*psi); removeprevs.insert((*symi,*psi));}
         }// //for each previous state
 //      } //for (symi,action) in FSM
       
@@ -612,7 +613,7 @@ if LTRACE {println!("backward prop from state {} back to state {} conflict {:?} 
              removeconfs.insert(LRitem{ri:nc.ri,pi:nc.pi+1,la:nc.la});
             }
           }
-          if added {agenda.insert(*psi); removeprevs.insert((*symi,*psi));}
+          if added && agendaset.insert(*psi) {agenda.push(*psi); removeprevs.insert((*symi,*psi));}
 if LTRACE && added {println!("State {} added back to agenda",psi);}          
         } // for each conflict and previous state
         // remove oldprevs
@@ -646,7 +647,7 @@ if LTRACE && added {println!("State {} added back to agenda",psi);}
           self.FSM[si].clear();
 
           // now call makegotos, create kernels of new states, call addstate...
-          self.simplemakegotos(si,&mut agenda); //will detect conflicts
+          self.simplemakegotos(si,&mut agenda,&mut agendaset); //will detect conflicts
         } // if there are no conflicts to back-prop, recomp FSM
 
      }//while agenda exists

@@ -368,6 +368,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
      self.enumhash.insert(self.Absyntype.clone(), 0);
 //println!("\n AST generated:\n\n{}",&ASTS);
      self.sametype = false;
+     self.ntcxmax = ntcx;
      ASTS
    }//prepare_gram
 

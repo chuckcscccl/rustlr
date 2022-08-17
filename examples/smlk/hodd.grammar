@@ -1,0 +1,16 @@
+# grammar
+terminals d c a b x y e f g
+nonterminals S A B M N
+topsym S
+
+S --> A | B
+A --> d a b c d x
+#B --> d (a b)? c d y
+B --> d N c d y
+M --> a b
+N --> M
+N --> 
+
+#B --> c d y | a b c d y
+
+EOF
