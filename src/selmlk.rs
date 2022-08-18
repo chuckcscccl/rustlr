@@ -219,7 +219,7 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
         }//for each conflict item
         let mut added = false;
         for nc in newconflicts {
-          //if self.deprecated.contains(&nc) {continue;}  /////  JUST ADDED
+          if self.deprecated.contains(&nc) {continue;}  /////  JUST ADDED
           added=self.conflicts.insert(nc)||added;
         }
         // all the items have to now be re-checked against new confs
