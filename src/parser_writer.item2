@@ -58,7 +58,7 @@ impl Statemachine
         let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
         //let gsymi = *self.Gmr.Symhash.get(&gsym.sym).unwrap();
         let findat = gsym.label.find('@');
-        let mut plab = format!("_item{}_",k-1);
+        let mut plab = format!("_item{}_{}",k-1,ri);
         match &findat {
           None if gsym.label.len()>0 /*&& !gsym.label.contains('(')*/ => {
             let truelabel = checkboxlabel(&gsym.label);

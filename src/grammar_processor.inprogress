@@ -264,6 +264,8 @@ impl Grammar
      let mut stage = 0;
      let mut multiline = false;  // multi-line mode with ==>, <==
      let mut foundeol = false;
+     // records internally generated nt's and symbol they're associated with
+     let mut NEWNTs:HashMap<String,usize> = HashMap::new(); 
      let mut enumindex = 0;  // 0 won't be used:inc'ed before first use
      let mut ltopt = String::new();
      let mut ntcx = 2;  // used by -genabsyn option
@@ -394,6 +396,8 @@ impl Grammar
 		 continue;
 	       }
 	       let mut newterm = Gsym::new(stokens[1],false);
+               if !self.genabsyn {newterm.rusttype = self.Absyntype.clone();}
+              if stokens.len()>2 { // type specified, else stays ""
                let mut tokentype = String::new();
                for i in 2..stokens.len() {
                   tokentype.push_str(&stokens[i][..]);
@@ -448,8 +452,8 @@ impl Grammar
                if nttype.len()<1 && !self.genabsyn {nttype = self.Absyntype.clone()};
 	       if !nttype.contains('@') && !nttype.starts_with(':') {self.enumhash.insert(nttype.clone(), ntcx); ntcx+=1;}
                if &nttype!=&self.Absyntype {self.sametype=false;}
-               
 	       newterm.rusttype = nttype;
+              } // type specified
                newterm.index = self.Symbols.len();
                self.Symhash.insert(stokens[1].to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
@@ -735,7 +739,7 @@ impl Grammar
                 if strtok.len()>0 && &strtok[0..1]=="{" {
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
-                   if semaction.contains("return ") {
+                   if self.genabsyn && semaction.contains("return ") {
                      eprintln!("WARNING: USING \"return\" INSIDE SEMANTIC ACTIONS COULD CAUSE CONFLICTS WITH AUTOMATIC CODE GENERATION, LINE {}\n",linenum);
                    }
 		   break;
@@ -755,10 +759,10 @@ strtok is bstokens[i], but will change
                 // (E ;)* and (E ,)* are to have different meaning, then dont
                 // use this notation.  Only use in -auto mode as it will
                 // generate ast, semaction for the new nonterminal.
-//                let mut ntcnt = 0; // for generating new terminal names
+// NEWNTs table not used - so duplicates may result
                 let newtok2;
 		if strtok.len()>1 && strtok.starts_with('(') {
-                  let ntname2 = format!("NEWSEQNT_{}_{}",self.Rules.len(),ntcnt);
+                  let mut ntname2 = format!("NEWSEQNT_{}_{}",self.Rules.len(),ntcnt);
                   ntcnt+=1;
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
@@ -814,7 +818,7 @@ strtok is bstokens[i], but will change
                        // or put * before it, fill-in later
                      }
                      else if passthru>=0 && (!igsym.terminal || igsym.rusttype!="()" || igsym.precedence!=0)
-                     {passthru=-2;}
+                     {passthru=-2; newnt2.rusttype=String::new();}
                      newrule2.rhs.push(self.Symbols[gsymi].clone());
                      //if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") {break;}
                      if breakpoint {break;}
@@ -825,27 +829,25 @@ strtok is bstokens[i], but will change
                   }// while i<=bstokens.len()
                   if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
                   iadjust += jk as usize;
-                  /*
-                  if passthru<0 {
-                    newnt2.rusttype = format!("{}{}",&ntname2,&ltopt);
-                    if !self.enumhash.contains_key(&newnt2.rusttype) {
-                      self.enumhash.insert(newnt2.rusttype.clone(),ntcx); ntcx+=1;
-                    }
-                    // this assumes -auto
-                    // action will be written by ast_writer
-                  }  dont set type yet
-                  */
                   if passthru>=0 { // set action of new rule to be passthru
                     newrule2.action = format!(" _item{}_ }}",passthru);
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
+                  //// form hashkey from rhs of newrule2
+                  let mut hashkey = String::from("(");
+                  for s in &newrule2.rhs {
+                    hashkey.push_str(&s.sym); hashkey.push(' ');
+                  }
+                  hashkey.push(')');
+                  if let Some(snti) = NEWNTs.get(&hashkey) { //reuse
+                    ntname2 = self.Symbols[*snti].sym.clone();
+                  }// reuse nt
+                  else { // create new nt, rule
                   newrule2.precedence = precd;
-//                  newrule2.iprecedence = 6;   // IPRECEDENCE SET
                   newnt2.index = self.Symbols.len();
                   newrule2.lhs.index = newnt2.index;
                   self.Symhash.insert(ntname2.clone(),self.Symbols.len());
-                  //newrule2.lhs.rusttype = newnt2.rusttype.clone();
                   self.Symbols.push(newnt2);
                   // register new rule
                    if self.tracelev>3 {
@@ -854,15 +856,16 @@ strtok is bstokens[i], but will change
                   self.Rules.push(newrule2);
                   let mut rulesforset = HashSet::new();
                   rulesforset.insert(self.Rules.len()-1);
-                  // i-1 is now at token with )* or )+
-                  //let suffix = &bstokens[i-1][retokisplit[0].len()-1..];
-                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
-                  newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
+                  // i-1 is now at token with )* or )+
+                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
+                  NEWNTs.insert(hashkey,self.Symbols.len()-1); //record
+                  }// create new nt       
+                  newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
                   strtok = &newtok2;
-//println!("1 strtok now {}",strtok);
                 } // starts with (
 //println!("i at {}, iadjust {},  line {}",i,iadjust,linenum);
+
 
 
 		// add code to recognize E*, E+ and E?, aftert ()'s removed -
@@ -884,6 +887,14 @@ strtok is bstokens[i], but will change
                    if gsympart=="_" {gsympart="_WILDCARD_TOKEN_";}
 		   let errmsg = format!("unrecognized grammar symbol '{}', line {}",gsympart,linenum);
 		   let gsymi = *self.Symhash.get(gsympart).expect(&errmsg);
+
+                 //// generate new nt or reuse one that already exists
+                 if let Some(enti) = NEWNTs.get(retoks[0]) {
+                   newtok = format!("{}:{}",&self.Symbols[*enti].sym,relabel);
+                   strtok = &newtok;
+                 }
+                 else { //** generate new set of terms and rules
+
 		   let newntname = format!("NEWRENT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
 		   let mut newnt = Gsym::new(&newntname,false);
                    newnt.rusttype = "()".to_owned();
@@ -956,8 +967,10 @@ strtok is bstokens[i], but will change
 		   rulesforset.insert(self.Rules.len()-1);
 		   newtok = format!("{}:{}",&newntname,relabel);
 		   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
+                   NEWNTs.insert(retoks[0].to_owned(),newnt.index);
 		   // change strtok to new form
 		   strtok = &newtok;
+                  } //** generate new set of rules and nt's
 //println!("2 strtok now {}",strtok);                   
 		}// processes RE directive - add new productions
 
@@ -991,6 +1004,14 @@ strtok is bstokens[i], but will change
                   if gsympart3=="_" {gsympart3="_WILDCARD_TOKEN_";}
    	          let errmsg = format!("UNRECOGNIZED GRAMMAR SYMBOL '{}', LINE {}\n",gsympart3,linenum);
 	          let gsymi = *self.Symhash.get(gsympart3).expect(&errmsg);
+
+                 //// generate new nt or reuse one that already exists
+                 let hashkey = format!("{}{}",gsympart3,&strtok[lb..rb+1]);
+                 if let Some(enti) = NEWNTs.get(&hashkey) {
+                   newtok3 = format!("{}:{}",&self.Symbols[*enti].sym,relabel3);
+                   strtok = &newtok3;
+                 }
+                 else { // need to generate new set of terms and rules ***
 		  let newntname3 = format!("NEWSEPNT_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
 	          let mut newnt3 = Gsym::new(&newntname3,false);
                   newnt3.rusttype = "()".to_owned();
@@ -1043,7 +1064,12 @@ strtok is bstokens[i], but will change
                   newtok3 = format!("{}:{}",&newntname3,relabel3);
                   self.Rulesfor.insert(newnt3.index,rulesforset3);
                   // ANOTHER RULE IS NEEDED IF strtok ends in *>
-                  if strtok.ends_with("*>") {  // M --> | N
+                  if !strtok.ends_with("*>") {
+                    NEWNTs.insert(hashkey,newnt3.index);
+                  } else { // M --> null | N for *>
+                    //still enter newnt3 into NEWNTs map as it could be useful
+                    let hashkey2 = format!("{}+>",&hashkey[..hashkey.len()-2]);
+                    NEWNTs.insert(hashkey2,newnt3.index);                    
                     let newntname5 = format!("NEWSEPNT2_{}_{}",self.Rules.len(),ntcnt); ntcnt+=1;
                     let mut newnt5 = Gsym::new(&newntname5,false);
                     newnt5.rusttype = newnt3.rusttype.clone();
@@ -1064,19 +1090,22 @@ strtok is bstokens[i], but will change
                     }
 //                    newrule5.iprecedence = 7;  // iprecedence!
 //                    newrule6.iprecedence = 5;
-                  if self.tracelev>3 {
-                    printrule(&newrule5,self.Rules.len());
-                    printrule(&newrule6,self.Rules.len()+1);
-                  }                    
-		  self.Rules.push(newrule5);
-   	          self.Rules.push(newrule6);
-		  let mut rulesforset5 = HashSet::with_capacity(2);
-		  rulesforset5.insert(self.Rules.len()-2);
-		  rulesforset5.insert(self.Rules.len()-1);
-                  newtok3 = format!("{}:{}",&newntname5,relabel3);
-                  self.Rulesfor.insert(newnt5.index,rulesforset5);
+                    if self.tracelev>3 {
+                      printrule(&newrule5,self.Rules.len());
+                      printrule(&newrule6,self.Rules.len()+1);
+                    }                    
+  		    self.Rules.push(newrule5);
+   	            self.Rules.push(newrule6);
+  		    let mut rulesforset5 = HashSet::with_capacity(2);
+		    rulesforset5.insert(self.Rules.len()-2);
+		    rulesforset5.insert(self.Rules.len()-1);
+                    newtok3 = format!("{}:{}",&newntname5,relabel3);
+                    self.Rulesfor.insert(newnt5.index,rulesforset5);
+                    // insert into NEWNTs map
+                    NEWNTs.insert(hashkey,newnt5.index);
                   } // *> processed
-                  strtok = &newtok3; 
+                  strtok = &newtok3;
+                 } // *** needed to generate new nt, rules
                 } // if ends with *> or +>
 
 

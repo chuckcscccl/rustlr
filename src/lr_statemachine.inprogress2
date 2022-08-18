@@ -19,12 +19,12 @@ use crate::Stateaction::*;
 
 //actions are: shift, reduce, accept, gotonext
 
-#[derive(Copy,Clone,PartialEq,Eq,Hash,Debug,PartialOrd,Ord)]
+#[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
 pub struct LRitem
 {
-   pub ri: usize, // rule index
-   pub pi: usize, // position of dot
-   pub la: usize, // lookahead symbol index
+   ri: usize, // rule index
+   pi: usize, // position of dot
+   la: usize, // lookahead symbol index
    //interior : bool,  // can't have this here if deriving Eq
 }
 
@@ -68,16 +68,39 @@ pub fn stateeq(s1:&Itemset, s2:&Itemset) -> bool
    return true;
 }//stateeq
 
-// works for all but initial kernel START --> topsym, EOF,
-// However, this state will never be encountered again.
-pub fn extract_kernel(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
+fn extract_core(items:&Itemset) -> HashSet<(usize,usize)> // for lalr
 {
-   let mut kernel0 = HashSet::with_capacity(256);
-   for LRitem{ri:r, pi:p, la} in items  {
-     if *p>0 {kernel0.insert((*r,*p));}
-   }
-   kernel0
+   let mut core0 = HashSet::with_capacity(256);
+   for LRitem{ri:r, pi:p, la} in items  { core0.insert((*r,*p)); }
+   core0
 }
+/*
+// checks if every item core in s1 is also in s2, for LALR
+fn sub_core(s1:&Itemset, s2:&Itemset) -> bool // not used
+{
+   for LRitem{ri:r1,pi:p1,la:la1} in s1
+   {
+      let mut bx = false;
+      for LRitem{ri:r2,pi:p2,la} in s2
+      {
+         if r1==r2 && p1==p2 {bx=true; break;}
+      }
+      if !bx {return false;}
+   }
+   return true;
+}//sub_core
+
+fn eq_core(s1:&Itemset, s2:&Itemset) -> bool 
+{
+   let (core1,core2) = (extract_core(s1),extract_core(s2));
+   if core1.len()!=core2.len() {return false;}
+   for item_core in &core1
+   {
+      if !core2.contains(item_core) {return false; }
+   }
+   return true;
+}//eq_core
+*/
 
 #[derive(Clone,Debug)]
 pub struct LR1State
@@ -85,7 +108,7 @@ pub struct LR1State
    index: usize, // index into vector
    items:Itemset,
    lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
-   kernel: HashSet<(usize,usize)>, // used only by lalr
+   core: HashSet<(usize,usize)>, // used only by lalr
    //expected : HashSet<String>, // expected lookaheads for error reporting
 }
 impl LR1State
@@ -96,7 +119,7 @@ impl LR1State
         index : 0,   // need to change
         items : HashSet::with_capacity(512),
         lhss: BTreeSet::new(), // for quick lookup
-        kernel : HashSet::with_capacity(64),
+        core : HashSet::with_capacity(256),
         //expected : HashSet::with_capacity(32),
      }
   }
@@ -112,14 +135,15 @@ impl LR1State
     let mut key=self.items.len()+ self.lhss.len()*10000;
     let limit = usize::MAX/1000 -1;
     let mut cx = 8;
-    for s in &self.lhss {key+=s*1000; cx-=1; if cx==0  || key>=limit {break;}}
+    for s in &self.lhss {key+=s*1000; cx-=1; if cx==0  || key>=limit {break;}}    
     key 
     //self.items.len() + self.lhss.len()*10000
   } // 
   pub fn hashval_lalr(&mut self) -> usize  // note: NOT UNIQUE
   {
-    if self.kernel.len()==0 {self.kernel = extract_kernel(&self.items); }
-    let mut key=self.kernel.len() + self.lhss.len()*1000000;    
+    //let mut key=extract_core(&self.items).len() + self.lhss.len()*10000;
+    if self.core.len()==0 {self.core = extract_core(&self.items); }
+    let mut key=self.core.len() + self.lhss.len()*1000000;    
     let limit = usize::MAX/1000 -1;
     let mut cx = 8;
     for s in &self.lhss {key+=1000*s; cx-=1; if cx==0 || key>=limit {break;}}
@@ -128,20 +152,19 @@ impl LR1State
     
   pub fn contains(&self, x:&LRitem) -> bool {self.items.contains(x)}
 
-  fn kernel_eq(&mut self, state2:&mut LR1State) -> bool // for LALR
+  fn core_eq(&mut self, state2:&mut LR1State) -> bool // for LALR
   {
-     //if self.kernel.len()==0 {self.kernel = extract_kernel(&self.items);}
-     //if state2.kernel.len()==0 {state2.kernel = extract_kernel(&state2.items);}
-     //if self.kernel.len()!=state2.kernel.len() {return false;}
-     if self.hashval_lalr() != state2.hashval_lalr() || (self.kernel.len()!=state2.kernel.len()) {return false;}
-     for item_kernel in &self.kernel
+     if self.core.len()==0 {self.core = extract_core(&self.items);}
+     if state2.core.len()==0 {state2.core = extract_core(&state2.items);}
+     if self.core.len()!=state2.core.len() {return false;}
+     for item_core in &self.core
      {
-      if !state2.kernel.contains(item_kernel) {return false; }
+      if !state2.core.contains(item_core) {return false; }
      }
      return true;
-  }//kernel_eq
+  }//core_eq
+  //{ eq_core(&self.items,&state2.items) }
 
-  // two states being merged must have same core
   fn merge_states(&mut self, state2:&LR1State) // used by lalr
   {
       for item in &state2.items {self.items.insert(*item);}
@@ -157,7 +180,7 @@ impl LR1State
        if res {
           answer = true;
           let newaction = Stateaction::Reduce(item.ri);
-          add_action(FSM,Gmr,newaction,state2.index,item.la,&mut self.sr_conflicts,true);
+          Statemachine::add_action(FSM,Gmr,newaction,state2.index,item.la,&mut self.sr_conflicts);
        }// proper addtion, meaning only the lookahead was not there before
      }//for each item in state2
      answer
@@ -243,7 +266,7 @@ pub fn stateclosure0(state:&mut LR1State, Gmr:&Grammar) // new attempt
           let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
           let nti_lhsi = nti.index;
           let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
-          for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
+          for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
           {
             for lafollow in lookaheads 
             { 
@@ -289,7 +312,7 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
        let nti_lhsi = nti.index; //*Gmr.Symhash.get(&nti.sym).unwrap();
        let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
-       for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
+       for rulent in Gmr.Rulesfor.get(&nti.sym).unwrap()
        {
           for lafollow in lookaheads 
           { 
@@ -349,7 +372,7 @@ pub struct Statemachine  // Consumes Grammar
    pub FSM: Vec<HashMap<usize,Stateaction>>,
    pub lalr: bool,
    pub Open: Vec<usize>, // for LALR only, vector of unclosed states
-   pub sr_conflicts:HashMap<(usize,usize),(bool,bool)>,
+   sr_conflicts:HashMap<(usize,usize),(bool,bool)>,
 }
 
 impl Statemachine
@@ -367,6 +390,82 @@ impl Statemachine
        }
   }//new
 
+
+  // reslove shift-reduce conflict, returns true if reduce, but defaults
+  // to false (shift) so parsing will always continue and terminate.
+  fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut HashMap<(usize,usize),(bool,bool)>) -> bool
+  {
+     if let Some((c,r)) = conflicts.get(&(*ri,la)) {
+        return *r;
+     }
+     let mut clearly_resolved = true;
+     let mut resolution = false; // shift
+     let lasym = &Gmr.Symbols[la];
+     let lapred = lasym.precedence;
+     let rulepred = Gmr.Rules[*ri].precedence;
+     if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
+       /* default */
+     } // right-associative lookahead, return shift
+     else
+     if (lapred==rulepred) && lapred>0 { // left associative
+        resolution = true;
+     } // right-associative lookahead, return shift     
+     else if (lapred.abs()>rulepred.abs() && rulepred!=0) {/*default*/}
+     else if (lapred.abs()<rulepred.abs() /*&& lapred!=0*/) {
+       resolution = true;
+       if lapred==0 {
+          clearly_resolved = false;
+          println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved in favor of Reduce. The lookahead has undeclared precedence",la,ri,si);
+          printrulela(*ri,Gmr,la);
+       }
+     } // reduce
+     else {
+       clearly_resolved=false;
+       // report unclear case
+       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",la,ri,si);
+       printrulela(*ri,Gmr,la);
+     }
+     conflicts.insert((*ri,la),(clearly_resolved,resolution));
+     resolution
+  }//sr_resolve
+  
+
+  // add_action unifies elements of previous addstate and addreduce 3/22
+  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>)
+  {
+     let currentaction = FSM[si].get(&la);
+     let mut changefsm = true; // add or keep current
+     match (currentaction, &newaction) {
+       //(_ Accept) | (_,Gotonext(_)) => {},  //part of default
+       (Some(Accept),_) => { changefsm = false; },
+       (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
+       (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
+         let winner = if (cri<nri) {cri} else {nri};
+         println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
+//         printrule(&Gmr.Rules[*cri]);
+//         printrule(&Gmr.Rules[*nri]);
+         printrulela(*cri,Gmr,la);
+         printrulela(*nri,Gmr,la);
+         if winner==cri {changefsm=false;}
+       },
+       (Some(Shift(_)), Reduce(rsi)) => {
+         if Gmr.tracelev>1 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
+         }
+         if !Statemachine::sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
+       },
+       (Some(Reduce(rsi)), Shift(_)) => {
+         if Gmr.tracelev>1 {
+           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
+         }       
+         if Statemachine::sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
+       },       
+       _ => {}, // default add newstate
+     }// match currentaction
+     if changefsm { FSM[si].insert(la,newaction); }
+  }//add_action
+
+
   // psi is previous state index, nextsym is next symbol (may do lalr)
   fn addstate(&mut self, mut state:LR1State, psi:usize, nextsymi:usize)
   {  let nextsym = &self.Gmr.Symbols[nextsymi].sym;
@@ -381,14 +480,14 @@ impl Statemachine
      if self.lalr {
         for i in indices.iter()
         { 
-           if state.kernel_eq(&mut self.States[*i]) {
+           if state.core_eq(&mut self.States[*i]) {
              toadd=*i; // toadd changed to index of existing state
              let mut stateclone = LR1State {
                 index : toadd,
                 items : state.items.clone(),
                 lhss: BTreeSet::new(), //state.lhss.clone(), //BTreeSet::new(), // will set by stateclosure
                 //expected : state.expected.clone(),
-                kernel: state.kernel.clone(),
+                core: state.core.clone(),
              };
              stateclone.merge_states(&self.States[toadd]);
              //self.state_merge(&self.States[toadd],&mut stateclone);
@@ -402,7 +501,7 @@ impl Statemachine
                 //}
              } // existing state extended, re-closed, but ...
              break;
-           } // kernel_eq with another state  
+           } // core_eq with another state  
         } // for each index in Statelookup to look at
      }// if lalr
      else {   // lr1
@@ -417,7 +516,7 @@ impl Statemachine
        //if TRACE>2 {printstate(&state,&self.Gmr);}
        indices.insert(newstateindex); // add to StateLookup index hashset
        self.States.push(state);
-       self.FSM.push(HashMap::with_capacity(128)); // always add row to fsm at same time
+       self.FSM.push(HashMap::with_capacity(256)); // always add row to fsm at same time
        if self.lalr {self.Open.push(newstateindex)}
      }// add new state
 
@@ -426,7 +525,7 @@ impl Statemachine
      let gsymbol = &self.Gmr.Symbols[nextsymi]; //self.Gmr.getsym(nextsym).
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
-     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,true);
+     Statemachine::add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts);
      // reduce rules are only added with . at end, nextsymbol terminal,
      // so a "reduce-gotonext" conflict is not possible
   }  //addstate
@@ -462,14 +561,15 @@ impl Statemachine
        }//can goto
        else // . at end of production, this is a reduce situation
        {
-          let isaccept = (item.ri == self.Gmr.startrulei && self.Gmr.symref(item.la)=="EOF");
+          let isaccept = (item.ri == self.Gmr.Rules.len()-1 && self.Gmr.symref(item.la)=="EOF");
           if isaccept {
-            add_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts,true);
+            Statemachine::add_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts);
           }
           else {
-            add_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts,true);
+            Statemachine::add_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts);
           }
           // only place addreduce is called
+          //Statemachine::addreduce(&mut self.FSM,&self.Gmr,item,si);
        } // set reduce action
      }// for each item 
      // form closures for all new states and add to self.States list
@@ -486,15 +586,15 @@ impl Statemachine
     // create initial state, closure from initial item: 
     // START --> .topsym EOF
     let mut startstate=LR1State::new();
-    let STARTi = self.Gmr.startnti; //*self.Gmr.Symhash.get("START").unwrap();
+    let STARTi = self.Gmr.Symbols.len()-2; //*self.Gmr.Symhash.get("START").unwrap();
     startstate.insert( LRitem {
-         ri : self.Gmr.startrulei, //self.Gmr.Rules.len()-1, 
+         ri : self.Gmr.Rules.len()-1, // last rule is start
          pi : 0,
-         la : self.Gmr.eoftermi, //self.Gmr.Symbols.len()-1, //*self.Gmr.Symhash.get("EOF").unwrap(),   // must have this in grammar
+         la : self.Gmr.Symbols.len()-1, //*self.Gmr.Symhash.get("EOF").unwrap(),   // must have this in grammar
        },STARTi);       
     startstate = stateclosure(startstate,&self.Gmr);
-    startstate.kernel.insert((self.Gmr.startrulei,0)); //special core (lalr)
-    self.States.push(startstate); // add start state, first state
+    //setRactions(startstate); //???????
+    self.States.push(startstate); // add start state
     self.FSM.push(HashMap::with_capacity(128)); // row for state
     // now generate closure for state machine (not individual states)
     let mut closed:usize = 0;
@@ -535,96 +635,4 @@ pub fn decode_action(code:u64) -> Stateaction
       _      => Error("unrecognized action in TABLE"),
     }
 }//decode - must be independent function seen by parsers
-
-
-  // add_action unifies elements of previous addstate and addreduce 3/22
-pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>, checkconflict:bool)
-  {
-     if !checkconflict {
-       FSM[si].insert(la,newaction);
-       return;
-     }
-     let currentaction = FSM[si].get(&la);
-     let mut changefsm = true; // add or keep current
-     match (currentaction, &newaction) {
-       //(_ Accept) | (_,Gotonext(_)) => {},  //part of default
-       (None,_) => {},  // most likely: just add
-       (Some(Reduce(rsi)), Shift(_)) => { //doesn't apply for newlalr
-         if Gmr.tracelev>4 {
-           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
-         }       
-         if sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
-       },
-       (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
-       (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
-         let winner = if (cri<nri) {cri} else {nri};
-         println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
-//         printrule(&Gmr.Rules[*cri]);
-//         printrule(&Gmr.Rules[*nri]);
-         printrulela(*cri,Gmr,la);
-         printrulela(*nri,Gmr,la);
-         if winner==cri {changefsm=false;}
-       },
-       (Some(Accept),_) => { changefsm = false; },
-       (Some(Shift(_)), Reduce(rsi)) => {
-         if Gmr.tracelev>4 {
-           println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
-         }
-         // look in state to see which item caused the conflict...
-         if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
-       },
-       _ => {}, // default add newstate
-     }// match currentaction
-     if changefsm { FSM[si].insert(la,newaction); }
-  }//add_action
-
-
-  // reslove shift-reduce conflict, returns true if reduce, but defaults
-  // to false (shift) so parsing will always continue and terminate.
-pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut HashMap<(usize,usize),(bool,bool)>) -> bool
-  {
-     if let Some((c,r)) = conflicts.get(&(*ri,la)) {
-        return *r;
-     }
-     let mut clearly_resolved = true;
-     let mut resolution = false; // shift
-     let lasym = &Gmr.Symbols[la];
-     let lapred = lasym.precedence;
-     let rulepred = Gmr.Rules[*ri].precedence;
-//     let iprec = Gmr.Rules[*ri].iprecedence;
-     if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
-       /* default */
-     } // right-associative lookahead, return shift
-     else
-     if (lapred==rulepred) && lapred>0 { // left associative
-        resolution = true;
-     } // right-associative lookahead, return shift     
-     else if (lapred.abs()>rulepred.abs() && rulepred!=0) {/*default*/}
-     else if (lapred.abs()<rulepred.abs() /* && lapred!=0 */ ) {
-       resolution = true;
-       if lapred==0 {
-          clearly_resolved = false;
-          println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved in favor of Reduce. The lookahead has undeclared precedence",&Gmr.Symbols[la].sym,ri,si);
-          printrulela(*ri,Gmr,la);
-       }
-     } // reduce
-     /*
-     else if iprec==-128 {  //NOT BEING USED!
-       clearly_resolved = true;  // but internally!
-       resolution = true;
-       if Gmr.tracelev>0 {
-         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved by internal precedence given to embedded regular expressions: will reduce.\nGENERAL WARNING: using multiple regular expressions can easily lead to ambiguous grammars.",&Gmr.Symbols[la].sym,ri,si);
-         printrulela(*ri,Gmr,la);
-       }
-     }//iprecedence resolution
-     */
-     else {
-       clearly_resolved=false;
-       // report unclear case
-       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
-       printrulela(*ri,Gmr,la);
-     }
-     conflicts.insert((*ri,la),(clearly_resolved,resolution));
-     resolution
-  }//sr_resolve
 

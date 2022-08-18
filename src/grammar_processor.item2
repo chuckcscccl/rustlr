@@ -733,6 +733,13 @@ impl Grammar
               let mut seenerrsym = false;
               let mut iadjust = 0;
               let mut markers = Vec::new(); // record delay markers
+
+                let originalri = self.Rules.len(); //original rule t.b.added
+                // this is wrong. actual index of final rule cant be known
+                // at this point.
+                // temp fix: insert a temporary dummy:
+                self.Rules.push(Grule::new_skeleton("_RRDUMMY!"));
+
               while i<bstokens.len() {
 	        let mut strtok = bstokens[i];
 		i+=1;
@@ -766,7 +773,7 @@ strtok is bstokens[i], but will change
                   ntcnt+=1;
                   let mut newnt2 = Gsym::new(&ntname2,false);
                   let mut newrule2 = Grule::new_skeleton(&ntname2);
-	          let mut defaultrelab2 = String::new(); //format!("_item{}_",i-1-iadjust);
+	          let mut defaultrelab2 = String::new(); 
                   let mut retoki = &strtok[1..]; // without (
                   let mut passthru:i64 = -1;
                   let mut jk = 0;  //local index of rhs
@@ -830,7 +837,7 @@ strtok is bstokens[i], but will change
                   if i>bstokens.len() {panic!("INVALID EXPRESSION IN GRAMMER, line {}",linenum);}
                   iadjust += jk as usize;
                   if passthru>=0 { // set action of new rule to be passthru
-                    newrule2.action = format!(" _item{}_ }}",passthru);
+                    newrule2.action = format!(" _item{}_{} }}",passthru,self.Rules.len());
 //   println!("passthru found on {}, type is {}",&newnt2.sym,&newnt2.rusttype);
                   }
                   // register new symbol
@@ -858,7 +865,7 @@ strtok is bstokens[i], but will change
                   rulesforset.insert(self.Rules.len()-1);
                   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
                   // i-1 is now at token with )* or )+
-                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
+                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_{}",i-1-iadjust,originalri);}
                   NEWNTs.insert(hashkey,self.Symbols.len()-1); //record
                   }// create new nt       
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
@@ -874,7 +881,7 @@ strtok is bstokens[i], but will change
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
-		   let defaultrelab = format!("_item{}_",i-1-iadjust);
+		   let defaultrelab = format!("_item{}_{}",i-1-iadjust,originalri);
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0
                      {
                          if !is_alphanum(checkboxlabel(retoks[1])) {
@@ -926,27 +933,28 @@ strtok is bstokens[i], but will change
                    newrule1.lhs.index = newnt.index;
                    let nr1type = &self.Symbols[newnt.index].rusttype;
                    newrule1.precedence = self.Symbols[gsymi].precedence;
-//                   newrule1.iprecedence = 2;
+                   let nr1i = self.Rules.len()+1;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type.starts_with("Option<LBox<") {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if nr1type.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
+		       newrule1.action=format!(" Some(parser.lbx(0,_item0_{})) }}",nr1i); } else if nr1type.starts_with("Option<") {newrule1.action = format!(" Some(_item0_{}) }}",nr1i); } // else nothing
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type!="()" {
-		       newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+		       newrule1.action = format!(" _item0_{}.push(parser.lbx(1,_item1_{})); _item0_{} }}",nr1i,nr1i,nr1i);
                      }
 		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
 		   //newrule0.lhs.rusttype = newnt.rusttype.clone();
                    let nr0type = &self.Symbols[newnt.index].rusttype;
                    newrule0.lhs.index = newnt.index;
+                   let nr0i = self.Rules.len();
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
                      if nr0type!="()" {
-		       newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+		       newrule0.action=format!(" vec![parser.lbx(0,_item0_{})] }}",nr0i);
                      }
 		   }// ends with +
 		   else if strtok.ends_with('*') && nr0type!="()" {
@@ -993,7 +1001,7 @@ strtok is bstokens[i], but will change
                     termi = *termiopt.unwrap();
                   } else {panic!("MALFORMED EXPRESSION LINE {}\n",linenum);}
                   strtok = septoks[0]; // to the left of :, E<,*>
-   	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
+   	          let defaultrelab3 = format!("_item{}_{}",i-1-iadjust,originalri);
 		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
                      if !is_alphanum(checkboxlabel(septoks[1])) {
                        panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
@@ -1046,9 +1054,10 @@ strtok is bstokens[i], but will change
                   newrule4.rhs.push(newnt3.clone());
                   newrule4.rhs.push(self.Symbols[termi].clone());
                   newrule4.rhs.push(self.Symbols[gsymi].clone());//N-->N,E
+                  let nr3i = self.Rules.len();
                   if newnt3.rusttype.starts_with("Vec") {
-                    newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
-                    newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                    newrule3.action=format!(" vec![parser.lbx(0,_item0_{})] }}",nr3i);                  
+                    newrule4.action=format!(" _item0_{}.push(parser.lbx(2,_item2_{})); _item0_{} }}",nr3i,nr3i,nr3i);
                   } // else leave at default for ()
 //                  newrule3.iprecedence = 3;
 //                  newrule4.iprecedence = 1;
@@ -1084,9 +1093,10 @@ strtok is bstokens[i], but will change
                     newrule6.lhs.index = newnt5.index;
                     // 0 precedence for rule, newrule5 has empty rhs
                     newrule6.rhs.push(newnt3.clone());
+                    let nr6i = self.Rules.len()+1;
                     if newnt5.rusttype.starts_with("Vec") {
                        newrule5.action = String::from(" vec![] }");
-                       newrule6.action = String::from("_item0_ }");
+                       newrule6.action = format!("_item0_{} }}",nr6i);
                     }
 //                    newrule5.iprecedence = 7;  // iprecedence!
 //                    newrule6.iprecedence = 5;
@@ -1151,7 +1161,7 @@ strtok is bstokens[i], but will change
 	      } // while there are tokens on rhs
 
               ///// at this point, we can transform grammar to apply delays
-              let ruleindex = self.Rules.len();
+              let ruleindex = originalri; //self.Rules.len();
               if markers.len()%2==1 {panic!("ERROR: DELAY MARKERS MUST COME IN PAIRS, LINE {}\n",linenum);}
               else if markers.len()>=2 {
                 self.delaymarkers.insert(ruleindex,BTreeSet::new());
@@ -1182,13 +1192,15 @@ strtok is bstokens[i], but will change
 //                iprecedence : 0,
 	      };
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
-	      self.Rules.push(rule);
+              // insert at original ri position
+              self.Rules[originalri] = rule;
+	      //self.Rules.push(rule);
               // Add rules to Rulesfor map
               if let None = self.Rulesfor.get(&symind2) { //symind2 is LHS
                  self.Rulesfor.insert(symind2,HashSet::new());
               }
               let rulesforset = self.Rulesfor.get_mut(&symind2).unwrap();
-              rulesforset.insert(self.Rules.len()-1);
+              rulesforset.insert(originalri);
             //} 
             } // for rul
             }, 

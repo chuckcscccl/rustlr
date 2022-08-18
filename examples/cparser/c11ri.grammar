@@ -1,7 +1,8 @@
-# ANSI C YACC Grammar 2011 version adopted to Rustlr
+# ]# ANSI C YACC Grammar 2011 version adopted to Rustlr
 # from http://www.quut.com/c/ANSI-C-grammar-y.html
 # intended for use with rustlr -auto
 
+auto
 lifetime 'lt
 externtype HashSet<&'lt str>
 
@@ -111,7 +112,7 @@ nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
 nonterminals struct_or_union struct_declaration
 nonterminals enum_specifier enumerator_list enumerator type_qualifier
-nonterminals declarator direct_declarator pointer type_qualifier_list
+nonterminals pointer type_qualifier_list
 nonterminals parameter_type_list parameter_declaration
 nonterminals identifier_list type_name abstract_declarator
 nonterminals direct_abstract_declarator initializer
@@ -123,7 +124,9 @@ nonterminals generic_association static_assert_declaration designation
 nonterminals function_specifier alignment_specifier atomic_type_specifier
 nonterminals designator block_item declaration_specifier
 nonterminals specifier_qualifier initializer_designation
-nonterminals expression_list expressionS
+nonterminals expression_list expressionS declarator
+nonterminals direct_declarator direct_contents
+nonterminal direct_base : direct_contents
 
 topsym translation_unit
 
@@ -308,11 +311,11 @@ expressionS --> expression_list
 
 #!use crate::c11_ast::init_declarator::*;
 #!use crate::c11_ast::declarator::*;
-!use crate::c11_ast::declaration::*;
-!use crate::c11_ast::direct_declarator::*;
+#!use crate::c11_ast::declaration::*;
+#!use crate::c11_ast::direct_declarator::*;
 #!use crate::c11_ast::declaration_specifiers::*;
-!use crate::c11_ast::declaration_specifier::*;
-!use crate::c11_ast::storage_class_specifier::*;
+#!use crate::c11_ast::declaration_specifier::*;
+#!use crate::c11_ast::storage_class_specifier::*;
 
 declaration:DecSpec --> declaration_specifier+ ;
 declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc ;
@@ -426,7 +429,8 @@ alignment_specifier --> ALIGNAS ( type_name )
 alignment_specifier --> ALIGNAS ( expression )
 
 # PROBLEMATIC LINE
-declarator --> # pointer? direct_declarator #
+declarator -->  pointer? direct_declarator
+#declarator:DEC --> # pointer? direct_declarator #
 #declarator --> pointer?:ptropt direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
 #declarator:no_pointer -->  direct_declarator
@@ -438,23 +442,38 @@ declarator --> # pointer? direct_declarator #
 # generated dynamically.  Plus it's not as efficient.
 # .. but there are places where the opposite is true.
 
-direct_declarator ==>
-	 IDENTIFIER
-	| ( declarator )
-	| direct_declarator [ ]
-        | direct_declarator [ Star ]
-        | direct_declarator [ STATIC type_qualifier_list expression ]
-        | direct_declarator [ STATIC expression ]
-        | direct_declarator [ type_qualifier_list Star ]
-        | direct_declarator [ type_qualifier_list expression ]
-        | direct_declarator [ type_qualifier_list STATIC expression ]
-        | direct_declarator [ type_qualifier_list ]
-        | direct_declarator [ expression ]        
-	| direct_declarator ( parameter_type_list )
-	| direct_declarator ( identifier_list )
-	| direct_declarator ( )
-	<==
-#	| direct_declarator [ expression ]
+direct_base --> IDENTIFIER
+direct_base:DEC --> ( declarator )
+direct_contents ==>
+          [ Star?:star ]
+        | [ STATIC?:is_static expression ]
+        | [ type_qualifier+ Star ]
+        | [ STATIC?:is_static type_qualifier+ expression ]
+        | [ type_qualifier+ (STATIC expression)? ]
+	| ( parameter_type_list )
+	| ( IDENTIFIER<Comma*> )
+        <==
+direct_declarator --> direct_base direct_contents*
+
+#direct_declarator ==>
+#	 IDENTIFIER
+#	| ( declarator )
+#        | direct_declarator [ Star?:star ]
+#        | direct_declarator [ # STATIC?:is_static expression # ]
+#        | direct_declarator [ type_qualifier+ Star ]
+#        | direct_declarator [ # STATIC?:is_static type_qualifier+ expression # ]
+#        | direct_declarator [ type_qualifier+ (STATIC expression)? ]
+#	| direct_declarator ( parameter_type_list )
+#	| direct_declarator ( IDENTIFIER<Comma*> )
+#	<==
+
+#	| direct_declarator ( )
+#	| direct_declarator ( identifier_list )        
+#        | direct_declarator [ type_qualifier+ ]
+#        | direct_declarator [ STATIC type_qualifier+ expression ]
+#        | direct_declarator [ expression ]        
+#	| direct_declarator [ ]
+# direct_declarator appears to be a tighter binding than declarator
 
 pointer --> Star type_qualifier*:tql pointer?:ptr
 #pointer ==>
@@ -464,7 +483,7 @@ pointer --> Star type_qualifier*:tql pointer?:ptr
 #	| Star type_qualifier_list pointer
 #	<==
 
-type_qualifier_list --> type_qualifier+
+#type_qualifier_list --> type_qualifier+
 #type_qualifier_list ==>
 #          type_qualifier
 #	| type_qualifier_list type_qualifier
@@ -500,20 +519,19 @@ direct_abstract_declarator ==>
 	| [ ]
         | [ Star ]
         | [ STATIC type_qualifier* expression ]
-        | [ type_qualifier_list STATIC?:s expression? ]
+        | [ type_qualifier+ STATIC?:s expression? ]
         | [ expression ]
 	| direct_abstract_declarator [ ]
 	| direct_abstract_declarator [ Star ]        
 	| direct_abstract_declarator [ STATIC type_qualifier* expression ]
-	| direct_abstract_declarator [ type_qualifier_list STATIC?:s expression ]        
-	| direct_abstract_declarator [ type_qualifier_list ]
+	| direct_abstract_declarator [ type_qualifier+ STATIC?:s expression ]        
+	| direct_abstract_declarator [ type_qualifier+ ]
 	| direct_abstract_declarator [ expression ]                
 	| ( )
 	| ( parameter_type_list )
 	| direct_abstract_declarator ( )
 	| direct_abstract_declarator ( parameter_type_list )
 	<==
-#	| [ expression ]
 
 initializer ==>
 	  expression

@@ -436,7 +436,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
         let mut boxedlabel = false;  // see if named label is of form [x]
         let gsym = &self.Gmr.Rules[i].rhs[k-1];
         let findat = gsym.label.find('@');
-        let mut plab = format!("_item{}_",k-1);
+        let mut plab = format!("_item{}_{}",k-1,i);
         match &findat {
           None if gsym.label.len()>0 && !gsym.label.contains('(') => {
             let rawlabel = gsym.label.trim();
@@ -575,7 +575,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
         let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs symbols right to left...
         let gsymi = gsym.index; //*self.Gmr.Symhash.get(&gsym.sym).unwrap();
         let findat = gsym.label.find('@');
-        let mut plab = format!("_item{}_",k-1);
+        let mut plab = format!("_item{}_{}",k-1,ri);
         match &findat {
           None if gsym.label.len()>0 => {plab = format!("{}",&gsym.label);},
           Some(ati) if *ati>0 => {plab=format!("{}",&gsym.label[0..*ati]);},

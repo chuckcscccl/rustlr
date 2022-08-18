@@ -22,9 +22,9 @@ use crate::Stateaction::*;
 #[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
 pub struct LRitem
 {
-   ri: usize, // rule index
-   pi: usize, // position of dot
-   la: usize, // lookahead symbol index
+   pub ri: usize, // rule index
+   pub pi: usize, // position of dot
+   pub la: usize, // lookahead symbol index
    //interior : bool,  // can't have this here if deriving Eq
 }
 
@@ -549,11 +549,11 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
      match (currentaction, &newaction) {
        //(_ Accept) | (_,Gotonext(_)) => {},  //part of default
        (None,_) => {},  // most likely: just add
-       (Some(Reduce(rsi)), Shift(_)) => {
+       (Some(Reduce(rsi)), Shift(_)) => { //doesn't apply for newlalr
          if Gmr.tracelev>4 {
            println!("Shift-Reduce Conflict between rule {} and lookahead {} in state {}",rsi,Gmr.symref(la),si);
          }       
-         if !sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
+         if sr_resolve(Gmr,rsi,la,si,conflicts) {changefsm = false; }
        },
        (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict

@@ -20,19 +20,19 @@ use crate::Stateaction::*;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 4;
+pub const MAXK:usize = 3;
 
 type AGENDATYPE = BTreeSet<usize>;
 type COMBINGTYPE = HashMap<usize,Vec<usize>>;
-type ITEMSETTYPE = BTreeSet<LRitem>;
+type ITEMSETTYPE = HashSet<LRitem>;
 
 pub struct MLState // emulates LR1/oldlalr engine
 {
    index: usize, // index into vector
-   items: HashSet<LRitem>,
+   items: ITEMSETTYPE,
    lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
    lr0kernel: HashSet<(usize,usize)>, // used only by lalr
-   conflicts: HashSet<LRitem>,
+   conflicts: ITEMSETTYPE,
    deprecated:HashSet<LRitem>,
    lrkernel : ITEMSETTYPE,  // must be btree, else non-deterministic
 }
@@ -42,10 +42,10 @@ impl MLState
   {
      MLState {
         index : 0,   // need to change
-        items : HashSet::with_capacity(512),
+        items : ITEMSETTYPE::new(), //HashSet::with_capacity(512),
         lhss: BTreeSet::new(), // for quick lookup
         lr0kernel : HashSet::with_capacity(64),
-        conflicts: HashSet::new(),
+        conflicts: ITEMSETTYPE::new(),
         deprecated: HashSet::new(),
         lrkernel : ITEMSETTYPE::new(),
      }
@@ -86,6 +86,16 @@ impl MLState
   {  let mut answer = true;
      // start with kernel items.
      self.items.clear();
+
+/*
+     let mut loopcx = 0;
+   loop {
+     loopcx += 1;
+     let ksize = self.lrkernel.len();
+     let csize = self.conflicts.len();
+     let dsize = self.deprecated.len();
+     let isize = self.items.len();
+*/
      let mut closure = Vec::new();
      let mut closed = 0;
      for item in self.lrkernel.iter() {closure.push(*item);} //copy
@@ -146,21 +156,19 @@ impl MLState
         let clas = if pi+1<Gmr.Rules[*ri].rhs.len() {Gmr.Firstseq(&Gmr.Rules[*ri].rhs[pi+1..],*la)} else {defaultclas};
 
         for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
-            if self.deprecated.contains(citem) {continue;}
+
+            // same conflict item can be used to detect other extension
+            // possibilities?
+            //if self.deprecated.contains(citem) {continue;}
+//print!("...CHECKING item "); printitem(&item,Gmr);
+//print!("...AGAINST CONFLICTS: "); printitem(citem,Gmr);
+
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
               newconflicts.insert(item);
 //print!("CONFLICT PROPAGATION: ");  printitem(&item,Gmr);
             }
-        }//for each conflict item
-        let mut added = false;
-        for nc in newconflicts {added=self.conflicts.insert(nc)||added;}
-        // all the items have to now be re-checked against new confs
-        if added { closed = 0; }
-
-        // second loop detects extensions
-        for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
-            if self.deprecated.contains(citem) {continue;}
-            if *cpi==0 && pi+1<Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && clas.contains(cla) {
+            else if *cpi==0 && pi+1<Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && clas.contains(cla) {
+//assert!(!Gmr.Rules[*ri].rhs[*pi].terminal);            
               let nti = Gmr.Rules[*ri].rhs[*pi].index;
               let defaultcomb = vec![nti];
               let comb = combing.get(&nti).unwrap_or(&defaultcomb);
@@ -177,7 +185,9 @@ impl MLState
 if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
 
               // deprecate "shorter" items
-              self.deprecated.insert(item); //should be covered by following
+              self.deprecated.insert(item);
+              // others of this type?
+
               self.deprecated.insert(*citem); /////
               for dri in Gmr.Rulesfor.get(&nti).unwrap().iter() {
                 for dla in clas.iter() {
@@ -188,8 +198,10 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
 
               /////// got to create new symbol, rule, then insert into
               /////// items (closed), and deprecate others.
+              // maybe dynamically create new symbol, change rule here...***
+              // extend one at a time              
               let eri=Gmr.delay_extend(*ri,*pi,pi+2,combing,comb.clone(),rhash);
-              // this returns index of new rule with longer delay
+              // this return index of new rule with longer delay
               let extenditem = LRitem{ri:eri, pi:*pi, la:*la};
               if !self.deprecated.contains(&extenditem) && !self.items.contains(&extenditem) {
                 self.lrkernel.insert(extenditem);  ////????? definitely!
@@ -206,7 +218,22 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
              } // can extend
             } // conflict extension
         }//for each conflict item
+        let mut added = false;
+        for nc in newconflicts {added=self.conflicts.insert(nc)||added;}
+        // all the items have to now be re-checked against new confs
+        if added {
+          //closure.clear();
+          //self.items.clear();
+          //for item in self.lrkernel.iter() {closure.push(*item);} //copy
+          closed = 0;
+        }
      }// while !closed
+/*
+     if self.lrkernel.len()==ksize && self.conflicts.len()==csize &&
+        self.items.len()==isize && self.deprecated.len()==dsize {break;}
+   } // loop
+   if loopcx>2 {println!("LOOP RAN {} TIMES",loopcx);}
+*/   
 //  for ki in self.lrkernel.iter() {
 //    if self.deprecated.contains(ki) {println!("HEYHEYHEY");}
 //  }
@@ -866,11 +893,12 @@ impl Grammar
            // they will be popped off of the stack by parser_writer as
            // item2, item1 item0...  because parser writer will write an action
            // for the extended rule. [Mc] --> abc
-           
+
+           let newrulenum = self.Rules.len(); //will be index of new rule
            let mut dtuple = format!("({},",&newvar);
            let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
            for sym in &delta {
-             let defaultlabel =format!("_item_del{}_{}_",&labi,ntri);
+             let defaultlabel =format!("_item_del{}_{}_{}_",&labi,newrulenum,ntri);
              let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
                else {
                // set label!
@@ -919,10 +947,11 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
 
        /////// change semantic action of original rule.
        let mut newaction = String::from(" ");
+       let newri = self.Rules.len(); // index of new rule (extended)
        // break up tuple
-       //let mut labi = 0;
        for i in dbegin..dend {
-          let defaultlab = format!("_item{}_",i);
+//          let defaultlab = format!("_item{}_",i);
+          let defaultlab = format!("_item{}_{}",i,newri);          
           let symi = &self.Rules[ri].rhs[i]; // original rule
           let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
             else {&defaultlab};

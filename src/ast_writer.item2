@@ -212,7 +212,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
 	    //let rsymi = rsym.index; //*self.Symhash.get(&rsym.sym).unwrap();
-            let expectedlabel = format!("_item{}_",&rhsi);
+            let expectedlabel = format!("_item{}_{}",&rhsi,ri);
 
             // check if item has a symbol of the form [x], which forces an
             // lbox
@@ -221,7 +221,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
 	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel {
             // presence of rhs label also cancels passthru
               passthru=-2; checkboxlabel(&rsym.label).to_owned()
-            } else {expectedlabel}; //{format!("_item{}_",&rhsi)};
+            } else {expectedlabel}; 
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
             // Lbox or no Lbox:  ***************
             let rsymtype = &self.Symbols[rsym.index].rusttype;
@@ -307,7 +307,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
           let shouldpush = ntsym.rusttype.starts_with(NT) || toextend.contains_key(nt);
           let mut actbase = augment_action(&self.Rules[*ri].action);
           if !actbase.ends_with('}') && passthru>=0 && nolhslabel {
-            self.Rules[*ri].action = format!("{} _item{}_ }}",&actbase,passthru);
+            self.Rules[*ri].action = format!("{} _item{}_{} }}",&actbase,passthru,ri);
 //println!("passthru on rule {}, NT {}",ri,&self.Rules[*ri].lhs.sym);
           }
 	  else
