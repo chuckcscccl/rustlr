@@ -517,10 +517,12 @@ println!("time to set_reduce: {}",t5m-t4m);
 // purel LR0 state closure
 fn closure0(state: &mut LALRState,Gmr:&Grammar)
 {// assuming kernel is a kernel item and not? in state
-//assert!(state.items.len()==0);
    let mut closure = Vec::new();
+   let mut onclosure = HashSet::new();
    // start with kernel items
-   for kitem in state.kernel.iter() {closure.push(*kitem);} // copy!
+   for kitem in state.kernel.iter() {
+     closure.push(*kitem);  onclosure.insert(*kitem);
+   }
    let mut closed = 0;
    while closed < closure.len()
    {
@@ -534,8 +536,9 @@ fn closure0(state: &mut LALRState,Gmr:&Grammar)
        //let sympii = &rulei.rhs[pi].index;
        for rulent in Gmr.Rulesfor.get(&rulei.rhs[pi].index).unwrap() {
          let newitem = LALRitem(*rulent,0); // can't be kernel again
-         if !state.items.contains(&newitem) {
+         if !state.items.contains(&newitem) && !onclosure.contains(&newitem) {
            closure.push(newitem); // add to "frontier"
+           onclosure.insert(newitem);
          }
        }// for each rule of this non-terminal X
      }// not .X situation, no closure items added

@@ -98,36 +98,19 @@ impl MLState
 */
      let mut closure = Vec::new();
      let mut closed = 0;
-     for item in self.lrkernel.iter() {closure.push(*item);} //copy
+     let mut onclosure = HashSet::new();
+     for item in self.lrkernel.iter() {
+       closure.push(*item);
+       onclosure.insert(*item);       
+     }
+     
+//let special= false; //(self.lrkernel.len()==74 || self.lrkernel.len()==37)  && self.conflicts.len()==7 && self.deprecated.len()==0; 
+     
      while closed < closure.len()
      {
         let item = closure[closed]; //copy
         closed+=1;
         if self.deprecated.contains(&item) {continue;}
-
-/* too expensive
-//check against known items for existing conflicts
-        if item.pi==Gmr.Rules[item.ri].rhs.len() {
-          for itm@LRitem{ri:ri1,pi:pi1,la:la1} in self.items.iter() {
-             if self.deprecated.contains(itm) || &item==itm {continue;}
-             let mut cfadded=false;
-             let las1 = if *pi1<Gmr.Rules[*ri1].rhs.len() {Gmr.Firstseq(&Gmr.Rules[*ri1].rhs[*pi1..],*la1)} else {HashSet::new()};
-             if las1.contains(&item.la) { // conflict
-                if *pi1<Gmr.Rules[*ri1].rhs.len()  { //sr
-                   let (clr,res)=mlsr_resolve(Gmr,&item.ri,item.la,self.index,known_conflicts,false);
-                   if !clr { //else ignore -it's clearly resolved
-                     cfadded=(self.conflicts.insert(item)&&item.pi==0)||cfadded;
-                   }
-                } else { // rr
-                     cfadded=(self.conflicts.insert(item)&&item.pi==0)||cfadded;
-                     cfadded=(self.conflicts.insert(*itm)&&itm.pi==0)||cfadded;
-                }
-             }
-             if cfadded {closed=0;}
-          }
-        }
-///
-*/
         self.items.insert(item); // maybe duplicate
         let (ri,pi,la) = (&item.ri,&item.pi,&item.la);
         if *pi<Gmr.Rules[*ri].rhs.len() && !Gmr.Rules[*ri].rhs[*pi].terminal {
@@ -140,8 +123,9 @@ impl MLState
                    pi: 0,
                    la: *lafollow,
                  };
-                 if !self.items.contains(&newitem) /* && !self.deprecated.contains(&newitem)*/ {
+                 if !self.items.contains(&newitem) && !onclosure.contains(&newitem) /* && !self.deprecated.contains(&newitem)*/ {
                   closure.push(newitem);
+                  onclosure.insert(newitem);
                  }
                } //for each possible la
              }//for rulent
@@ -204,12 +188,13 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
               let extenditem = LRitem{ri:eri, pi:*pi, la:*la};
               if /* !self.deprecated.contains(&extenditem) && */ !self.items.contains(&extenditem) {
                 let krinsert = self.lrkernel.insert(extenditem);  ////?????
-                if krinsert { // change indices hash
-                  ////// change state.Statelookup!!!
+//                if krinsert *** change indices hash  **** not yet
+                if krinsert && !onclosure.contains(&extenditem) {
+                  closure.push(extenditem);
+                  onclosure.insert(extenditem);
                 }
-                closure.push(extenditem);
                 //closure.insert(0,extenditem);
-                closed=0;
+                //closed=0;
 //print!("AAAdded extension item "); printitem2(&extenditem,Gmr,combing);
               }
               // reinsert into kernel as it would spawn new items!!!
@@ -222,7 +207,7 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
         }//for each conflict item
         let mut added = false;
         for nc in newconflicts {
-          //if self.deprecated.contains(&nc) {continue;}  /////  JUST ADDED
+          if self.deprecated.contains(&nc) {continue;}  /////  JUST ADDED
           added=self.conflicts.insert(nc)||added;
         }
         // all the items have to now be re-checked against new confs
@@ -231,6 +216,7 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
           //self.items.clear();
           //for item in self.lrkernel.iter() {closure.push(*item);} //copy
           closed = 0;
+//println!("closed reset to 0");
         }
      }// while !closed
 /*
@@ -342,8 +328,9 @@ impl MLStatemachine
   }//new
 
 // calle on fully closed state si, produces new state kernels:
-  fn simplemakegotos(&mut self,si:usize,agenda:&mut AGENDATYPE) //LR1
-  {
+// returns false if nothing changed
+  fn simplemakegotos(&mut self,si:usize,agenda:&mut AGENDATYPE) -> bool
+  {  let mut answer = false;
      // key to following hashmap is the next symbol's index after pi (the dot)
      // the values of the map are the "kernels" of the next state to generate
      let mut newstates:HashMap<usize,MLState> = HashMap::with_capacity(128);
@@ -386,48 +373,53 @@ impl MLStatemachine
           // but this only allows us to insert a reduce-type conflict no
           // info concerning shift conflict.  but that's OK!
           match &isconflict {
-            Some((false,r1,la1)) => { //false=sr conflict
+            (changed,Some((false,r1,la1))) => { //false=sr conflict
               let add1 = newsiconflicts.insert(LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:*la1});
               if self.Gmr.Rules[*r1].rhs.len()==0 && add1 {reagenda=true;
                 //println!("state {} re-agenda because of null rule {}",si,r1);
               }
+              answer = *changed || answer;
             },
-            Some((true,r1,r2)) => { //rr conflict
+            (changed,Some((true,r1,r2))) => { //rr conflict
               let add1 = newsiconflicts.insert(LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:item.la});
               let add2 = newsiconflicts.insert(LRitem{ri:*r2,pi:self.Gmr.Rules[*r2].rhs.len(),la:item.la});
               if (self.Gmr.Rules[*r1].rhs.len()==0 && add1)  || (self.Gmr.Rules[*r2].rhs.len()==0 && add2) {reagenda=true;
 //println!("state {} added back to agenda because of null-production conflict",si);
-              }              
+              }
+              answer = *changed || answer;
             },
-            _ => {},
+            (changed,_) => {answer=*changed||answer;},
           }//match isconflict
           
           // only place addreduce is called
        } // set reduce action
      }// for each item
      let mut inserted = false;
+     let newsiconflen = newsiconflicts.len();
      for ncf in newsiconflicts {
-       //if self.States[si].deprecated.contains(&ncf) {continue;}
+       if self.States[si].deprecated.contains(&ncf) {continue;}
        inserted = self.States[si].conflicts.insert(ncf) || inserted;
      } // insert new conflicts into CURRENT state
      if /* reagenda && */ inserted  && self.agenda_add(si,agenda)
        /*agenda.insert(si)*/ {
 if LTRACE{       println!("state {} added back to agenda due to new conflicts",si);}
-       return;  // re-agenda'ed
+       return true;
      } // re-agenda
 
      // form closures for all new states and add to self.States list
      for key in keyvec // keyvec must be separate to avoid borrow error
      {
         let mut kernel = newstates.remove(&key).unwrap();
-        self.mladdstate(kernel,si,key,agenda); //only place addstate called
-        // don't know if this will be new state or previous state
+         answer = self.mladdstate(kernel,si,key,agenda) || answer;
      }
+     answer
   }//simplemakegotos
 
-// psi is previous state index, nextsym is next symbol, gets kernel
-  fn mladdstate(&mut self, mut state:MLState, psi:usize, nextsymi:usize, agenda:&mut AGENDATYPE)
-  {  let nextsym = &self.Gmr.Symbols[nextsymi].sym;
+// psi is previous state index, nextsym is next symbol, gets kernel,
+// if function returns false if nothing changed
+  fn mladdstate(&mut self, mut state:MLState, psi:usize, nextsymi:usize, agenda:&mut AGENDATYPE) -> bool
+  {  let mut answer = false;
+     let nextsym = &self.Gmr.Symbols[nextsymi].sym;
      let newstateindex = self.States.len(); // index of new state
      state.index = newstateindex;
      let lookupkey =state.hashval();
@@ -452,9 +444,8 @@ if LTRACE{       println!("state {} added back to agenda due to new conflicts",s
        let mut prev_set = HashSet::new();
        prev_set.insert((nextsymi,psi));
        self.prev_states.insert(newstateindex,prev_set);
-       //if self.lalr {self.Open.push(newstateindex)}  //lalr
        self.agenda_add(newstateindex,agenda);
-       //agenda.insert(newstateindex);
+       answer = true;
 if LTRACE {println!("new state {} added to agenda from state {}",newstateindex,psi);}
      }// add new state
      else { // add to prev_states
@@ -463,14 +454,14 @@ if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
        // propagate conflicts backwards
        let mut backconfs = HashSet::new();
        for item@LRitem{ri,pi,la} in self.States[toadd].conflicts.iter() {
-         //if self.States[toadd].deprecated.contains(item) {continue;}
+         //if self.States[toadd].deprecated.contains(item) {continue;} //NO!
          if *pi>0 && self.Gmr.Rules[*ri].rhs[pi-1].index==nextsymi {
             backconfs.insert(LRitem{ri:*ri,pi:pi-1,la:*la});
          }
        }//for
        let mut bchanged = false;
        for bc in backconfs {
-         //if self.States[psi].deprecated.contains(&bc) {continue;}
+         if self.States[psi].deprecated.contains(&bc) {continue;}
          if self.States[psi].conflicts.insert(bc) {
             bchanged = true;
             //self.States[toadd].deprecated.insert(LRitem{ri:bc.ri,pi:bc.pi+1,la:bc.la});  //CONF REMOVED
@@ -481,9 +472,10 @@ if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
 if LTRACE {println!("state {} pushed back onto agenda because of backward conflict prop",psi);}
             // since previous state pushed back to agenda, should not
             // form actions from previous state to toadd state
-            return;
+            return true;
        }
        else {  // add back link only if not propagated backwards
+         if self.States[toadd].conflicts.len()==0 || bchanged {answer=true;}
 //         self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
        }       // instead of deprecating conflict alltogether
      }// existing state
@@ -499,22 +491,26 @@ if LTRACE {println!("state {} pushed back onto agenda because of backward confli
 
      let isconflict = tryadd_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.known_conflicts,false);
      match &isconflict {
-            Some((false,r1,la1)) => {
+            (changed,Some((false,r1,la1))) => {
               let confitem = LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:*la1};
-              if /* !self.States[psi].deprecated.contains(&confitem) && */self.States[psi].conflicts.insert(confitem) { self.agenda_add(psi,agenda);
+              if /* !self.States[psi].deprecated.contains(&confitem) && */self.States[psi].conflicts.insert(confitem) {
+                self.agenda_add(psi,agenda);
+                answer = true;
 if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&confitem,psi);}
               }
+              answer = *changed || answer;
             },
 
-            Some((true,r1,r2)) => { // should not be possible
+            (changed,Some((true,r1,r2))) => { // should not be possible
 //println!("YIKES!!!!!!");            
               let res1 = self.States[psi].conflicts.insert(LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:nextsymi});
               let res2 = self.States[psi].conflicts.insert(LRitem{ri:*r2,pi:self.Gmr.Rules[*r2].rhs.len(),la:nextsymi});
-              if res1 || res2 {self.agenda_add(psi,agenda);} //need re-closure
+              if res1 || res2 {self.agenda_add(psi,agenda); answer=true;}
+              answer = *changed||answer;
             },
-
-            _ => {},
+            (changed,_) => {answer=*changed||answer},
           }//match isconflict
+     answer
   }  //mladdstate
 
 // may not need anymore
@@ -590,38 +586,17 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
 
      let mut agenda = AGENDATYPE::new();
      self.agenda_add(0,&mut agenda);
+     let mut locked_states = HashSet::new();
      while agenda.len()>0
      {
         let si:usize = *agenda.iter().next().unwrap();
         agenda.remove(&si); // already closed
+        //if locked_states.contains(&si) {continue;}
 
-if LTRACE {println!("agenda removed state {}, grammar size {}",&si,self.Gmr.Rules.len());}
-
-/*
-        //close state - now done before adding to agenda
-        let res=self.States[si].close_all(&mut self.Gmr,&mut self.combing,&mut self.known_conflicts,&mut self.Ruleshash);
-
-        if !res {
-          eprintln!("SELECTIVE DELAY TRANSFORMATION FAILED FOR MAX DELAY LENGTH={}, DEFAULTS APPLIED",MAXK);
-        }
-*/        
-/*
-if si!=0 {
-     println!("STATE {} ITEMS:",si);
-     for item in self.States[si].items.iter() {
-       if self.States[si].deprecated.contains(item) {continue;}
-       printitem(item,&self.Gmr);
-     }
-     println!("STATE {} CONFLICTS:",si);
-     for item in self.States[si].conflicts.iter() {
-       if self.States[si].deprecated.contains(item) {continue;}
-       printitem(item,&self.Gmr);
-     } 
-}
-*/
-
+/////////////// TRACE
 if true || LTRACE {
   println!("1AGENDA SIZE:{}, Popped {},States:{}, kernels:{}, conflicts:{}, deprecated:{}",&agenda.len(),si,self.States.len(), self.States[si].lrkernel.len(), self.States[si].conflicts.len(),self.States[si].deprecated.len());
+  /*
  if self.States.len()>2000 && self.States[si].conflicts.len()<=2 && self.States[si].conflicts.len()>0 {
     println!("REMAINING CONFLICTS:");
     for citem in self.States[si].conflicts.iter() {
@@ -632,8 +607,12 @@ if true || LTRACE {
       printitem2(ditem,&self.Gmr,&self.combing);      
     }
  }
- if self.States.len()>2500 {break;}
+ */
+if self.States.len()>10000 {break;}
 }//trace print
+/////////////// TRACE
+
+     let mut progress = false;  // failure detection
 
      let mut prevstatessi = Vec::new();
      for sppair in self.prev_states.get(&si).unwrap().iter() {
@@ -656,27 +635,30 @@ if true || LTRACE {
 //          if symj!=symi {continue;}
           let mut backconfs = HashSet::new();
           for item@LRitem{ri,pi,la} in self.States[si].conflicts.iter() {
-           if /* self.States[si].deprecated.contains(item) || */
+           if  self.States[si].deprecated.contains(item) || 
              *pi==0 || self.Gmr.Rules[*ri].rhs[pi-1].index != *symi {continue;}
            let bcf = LRitem{ri:*ri, pi:pi-1, la:*la};           
-//           if !self.States[*psi].deprecated.contains(&bcf) {
              backconfs.insert(bcf);
-//           }
           }//for each conflict item that matches criteria
           let mut added = false;
           for bc in backconfs.iter() {
-             if /* !self.States[*psi].deprecated.contains(bc) && */
+             if /* !self.States[*psi].deprecated.contains(bc)  &&  */
                 self.States[*psi].conflicts.insert(*bc) { added=true;
 if LTRACE {println!("backward prop from state {} back to state {} conflict {:?}  sym is {}",si,psi,bc,&self.Gmr.Symbols[*symi].sym);}
              }
           }
-          if added {self.agenda_add(*psi,&mut agenda); removeprevs.insert((*symi,*psi));}
+          if added {
+//print!("H1: ");
+//println!("to state {}, {}, {}, {}",psi,self.States[*psi].lrkernel.len(),self.States[*psi].conflicts.len(),self.States[*psi].deprecated.len());
+            self.agenda_add(*psi,&mut agenda);
+//println!("HHHHHH2222222");                      
+            removeprevs.insert((*symi,*psi)); progress=true;
+          }
         }// //for each previous state and sym
 
 //      } //for (symj,action) in FSM
-      
+/*      
       let prevssi = self.prev_states.get_mut(&si).unwrap();
-/*
       // remove prevs
       for rp@ (psym,pstate) in removeprevs.iter()
       {
@@ -704,9 +686,9 @@ if LTRACE {println!("backward prop from state {} back to state {} conflict {:?} 
           self.FSM[si].clear();
 
           // now call makegotos, create kernels of new states, call addstate...
-          self.simplemakegotos(si,&mut agenda); //will detect conflicts
+          progress = self.simplemakegotos(si,&mut agenda) || progress;
         } // if there are no conflicts to back-prop, recomp FSM
-       
+        if !progress { locked_states.insert(si); }
      }//while agenda exists
 
 if LTRACE {println!("CALLING FINAL mlset_reduce..");}
@@ -747,7 +729,7 @@ if LTRACE {println!("CALLING FINAL mlset_reduce..");}
 // calling it a state!   but later it could change.
 
 // try-add returns option<not-clearly resolved conflict>
-pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool) -> Option<(bool,usize,usize)>
+pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool) -> (bool,Option<(bool,usize,usize)>)
   {  //printout=true;
      //let mut force = true;
      //if force {FSM[si].insert(la,newaction); return None;}
@@ -789,7 +771,7 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
        _ => {}, // default add newstate
      }// match currentaction
      if changefsm /*|| answer.is_some()*/ { FSM[si].insert(la,newaction); }
-     answer
+     (changefsm,answer)
   }//tryadd_action
 
   // reslove shift-reduce conflict, returns true if reduce, but defaults
