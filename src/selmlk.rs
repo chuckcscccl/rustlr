@@ -20,9 +20,9 @@ use crate::Stateaction::*;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 3;
+pub const MAXK:usize = 5;
 
-type AGENDATYPE = BTreeSet<usize>;
+type AGENDATYPE = Vec<usize>;
 type COMBINGTYPE = HashMap<usize,Vec<usize>>;
 type ITEMSETTYPE = HashSet<LRitem>;
 
@@ -308,6 +308,7 @@ pub struct MLStatemachine  // Consumes Grammar
 //   pub back_links : HashMap<(usize,usize),HashSet<usize>>,
    pub combing: COMBINGTYPE,
    pub Ruleshash: HashMap<Vec<usize>,usize>,
+   onagenda : HashSet<usize>,
 }
 impl MLStatemachine
 {
@@ -324,6 +325,7 @@ impl MLStatemachine
 //          back_links:HashMap::new(),
           combing: COMBINGTYPE::new(), //stores what each nt really represents
           Ruleshash:HashMap::new(),
+          onagenda: HashSet::new(),
        }
   }//new
 
@@ -557,7 +559,11 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
   {
      let mut answer = self.States[si].close_all(&mut self.Gmr,&mut self.combing,&mut self.known_conflicts,&mut self.Ruleshash);
      if !answer {eprintln!("selML algorithm failed");}
-     agenda.insert(si) // && answer;
+     if !self.onagenda.contains(&si) {
+       self.onagenda.insert(si);
+       agenda.push(si);
+       true
+     } else {false}
   }
 
 
@@ -584,19 +590,26 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
      self.FSM.push(HashMap::with_capacity(128)); // row for state
      self.prev_states.insert(0,HashSet::new());
 
+     self.onagenda.clear();
      let mut agenda = AGENDATYPE::new();
      self.agenda_add(0,&mut agenda);
-     let mut locked_states = HashSet::new();
+     self.onagenda.insert(0);
      while agenda.len()>0
      {
-        let si:usize = *agenda.iter().next().unwrap();
-        agenda.remove(&si); // already closed
-        //if locked_states.contains(&si) {continue;}
+//        let si:usize = *agenda.iter().next().unwrap();
+//        agenda.remove(&si); // already closed
+       let si = agenda.pop().unwrap();
+       self.onagenda.remove(&si);
 
 /////////////// TRACE
-if true || LTRACE {
+if LTRACE {
   println!("1AGENDA SIZE:{}, Popped {},States:{}, kernels:{}, conflicts:{}, deprecated:{}",&agenda.len(),si,self.States.len(), self.States[si].lrkernel.len(), self.States[si].conflicts.len(),self.States[si].deprecated.len());
-  /*
+  if self.States.len()>10000 {break;}
+}//trace print
+
+//if si==0 {println!("START STATE BEING PROCESSED, kernel {}, conflicts {}",self.States[0].lrkernel.len(),self.States[0].conflicts.len());}
+
+/*
  if self.States.len()>2000 && self.States[si].conflicts.len()<=2 && self.States[si].conflicts.len()>0 {
     println!("REMAINING CONFLICTS:");
     for citem in self.States[si].conflicts.iter() {
@@ -608,8 +621,6 @@ if true || LTRACE {
     }
  }
  */
-if self.States.len()>10000 {break;}
-}//trace print
 /////////////// TRACE
 
      let mut progress = false;  // failure detection
@@ -669,7 +680,6 @@ if LTRACE {println!("backward prop from state {} back to state {} conflict {:?} 
 
       //if there are not such conflicts in si:
       if removeprevs.len()==0 {
-
           // all existing FSM transitions for state are now invalid
           // info must be consistent with prev_states
           for (symj, action) in self.FSM[si].iter() {
@@ -688,7 +698,7 @@ if LTRACE {println!("backward prop from state {} back to state {} conflict {:?} 
           // now call makegotos, create kernels of new states, call addstate...
           progress = self.simplemakegotos(si,&mut agenda) || progress;
         } // if there are no conflicts to back-prop, recomp FSM
-        if !progress { locked_states.insert(si); }
+        //if !progress { locked_states.insert(si); }
      }//while agenda exists
 
 if LTRACE {println!("CALLING FINAL mlset_reduce..");}
