@@ -203,7 +203,10 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
               // this return index of new rule with longer delay
               let extenditem = LRitem{ri:eri, pi:*pi, la:*la};
               if /* !self.deprecated.contains(&extenditem) && */ !self.items.contains(&extenditem) {
-                self.lrkernel.insert(extenditem);  ////????? definitely!
+                let krinsert = self.lrkernel.insert(extenditem);  ////?????
+                if krinsert { // change indices hash
+                  ////// change state.Statelookup!!!
+                }
                 closure.push(extenditem);
                 //closure.insert(0,extenditem);
                 closed=0;
@@ -219,7 +222,7 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
         }//for each conflict item
         let mut added = false;
         for nc in newconflicts {
-          if self.deprecated.contains(&nc) {continue;}  /////  JUST ADDED
+          //if self.deprecated.contains(&nc) {continue;}  /////  JUST ADDED
           added=self.conflicts.insert(nc)||added;
         }
         // all the items have to now be re-checked against new confs
@@ -240,15 +243,15 @@ if LTRACE {print!("EXTENSION OF: "); printitem(&item,Gmr);}
 //    if self.deprecated.contains(ki) {println!("HEYHEYHEY");}
 //  }
 
-
+ /* 
     for di in self.deprecated.iter() {
       //if self.lrkernel.contains(di) {self.lrkernel.remove(di);}
       //print!("DDDeprecated: "); printitem2(di,Gmr,combing);
 //      self.lrkernel.remove(di);
-      self.items.remove(di);
-//      self.conflicts.remove(di);
+//      self.items.remove(di);
+      self.conflicts.remove(di);
     }
-
+*/
      answer
   }//close_all
 
@@ -264,11 +267,18 @@ STILL goes into loop. keep creating new states, why?
 */
    fn eq(&self, other:&MLState) -> bool {
 
-      if self.lrkernel.len() != other.lrkernel.len() { return false; }
+      //if self.lrkernel.len() != other.lrkernel.len() { return false; } //***
       for item in self.lrkernel.iter() {
         if !other.lrkernel.contains(item) {return false;}
       }
-      /*
+      /*      
+      if other.lrkernel.len()>self.lrkernel.len() {
+println!("\n\nHOW COULD THIS HAPPEN???!, {}, and {}\n\n",self.lrkernel.len(),other.lrkernel.len());
+//        for item in other.lrkernel.iter() {
+//           if !self.lrkernel.contains(item) && !other.deprecated.contains(item) && !self.deprecated.contains(item) {return false;}
+//        }
+      }
+
       for item in other.lrkernel.iter() {
         if !self.lrkernel.contains(item) {return false;}
       }
@@ -397,7 +407,7 @@ impl MLStatemachine
      }// for each item
      let mut inserted = false;
      for ncf in newsiconflicts {
-       if self.States[si].deprecated.contains(&ncf) {continue;}
+       //if self.States[si].deprecated.contains(&ncf) {continue;}
        inserted = self.States[si].conflicts.insert(ncf) || inserted;
      } // insert new conflicts into CURRENT state
      if /* reagenda && */ inserted  && self.agenda_add(si,agenda)
@@ -426,7 +436,7 @@ if LTRACE{       println!("state {} added back to agenda due to new conflicts",s
      }
      let indices = self.Statelookup.get_mut(&lookupkey).unwrap();
      let mut toadd = newstateindex; // defaut is add new state (will push)
-     for i in indices.iter()
+     for i in indices.iter() //0..self.States.len()
      {
        if &state==&self.States[*i] {toadd=*i; break; } // state i exists
      }
@@ -453,14 +463,14 @@ if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
        // propagate conflicts backwards
        let mut backconfs = HashSet::new();
        for item@LRitem{ri,pi,la} in self.States[toadd].conflicts.iter() {
-         if self.States[toadd].deprecated.contains(item) {continue;}
+         //if self.States[toadd].deprecated.contains(item) {continue;}
          if *pi>0 && self.Gmr.Rules[*ri].rhs[pi-1].index==nextsymi {
             backconfs.insert(LRitem{ri:*ri,pi:pi-1,la:*la});
          }
        }//for
        let mut bchanged = false;
        for bc in backconfs {
-         if self.States[psi].deprecated.contains(&bc) {continue;}
+         //if self.States[psi].deprecated.contains(&bc) {continue;}
          if self.States[psi].conflicts.insert(bc) {
             bchanged = true;
             //self.States[toadd].deprecated.insert(LRitem{ri:bc.ri,pi:bc.pi+1,la:bc.la});  //CONF REMOVED
@@ -474,7 +484,7 @@ if LTRACE {println!("state {} pushed back onto agenda because of backward confli
             return;
        }
        else {  // add back link only if not propagated backwards
-         //self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
+//         self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
        }       // instead of deprecating conflict alltogether
      }// existing state
 
@@ -491,7 +501,7 @@ if LTRACE {println!("state {} pushed back onto agenda because of backward confli
      match &isconflict {
             Some((false,r1,la1)) => {
               let confitem = LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:*la1};
-              if !self.States[psi].deprecated.contains(&confitem) && self.States[psi].conflicts.insert(confitem) { self.agenda_add(psi,agenda);
+              if /* !self.States[psi].deprecated.contains(&confitem) && */self.States[psi].conflicts.insert(confitem) { self.agenda_add(psi,agenda);
 if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&confitem,psi);}
               }
             },
@@ -611,7 +621,7 @@ if si!=0 {
 */
 
 if true || LTRACE {
-  println!("1AGENDA SIZE: {}, States: {}, kernelsize:{}, conflicts:{}, deprecated:{}",&agenda.len(),self.States.len(), self.States[si].lrkernel.len(), self.States[si].conflicts.len(),self.States[si].deprecated.len());
+  println!("1AGENDA SIZE:{}, Popped {},States:{}, kernels:{}, conflicts:{}, deprecated:{}",&agenda.len(),si,self.States.len(), self.States[si].lrkernel.len(), self.States[si].conflicts.len(),self.States[si].deprecated.len());
  if self.States.len()>2000 && self.States[si].conflicts.len()<=2 && self.States[si].conflicts.len()>0 {
     println!("REMAINING CONFLICTS:");
     for citem in self.States[si].conflicts.iter() {
@@ -622,6 +632,7 @@ if true || LTRACE {
       printitem2(ditem,&self.Gmr,&self.combing);      
     }
  }
+ if self.States.len()>2500 {break;}
 }//trace print
 
      let mut prevstatessi = Vec::new();
@@ -629,41 +640,50 @@ if true || LTRACE {
        prevstatessi.push(*sppair);
      }
 
-//  following alg, remove q,X --> q' for any X and q'
       let mut removeprevs = HashSet::new();
-//      for (symj,action) in self.FSM[si].iter() {
-//        match action {
-//           Accept | Reduce(_) | Error(_) => {continue;}
-//           _ => {},
-//        }//match
+/*
+//  following alg, remove q,X --> q' for any X and q'
+      for (symj,action) in self.FSM[si].clone().iter() {
+        match action {
+           Accept | Reduce(_) | Error(_) => {continue;}
+           _ => {},
+        }//match
         // is a shift/gotonext operation:
+        // remove entry from FSM?
+        self.FSM[si].remove(symj);
+*/
         for (symi,psi) in &prevstatessi {
-          //if symj!=symi {continue;}
+//          if symj!=symi {continue;}
           let mut backconfs = HashSet::new();
           for item@LRitem{ri,pi,la} in self.States[si].conflicts.iter() {
-           if self.States[si].deprecated.contains(item) ||
+           if /* self.States[si].deprecated.contains(item) || */
              *pi==0 || self.Gmr.Rules[*ri].rhs[pi-1].index != *symi {continue;}
            let bcf = LRitem{ri:*ri, pi:pi-1, la:*la};           
-           if !self.States[*psi].deprecated.contains(&bcf) {
+//           if !self.States[*psi].deprecated.contains(&bcf) {
              backconfs.insert(bcf);
-           }
+//           }
           }//for each conflict item that matches criteria
           let mut added = false;
           for bc in backconfs.iter() {
-             if !self.States[*psi].deprecated.contains(bc) &&
+             if /* !self.States[*psi].deprecated.contains(bc) && */
                 self.States[*psi].conflicts.insert(*bc) { added=true;
 if LTRACE {println!("backward prop from state {} back to state {} conflict {:?}  sym is {}",si,psi,bc,&self.Gmr.Symbols[*symi].sym);}
              }
           }
           if added {self.agenda_add(*psi,&mut agenda); removeprevs.insert((*symi,*psi));}
-        }// //for each previous state
-//      } //for (symi,action) in FSM
+        }// //for each previous state and sym
+
+//      } //for (symj,action) in FSM
       
       let prevssi = self.prev_states.get_mut(&si).unwrap();
-
+/*
       // remove prevs
-      //for rp in removeprevs.iter() { prevssi.remove(rp); } //need? later
-
+      for rp@ (psym,pstate) in removeprevs.iter()
+      {
+         //self.FSM[*pstate].remove(psym); //redundant because of reagenda
+         prevssi.remove(rp);
+      } //need? later
+*/
 
       //if there are not such conflicts in si:
       if removeprevs.len()==0 {
@@ -686,7 +706,7 @@ if LTRACE {println!("backward prop from state {} back to state {} conflict {:?} 
           // now call makegotos, create kernels of new states, call addstate...
           self.simplemakegotos(si,&mut agenda); //will detect conflicts
         } // if there are no conflicts to back-prop, recomp FSM
-
+       
      }//while agenda exists
 
 if LTRACE {println!("CALLING FINAL mlset_reduce..");}
@@ -943,14 +963,21 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        let mut newrulei = Grule::from_lhs(&self.Rules[ri].lhs); //copy
        let mut newrhs = Vec::with_capacity(self.Rules[ri].rhs.len()-1);
        if dbegin>0 {
-         for i in 0..dbegin {newrhs.push(self.Rules[ri].rhs[i].clone());}
+         for i in 0..dbegin {
+           let mut rhsi = self.Rules[ri].rhs[i].clone();
+           //if rhsi.label.len()<1 {rhsi.label=format!("_ditem{}_",i/*,self.Rules.len()*/);} //give special labels
+           newrhs.push(rhsi);
+         }
        }
        let mut clonenewnt = newnt.clone();
+       // this is a new grammar sym, can give it any label
        let ntlabel = format!("_delayitem{}_{}",dbegin,ntcx); ntcx+=1;
        clonenewnt.label = ntlabel.clone();
        newrhs.push(clonenewnt); // newnt added to rule!
        for i in dend .. self.Rules[ri].rhs.len() {
-         newrhs.push(self.Rules[ri].rhs[i].clone());
+         let mut rhsi = self.Rules[ri].rhs[i].clone();
+           //if rhsi.label.len()<1 {rhsi.label=format!("_ditem{}_",i/*,self.Rules.len()*/);} //give special labels         
+         newrhs.push(rhsi);
        }
        newrulei.rhs = newrhs; // change rhs of rule
        let hashr = hashrule(&newrulei);
@@ -963,18 +990,34 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        let mut newaction = String::from(" ");
        let newri = self.Rules.len(); // index of new rule (extended)
        // break up tuple
+//       let mut dlabels = Vec::with_capacity(dend-dbegin);
        for i in dbegin..dend {
-//          let defaultlab = format!("_item{}_",i);
-          let defaultlab = format!("_item{}_",i);          
+          let defaultlab = format!("_item{}_",i);
           let symi = &self.Rules[ri].rhs[i]; // original rule
           let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
             else {&defaultlab};
+//          dlabels.push(labeli.to_owned());
           newaction.push_str(&format!("let mut {} = {}.{}; ",labeli,&ntlabel,i-dbegin));
           //labi+=1;
        }// break up tuple
        // anything to do with the other values?  they have labels, but indexes
        // may be off - but original actions will refer to them as-is.
-       newaction.push_str(&self.Rules[ri].action);
+       // original action will assume labels are _item{}_, unless
+       // change them.  replace strings
+       let mut originalact = self.Rules[ri].action.clone();  //HACK!
+       for i in dend..self.Rules[ri].rhs.len() {
+         originalact=originalact.replace(&format!("_item{}_",i),&format!("_rrtempitem{}_",i));
+       }
+       for i in dend..self.Rules[ri].rhs.len() {
+         originalact=originalact.replace(&format!("_rrtempitem{}_",i),&format!("_item{}_",i-1));
+       }
+       /*
+       for i in dbegin..dend {
+         originalact = originalact.replace(&format!("_item{}_",i),&dlabels[i-dbegin]);
+       }
+       */
+//       newaction.push_str(&self.Rules[ri].action);
+       newaction.push_str(&originalact);
        newrulei.action = newaction;
 
        // special case: newrule becomes startrule if startrule changed.
@@ -1115,7 +1158,14 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        }// break up tuple
        // anything to do with the other values?  they have labels, but indexes
        // may be off - but original actions will refer to them as-is.
-       newaction.push_str(&self.Rules[*ri].action);
+       let mut originalact = self.Rules[*ri].action.clone();  //HACK!
+       for i in *dend..self.Rules[*ri].rhs.len() {
+         originalact=originalact.replace(&format!("_item{}_",i),&format!("_rrtempitem{}_",i));
+       }
+       for i in *dend..self.Rules[*ri].rhs.len() {
+         originalact=originalact.replace(&format!("_rrtempitem{}_",i),&format!("_item{}_",i-1));
+       }
+       newaction.push_str(&originalact);
        self.Rules[*ri].rhs = newrhs; // change rhs of rule
        self.Rules[*ri].action = newaction;
        
