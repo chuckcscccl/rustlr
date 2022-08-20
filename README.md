@@ -19,7 +19,8 @@ to be written that's closer to EBNF syntax.
 
 <p>
 
-**Versions 0.3.1, 0.3.2 consist of minor patches**
+**Versions 0.3.3** introduces the experimental -lrsd option for LR parsing
+with *selective delays*
 
 ### Major Features and the Versions that Introduced Them
 
