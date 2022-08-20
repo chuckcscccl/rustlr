@@ -514,6 +514,9 @@ abstract_declarator ==>
 	| pointer direct_abstract_declarator
 	<==
 
+#ambiguous on purpose:
+#direct_abstract_declarator --> [ type_qualifier+ ]
+
 direct_abstract_declarator ==>
 	 ( abstract_declarator )
 	| [ ]

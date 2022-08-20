@@ -1,4 +1,4 @@
-# ]# ANSI C YACC Grammar 2011 version adopted to Rustlr
+# ANSI C YACC Grammar 2011 version adopted to Rustlr
 # from http://www.quut.com/c/ANSI-C-grammar-y.html
 # intended for use with rustlr -auto
 
@@ -125,8 +125,9 @@ nonterminals function_specifier alignment_specifier atomic_type_specifier
 nonterminals designator block_item declaration_specifier
 nonterminals specifier_qualifier initializer_designation
 nonterminals expression_list expressionS declarator
-nonterminals direct_declarator direct_contents
+nonterminals direct_declarator direct_contents da_base
 nonterminal direct_base : direct_contents
+
 
 topsym translation_unit
 
@@ -429,7 +430,8 @@ alignment_specifier --> ALIGNAS ( type_name )
 alignment_specifier --> ALIGNAS ( expression )
 
 # PROBLEMATIC LINE
-declarator -->  pointer? direct_declarator
+declarator --> # pointer? direct_declarator #
+
 #declarator:DEC --> # pointer? direct_declarator #
 #declarator --> pointer?:ptropt direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
@@ -446,9 +448,9 @@ direct_base --> IDENTIFIER
 direct_base:DEC --> ( declarator )
 direct_contents ==>
           [ Star?:star ]
-        | [ STATIC?:is_static expression ]
+        | [ # STATIC?:is_static expression # ]
         | [ type_qualifier+ Star ]
-        | [ STATIC?:is_static type_qualifier+ expression ]
+        | [ # STATIC?:is_static type_qualifier+ expression # ]
         | [ type_qualifier+ (STATIC expression)? ]
 	| ( parameter_type_list )
 	| ( IDENTIFIER<Comma*> )
@@ -508,33 +510,26 @@ identifier_list --> IDENTIFIER<Comma+>
 
 type_name --> specifier_qualifier+ abstract_declarator?
 
-abstract_declarator ==>
-	 pointer
-	| direct_abstract_declarator
-	| pointer direct_abstract_declarator
-	<==
+#abstract_declarator ==>
+#	 pointer
+#	| direct_abstract_declarator
+#	| pointer direct_abstract_declarator
+#	<==
 
-#ambiguous on purpose:
-#direct_abstract_declarator --> [ type_qualifier+ ]
+abstract_declarator --> pointer
+abstract_declarator --> # pointer? ( abstract_declarator ) # da_base* 
+abstract_declarator -->  # pointer? da_base+ #
 
-direct_abstract_declarator ==>
-	 ( abstract_declarator )
-	| [ ]
-        | [ Star ]
-        | [ STATIC type_qualifier* expression ]
-        | [ type_qualifier+ STATIC?:s expression? ]
-        | [ expression ]
-	| direct_abstract_declarator [ ]
-	| direct_abstract_declarator [ Star ]        
-	| direct_abstract_declarator [ STATIC type_qualifier* expression ]
-	| direct_abstract_declarator [ type_qualifier+ STATIC?:s expression ]        
-	| direct_abstract_declarator [ type_qualifier+ ]
-	| direct_abstract_declarator [ expression ]                
-	| ( )
-	| ( parameter_type_list )
-	| direct_abstract_declarator ( )
-	| direct_abstract_declarator ( parameter_type_list )
-	<==
+# expression change to assignment_expression
+da_base --> [ Star?:star ]
+da_base --> ( parameter_type_list )
+da_base --> [ expression ]
+da_base --> [ STATIC type_qualifier* expression ]
+da_base --> [ type_qualifier+ STATIC?:is_static expression ]
+da_base --> [ type_qualifier+ ]
+#direct_abstract_declarator --> da_base*
+#direct_abstract_declarator --> ( abstract_declarator )
+#abstract_declarator --> # pointer? direct_abstract_declarator #
 
 initializer ==>
 	  expression

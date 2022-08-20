@@ -1,4 +1,4 @@
-# ]# ANSI C YACC Grammar 2011 version adopted to Rustlr
+# ANSI C YACC Grammar 2011 version adopted to Rustlr
 # from http://www.quut.com/c/ANSI-C-grammar-y.html
 # intended for use with rustlr -auto
 
@@ -429,7 +429,8 @@ alignment_specifier --> ALIGNAS ( type_name )
 alignment_specifier --> ALIGNAS ( expression )
 
 # PROBLEMATIC LINE
-declarator -->  pointer? direct_declarator
+declarator --> # pointer? direct_declarator #
+
 #declarator:DEC --> # pointer? direct_declarator #
 #declarator --> pointer?:ptropt direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
@@ -446,9 +447,9 @@ direct_base --> IDENTIFIER
 direct_base:DEC --> ( declarator )
 direct_contents ==>
           [ Star?:star ]
-        | [ STATIC?:is_static expression ]
+        | [ # STATIC?:is_static expression # ]
         | [ type_qualifier+ Star ]
-        | [ STATIC?:is_static type_qualifier+ expression ]
+        | [ # STATIC?:is_static type_qualifier+ expression # ]
         | [ type_qualifier+ (STATIC expression)? ]
 	| ( parameter_type_list )
 	| ( IDENTIFIER<Comma*> )
@@ -513,9 +514,6 @@ abstract_declarator ==>
 	| direct_abstract_declarator
 	| pointer direct_abstract_declarator
 	<==
-
-#ambiguous on purpose:
-#direct_abstract_declarator --> [ type_qualifier+ ]
 
 direct_abstract_declarator ==>
 	 ( abstract_declarator )
