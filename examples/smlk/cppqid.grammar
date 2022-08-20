@@ -1,0 +1,23 @@
+# c++ qualified identifiers from the selML paper
+
+auto
+lifetime 'input
+lexterminal COLONCOLON ::
+lexterminal LANGLE <
+lexterminal RANGLE >
+valueterminal ID ~ &'input str ~ Alphanum(n) ~ n
+
+nonterminals I U Q T N
+startsymbol I
+
+I --> U | Q
+U --> ID | T
+Q --> N U
+N --> U COLONCOLON N
+N --> U COLONCOLON
+#N --> (U COLONCOLON)+
+T --> ID LANGLE I RANGLE
+
+#ambiguous on purpose:
+#I --> N ID
+EOF

@@ -7,7 +7,7 @@ topsym S
 S --> A | B
 C --> c | c C
 #C --> c*
-A --> d M C x
+A --> d # M C # x
 B --> d a b C y
 M --> a b
 #S --> G

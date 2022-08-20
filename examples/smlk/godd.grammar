@@ -1,4 +1,5 @@
 # grammar
+auto
 terminals d c a b x y e f g
 nonterminals S A B M N C D
 topsym S
@@ -11,6 +12,10 @@ N --> M
 N -->
 D -->  | D d
 #B --> c d y | a b c d y
+
+# ambiguous on purpose:
+#A --> D c c c d e f y
+
 EOF
 
 

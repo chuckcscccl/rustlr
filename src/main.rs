@@ -41,7 +41,7 @@ use ast_writer::*;
 mod lalr_statemachine;
 use lalr_statemachine::LALRMachine;
 mod selmlk;
-use selmlk::MLStatemachine;
+use selmlk::{MLStatemachine};
 
 fn main() 
 {
@@ -65,6 +65,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut genlex = false;
   let mut genabsyn = false;
   let mut lrsd = false;
+  let mut lrsdmaxk:usize = selmlk::MAXK;
   while argi<argc
   {
      match &args[argi][..] {
@@ -72,7 +73,14 @@ fn rustle(args:&Vec<String>) // called from main
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
        "oldlalr" | "-oldlalr" | "-selML" => {newlalr=false; lalr=true;}
-       "-lrsd" | "lrsd" => {newlalr=false; lalr=false; lrsd=true;}       
+       "-lrsd" | "lrsd" => {
+         newlalr=false; lalr=false; lrsd=true;
+         if argi+1<argc {
+           if let Ok(mk)=args[argi+1].parse::<usize>() {
+             lrsdmaxk=mk; argi+=1;
+           } // next arg is number
+         }//if next arg exists
+       },
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -138,8 +146,8 @@ fn rustle(args:&Vec<String>) // called from main
   let mut fsm0;
   if lrsd {
     let mut lrsdfsm = MLStatemachine::new(grammar1);
-    println!("Generating Experimental LR-Selective Delay State Machine");
-    lrsdfsm.selml();
+    println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
+    lrsdfsm.selml(lrsdmaxk);
     fsm0 = lrsdfsm.to_statemachine();
     
   } else

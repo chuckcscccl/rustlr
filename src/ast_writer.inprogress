@@ -23,15 +23,20 @@ impl Grammar
 {
    fn prepare(&mut self) -> String
    {
-     // reachability already called by grammar parser
+     // reachability already called by grammar parser, call reachability_types:
+     self.reachability_types();
      
      // assign types to all non-terminal symbols
      // first pass: assign types to "" types, skip all others
      let mut ntcx = self.ntcxmax+1;
      for nt in self.Rulesfor.keys() { // for each nonterminal index
+//println!("TYPE FOR {}: {}",&self.Symbols[*nt].sym,&self.Symbols[*nt].rusttype);       
        if self.Symbols[*nt].rusttype.len()==0 { // type "" means generate type
          // determine if lifetime needed.
          let reach = self.Reachable.get(nt).unwrap();
+/////
+//for r in reach.iter() {println!("{} reaches {}",&self.Symbols[*nt].sym,&self.Symbols[*r].sym);}
+/////
          let mut needlt = false;
          if self.lifetime.len()>0 {
            for ti in self.haslt_base.iter() {
@@ -51,9 +56,9 @@ impl Grammar
      // Set of nti that will extend other types
      let mut toextend = HashMap::new();  // usize->usize nti's
 
-     //// second pass: change @EXPR to actual type, change +Expr to direct
+     //// second pass: change @EXPR to actual type, change :Expr to direct
      for nt in self.Rulesfor.keys() {
-       // two possibilities : @expr, or <@expr> or +Expr
+       // two possibilities : @expr, or <@expr> or :Expr
        // assume only one.
        let addtoextend = self.Symbols[*nt].rusttype.starts_with(':');
        let mut addtosymhash = false; // because already added above
@@ -73,7 +78,7 @@ impl Grammar
               symtocopy = &stype[pos1+2..pos1+2+pos2];
               start = pos1+1; end = pos1+2+pos2;
            }
-         } else if let Some(pos1)=stype.find("<+") {
+         } else if let Some(pos1)=stype.find("<:") {
            if let Some(pos2)=stype[pos1+2..].find('>') {
               symtocopy = &stype[pos1+2..pos1+2+pos2];
               start = pos1+1; end = pos1+2+pos2;
@@ -86,7 +91,7 @@ impl Grammar
            if replacetype.starts_with(':') {indirect = true;}
            else if addtoextend {
               toextend.insert(*nt,symi);
-println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);              
+//println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);              
            }
 
            // change type to actual type.
@@ -112,7 +117,7 @@ println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);
 
      // setup hashmap from nt numbers to ASTS
      let mut ASTmap:HashMap<usize,String> = HashMap::new();
-     let mut ASTS = String::new(); // all asts
+     let mut ASTS = String::from("\n"); // all asts
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
@@ -123,9 +128,13 @@ println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);
         let nti = *nt; //*self.Symhash.get(NT).unwrap();
         let mut ntsym = &self.Symbols[nti];
         let willextend = toextend.contains_key(nt);
-println!("NT {}, type {}, willextend {}",&ntsym.sym,&ntsym.rusttype,willextend);
+//println!("NT {}, type {}, willextend {}",&ntsym.sym,&ntsym.rusttype,willextend);
 
-        if !ntsym.rusttype.starts_with(&ntsym.sym) && !willextend  {continue;}
+/* BUT SEMANTIC ACTIONS ARE ALSO SKIPPED ?
+        if !ntsym.rusttype.starts_with(&ntsym.sym) && !willextend  {
+println!("SKIPPING nt {}, type {}",&ntsym.sym, &ntsym.rusttype);        
+continue;}
+*/
 
         // default for new enum
 	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
@@ -185,9 +194,11 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
           
           let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
 	  let lhsymtype = self.Symbols[lhsi].rusttype.clone();
-	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
+//	  let mut ACTION = format!("{}::{}",NT,&self.Rules[*ri].lhs.label);
+          let enumname = &self.Symbols[*toextend.get(nt).unwrap_or(nt)].sym;
+	  let mut ACTION = format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
-          if genstruct {
+          if genstruct { // name can only be same as non-terminal
              if simplestruct {ACTION=format!("{}(",NT);}
              else {ACTION=format!("{} {{",NT);}
              enumvar = String::new(); // "enumvar" means "struct-fields"
@@ -339,6 +350,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
 
      // Now close all unclosed enums
      for (nt,ntast) in ASTmap.iter() {
+       if !self.Symbols[*nt].rusttype.starts_with(&self.Symbols[*nt].sym) {continue;}
        if ntast.starts_with("#[derive(Debug)]") { // enum
  	let defaultvar = format!("{}_Nothing",&self.Symbols[*nt].sym);
         let mut ast = format!("{}  {},\n}}\n",ntast,&defaultvar);
@@ -348,7 +360,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
         ASTS.push_str(&ast);
        } // !genstruct - is enum
        else { ASTS.push_str(ntast); }
-     }// closing all enums and add to ASTS
+     }// closing all enums and add to ASTS (for loop)
 
      // set Absyntype
      let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist
@@ -356,6 +368,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
      self.enumhash.insert(self.Absyntype.clone(), 0);
 //println!("\n AST generated:\n\n{}",&ASTS);
      self.sametype = false;
+     self.ntcxmax = ntcx;
      ASTS
    }//prepare_gram
 
@@ -389,7 +402,7 @@ use rustlr::LBox;\n")?;
 // NOTE including all of Extras (one big string) might cause repeated
 // definitions - best to not include as pubs.
 
-/////  Floyd/Warshall reachability - sort of
+/////  Floyd/Warshall reachability - sort of // new for 0.3.1
   pub fn reachability(&mut self)
   {
      for NT in self.Rulesfor.keys()
@@ -425,7 +438,112 @@ use rustlr::LBox;\n")?;
         }
        }//(NT,NTrules)
      }//stillopen
+  }// reachability closure - part 1
+
+  // extend the reachability relation to include type dependencies
+  // assumes that reachability has already been called.
+  pub fn reachability_types(&mut self)
+  {
+     let mut needtoclose = false;
+     for (NT,NTrules) in self.Rulesfor.iter()
+     {
+       let mut ntreach = self.Reachable.get_mut(NT).unwrap();
+       // seed reachable sets with type dependencies like Term : Expr
+       let nttype = &self.Symbols[*NT].rusttype;
+       if nttype.starts_with(':') {
+         if let Some(othernti)=self.Symhash.get(nttype[1..].trim()) {
+	     if ntreach.insert(*othernti) && !needtoclose {needtoclose=true;}
+	     let otherreach=self.Reachable.get_mut(othernti).unwrap();
+	     if otherreach.insert(*NT) && !needtoclose {needtoclose=true;}
+	     // w/r to reachability for ast gen purposes.
+	     // nt reaches othernt because because if bnt-->nt bnt must know
+	     // that nt can reach othernt to calculate lifetime,etc.
+	     // othernt reach nt because, since the cases of nt are included
+	     // as cases under type of othernt, it's as if othernt had more
+	     // productions.
+	 }
+       } // if : starts type
+     } // create map skeletons (for loop)
+     // create closure
+     while needtoclose {
+       needtoclose = false;
+       for NT in self.Rulesfor.keys()
+       {
+        let ireachable1 = self.Reachable.get(NT).unwrap();	
+        let mut symset = HashSet::new(); // symbols to be added to NT's reach
+        for ni in ireachable1.iter() { // for next nt that can be reached
+          if !self.Symbols[*ni].terminal {
+	     let nireachable = self.Reachable.get(ni).unwrap();
+	     for nsymi in nireachable.iter() { symset.insert(*nsymi); }
+	  }
+        }// for each intermediate symbol
+        let ireachable = self.Reachable.get_mut(NT).unwrap(); //re-borrow
+        for sym in symset
+        {
+	  if ireachable.insert(sym) && !needtoclose {needtoclose=true;}
+        }
+       }//(NT,NTrules)
+     }//stillopen, needtoclose
   }// reachability closure
+
+/*  COMBINED VERSION
+  pub fn reachability(&mut self)
+  {
+     for NT in self.Rulesfor.keys() {
+       self.Reachable.insert(*NT,HashSet::new());
+     }
+     for (NT,NTrules) in self.Rulesfor.iter()
+     {
+       let mut ntreach = self.Reachable.get_mut(NT).unwrap();
+       // seed reachable sets with type dependencies like Term : Expr
+       let nttype = &self.Symbols[*NT].rusttype;
+       if nttype.starts_with(':') {
+         if let Some(othernti)=self.Symhash.get(nttype[1..].trim()) {
+	     ntreach.insert(*othernti);
+	     let otherreach=self.Reachable.get_mut(othernti).unwrap();
+	     otherreach.insert(*NT);  // nt, othernt should be considered same
+	     // w/r to reachability for ast gen purposes.
+	     // nt reaches othernt because because if bnt-->nt bnt must know
+	     // that nt can reach othernt to calculate lifetime,etc.
+	     // othernt reach nt because, since the cases of nt are included
+	     // as cases under type of othernt, it's as if othernt had more
+	     // productions.
+	 }
+       }
+       ntreach = self.Reachable.get_mut(NT).unwrap();       //re-borrow
+       for ri in NTrules // seed based on rhs of rules (just one level)
+        {
+           for sym in &self.Rules[*ri].rhs
+           {
+	      ntreach.insert(sym.index);
+           } // collect rhs symbols into 1st level reachable set
+       }//for ri       
+//       self.Reachable.insert(*NT, ntreach);
+     } // create map skeletons
+     // create closure
+     let mut stillopen = true;
+     while stillopen {
+       stillopen = false;
+       for NT in self.Rulesfor.keys()
+       {
+        let ireachable1 = self.Reachable.get(NT).unwrap();	
+        let mut symset = HashSet::new(); // symbols to be added to NT's reach
+        for ni in ireachable1.iter() { // for next nt that can be reached
+          if !self.Symbols[*ni].terminal {
+	     let nireachable = self.Reachable.get(ni).unwrap();
+	     for nsymi in nireachable.iter() { symset.insert(*nsymi); }
+	  }
+        }// for each intermediate symbol
+        let ireachable = self.Reachable.get_mut(NT).unwrap(); //re-borrow
+        for sym in symset
+        {
+	  if ireachable.insert(sym) && !stillopen {stillopen=true;}
+          //stillopen =  ireachable.insert(sym) || stillopen;
+        }
+       }//(NT,NTrules)
+     }//stillopen
+  }// reachability closure  - combined version
+*/
 
 }//impl Grammar
 
