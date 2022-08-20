@@ -18,7 +18,6 @@ left * 500
 left / 500
 left + 400
 left - 400
-left = 300
 
 lexvalue int Num(n) n
 lexvalue var Alphanum(x) x
@@ -26,13 +25,12 @@ lexattribute set_line_comment("#")
 
 E --> int:m { Val(m) }
 E --> var:s { Var(s) }
-#E --> let E:@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
-E --> let E:[vx]@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
-E --> E:[e1] + E:[e2] { Plus(e1,e2) }
-E --> E:[e1] - E:[e2] { Minus(e1,e2) }
-E --> E:[e1] / E:[e2] {Divide(e1,e2)}
+E --> let E:@Var(x)@ = E:e in E:b {Letexp(x,parser.lbx(3,e),parser.lbx(5,b))}
+E --> E:e1 + E:e2 { Plus(parser.lbx(0,e1),parser.lbx(2,e2))}
+E --> E:e1 - E:e2 { Minus(parser.lbx(0,e1), parser.lbx(2,e2))}
+E --> E:e1 / E:e2 { Divide(parser.lbx(0,e1),parser.lbx(2,e2))}
 E --> E:e1 * E:e2 { Times(parser.lbx(0,e1),parser.lbx(2,e2))}
-E(600) --> - E:[e] { Negative(e) }
+E --> - E:e { Negative(parser.lbx(1,e)) }
 E --> ( E:e )  { e }
 ES --> E:n ; { Seq(vec![parser.lbx(0,n)]) }
 ES ==> ES:@Seq(mut v)@  E:e ;  {
@@ -44,12 +42,7 @@ ES ==> ES:@Seq(mut v)@  E:e ;  {
 
 EOF
 
-alternates
-ES ==> ES:@Seq(mut v)@  E:e ;  {
-   v.push(parser.lbx(1,e));
-   Seq(v)
-   } <==
-
+alternate
 ES ==> ES:vs@Seq(v)@  E:e ;  {
    v.push(parser.lbx(1,e));
    vs

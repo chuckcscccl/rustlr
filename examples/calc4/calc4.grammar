@@ -29,7 +29,7 @@ E --> E:e1 + E:e2 { Plus(e1.lbox(),parser.lbx(2,e2.value)) }
 E --> E:[e1] - E:[e2] { Minus(e1,e2)}
 E --> E:[e1] / E:[e2] { Divide(e1,e2) } 
 E --> E:[e1] * E:[e2] { Times(e1,e2) }
-E --> - E:[e] { Negative(e) }
+E(600) --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e.value }
 E --> let E:@Var(x)@ = E:[e] in E:[b] {Letexp(x,e,b)}
 ES --> E:[n] ; { Seq(vec![n]) }

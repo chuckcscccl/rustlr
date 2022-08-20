@@ -35,7 +35,7 @@ E --> E:[e1] - E:[e2] { Minus(e1,e2) }
 E --> E:[e1] / E:[e2] {Divide(e1,e2)}
 E --> E:e1 * E:e2 { Times(parser.lbx(0,e1),parser.lbx(2,e2))}
 E --> E _ E { parser.report_error("unidentified operator",true); Val(0)}
-E --> - E:[e] { Negative(e) }
+E(600) --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e }
 E1 --> E:e ; {e}
 ES --> E1+:v {v}

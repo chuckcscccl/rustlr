@@ -18,7 +18,6 @@ left * 500
 left / 500
 left + 400
 left - 400
-left = 300
 
 lexvalue int Num(n) n
 lexvalue var Alphanum(x) x
@@ -32,7 +31,7 @@ E --> E:[e1] + E:[e2] { Plus(e1,e2) }
 E --> E:[e1] - E:[e2] { Minus(e1,e2) }
 E --> E:[e1] / E:[e2] {Divide(e1,e2)}
 E --> E:e1 * E:e2 { Times(parser.lbx(0,e1),parser.lbx(2,e2))}
-E(600) --> - E:[e] { Negative(e) }
+E --> - E:[e] { Negative(e) }
 E --> ( E:e )  { e }
 ES --> E:n ; { Seq(vec![parser.lbx(0,n)]) }
 ES ==> ES:@Seq(mut v)@  E:e ;  {
