@@ -34,6 +34,8 @@ use zc_parser::*;
 
 mod parser_writer;
 use parser_writer::*;
+mod sd_parserwriter;
+use sd_parserwriter::*;
 
 mod ast_writer;
 use ast_writer::*;
@@ -189,7 +191,8 @@ fn rustle(args:&Vec<String>) // called from main
     if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)
       //fsm0.writelbaparser(&parserfile)
-      fsm0.writeenumparser(&parserfile)
+      if !lrsd {fsm0.writeenumparser(&parserfile)}
+      else {fsm0.writelrsdparser(&parserfile)}
     }
     else {  // non-zc, original before version 0.2.0
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}

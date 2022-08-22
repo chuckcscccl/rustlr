@@ -17,6 +17,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use crate::grammar_processor::*;
 use crate::lr_statemachine::*;
 use crate::Stateaction::*;
+use crate::sd_parserwriter::decode_label;
 
 const LTRACE:bool = false; //true;
 
@@ -191,9 +192,8 @@ if LTRACE {print!("EXTENSION OF: "); printitem2(&item,Gmr,combing);}
               // this return index of new rule with longer delay
               let extenditem = LRitem{ri:eri, pi:*pi, la:*la};
               if /* !self.deprecated.contains(&extenditem) && */  !self.items.contains(&extenditem) {
-                let krinsert = true; //self.lrkernel.insert(extenditem);  ////?????
-//                if krinsert *** change indices hash  **** not yet
-                if krinsert && !onclosure.contains(&extenditem) {
+//            //self.lrkernel.insert(extenditem);  ////????? utimately no
+                if !onclosure.contains(&extenditem) {
                   closure.push(extenditem);
                   onclosure.insert(extenditem);
                 }
@@ -935,7 +935,6 @@ impl Grammar
        let combget = combing.rget(&comb);
        if let Some(cnti) = combget {
           newnt = self.Symbols[*cnti].clone();
-//println!("REUSING COMBING NT {}",newnt.index);          
        }
        else
 */
@@ -990,7 +989,16 @@ impl Grammar
            let newvar = format!("_delvar_{}_{}_",&newnt.index,dbegin);
 // check for return at end of last action.
 
-           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+
+//           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+           // change this to a _rrsemaction_ri call on the first args
+           let mut aargs=String::from("parser");
+           for k in 0..self.Rules[*ntri].rhs.len() { //original len
+             let (ltype,label)=decode_label(&self.Rules[*ntri].rhs[k].label,k);
+             aargs.push(',');  aargs.push_str(&label);
+           }
+           let mut actionri= format!(" let {} = _rrsemaction_{}_({}); ",&newvar,ntri,aargs);
+
            // need to assign values to new items added to delta
            // they will be popped off of the stack by parser_writer as
            // item2, item1 item0...  because parser writer will write an action
@@ -1000,13 +1008,11 @@ impl Grammar
            let mut dtuple = format!("({},",&newvar);
            let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
            for sym in &delta {
-             let defaultlabel =format!("_item_del{}_{}_{}_",&labi,newrulenum,ntri);
-             let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
-               else {
-               // set label!
-               newrule.rhs[labi].label = defaultlabel.clone();
-                &defaultlabel
-             };
+             let (_,mut slabel) = decode_label(&sym.label,labi);
+             if slabel.starts_with("_item") {
+               slabel = format!("_item_del{}_{}_{}_",&labi,newrulenum,ntri);
+               newrule.rhs[labi].label = slabel.clone();
+             }
              dtuple.push_str(&format!("{},",slabel));
              labi+=1;
            }
@@ -1034,7 +1040,7 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        }
        let mut clonenewnt = newnt.clone();
        // this is a new grammar sym, can give it any label
-       let ntlabel = format!("_delayitem{}_{}",dbegin,ntcx); ntcx+=1;
+       let ntlabel = format!("_delayitem{}_{}_{}",dbegin,ri,ntcx); ntcx+=1;
        clonenewnt.label = ntlabel.clone();
        newrhs.push(clonenewnt); // newnt added to rule!
        for i in dend .. self.Rules[ri].rhs.len() {
@@ -1052,17 +1058,30 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        /////// change semantic action of original rule.
        let mut newaction = String::from(" ");
        let newri = self.Rules.len(); // index of new rule (extended)
-       // break up tuple
-//       let mut dlabels = Vec::with_capacity(dend-dbegin);
+       // break up tuple, for arguments to original action
+       let mut aargs = String::from("parser");
+       for i in 0..dbegin {
+          let (_,labeli) = decode_label(&self.Rules[ri].rhs[i].label,i);
+          aargs.push(',');  aargs.push_str(&labeli);       
+       }
        for i in dbegin..dend {
-          let defaultlab = format!("_item{}_",i);
-          let symi = &self.Rules[ri].rhs[i]; // original rule
-          let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
-            else {&defaultlab};
-//          dlabels.push(labeli.to_owned());
-          newaction.push_str(&format!("let mut {} = {}.{}; ",labeli,&ntlabel,i-dbegin));
-          //labi+=1;
+//          let symi = &self.Rules[ri].rhs[i]; // original rule
+//          let (ltype,labeli) = decode_label(&symi.label,i);
+//           let defaultlab = format!("_item{}_",i);
+//          let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
+//            else {&defaultlab};
+
+//          if ltype==2 {newaction.push_str(&format!("let ref mut {} = {}.{}; ",&labeli,&ntlabel,i-dbegin));}
+//          else {newaction.push_str(&format!("let {} = {}.{}; ",&labeli,&ntlabel,i-dbegin));}
+//          aargs.push(',');  aargs.push_str(&labeli);
+            aargs.push_str(&format!(",{}.{}",&ntlabel,i-dbegin));
        }// break up tuple
+       // add rest of original arguments
+       for i in dend .. self.Rules[ri].rhs.len() {
+          let (_,labeli) = decode_label(&self.Rules[ri].rhs[i].label,i-(dend-dbegin-1));
+          aargs.push(',');  aargs.push_str(&labeli);
+       }
+/*       
        // anything to do with the other values?  they have labels, but indexes
        // may be off - but original actions will refer to them as-is.
        // original action will assume labels are _item{}_, unless
@@ -1074,13 +1093,9 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        for i in dend..self.Rules[ri].rhs.len() {
          originalact=originalact.replace(&format!("_rrtempitem{}_",i),&format!("_item{}_",i-1));
        }
-       /*
-       for i in dbegin..dend {
-         originalact = originalact.replace(&format!("_item{}_",i),&dlabels[i-dbegin]);
-       }
-       */
-//       newaction.push_str(&self.Rules[ri].action);
        newaction.push_str(&originalact);
+*/
+       newaction.push_str(&format!("_rrsemaction_{}_({}) }}",ri,aargs));
        newrulei.action = newaction;
 
 ////////////////////*************

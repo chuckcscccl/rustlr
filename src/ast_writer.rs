@@ -218,10 +218,10 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
             // lbox
             let alreadyislbx =
               rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel {
+	    let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
               passthru=-2; checkboxlabel(&rsym.label).to_owned()
-            } else {expectedlabel}; //{format!("_item{}_",&rhsi)};
+            } else {expectedlabel};
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
             // Lbox or no Lbox:  ***************
             let rsymtype = &self.Symbols[rsym.index].rusttype;

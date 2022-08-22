@@ -7,7 +7,7 @@ Lexterminal Rangle >
 startsymbol I
 I --> U | Q
 U --> i | T
-Q --> N U
-N --> # U DC # N | U DC
+Q --> # N U #
+NU --> # U DC # N | U DC
 T --> i Langle I Rangle
 

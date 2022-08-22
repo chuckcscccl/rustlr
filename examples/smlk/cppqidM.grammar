@@ -15,11 +15,10 @@ U --> ID | T
 Q --> N U
 N --> U COLONCOLON N
 N --> U COLONCOLON
-T --> ID LANGLE I RANGLE
-
 # the following would make :: left-associative, but that's proabably ok,
 # a vector will be constructed for its abstract syntax
 #N --> (U COLONCOLON)+
+T --> ID LANGLE I RANGLE
 
 #ambiguous on purpose:
 #I --> N ID

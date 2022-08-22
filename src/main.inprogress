@@ -38,6 +38,11 @@ use parser_writer::*;
 mod ast_writer;
 use ast_writer::*;
 
+mod lalr_statemachine;
+use lalr_statemachine::LALRMachine;
+mod selmlk;
+use selmlk::{MLStatemachine};
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -52,19 +57,32 @@ fn rustle(args:&Vec<String>) // called from main
   let filepath = &args[1];
   let mut parserfile = String::from("");
   let mut argi = 2; // next argument position
-  let mut lalr = true;  // changed from false in version 0.2.0
-  let mut newlalr = false;
+  let mut lalr = false;  // changed from false in version 0.2.0
+  let mut newlalr = true;
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
   let mut genlex = false;
   let mut genabsyn = false;
+  let mut lrsd = false;
+  let mut lrsdmaxk:usize = selmlk::MAXK;
+  let mut regenerate = false;
   while argi<argc
   {
      match &args[argi][..] {
-       "lr1" | "LR1" | "-lr1" => { lalr=false; },
-       "lalr" | "LALR" | "-lalr" => {lalr=true; },
-       "lalr1" | "LALR1" | "lalr1" => {newlalr=true; },       
+       "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
+       "lalr" | "LALR" | "-lalr" => {newlalr=true; },
+       "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
+       "oldlalr" | "-oldlalr" | "-selML" => {newlalr=false; lalr=true;}
+       "-lrsd" | "lrsd" => {
+         newlalr=false; lalr=false; lrsd=true;
+         if argi+1<argc {
+           if let Ok(mk)=args[argi+1].parse::<usize>() {
+             lrsdmaxk=mk; argi+=1;
+           } // next arg is number
+         }//if next arg exists
+       },
+       "-regenerate" => { regenerate=true; },
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -96,8 +114,8 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.genlex = genlex;
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
-  grammar1.parse_grammar(filepath);
-  // Check grammar integrity:
+  grammar1.parse_grammar(filepath);  //  ***
+  // Check grammar integrity: now done inside parse
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
   if grammar1.name.len()<2  { // derive grammar name from filepath
@@ -110,7 +128,7 @@ fn rustle(args:&Vec<String>) // called from main
   }// derive grammar name
   let gramname = grammar1.name.clone();
 
-  if genabsyn {
+  if grammar1.genabsyn {
      let mut slashpos = parserfile.rfind('/');
      if let None = slashpos {slashpos = parserfile.rfind('\\');}
      let mut astpath = format!("{}_ast.rs",&gramname);
@@ -119,20 +137,49 @@ fn rustle(args:&Vec<String>) // called from main
      if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
   }
 
+ grammar1.delay_transform(); // hope this works!
+
+
   if tracelev>2 {println!("computing Nullable set");}
   grammar1.compute_NullableRf();
   if tracelev>2 {println!("computing First sets");}
   grammar1.compute_FirstIM();
 
-  let mut fsm0 = Statemachine::new(grammar1);
+  let mut fsm0;
+  if lrsd {
+    let mut lrsdfsm = MLStatemachine::new(grammar1);
+    lrsdfsm.regenerate = regenerate;
+    println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
+    lrsdfsm.selml(lrsdmaxk);
+    //fsm0 = lrsdfsm.to_statemachine();
 
+    if !lrsdfsm.failed && lrsdfsm.regenerate { 
+      println!("Re-Generating LR(1) machine for transformed grammar...");
+      lrsd = false;
+      fsm0 = Statemachine::new(lrsdfsm.Gmr);
+      fsm0.lalr = false;
+      fsm0.generatefsm(); //GENERATE THE FSM
+    } else {     fsm0 = lrsdfsm.to_statemachine(); }
+    // but of course there will be more conflicts since there will be
+    // more rules.  The original rules that caused conflicts for LR are
+    // still there??
 
-  fsm0.lalr = lalr;
-  if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
-  if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"LALR"} else {"LR1"},&gramname);}
-  fsm0.generatefsm(); //GENERATE THE FSM
-  if tracelev>2 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
-  else if tracelev>1 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
+  } else  // not lrsd
+  if newlalr { // newlalr takes precedence over other flags
+     let mut lalrfsm = LALRMachine::new(grammar1);
+     println!("Generating LALR(1) state machine");
+     lalrfsm.generatefsm();
+     fsm0 = lalrfsm.to_statemachine();
+  }
+  else {
+    fsm0 = Statemachine::new(grammar1);
+    fsm0.lalr = lalr;
+    if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
+    if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"older LALR"} else {"LR1"},&gramname);}
+    fsm0.generatefsm(); //GENERATE THE FSM
+  } // old code
+  if tracelev>2 && !newlalr && !lrsd { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
+  else if tracelev>1 && !newlalr && !lrsd {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.rs",&gramname));}
   if fsm0.States.len()>65536  {
     println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
@@ -148,9 +195,11 @@ fn rustle(args:&Vec<String>) // called from main
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
       else {fsm0.writeparser(&parserfile)}
     }; // write_result =
-  if tracelev>0 {eprintln!("{} total states",fsm0.States.len());}
+  if tracelev>0 && !lrsd {eprintln!("{} total states",fsm0.FSM.len());}
   if let Ok(_) = write_result {
      if tracelev>0 {println!("written parser to {}",&parserfile);}
   }
+  else if let Err(err) = write_result {
+     println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
+  }
 }//rustle
-

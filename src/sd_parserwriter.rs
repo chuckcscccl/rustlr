@@ -18,12 +18,12 @@ use std::path::Path;
 use crate::{Statemachine,checkboxlabel};
 use crate::Stateaction::*;
 
-/////////////////////ENUM VERSION//////////////////////////////////////
-   ///// semantic acition fn is _semaction_rule_{rule index}
+/////////////////////LRSD VERSION//////////////////////////////////////
+   ///// semantic action fn is _rrsemaction_rule_{rule index}
 ////////////////////////////////////////////////
 impl Statemachine
 {
-  pub fn writeenumparser(&self, filename:&str)->Result<(),std::io::Error>
+  pub fn writelrsdparser(&self, filename:&str)->Result<(),std::io::Error>
   {
     let ref absyn = self.Gmr.Absyntype;
 
@@ -41,7 +41,8 @@ impl Statemachine
     // these are the _semaction_rule_ri functions.  move function to
     // pop stack to the closures attached to each runtime rule.
     // make this a pure function on types defined.
-    let mut actions:Vec<String> = Vec::with_capacity(rlen);    
+    let mut actions:Vec<String> = Vec::with_capacity(rlen);
+    
     for ri in 0..rlen
     {
       let lhs = &self.Gmr.Rules[ri].lhs.sym;
@@ -49,80 +50,50 @@ impl Statemachine
       let rettype = &self.Gmr.Symbols[lhsi].rusttype; // return type=rusttype
       let ltoptr = if has_lt || (lifetime.len()>0 && rettype.contains(lifetime))
         {format!("<{}>",lifetime)} else {String::from("")};
-      let mut fndef = format!("\nfn _semaction_rule_{}_{}(parser:&mut ZCParser<RetTypeEnum{},{}>) -> {} {{\n",ri,&ltoptr,&ltopt,extype,rettype);
-//if rettype=="()" {println!("() type for {}",lhs);}
-      let mut k = self.Gmr.Rules[ri].rhs.len(); //k=len of rhs of rule ri
-      //form if-let labels and patterns as we go...
-      let mut labels = String::from("(");
-      let mut patterns = String::from("(");
-      while k>0 // k is length of right-hand side
-      {
-        let mut boxedlabel = false;  // see if named label is of form [x]
-        let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
-        //let gsymi = *self.Gmr.Symhash.get(&gsym.sym).unwrap();
-        let findat = gsym.label.find('@');
-        let mut plab = format!("_item{}_",k-1);
-        match &findat {
-          None if gsym.label.len()>0 /*&& !gsym.label.contains('(')*/ => {
-            let truelabel = checkboxlabel(&gsym.label);
-            boxedlabel = truelabel != &gsym.label;
-            plab = String::from(truelabel);
-          },
-          Some(ati) if *ati>0 => {
-            let rawlabel = gsym.label[0..*ati].trim();
-            let truelabel = checkboxlabel(rawlabel);
-            boxedlabel = truelabel != rawlabel;
-            plab = String::from(truelabel);
-            //plab=format!("{}",&gsym.label[0..*ati]);
-          },
-          _ => {},
-        }//match
-        let poppedlab = plab.as_str();
-        let symtype=&self.Gmr.Symbols[gsym.index].rusttype;
-        let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
-        let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
-        //form RetTypeEnum::Enumvariant_{eindex}(popped value)
-        let stat;
-        if !boxedlabel { // not a [x] label
-          stat = format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
-        } else {
-          stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.lbx({3},_{0}_);  ",poppedlab,&eindex,symtype,k-1);
-        }// is a [x] label
-        
-        fndef.push_str(&stat);
-        // this is the main body of the semaction function:
-        // this also needs to be move. semaction can take lbox params.
-        if gsym.label.len()>1 && findat.is_some() { // if-let pattern @@
-	  let atindex = findat.unwrap();
-          if atindex>0 { // label like es:@Exp(..)@
-            labels.push_str("&mut "); // for if-let
-            if boxedlabel {labels.push('*');} // &mut *Lbox gets the value
-            labels.push_str(poppedlab); labels.push(',');
-          }
-          else { // non-labeled pattern: E:@..@
-            labels.push_str(poppedlab); labels.push(',');
-          }
-	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
-	} // @@ pattern exists, with or without label
 
-        k -= 1;      
-      }// for each symbol on right hand side of rule (while k)
-      // form if let pattern=labels ...
+// first arg to semaction is parser itself. - this is a must.
+      let mut fndef = format!("\nfn _rrsemaction_{}_{}(parser:&mut ZCParser<RetTypeEnum{},{}>",ri,&ltoptr,&ltopt,extype);
+      // now for other arguments
+      // inside actions, can still bind labels to patterns
+      let mut patternactions = String::new();                  
+      for k in 0..self.Gmr.Rules[ri].rhs.len() {
+        let symk= &self.Gmr.Rules[ri].rhs[k]; 
+        let symktype = &self.Gmr.Symbols[symk.index].rusttype;
+        let(labelkind,label) = decode_label(&symk.label,k);
+        let mut fargk = match labelkind {
+          0 => {format!(", mut {}:{}",&label,symktype)},
+          1 => {format!(", mut {}:LBox<{}>",&label,symktype)},
+          2 => {   // label is a e@..@ pattern
+            let ati = symk.label.find('@').unwrap();
+            patternactions.push_str(&format!("let {} = {}; ",
+                                     &symk.label[ati+1..],&label));
+            format!(", {}:&mut {}",&label,symktype)
+          },
+          3 => {   // label is a [e]@..@ pattern
+            let ati = symk.label.find('@').unwrap();          
+            patternactions.push_str(&format!("let {} = &mut *{}; ",
+                                     &symk.label[ati+1..],&label));
+            format!(", mut {}:LBox<{}>",&label,symktype)
+          },
+          _ => {
+            let ati = symk.label.find('@').unwrap();          
+            patternactions.push_str(&format!("let {} = _item{}_; ",
+                                     &symk.label[ati+1..],k));
+            format!(", mut _item{}_:{}",k,symktype)
+          },
+        };//match
+        fndef.push_str(&fargk);
+      }// for each symbol on rhs
+      fndef.push_str(&format!(") -> {} {{ ",rettype));
       let defaultaction = format!("<{}>::default()}}",rettype);
-      let mut semaction = &self.Gmr.Rules[ri].action; //string that ends w/ rbr
+      let mut semaction = &self.Gmr.Rules[ri].action; //string that ends w/rbr
+      if semaction.len()>1  {fndef.push_str(&patternactions);}
       if semaction.len()<=1 {semaction = &defaultaction;}
-      if labels.len()<2 {
-        fndef.push_str(semaction.trim_end()); fndef.push_str("\n");
-      } //empty pattern
-      else { // write an if-let
-        labels.push(')');  patterns.push(')');
-	let pat2= format!("\n  if let {}={} {{ {}  else {{parser.report(\"{}\"); <{}>::default()}} }}\n",&patterns,&labels,semaction.trim_end(),&patterns,rettype);
-        fndef.push_str(&pat2);
-      }// if-let semantic action
+      fndef.push_str(&semaction); 
       actions.push(fndef);
-    }// generate action function for each rule  (for ri..
+    } //for ri
 
-    ////// write to file
+    ////// write to file, create Ruleaction closures for each rule
 
     let mut fd = File::create(filename)?;
     write!(fd,"//Parser generated by rustlr for grammar {}",&self.Gmr.name)?;
@@ -184,26 +155,67 @@ if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsiz
     write!(fd,"];\n\n")?;
 
     // write action functions fn _semaction_rule_{} ..
-    for deffn in &actions { write!(fd,"{}",deffn)?; }
+    for deffn in &actions { write!(fd,"{}\n",deffn)?; }
 
     // must know what absyn type is when generating code.
     write!(fd,"\npub fn make_parser{}() -> ZCParser<RetTypeEnum{},{}>",&ltopt,&ltopt,extype)?; 
     write!(fd,"\n{{\n")?;
-    // write code to pop stack, assign labels to variables.
     write!(fd," let mut parser1:ZCParser<RetTypeEnum{},{}> = ZCParser::new({},{});\n",&ltopt,extype,self.Gmr.Rules.len(),self.FSM.len())?;
+
+
     // generate rules and Ruleaction delegates to call action fns, cast
-     write!(fd," let mut rule = ZCRProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,"start")?; // dummy for init
-    for i in 0..self.Gmr.Rules.len() 
+//     write!(fd," let mut rule = ZCRProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,"start")?; // dummy for init
+    write!(fd," let mut rule;\n")?; // dummy for init
+    for ri in 0..self.Gmr.Rules.len() 
     {
-      write!(fd," rule = ZCRProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,self.Gmr.Rules[i].lhs.sym)?;
+      write!(fd," rule = ZCRProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,self.Gmr.Rules[ri].lhs.sym)?;
       write!(fd," rule.Ruleaction = |parser|{{ ")?;
 
+    // write code to pop stack, decode labels into args. /////////
+      let mut k = self.Gmr.Rules[ri].rhs.len(); //k=len of rhs of rule ri
+      //form if-let labels and patterns as we go...
+      let mut actualargs = Vec::new();
+      while k>0 // k is length of right-hand side, use k-1
+      {
+        let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
+        let (lbtype,poppedlab) = decode_label(&gsym.label,k-1);
+        let symtype=&self.Gmr.Symbols[gsym.index].rusttype;
+        let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
+        let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
+        actualargs.push(format!("{}",&poppedlab));           
+        let stat = match lbtype {
+           0 => {
+             format!("let {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",&poppedlab,&eindex,symtype)
+           },
+           1  | 3 => {
+             format!("let _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lbx({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)
+           },
+           2 => {
+             format!("let ref mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype)
+           },
+           _ => {
+             format!("let {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype)
+           },
+        };
+        write!(fd,"{}",&stat)?;
+        k-=1;
+      } // while k>0
+      // form args
+      let mut aargs = String::new();
+      k = actualargs.len();
+      while k>0
+      {
+        aargs.push(',');
+        aargs.push_str(&actualargs[k-1]);
+        k-=1;
+      }
+      /// formed actual arguments
     // write code to call action function, then convert to RetTypeEnum
-      let lhsi = self.Gmr.Symhash.get(&self.Gmr.Rules[i].lhs.sym).expect("GRAMMAR REPRESENTATION CORRUPTED");
-      let fnname = format!("_semaction_rule_{}_",i);
+      let lhsi = self.Gmr.Symhash.get(&self.Gmr.Rules[ri].lhs.sym).expect("GRAMMAR REPRESENTATION CORRUPTED");
+      let fnname = format!("_rrsemaction_{}_",ri);
       let typei = &self.Gmr.Symbols[*lhsi].rusttype;
       let enumindex = self.Gmr.enumhash.get(typei).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
-      write!(fd," RetTypeEnum::Enumvariant_{}({}(parser)) }};\n",enumindex,&fnname)?;
+      write!(fd," RetTypeEnum::Enumvariant_{}({}(parser{})) }};\n",enumindex,&fnname,aargs)?;
       write!(fd," parser1.Rules.push(rule);\n")?;
     }// write each rule action
     
@@ -292,23 +304,39 @@ if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsiz
    t.trim().starts_with("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
   }//is_lba to check type
 
-/*
-// function to remove lifetime, <'t>, non-alphanums from string
-fn remove_lt(s:&str, lt:&str) -> String
+// decode a grammar label, first return value is type of the label
+// 0=direct
+// 1=boxed
+// 2= &mut   like in e@..@
+// 3= &mut box  like in [e]@..@
+// 4= no distinct label, @..@ without name
+// k = position of argument of rhs 0 = first
+pub fn decode_label(label:&str,k:usize) -> (u8,String)
 {
-   let mut ax = String::from(s);
-   if lt.len()==0 {return ax;}
-   let mut ltform = format!("{} ",lt);
-   let mut ln = ltform.len();
-   while let Some(p) = ax.find(&ltform) {ax.replace_range(p..(p+ln),"");}
-   ltform = format!("<{}>",lt); ln = ltform.len();
-   while let Some(p) = ax.find(&ltform) {ax.replace_range(p..(p+ln),"");}   
-   ln = lt.len();
-   while let Some(p) = ax.find(lt) {ax.replace_range(p..(p+ln),"");}
-   while let Some(p) = ax.find("<") {ax.replace_range(p..(p+1),"_");}
-   while let Some(p) = ax.find(">") {ax.replace_range(p..(p+1),"_");}   
-   ax
-}//remove_lt
-*/
-
-
+  let mut plab = format!("_item{}_",k);
+  if label.len()==0 {return (0,plab);}
+  let mut boxedlabel = false;  // see if named label is of form [x]
+  let findat = label.find('@');
+  let mut ltype = 0;
+  match &findat {
+     None if label.len()>0 /*&& !gsym.label.contains('(')*/ => {
+            let truelabel = checkboxlabel(label);
+            boxedlabel = truelabel != label; 
+            plab = String::from(truelabel);
+            if boxedlabel {ltype=1;} /* else {ltype=0;} */
+          },
+    Some(ati) if *ati==0 => { ltype=4; },
+    Some(ati) if *ati>0 => {
+            let rawlabel = label[0..*ati].trim();
+            let truelabel = checkboxlabel(rawlabel);
+            boxedlabel = truelabel != rawlabel;
+            if boxedlabel {ltype=3;} else {ltype=2;}
+            plab = String::from(truelabel);
+          },
+    _ => {},
+  }//match
+  if ltype>1
+    {eprintln!("\nWARNING: @..@ PATTERNS MUST BE IRREFUTABLE WITH THE -lrsd OPTION\n");}
+  //if plab.starts_with("NEW") {plab=format!("_item{}_",k);}
+  (ltype,plab)
+}//decode_label

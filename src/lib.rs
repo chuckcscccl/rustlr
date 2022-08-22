@@ -63,6 +63,7 @@ pub use generic_absyn::*;
 pub mod zc_parser;
 use zc_parser::*;
 mod parser_writer;
+mod sd_parserwriter;
 mod ast_writer;
 
 mod lalr_statemachine;

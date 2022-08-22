@@ -1,5 +1,5 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
-**LR(1) and LALR(1) parser generator**
+**LR-Style Parser Generator with Advanced Options**
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
@@ -8,8 +8,8 @@ Among the features that Rustlr supports are:
 1. The option of automatically creating the abstract syntax data types and semantic actions from the grammar.
 2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
-3. Experimental features include the ability to signal *delayed reduction*
-transformations on a grammar.  This allows Rustlr to accept a class of
+3. Experimental features include the ability to apply *delayed reduction*
+transformations on a grammar.  This allows Rustlr to recognize a class of
 grammars larger than traditional LR.  
 4. Operator precedence and associativity declarations further allow grammars
 to be written that's closer to EBNF syntax.
