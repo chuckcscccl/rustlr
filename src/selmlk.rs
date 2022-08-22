@@ -25,7 +25,7 @@ pub const MAXK:usize = 3;
 type AGENDATYPE = Vec<usize>;
 type PREAGENDATYPE = BTreeSet<usize>;
 type COMBINGTYPE = HashMap<usize,Vec<usize>>;
-type ITEMSETTYPE = HashSet<LRitem>;
+type ITEMSETTYPE = BTreeSet<LRitem>;
 
 // #[derive(Clone,Debug,Default)]
 pub struct MLState // emulates LR1/oldlalr engine
