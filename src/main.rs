@@ -66,6 +66,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut genabsyn = false;
   let mut lrsd = false;
   let mut lrsdmaxk:usize = selmlk::MAXK;
+  let mut regenerate = false;
   while argi<argc
   {
      match &args[argi][..] {
@@ -81,6 +82,7 @@ fn rustle(args:&Vec<String>) // called from main
            } // next arg is number
          }//if next arg exists
        },
+       "-regenerate" => { regenerate=true; },
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -146,11 +148,23 @@ fn rustle(args:&Vec<String>) // called from main
   let mut fsm0;
   if lrsd {
     let mut lrsdfsm = MLStatemachine::new(grammar1);
+    lrsdfsm.regenerate = regenerate;
     println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
-    fsm0 = lrsdfsm.to_statemachine();
-    
-  } else
+    //fsm0 = lrsdfsm.to_statemachine();
+
+    if !lrsdfsm.failed && lrsdfsm.regenerate { 
+      println!("Re-Generating LR(1) machine for transformed grammar...");
+      lrsd = false;
+      fsm0 = Statemachine::new(lrsdfsm.Gmr);
+      fsm0.lalr = false;
+      fsm0.generatefsm(); //GENERATE THE FSM
+    } else {     fsm0 = lrsdfsm.to_statemachine(); }
+    // but of course there will be more conflicts since there will be
+    // more rules.  The original rules that caused conflicts for LR are
+    // still there??
+
+  } else  // not lrsd
   if newlalr { // newlalr takes precedence over other flags
      let mut lalrfsm = LALRMachine::new(grammar1);
      println!("Generating LALR(1) state machine");
