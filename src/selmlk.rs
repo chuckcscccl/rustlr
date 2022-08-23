@@ -738,7 +738,6 @@ if LTRACE {
 // re-prepare grammar
   if self.regenerate {
     // prepare grammar, recompute reachability and eliminate unused rules
-    // but how?
     let mut liverules = BTreeSet::new();
     for state in &self.States {
       if self.FSM[state.index].len()==0 {continue;} //non-reachable state
