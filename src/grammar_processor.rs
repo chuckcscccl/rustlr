@@ -858,7 +858,8 @@ strtok is bstokens[i], but will change
                   rulesforset.insert(self.Rules.len()-1);
                   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
                   // i-1 is now at token with )* or )+
-                  if defaultrelab2.len()<1 {defaultrelab2=format!("_itemre{}_{}",i-1-iadjust,ntcx); ntcx+=1;}
+                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
+//   if defaultrelab2.len()<1 {defaultrelab2=format!("_itemre{}_{}",i-1-iadjust,ntcx); ntcx+=1;}                  
                   NEWNTs.insert(hashkey,self.Symbols.len()-1); //record
                   }// create new nt       
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
@@ -874,8 +875,9 @@ strtok is bstokens[i], but will change
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
-		   let defaultrelab = format!("_itemre{}_{}",i-1-iadjust,ntcx);
-                   ntcx+=1;
+		   let defaultrelab = format!("_item{}_",i-1-iadjust);
+//	   let defaultrelab = format!("_itemre{}_{}",i-1-iadjust,ntcx);
+//         ntcx+=1;
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0
                      {
                          if !is_alphanum(checkboxlabel(retoks[1])) {
@@ -994,8 +996,9 @@ strtok is bstokens[i], but will change
                     termi = *termiopt.unwrap();
                   } else {panic!("MALFORMED EXPRESSION LINE {}\n",linenum);}
                   strtok = septoks[0]; // to the left of :, E<,*>
-   	          let defaultrelab3 = format!("_itemre{}_{}",i-1-iadjust,ntcx);
-                  ntcx+=1;
+   	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
+//     let defaultrelab3 = format!("_itemre{}_{}",i-1-iadjust,ntcx);
+//     ntcx+=1;
 		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
                      if !is_alphanum(checkboxlabel(septoks[1])) {
                        panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);

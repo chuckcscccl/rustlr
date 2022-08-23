@@ -388,7 +388,7 @@ println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nt
 #![allow(dead_code)]
 extern crate rustlr;
 use rustlr::LBox;\n")?;
-     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
+//     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
      if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}
      write!(fd,"{}",&ASTS)?;
      println!("Abstract syntax structures created in {}",filename);
