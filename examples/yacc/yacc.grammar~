@@ -1,0 +1,26 @@
+# Rustlr Grammar for parsing .y source files, converts grammar to Rust form
+
+auto
+lifetime 'lt
+externtype bool
+#lexattribute add_custom("decls",r"^(?s)%\{.*%\}$")
+#valueterminal declarations~ &'lt str~ Custom("decls",d) &d[2..d.len()-2]
+
+lexattribute skip_trigger("%}", ||{self.shared_state.borrow()==true})
+valueterminal RAWDECL ~ &'lt str ~ Skipto("%}",d) ~ d[..d.len()-2]
+
+lexterminal PERPERCENT %%
+lexterminal PLBRACE %{
+lexterminal PRBRACE %}
+lexterminal PERTOKEN %token
+lexterminal PERSTART %start
+nonterminals rawdecls rawstart Yacc Yaccdec Production
+startsymbol Yacc
+
+Yacc --> rawdecls
+
+rawdecls --> rawstart raw_content
+rawstart --> PLBRACE { parser.shared_state.borrow_mut() = true; ... }
+raw_content --> RAWDECL:dc { parser.shared_state.borrow_mut()=false; println!("SEE: {}",dc); ... }
+
+EOF

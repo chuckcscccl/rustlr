@@ -127,6 +127,7 @@ pub struct Grammar
   pub lifetime: String,
   pub tracelev:usize,
   pub Lexvals: Vec<(String,String,String)>,  //"int" -> ("Num(n)","Val(n)")
+//  pub Lexskips: Vec<(String,String,String)>,  
   pub Haslexval : HashSet<String>,
   pub Lexextras: Vec<String>,
   pub enumhash:HashMap<String,usize>, //enum index of each type
@@ -176,6 +177,7 @@ impl Grammar
        Lexvals:Vec::new(),
        Haslexval:HashSet::new(),
        Lexextras:Vec::new(),
+//       Lexskips:Vec::new(),
        genlex: false,
        genabsyn: false,
        enumhash:HashMap::new(),
@@ -661,6 +663,13 @@ impl Grammar
 	       self.Lexextras.push(prop);
 	       self.genlex = true;
 	    },
+            /*
+            "lex_skip_trigger" if stokens.len() > 3 => {
+               let pos = line.find("lex_skip_trigger").unwrap()+17;
+               let mut dtokens:Vec<_> = line[pos..].split('~').collect();
+               self.Lexskips.push((dtokens[0].trim().to_owned(),dtokens[1].trim().to_owned(),dtokens[2].trim().to_owned()));
+            },
+            */
             "transform" => {   // new for 0.2.96, transform_token added
               /*
                let pos = line.find("transform").unwrap()+10;
@@ -1230,7 +1239,7 @@ strtok is bstokens[i], but will change
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
 //     self.Symbols.push(anyerr.clone());     
-     let topgsym = &self.Symbols[*self.Symhash.get(&self.topsym).unwrap()];
+     let topgsym = &self.Symbols[*self.Symhash.get(&self.topsym).expect("GRAMMAR START SYMBOL (topsym) NOT DECLARED")];
      let startrule = Grule {  // START-->topsym EOF
         lhs:startnt,
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
@@ -1493,11 +1502,20 @@ impl<{2}> {0}<{2}>
 {{
    fn nextsym(&mut self) -> Option<TerminalToken<{0},{1}>> {{
 ",lifetime,retype,&lexername)?;
+/*
+      for (sbegin,send,condition) in self.Lexskips.iter() {
+        if sbegin.len()==0 || send.len()==0 {continue;}
+        write!(fd,"    if ({}) {{self.stk.skip_set({},{});}}\n",condition,sbegin,send)?;
+      }
+*/      
       write!(fd,"    let tokopt = self.stk.next_token();
     if let None = tokopt {{return None;}}
     let token = tokopt.unwrap();
     match token.0 {{
 ")?;
+
+// write skip_trigger cases
+    
 // change sym to r#sym
     if keywords.len()>0 {
       write!(fd,"      RawToken::Alphanum(sym) if self.keywords.contains(sym) => {{

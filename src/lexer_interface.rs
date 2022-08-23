@@ -325,6 +325,8 @@ pub enum RawToken<'t>
   /// This token type is intended to be enabled with **`lexattribute add_custom`** directives,
   /// which correspond to the function [StrTokenizer::add_custom]
   Custom(&'static str, &'t str),
+  /// special token triggered by internal flag, returns skipped text
+  Skipto(&'t str),
   /// tokenizer error
   LexError,
 }//RawToken
@@ -398,7 +400,9 @@ pub struct StrTokenizer<'t>
    src:&'t str, // source name
    /// vector of starting byte position of each line, position 0 not used.
    pub line_positions:Vec<usize>, // starting position of each line
-   //pub shared_state: dyn for <ET:Default> Rc<RefCell<ET>>,
+   skipbegin: &'static str,
+   skipend: &'static str,
+//   skipclosure: Box<dyn Fn() -> bool>,
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -432,7 +436,10 @@ impl<'t> StrTokenizer<'t>
     let line_start=0;
     let src = "";
     let line_positions = vec![0,0];
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
+    let skipbegin = "";
+    let skipend = "";
+//    let skipclosure = Box::new(||false);
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -449,6 +456,24 @@ impl<'t> StrTokenizer<'t>
   pub fn add_triple(&mut self, s:&'t str)
   { if s.len()==3 {self.triples.insert(s);} }
 
+/*
+  pub fn skip_trigger<FC:Fn()->bool+ 'static>(&mut self, target:&'static str, closure:FC) 
+  {
+    self.skiptarget=target;
+    self.skipclosure = Box::new(closure);
+  }
+*/
+
+  /// sets the skiptarget, enables Skipto token, overrides other matches.
+  pub fn skip_set(&mut self, begin:&'static str, target:&'static str)
+  {self.skipend=target; self.skipbegin=begin; }
+
+  /// cancels recoginition of Skipto tokens
+  pub fn skip_reset(&mut self) {
+    self.skipend="";  self.skipbegin="";
+//    self.skipclosure = Box::new(||false);
+  }
+  
   /*
   /// add symbol of length greater than two. Symbols that are prefixes of
   /// other symbols should be added after the longer symbols.
@@ -546,8 +571,6 @@ impl<'t> StrTokenizer<'t>
    self.line_positions = vec![0,0];
   }
 
-  // transform_wildcard cannot be implemented here: need to know RetTypeEnum
-
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along
   /// with a message printed to stderr if a tokenizer error occured.
@@ -557,6 +580,7 @@ impl<'t> StrTokenizer<'t>
    self.prev_position = self.position;
    let clen = self.line_comment.len();
    let (cms,cme) = (self.ml_comment_start,self.ml_comment_end);
+   let mut skipping = false;
    while self.position<self.input.len()
    {
     pi = self.position;
@@ -585,6 +609,37 @@ impl<'t> StrTokenizer<'t>
       return Some((Whitespace(i-pi),line0,self.column()-(i-pi)));}
     else if i>pi {continue;}
     //if pi>=self.input.len() {return None;}
+
+
+    // look for skip target to skip to
+    /*
+    if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input.starts_with(self.skipbegin) {
+       skipping = true;
+    }
+    */
+    if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input[pi..].starts_with(self.skipbegin) {
+    
+       if let Some(endpos) = self.input[pi+self.skipbegin.len()..].find(self.skipend) {
+         self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
+       } else {
+         self.position = self.input.len();
+         if self.skipend!="EOF" {
+           eprintln!("Tokenizer Warning: skip target '{}' not found starting from line {}, column {}, returning rest of input...",self.skipend,line0,pi-self.line_start+1);
+         }
+         return Some((Skipto(&self.input[pi..]),line0,pi-lstart0+1));
+       }// did not find target
+       // find newline chars
+       let mut ci = pi;
+       while let Some(nli) = self.input[ci..self.position].find('\n')
+       {
+          self.line+=1; ci += nli+1;  self.line_start=ci;
+          self.line_positions.push(ci);
+          // Newline token is never returned if inside skipped text
+       }
+       //self.skip_reset();
+       return Some((Skipto(&self.input[pi..self.position]),line0,pi-lstart0+1));
+    }//skiptarget
+
 
     // look for custom-defined regular expressions
     for (ckey,cregex) in self.custom_defined.iter()

@@ -1,0 +1,35 @@
+# Rustlr Grammar for parsing .y source files, converts grammar to Rust form
+
+auto
+lifetime 'lt
+externtype bool
+#lex_skip_trigger "%{" ~ "%}" ~ *self.shared_state.borrow()
+lexattribute skip_set("%{","%}")
+
+valueterminal RAWDECL ~ &'lt str ~ Skipto(d) ~ &d.trim()[2..d.len()-2]
+valueterminal VAR ~ &'lt str ~ Alphanum(n) ~ n
+
+lexterminal PERPERCENT %%
+lexterminal PLBRACE {
+lexterminal PRBRACE }
+#lexterminal PERTOKEN %token
+#lexterminal PERSTART %start
+nonterminals rawdecls rawstart rawcontent Yacc Yaccdec Production perper
+topsym Yacc
+
+Yacc --> perper rawdecls { println!("REDUCING YACC"); ... }
+
+perper --> VAR:v { println!("%% see {}",&v); ... }
+
+rawdecls --> rawcontent { println!("REDUCING rawdecls"); ... }
+
+rawstart --> PLBRACE  { println!("SEEIT"); *parser.shared_state.borrow_mut() = true;   ... }
+
+rawcontent --> RAWDECL:dc { *parser.shared_state.borrow_mut()=false; println!("SEE: {}",dc);   ... }
+
+EOF
+#lexattribute add_custom("decls",r"^(?s)%\{.*%\}$")
+#valueterminal declarations~ &'lt str~ Custom("decls",d) &d[2..d.len()-2]
+
+println!("SHARED STATE: {}",*self.shared_state.borrow());
+println!("GOT TOKEN: {:?}",&token);    
