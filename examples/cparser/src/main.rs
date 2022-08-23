@@ -19,7 +19,9 @@ fn main()
   let args:Vec<String> = std::env::args().collect(); // command-line args
   let mut srcfile = "test1.c";
   if args.len()>1 {srcfile = &args[1];}
-  let source = LexSource::new(srcfile).unwrap();
+  let sourceopt = LexSource::new(srcfile);
+  if sourceopt.is_err() {return;}
+  let source = sourceopt.unwrap();
   let mut scanner2 = c11lexer::from_source(&source);
   let mut parser2 = make_parser();
   let result2 = parse_with(&mut parser2, &mut scanner2);

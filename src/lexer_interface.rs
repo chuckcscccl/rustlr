@@ -776,7 +776,6 @@ impl<'t> LexSource<'t>
   pub fn new(path:&'t str) -> std::io::Result<LexSource<'t>>
   {
      let tryread=std::fs::read_to_string(path);
-     //println!("READTHIS: {:?}",&tryread);
      match tryread {
        Ok(st) => {
          Ok(LexSource {
@@ -785,7 +784,10 @@ impl<'t> LexSource<'t>
            contents:st,
          })
        },
-       Err(e) => {Err(e)}
+       Err(e) => {
+         eprintln!("\nFAILED TO OPEN PATH TO SOURCE '{}'\n",path);
+         Err(e)
+       },
      }//match
   }//new
   /// retrieves entire contents of lexsource

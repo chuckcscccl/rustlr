@@ -728,8 +728,12 @@ if LTRACE {
        eprintln!("\nSELECTIVE DELAY ALGORITHM FAILED; DEFAULTS APPLIED.\n");
      }
 
-if LTRACE {println!("CALLING FINAL mlset_reduce..");}
+     if LTRACE {println!("CALLING FINAL mlset_reduce..");}
      self.mlset_reduce();
+
+     if self.failed {
+       eprintln!("\nConsider the following options:\n  1. extending the maximum length of delays\n  2. adding operator precedence and associativity declarations\n  3. rewriting the grammar, perhaps it was ambiguous\n");
+     }
 
 // re-prepare grammar
   if self.regenerate {

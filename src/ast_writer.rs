@@ -24,6 +24,7 @@ impl Grammar
    fn prepare(&mut self) -> String
    {
      // reachability already called by grammar parser, call reachability_types:
+     // at this point, self.Reachable can be cloned if needs to be preserved
      self.reachability_types();
      
      // assign types to all non-terminal symbols
@@ -55,7 +56,8 @@ impl Grammar
 
      // Set of nti that will extend other types
      let mut toextend = HashMap::new();  // usize->usize nti's
-
+     let mut extendtargets = HashSet::new();
+     
      //// second pass: change @EXPR to actual type, change :Expr to direct
      for nt in self.Rulesfor.keys() {
        // two possibilities : @expr, or <@expr> or :Expr
@@ -80,7 +82,7 @@ impl Grammar
            }
          } else if let Some(pos1)=stype.find("<:") {
            if let Some(pos2)=stype[pos1+2..].find('>') {
-              symtocopy = &stype[pos1+2..pos1+2+pos2];
+              symtocopy = stype[pos1+2..pos1+2+pos2].trim();
               start = pos1+1; end = pos1+2+pos2;
               indirect = true; // make sure              
            }
@@ -91,7 +93,8 @@ impl Grammar
            if replacetype.starts_with(':') {indirect = true;}
            else if addtoextend {
               toextend.insert(*nt,symi);
-//println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);              
+//println!("{} will extend {}",&self.Symbols[*nt].sym,&self.Symbols[symi].sym);
+              extendtargets.insert(symi);
            }
 
            // change type to actual type.
@@ -139,22 +142,11 @@ continue;}
         // default for new enum
 	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
 
-/*
-// check that the type should append an existing enum, continue...
-//        if ntsym.rusttype.starts_with(':') {
-        if willextend {
-          let copysym = ntsym.rusttype.clone();
-println!("setting type of {} to {}, was {}",&ntsym.sym,&copysym,&self.Symbols[nti].rusttype);          
-          self.Symbols[nti].rusttype = copysym;
-          AST = String::new();
-        }// append existing enum - which enum???
-*/
-//        ntsym = &self.Symbols[nti];   // re-borrow
         if willextend {AST=String::new();}
         let NT = &self.Symbols[nti].sym;
 
         /////// generate new ENUM by default
-        let mut genstruct = NTrules.len()==1 && !willextend;  //check lhs label
+        let mut genstruct = NTrules.len()==1 && !willextend && !extendtargets.contains(nt);
         let mut simplestruct = false;
 
 	for ri in NTrules  // for each rule with NT on lhs

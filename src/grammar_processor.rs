@@ -669,7 +669,7 @@ impl Grammar
               eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
             },
 //////////// case for grammar production:            
-	    LHS0 if (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
+	    LHS0 if stokens.len()>1 && (stokens[1]=="-->" || stokens[1]=="::=" || stokens[1]=="==>") => {
               if !foundeol && stokens[1]=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}
               // println!("RULE {}",&line); 
