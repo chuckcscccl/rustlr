@@ -266,7 +266,7 @@ pub trait Tokenizer<'t,AT:Default>
   /// using the -genlex option.
   fn transform_wildcard(&self,t:TerminalToken<'t,AT>) -> TerminalToken<'t,AT>
   {t}
-  
+
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
   /// value=AT::default().  The is the only provided function that should *not*

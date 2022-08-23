@@ -1,0 +1,35 @@
+# non-context free language a^n b^n c^n parsed using Externaltype
+
+# In addition to the 'absyntype', rustlr parsers also carry an additional
+# value that can be manipulated by the semantic actions, so that the abstract
+# syntax need not always be created compositionally.  For example, one may
+# wish to build the symbol table of a compiler along with the abstract
+# syntax tree when parsing.  The type of this value is declared by the
+# externtype directive below. As with the absyntype, the externtype must
+# implement the Default trait, which is how the value is initialized.
+# Inside the semantic actions of a grammar, this value is always referred
+# to as parser.exstate, where parser is the ref mut variable bound to the
+# parser struct.  Since parser.exstate is mutatble, the abilities of the
+# parser is moved beyond that of mere pushdown automata.  We can easily use
+# it to recognize non-context free languages.  Here we implement the 
+# canonical example of the context free pumping lemma.
+
+!
+! /* (i32,i32) defaults to (0,0), used to form two-counter automaton. */
+
+absyntype bool
+externtype (i32,i32)
+nonterminals A B C AB S
+terminals a b c
+topsym S
+
+S --> AB:(ok) C { let (an,bn)=parser.exstate; println!("counters at end: an {}, bn {}",an,bn); ok && bn==0 }
+
+AB --> A B { let (an,bn)=parser.exstate; if an!=bn {parser.abort("different numbers of a's and b's");} an==bn }
+
+A --> A a  { parser.exstate.0+=1; true }
+A -->
+B --> B b  { parser.exstate.1+=1; true }
+B -->
+C --> C c  { parser.exstate.1-=1; true }
+C -->

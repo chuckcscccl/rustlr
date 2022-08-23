@@ -35,12 +35,9 @@ impl Statemachine
     let ref lifetime = self.Gmr.lifetime;
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
+
     let rlen = self.Gmr.Rules.len();
-    
     // generate action fn's from strings stored in gen-time grammar
-    // these are the _semaction_rule_ri functions.  move function to
-    // pop stack to the closures attached to each runtime rule.
-    // make this a pure function on types defined.
     let mut actions:Vec<String> = Vec::with_capacity(rlen);    
     for ri in 0..rlen
     {
@@ -90,8 +87,7 @@ impl Statemachine
         }// is a [x] label
         
         fndef.push_str(&stat);
-        // this is the main body of the semaction function:
-        // this also needs to be move. semaction can take lbox params.
+
         if gsym.label.len()>1 && findat.is_some() { // if-let pattern @@
 	  let atindex = findat.unwrap();
           if atindex>0 { // label like es:@Exp(..)@
@@ -292,7 +288,7 @@ if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsiz
    t.trim().starts_with("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
   }//is_lba to check type
 
-/*
+
 // function to remove lifetime, <'t>, non-alphanums from string
 fn remove_lt(s:&str, lt:&str) -> String
 {
@@ -309,6 +305,5 @@ fn remove_lt(s:&str, lt:&str) -> String
    while let Some(p) = ax.find(">") {ax.replace_range(p..(p+1),"_");}   
    ax
 }//remove_lt
-*/
 
 
