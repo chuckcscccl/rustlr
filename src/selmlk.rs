@@ -21,7 +21,7 @@ use crate::sd_parserwriter::decode_label;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 3;
+pub const MAXK:usize = 4;
 
 type AGENDATYPE = Vec<usize>;
 type PREAGENDATYPE = BTreeSet<usize>;
@@ -161,12 +161,15 @@ impl MLState
               let comb = combing.get(&nti).unwrap_or(&defaultcomb);
               if comb.len()>maxk {
                 answer= false;
-                print!("CANNOT FURTHER EXTEND COMBING [[");
-                for x in comb {
-                  print!("{} ",&Gmr.Symbols[*x].sym);
+                if !failed {
+                  print!("CANNOT FURTHER EXTEND COMBING [[");
+                  for x in comb {
+                    print!("{} ",&Gmr.Symbols[*x].sym);
+                  }
+                  println!("]]");
                 }
-                println!("]]");
                 answer = false;
+                return answer;
                 //panic!("\nFAILED!!!!!!!!\n");      ///////PANIC
               }
              else {
@@ -620,6 +623,7 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
      {
        while self.preagenda.len()>0
        {
+         if self.failed {break;}
 //println!("PREAGENDA SIZE {}",self.preagenda.len());       
          let statei = *self.preagenda.iter().next().unwrap();
          self.preagenda.remove(&statei);
