@@ -616,15 +616,18 @@ impl<'t> StrTokenizer<'t>
     //if pi>=self.input.len() {return None;}
 
     if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input[pi..].starts_with(self.skipbegin) {
-       let findend = self.input[pi+self.skipbegin.len()..].rfind(self.skipend);
-       let endpos = findend.unwrap_or(self.input.len());
+      let endpos;
+       if self.skipend!=self.specialeof {
+        let findend= self.input[pi+self.skipbegin.len()..].rfind(self.skipend);
+        endpos = findend.unwrap_or(self.input.len());
+       } else {endpos=self.input.len();}
        if endpos<self.input.len() {
          self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
-         let sti = pi+self.skipbegin.len();
+//         let sti = pi+self.skipbegin.len();
        } else {
          self.position = self.input.len();
          if self.skipend==self.specialeof {
-           return Some((Skipto(&self.input[pi+self.skipbegin.len()..]),line0,pi-lstart0+1));
+           return Some((Skipto(&self.input[pi+self.skipbegin.len()..]),line0,(1+pi)-lstart0));
          } //else reset position and re-read
          self.position = pi;
          continue;
@@ -638,17 +641,20 @@ impl<'t> StrTokenizer<'t>
           // Newline token is never returned if inside skipped text
        }
        //self.skip_reset();
-       return Some((Skipto(&self.input[pi..self.position]),line0,pi-lstart0+1));
+       return Some((Skipto(&self.input[pi..self.position]),line0,(1+pi)-lstart0));
     }//skiptarget
     else if self.skipend.len()!=0 {  // skip til skipend
-       let findend = self.input[pi..].rfind(self.skipend);
-       let endpos = findend.unwrap_or(self.input.len());
+       let endpos;
+       if self.skipend!=self.specialeof {
+         let findend = self.input[pi..].rfind(self.skipend);
+         endpos = findend.unwrap_or(self.input.len());
+       } else {endpos = self.input.len();}
        if endpos<self.input.len() {
          self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
        } else {
          if self.skipend==self.specialeof {
            self.position = endpos;
-           return Some((Skipto(&self.input[pi..]),line0,pi-lstart0+1));
+           return Some((Skipto(&self.input[pi..]),line0,(1+pi)-lstart0));
          }
          self.position = pi;
          continue;
