@@ -29,6 +29,10 @@ static	char *its_a = "error - uninitialised";
 %token SBEGIN END WITH GOTO CONST VAR TYPE ARRAY RECORD SET SFILE FUNCTION
 %token PROCEDURE LABEL PACKED PROGRAM
 
+ /* added by Liang */
+%nonassoc IF
+%nonassoc ELSE
+
 %%
  /*start of rules*/
 program		: PROGRAM {its_a="program";} newident external_files ';' block '.'

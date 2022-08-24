@@ -1,0 +1,39 @@
+# Rustlr grammar converted from Yacc
+
+lexterminal TERMINAL0 >
+lexterminal TERMINAL1 ::
+lexterminal TERMINAL2 <
+terminals identifier 
+lexterminal COLONCOLON ::
+nonterminals class_name id_expression nested_name_specifier qualified_id template_argument template_id unqualified_id 
+startsymbol id_expression
+
+
+id_expression ==>
+          unqualified_id 
+        | qualified_id 
+        <==
+unqualified_id ==>
+          identifier 
+        | template_id 
+        <==
+qualified_id ==>
+          nested_name_specifier unqualified_id 
+        <==
+nested_name_specifier ==>
+          class_name TERMINAL1 nested_name_specifier 
+        | class_name TERMINAL1 
+        <==
+class_name ==>
+          identifier 
+        | template_id 
+        <==
+template_id ==>
+          identifier TERMINAL2 template_argument TERMINAL0 
+        <==
+template_argument ==>
+          id_expression 
+        <==
+
+EOF
+

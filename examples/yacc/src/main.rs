@@ -45,7 +45,7 @@ use yacc_ast::label::*;
 fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
 {
   let mut rrgmr = String::from("# Rustlr grammar converted from Yacc\n\n");
-  let Yacc(primary{raw_declarations,yacc_declarations,rules},_) = yygmr;
+  let Yacc(_,primary{raw_declarations,yacc_declarations,rules},_) = yygmr;
 
   // write collected lexterminals from symbol table
   // create reverse hashmap from lexforms to names
@@ -57,7 +57,11 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
     lexhash.insert(lterm,tname);
     ltcx+=1;
   }//for lexterminals in symbol table
+  
   // process yacc_declarations for more terminals,
+  let mut precedence:i32 = 10;
+  let nonassocbit:i32 = 0x40000000;
+  let mut prec_table = HashMap::new();
   for decl in yacc_declarations {  //decl is of type Lbox<yacc_decl>
     match &**decl {
       lexterminal(tn,ts) => {
@@ -77,6 +81,24 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
         for lbxnt in nts { rrgmr.push_str(**lbxnt); rrgmr.push(' ');}
         rrgmr.push('\n');  
       },
+      left(ids) => {
+        for id in ids {  // in LBox
+          prec_table.insert(**id,precedence);
+          precedence += 10;
+        }
+      },
+      right(ids) => {
+        for id in ids {  // in LBox
+          prec_table.insert(**id,-1*precedence);
+          precedence += 10;
+        }
+      },      
+      nonassoc(ids) => {
+        for id in ids {  // in LBox
+          prec_table.insert(**id,precedence+nonassocbit);
+          precedence += 10;
+        }
+      },      
       // topsym placed in symbol table by metaparser
       _ => {},
     }//match decl
@@ -95,6 +117,19 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
   }
   rrgmr.push_str(&format!("startsymbol {}\n\n",startsymbol));
 
+  // operator precedence and associativity
+  for (sym,lev) in prec_table.iter() {
+    /* not supported by rustlr yet
+    if *lev>nonassocbit {
+      rrgmr.push_str(&format!("nonassoc {} {}\n",sym,lev.abs()));
+    } else
+    */
+    if *lev>nonassocbit { rrgmr.push_str(&format!("left {} {}\n",sym,lev-nonassocbit)); }
+    else if *lev>0 { rrgmr.push_str(&format!("left {} {}\n",sym,lev)); }
+    else if *lev<0 { rrgmr.push_str(&format!("right {} {}\n",sym,-1*lev)); }
+  }//precedence
+  rrgmr.push('\n');
+  
   // now for rules:
   for rule in rules {  // rule is LBox<grammar_rules>
     rrgmr.push_str(&format!("{} ==>\n",rule.lhs));

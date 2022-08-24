@@ -23,7 +23,7 @@ lexattribute add_custom("literal",r"^'.'")
 lexattribute add_custom("decls",r"^(?m)^%\{(?s)[^%\}]*%\}")
 lexattribute add_custom("action",r"^\{[^\}]*\}")
 valueterminal ACTION ~ &'lt str ~ Custom("action",d) ~ d
-valueterminal ADDITIONALS~ &'lt str~ Skipto(d) ~ d
+valueterminal ADDITIONALS ~ &'lt str~ Skipto(d) ~ d
 valueterminal RAWDECL ~ &'lt str ~ Custom("decls",d) ~ &d.trim()[2..d.len()-2]
 valueterminal ID ~ &'lt str ~ Alphanum(n) ~ n
 valueterminal LEXCHAR ~ &'lt str ~ Custom("literal",d)~ d[1..d.len()-1].trim()
@@ -50,9 +50,9 @@ lexterminal PERLBRACK %{
 lexterminal PERRBRACK %}
 lexterminal AT @
 lexterminal DOLLAR $
-lexterminal TWODOLLAR $$
-lexterminal TYPE typeof
-terminals start token
+lexterminal TWODOLLARS $$
+lexterminal DASH -
+terminals start token left right nonassoc union typeof
 nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag
 nonterminal primary
 nonterminal rhsunit
@@ -65,14 +65,17 @@ primary ==> RAWDECL?:raw_declarations
          grammar_rules+:rules
          { parser.shared_state.borrow_mut().skip = true; ... }
         <==
-Yacc --> primary PERPERCENT? ADDITIONALS?
+Yacc --> (PERCENT ID DASH ID)? primary PERPERCENT? ADDITIONALS?
 
 #rawdecls --> RAWDECL
 yacc_decl:terminals --> PERCENT token ID+
 yacc_decl:lexterminal --> PERCENT token ID LEXSTR
 yacc_decl:topsym --> PERCENT start ID:s { parser.shared_state.borrow_mut().topsym=s; ... }
-
-yacc_decl:nonterminal --> PERCENT TYPE tag? ID+
+yacc_decl:left --> PERCENT left ID+:vs
+yacc_decl:right --> PERCENT right ID+:vs
+yacc_decl:nonassoc --> PERCENT nonassoc ID+:vs
+yacc_decl:uniondec --> PERCENT union ACTION
+yacc_decl:nonterminal --> PERCENT typeof tag? ID+
 tag --> LANGLE ID RANGLE
 
 rhs_symbol:ID --> ID (COLON label)?

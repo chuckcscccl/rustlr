@@ -1,0 +1,378 @@
+# Rustlr grammar converted from Yacc
+
+lexterminal TERMINAL0 !
+lexterminal TERMINAL1 ;
+lexterminal TERMINAL2 (
+lexterminal TERMINAL3 +
+lexterminal TERMINAL4 ?
+lexterminal TERMINAL5 ^
+lexterminal TERMINAL6 [
+lexterminal TERMINAL7 >
+lexterminal TERMINAL8 =
+lexterminal TERMINAL9 ~
+lexterminal TERMINAL10 %
+lexterminal TERMINAL11 *
+lexterminal TERMINAL12 .
+lexterminal TERMINAL13 ]
+lexterminal TERMINAL14 -
+lexterminal TERMINAL15 <
+lexterminal TERMINAL16 {
+lexterminal TERMINAL17 /
+lexterminal TERMINAL18 }
+lexterminal TERMINAL19 &
+lexterminal TERMINAL20 ,
+lexterminal TERMINAL21 |
+lexterminal TERMINAL22 )
+lexterminal TERMINAL23 :
+terminals IDENTIFIER CONSTANT STRING_LITERAL SIZEOF 
+terminals PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP 
+terminals AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN 
+terminals SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN 
+terminals XOR_ASSIGN OR_ASSIGN TYPE_NAME 
+terminals TYPEDEF EXTERN STATIC AUTO REGISTER 
+terminals CHAR SHORT INT LONG SIGNED UNSIGNED FLOAT DOUBLE CONST VOLATILE VOID 
+terminals STRUCT UNION ENUM ELLIPSIS 
+terminals CASE DEFAULT IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN 
+nonterminals abstract_declarator additive_expression and_expression argument_expression_list assignment_expression assignment_operator cast_expression compound_statement conditional_expression constant_expression declaration declaration_list declaration_specifiers declarator direct_abstract_declarator direct_declarator enum_specifier enumerator enumerator_list equality_expression exclusive_or_expression expression expression_statement external_declaration function_definition identifier_list inclusive_or_expression init_declarator init_declarator_list initializer initializer_list iteration_statement jump_statement labeled_statement logical_and_expression logical_or_expression multiplicative_expression parameter_declaration parameter_list parameter_type_list pointer postfix_expression primary_expression relational_expression selection_statement shift_expression specifier_qualifier_list statement statement_list storage_class_specifier struct_declaration struct_declaration_list struct_declarator struct_declarator_list struct_or_union struct_or_union_specifier translation_unit type_name type_qualifier type_qualifier_list type_specifier unary_expression unary_operator 
+startsymbol translation_unit
+
+primary_expression ==>
+          IDENTIFIER 
+        | CONSTANT 
+        | STRING_LITERAL 
+        | TERMINAL2 expression TERMINAL22 
+        <==
+postfix_expression ==>
+          primary_expression 
+        | postfix_expression TERMINAL6 expression TERMINAL13 
+        | postfix_expression TERMINAL2 TERMINAL22 
+        | postfix_expression TERMINAL2 argument_expression_list TERMINAL22 
+        | postfix_expression TERMINAL12 IDENTIFIER 
+        | postfix_expression PTR_OP IDENTIFIER 
+        | postfix_expression INC_OP 
+        | postfix_expression DEC_OP 
+        <==
+argument_expression_list ==>
+          assignment_expression 
+        | argument_expression_list TERMINAL20 assignment_expression 
+        <==
+unary_expression ==>
+          postfix_expression 
+        | INC_OP unary_expression 
+        | DEC_OP unary_expression 
+        | unary_operator cast_expression 
+        | SIZEOF unary_expression 
+        | SIZEOF TERMINAL2 type_name TERMINAL22 
+        <==
+unary_operator ==>
+          TERMINAL19 
+        | TERMINAL11 
+        | TERMINAL3 
+        | TERMINAL14 
+        | TERMINAL9 
+        | TERMINAL0 
+        <==
+cast_expression ==>
+          unary_expression 
+        | TERMINAL2 type_name TERMINAL22 cast_expression 
+        <==
+multiplicative_expression ==>
+          cast_expression 
+        | multiplicative_expression TERMINAL11 cast_expression 
+        | multiplicative_expression TERMINAL17 cast_expression 
+        | multiplicative_expression TERMINAL10 cast_expression 
+        <==
+additive_expression ==>
+          multiplicative_expression 
+        | additive_expression TERMINAL3 multiplicative_expression 
+        | additive_expression TERMINAL14 multiplicative_expression 
+        <==
+shift_expression ==>
+          additive_expression 
+        | shift_expression LEFT_OP additive_expression 
+        | shift_expression RIGHT_OP additive_expression 
+        <==
+relational_expression ==>
+          shift_expression 
+        | relational_expression TERMINAL15 shift_expression 
+        | relational_expression TERMINAL7 shift_expression 
+        | relational_expression LE_OP shift_expression 
+        | relational_expression GE_OP shift_expression 
+        <==
+equality_expression ==>
+          relational_expression 
+        | equality_expression EQ_OP relational_expression 
+        | equality_expression NE_OP relational_expression 
+        <==
+and_expression ==>
+          equality_expression 
+        | and_expression TERMINAL19 equality_expression 
+        <==
+exclusive_or_expression ==>
+          and_expression 
+        | exclusive_or_expression TERMINAL5 and_expression 
+        <==
+inclusive_or_expression ==>
+          exclusive_or_expression 
+        | inclusive_or_expression TERMINAL21 exclusive_or_expression 
+        <==
+logical_and_expression ==>
+          inclusive_or_expression 
+        | logical_and_expression AND_OP inclusive_or_expression 
+        <==
+logical_or_expression ==>
+          logical_and_expression 
+        | logical_or_expression OR_OP logical_and_expression 
+        <==
+conditional_expression ==>
+          logical_or_expression 
+        | logical_or_expression TERMINAL4 expression TERMINAL23 conditional_expression 
+        <==
+assignment_expression ==>
+          conditional_expression 
+        | unary_expression assignment_operator assignment_expression 
+        <==
+assignment_operator ==>
+          TERMINAL8 
+        | MUL_ASSIGN 
+        | DIV_ASSIGN 
+        | MOD_ASSIGN 
+        | ADD_ASSIGN 
+        | SUB_ASSIGN 
+        | LEFT_ASSIGN 
+        | RIGHT_ASSIGN 
+        | AND_ASSIGN 
+        | XOR_ASSIGN 
+        | OR_ASSIGN 
+        <==
+expression ==>
+          assignment_expression 
+        | expression TERMINAL20 assignment_expression 
+        <==
+constant_expression ==>
+          conditional_expression 
+        <==
+declaration ==>
+          declaration_specifiers TERMINAL1 
+        | declaration_specifiers init_declarator_list TERMINAL1 
+        <==
+declaration_specifiers ==>
+          storage_class_specifier 
+        | storage_class_specifier declaration_specifiers 
+        | type_specifier 
+        | type_specifier declaration_specifiers 
+        | type_qualifier 
+        | type_qualifier declaration_specifiers 
+        <==
+init_declarator_list ==>
+          init_declarator 
+        | init_declarator_list TERMINAL20 init_declarator 
+        <==
+init_declarator ==>
+          declarator 
+        | declarator TERMINAL8 initializer 
+        <==
+storage_class_specifier ==>
+          TYPEDEF 
+        | EXTERN 
+        | STATIC 
+        | AUTO 
+        | REGISTER 
+        <==
+type_specifier ==>
+          VOID 
+        | CHAR 
+        | SHORT 
+        | INT 
+        | LONG 
+        | FLOAT 
+        | DOUBLE 
+        | SIGNED 
+        | UNSIGNED 
+        | struct_or_union_specifier 
+        | enum_specifier 
+        | TYPE_NAME 
+        <==
+struct_or_union_specifier ==>
+          struct_or_union IDENTIFIER TERMINAL16 struct_declaration_list TERMINAL18 
+        | struct_or_union TERMINAL16 struct_declaration_list TERMINAL18 
+        | struct_or_union IDENTIFIER 
+        <==
+struct_or_union ==>
+          STRUCT 
+        | UNION 
+        <==
+struct_declaration_list ==>
+          struct_declaration 
+        | struct_declaration_list struct_declaration 
+        <==
+struct_declaration ==>
+          specifier_qualifier_list struct_declarator_list TERMINAL1 
+        <==
+specifier_qualifier_list ==>
+          type_specifier specifier_qualifier_list 
+        | type_specifier 
+        | type_qualifier specifier_qualifier_list 
+        | type_qualifier 
+        <==
+struct_declarator_list ==>
+          struct_declarator 
+        | struct_declarator_list TERMINAL20 struct_declarator 
+        <==
+struct_declarator ==>
+          declarator 
+        | TERMINAL23 constant_expression 
+        | declarator TERMINAL23 constant_expression 
+        <==
+enum_specifier ==>
+          ENUM TERMINAL16 enumerator_list TERMINAL18 
+        | ENUM IDENTIFIER TERMINAL16 enumerator_list TERMINAL18 
+        | ENUM IDENTIFIER 
+        <==
+enumerator_list ==>
+          enumerator 
+        | enumerator_list TERMINAL20 enumerator 
+        <==
+enumerator ==>
+          IDENTIFIER 
+        | IDENTIFIER TERMINAL8 constant_expression 
+        <==
+type_qualifier ==>
+          CONST 
+        | VOLATILE 
+        <==
+declarator ==>
+          pointer direct_declarator 
+        | direct_declarator 
+        <==
+direct_declarator ==>
+          IDENTIFIER 
+        | TERMINAL2 declarator TERMINAL22 
+        | direct_declarator TERMINAL6 constant_expression TERMINAL13 
+        | direct_declarator TERMINAL6 TERMINAL13 
+        | direct_declarator TERMINAL2 parameter_type_list TERMINAL22 
+        | direct_declarator TERMINAL2 identifier_list TERMINAL22 
+        | direct_declarator TERMINAL2 TERMINAL22 
+        <==
+pointer ==>
+          TERMINAL11 
+        | TERMINAL11 type_qualifier_list 
+        | TERMINAL11 pointer 
+        | TERMINAL11 type_qualifier_list pointer 
+        <==
+type_qualifier_list ==>
+          type_qualifier 
+        | type_qualifier_list type_qualifier 
+        <==
+parameter_type_list ==>
+          parameter_list 
+        | parameter_list TERMINAL20 ELLIPSIS 
+        <==
+parameter_list ==>
+          parameter_declaration 
+        | parameter_list TERMINAL20 parameter_declaration 
+        <==
+parameter_declaration ==>
+          declaration_specifiers declarator 
+        | declaration_specifiers abstract_declarator 
+        | declaration_specifiers 
+        <==
+identifier_list ==>
+          IDENTIFIER 
+        | identifier_list TERMINAL20 IDENTIFIER 
+        <==
+type_name ==>
+          specifier_qualifier_list 
+        | specifier_qualifier_list abstract_declarator 
+        <==
+abstract_declarator ==>
+          pointer 
+        | direct_abstract_declarator 
+        | pointer direct_abstract_declarator 
+        <==
+direct_abstract_declarator ==>
+          TERMINAL2 abstract_declarator TERMINAL22 
+        | TERMINAL6 TERMINAL13 
+        | TERMINAL6 constant_expression TERMINAL13 
+        | direct_abstract_declarator TERMINAL6 TERMINAL13 
+        | direct_abstract_declarator TERMINAL6 constant_expression TERMINAL13 
+        | TERMINAL2 TERMINAL22 
+        | TERMINAL2 parameter_type_list TERMINAL22 
+        | direct_abstract_declarator TERMINAL2 TERMINAL22 
+        | direct_abstract_declarator TERMINAL2 parameter_type_list TERMINAL22 
+        <==
+initializer ==>
+          assignment_expression 
+        | TERMINAL16 initializer_list TERMINAL18 
+        | TERMINAL16 initializer_list TERMINAL20 TERMINAL18 
+        <==
+initializer_list ==>
+          initializer 
+        | initializer_list TERMINAL20 initializer 
+        <==
+statement ==>
+          labeled_statement 
+        | compound_statement 
+        | expression_statement 
+        | selection_statement 
+        | iteration_statement 
+        | jump_statement 
+        <==
+labeled_statement ==>
+          IDENTIFIER TERMINAL23 statement 
+        | CASE constant_expression TERMINAL23 statement 
+        | DEFAULT TERMINAL23 statement 
+        <==
+compound_statement ==>
+          TERMINAL16 TERMINAL18 
+        | TERMINAL16 statement_list TERMINAL18 
+        | TERMINAL16 declaration_list TERMINAL18 
+        | TERMINAL16 declaration_list statement_list TERMINAL18 
+        <==
+declaration_list ==>
+          declaration 
+        | declaration_list declaration 
+        <==
+statement_list ==>
+          statement 
+        | statement_list statement 
+        <==
+expression_statement ==>
+          TERMINAL1 
+        | expression TERMINAL1 
+        <==
+selection_statement ==>
+          IF TERMINAL2 expression TERMINAL22 statement 
+        | IF TERMINAL2 expression TERMINAL22 statement ELSE statement 
+        | SWITCH TERMINAL2 expression TERMINAL22 statement 
+        <==
+iteration_statement ==>
+          WHILE TERMINAL2 expression TERMINAL22 statement 
+        | DO statement WHILE TERMINAL2 expression TERMINAL22 TERMINAL1 
+        | FOR TERMINAL2 expression_statement expression_statement TERMINAL22 statement 
+        | FOR TERMINAL2 expression_statement expression_statement expression TERMINAL22 statement 
+        <==
+jump_statement ==>
+          GOTO IDENTIFIER TERMINAL1 
+        | CONTINUE TERMINAL1 
+        | BREAK TERMINAL1 
+        | RETURN TERMINAL1 
+        | RETURN expression TERMINAL1 
+        <==
+translation_unit ==>
+          external_declaration 
+        | translation_unit external_declaration 
+        <==
+external_declaration ==>
+          function_definition 
+        | declaration 
+        <==
+function_definition ==>
+          declaration_specifiers declarator declaration_list compound_statement 
+        | declaration_specifiers declarator compound_statement 
+        | declarator declaration_list compound_statement 
+        | declarator compound_statement 
+        <==
+
+EOF
+

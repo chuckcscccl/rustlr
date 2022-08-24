@@ -1,5 +1,5 @@
 /* automatically generated grammar */
-/* %glr-parser */
+%glr-parser
 
 %{
   static YYSTYPE IdExpressionMerge (YYSTYPE L, YYSTYPE R);
@@ -178,6 +178,7 @@
 %token TOK_COMPLEX 139
 %token TOK_IMAGINARY 140
 
+%start __EarlyStartSymbol  /* manually added by Liang */
 
 /* -------- precedence and associativity ---------*/
 /* low precedence */
