@@ -21,7 +21,7 @@ use crate::sd_parserwriter::decode_label;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 4;
+pub const MAXK:usize = 3; // this is only the default
 
 type AGENDATYPE = Vec<usize>;
 type PREAGENDATYPE = BTreeSet<usize>;
@@ -142,12 +142,25 @@ impl MLState
 
         for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
 
+            //failure detection
+            let rilhs = Gmr.Rules[*ri].lhs.index;
+            let defaultcomb = vec![rilhs];            
+            let comb = combing.get(&rilhs).unwrap_or(&defaultcomb);
+             if *cpi==0 && comb.len()>maxk { // cannot be extended
+               if !failed {
+                  print!("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[");
+                  for x in comb {
+                    print!("{} ",&Gmr.Symbols[*x].sym);
+                  }
+                  println!("]]");
+               }
+                 return false;    // report failure
+             }//failure detection
+
+            
             // same conflict item can be used to detect other extension
             // possibilities. can't deprecate til end of for citems loop
             //if self.deprecated.contains(citem) {continue;} //MUST NOT HAVE
-//print!("...CHECKING item "); printitem(&item,Gmr);
-//print!("...AGAINST CONFLICTS: "); printitem(citem,Gmr);
-
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
               newconflicts.insert(item);
 //print!("CONFLICT PROPAGATION: ");  printitem(&item,Gmr);
@@ -159,20 +172,21 @@ impl MLState
               let nti = Gmr.Rules[*ri].rhs[*pi].index;
               let defaultcomb = vec![nti];
               let comb = combing.get(&nti).unwrap_or(&defaultcomb);
+              /*
               if comb.len()>maxk {
                 answer= false;
                 if !failed {
-                  print!("CANNOT FURTHER EXTEND COMBING [[");
+                  print!("FAILURE. MAXIMUM COMBING IN CONFLICT: [[");
                   for x in comb {
                     print!("{} ",&Gmr.Symbols[*x].sym);
                   }
                   println!("]]");
                 }
-                answer = false;
-                return answer;
+                return answer
                 //panic!("\nFAILED!!!!!!!!\n");      ///////PANIC
               }
-             else {
+              */
+//             else {
 
 if LTRACE {print!("EXTENSION OF: "); printitem2(&item,Gmr,combing);}
 
@@ -204,7 +218,7 @@ if LTRACE {print!("EXTENSION OF: "); printitem2(&item,Gmr,combing);}
                 //closed=0;
 //print!("AAAdded extension item "); printitem2(&extenditem,Gmr,combing);
               }
-             } // can extend
+//             } // can extend
             } // conflict extension
         }//for each conflict item
         let mut added = false;
@@ -452,6 +466,7 @@ if LTRACE {println!("state {} added back to agenda due to new conflicts",si);}
      let mut toadd = newstateindex; // defaut is add new state (will push)
      for i in indices.iter() //0..self.States.len()
      {
+//       if self.preagenda.contains(&i) {continue;}
        if &state==&self.States[*i] {toadd=*i; break; } // state i exists
      }
 
@@ -639,6 +654,7 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
              if *pi==0 || *symi!=self.Gmr.Rules[*ri].rhs[pi-1].index /* || self.States[statei].deprecated.contains(citem) */ {continue;}
              //propagated = true;
              topropagate.insert(LRitem {ri:*ri, pi:pi-1, la:*la});
+             // should detect failure here?
              //if true || propagated {deprecated_conflicts.insert(*citem);}
            }//for each conflict item that must be propagated.
            for bc in topropagate {
@@ -732,7 +748,7 @@ if LTRACE {
      self.mlset_reduce();
 
      if self.failed {
-       eprintln!("\nConsider the following options:\n  1. extending the maximum length of delays\n  2. adding operator precedence and associativity declarations\n  3. rewriting the grammar, perhaps it was ambiguous\n");
+       eprintln!("\nConsider the following options:\n  1. extending the maximum length of delays unless you already notice\n     a repeating pattern in the \"maximum combing in conflict.\"\n  2. adding operator precedence and associativity declarations\n  3. rewriting the grammar, perhaps it was ambiguous\n");
      }
 
 // re-prepare grammar
@@ -1273,7 +1289,7 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
 } // transformation
 
 
-
+/*
 //// generic structure bijective hashmap
 #[derive(Default,Debug)]
 pub struct Bimap<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone>
@@ -1331,7 +1347,7 @@ impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
   }
 }//impl Bimap
 // will be used to map nonterminal symbols to vectors of symbols
-
+*/
 
 fn printitem(item:&LRitem, Gmr:&Grammar)
 {
@@ -1404,3 +1420,7 @@ fn hashrule(rule:&Grule) -> Vec<usize>
    h
 }//hashrule
 
+/*
+The way failure is detected was not exactly as decribed in paper,
+this version tries to change that.
+*/
