@@ -402,7 +402,7 @@ pub struct StrTokenizer<'t>
    pub line_positions:Vec<usize>, // starting position of each line
    skipbegin: &'static str,
    skipend: &'static str,
-//   skipclosure: Box<dyn Fn() -> bool>,
+   pub specialeof: &'static str,
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -438,8 +438,9 @@ impl<'t> StrTokenizer<'t>
     let line_positions = vec![0,0];
     let skipbegin = "";
     let skipend = "";
+    let specialeof = "$_RREOF_$";
 //    let skipclosure = Box::new(||false);
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,specialeof}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -524,7 +525,10 @@ impl<'t> StrTokenizer<'t>
   /// the current line that the tokenizer is on
   pub fn line(&self)->usize {self.line}
   /// the current column of the tokenizer
-  pub fn column(&self)->usize {self.position-self.line_start+1}
+  pub fn column(&self)->usize {
+    if self.position<self.line_start {1}
+    else {self.position-self.line_start+1}
+  }
   /// returns the current absolute byte position of the Tokenizer
   pub fn current_position(&self)-> usize {self.position}
   /// returns the previous absolute byte position of the Tokenizer
@@ -536,7 +540,8 @@ impl<'t> StrTokenizer<'t>
   /// gets the current line of the source input
   pub fn current_line(&self) -> &str
   {
-     let startl = self.line_start;
+     let mut startl = self.line_start;
+     if startl>self.input.len() {startl=self.input.len();}
      let max = self.input.len() - startl;
      let endl = self.input[startl..].find('\n').unwrap_or(max);
      &self.input[startl..startl+endl]
@@ -610,23 +615,19 @@ impl<'t> StrTokenizer<'t>
     else if i>pi {continue;}
     //if pi>=self.input.len() {return None;}
 
-
-    // look for skip target to skip to
-    /*
-    if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input.starts_with(self.skipbegin) {
-       skipping = true;
-    }
-    */
     if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input[pi..].starts_with(self.skipbegin) {
-    
-       if let Some(endpos) = self.input[pi+self.skipbegin.len()..].find(self.skipend) {
+       let findend = self.input[pi+self.skipbegin.len()..].rfind(self.skipend);
+       let endpos = findend.unwrap_or(self.input.len());
+       if endpos<self.input.len() {
          self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
+         let sti = pi+self.skipbegin.len();
        } else {
          self.position = self.input.len();
-         if self.skipend!="EOF" {
-           eprintln!("Tokenizer Warning: skip target '{}' not found starting from line {}, column {}, returning rest of input...",self.skipend,line0,pi-self.line_start+1);
-         }
-         return Some((Skipto(&self.input[pi..]),line0,pi-lstart0+1));
+         if self.skipend==self.specialeof {
+           return Some((Skipto(&self.input[pi+self.skipbegin.len()..]),line0,pi-lstart0+1));
+         } //else reset position and re-read
+         self.position = pi;
+         continue;
        }// did not find target
        // find newline chars
        let mut ci = pi;
@@ -639,13 +640,36 @@ impl<'t> StrTokenizer<'t>
        //self.skip_reset();
        return Some((Skipto(&self.input[pi..self.position]),line0,pi-lstart0+1));
     }//skiptarget
+    else if self.skipend.len()!=0 {  // skip til skipend
+       let findend = self.input[pi..].rfind(self.skipend);
+       let endpos = findend.unwrap_or(self.input.len());
+       if endpos<self.input.len() {
+         self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
+       } else {
+         if self.skipend==self.specialeof {
+           self.position = endpos;
+           return Some((Skipto(&self.input[pi..]),line0,pi-lstart0+1));
+         }
+         self.position = pi;
+         continue;
+       }// else skip to end or restart
+       let mut ci = pi;
+       while let Some(nli) = self.input[ci..self.position].find('\n')
+       {
+          self.line+=1; ci += nli+1;  self.line_start=ci;
+          self.line_positions.push(ci);
+          // Newline token is never returned if inside skipped text
+       }
+       return Some((Skipto(&self.input[pi..self.position]),line0,pi-lstart0+1));      
+    }//skip to end
 
 
     // look for custom-defined regular expressions
     for (ckey,cregex) in self.custom_defined.iter()
     {
-       //println!("custom token type {}, regex {}",ckey,cregex);
+//println!("custom token type {}, regex {}, input: {}",ckey,cregex,&self.input[pi..pi+10]);
        if let Some(mat) = cregex.find(&self.input[pi..]) {
+//println!("RECOGNIZED ({})",&cregex);
          self.position = mat.end()+pi;
          let rawtext = &self.input[pi..self.position];
          let oldline = self.line;  let oldstart = self.line_start;
@@ -656,7 +680,8 @@ impl<'t> StrTokenizer<'t>
            self.line_start += x+1;  
            self.line_positions.push(self.line_start);
          } // record new lines
-         return Some((Custom(ckey,rawtext),oldline,pi-oldstart+1));
+         let pos9 = if pi>oldstart {pi-oldstart} else {0};
+         return Some((Custom(ckey,rawtext),oldline,1+pos9));
        } // match to cregex found
     }//for each custom key
 
@@ -665,12 +690,12 @@ impl<'t> StrTokenizer<'t>
       if let Some(nlpos) = self.input[pi+clen..].find("\n") {
         self.position = nlpos+pi+clen;
         if self.keep_comment {
-          return Some((Verbatim(&self.input[pi..pi+clen+nlpos]),self.line,pi-self.line_start+1));
+          return Some((Verbatim(&self.input[pi..pi+clen+nlpos]),self.line,1+pi-self.line_start));
         }
         else {continue;}
       } else { // no newline fould
         self.position = self.input.len(); 
-        if self.keep_comment {return Some((Verbatim(&self.input[pi..]),self.line,pi-self.line_start+1));}
+        if self.keep_comment {return Some((Verbatim(&self.input[pi..]),self.line,1+pi-self.line_start));}
         else {break;}
       }
     }// line comment
@@ -682,7 +707,7 @@ impl<'t> StrTokenizer<'t>
        } else {
          self.position = self.input.len();
          eprintln!("Tokenizer error: unclosed multi-line comment starting on line {}, column {}",line0,pi-self.line_start+1);
-         return Some((LexError,line0,pi-self.line_start+1));
+         return Some((LexError,line0,1+pi-self.line_start));
        }
        // find newline chars
        let mut ci = pi;
@@ -693,7 +718,7 @@ impl<'t> StrTokenizer<'t>
           // Newline token is never returned if inside string literal
        }
        if self.keep_comment {
-         return Some((Verbatim(&self.input[pi..self.position]),line0,pi-lstart0+1));
+         return Some((Verbatim(&self.input[pi..self.position]),line0,1+pi-lstart0));
        }
        else {continue;}
     }//multi-line comments
@@ -746,7 +771,7 @@ impl<'t> StrTokenizer<'t>
       self.position = self.input.len();
 //        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
         eprintln!("Tokenizer error: unclosed string, line {}, possibly starting earlier",line0);
-        let errposition = if (lstart0-1)<pi {pi-lstart0+1} else {0};
+        let errposition = if (lstart0-1)<pi {1+pi-lstart0} else {0};
         return Some((LexError,line0,pi-lstart0+1)); 
     }//strlit
     
@@ -760,14 +785,15 @@ impl<'t> StrTokenizer<'t>
     }//hexnum
     // look for alphanum    
     if let Some(mat) = self.alphan.find(&self.input[pi..]) {
-        self.position = mat.end()+pi;  
-        return Some((Alphanum(&self.input[pi..self.position]),self.line,pi-self.line_start+1));
+        self.position = mat.end()+pi;
+        let pos9 = if pi<self.line_start {0} else {pi-self.line_start};
+        return Some((Alphanum(&self.input[pi..self.position]),self.line,pos9+1));
     }//alphanums
     // floats
     if let Some(mat) = self.floatp.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
         let tryparse = self.input[pi..self.position].parse::<f64>();
-        if let Ok(n)=tryparse {return Some((Float(n),self.line,pi-self.line_start+1));}
+        if let Ok(n)=tryparse {return Some((Float(n),self.line,(pi+1)-self.line_start));}
         else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}
         //return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
     }//floatp
@@ -775,8 +801,8 @@ impl<'t> StrTokenizer<'t>
     if let Some(mat) = self.decuint.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
         let tryparse = self.input[pi..self.position].parse::<i64>();
-        if let Ok(n)=tryparse {return Some((Num(n),self.line,pi-self.line_start+1));}
-        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}        
+        if let Ok(n)=tryparse {return Some((Num(n),self.line,1+pi-self.line_start));}
+        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,1+pi-self.line_start));}        
 //        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
     }//decuint
 
@@ -784,20 +810,20 @@ impl<'t> StrTokenizer<'t>
     if pi<self.input.len() && &self.input[pi..pi+1]=="\"" {
         self.position = self.input.len();
         eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
-        return Some((LexError,line0,pi-self.line_start+1));        
+        return Some((LexError,line0,1+pi-self.line_start));        
     }//unclosed string
       
     // at this point, what remains must be a recognized, non-alphanumeric symbol
     if let Some(mat) = self.nonalph.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
-        return Some((Symbol(&self.input[pi..self.position]),self.line,pi-self.line_start+1));	 
+        return Some((Symbol(&self.input[pi..self.position]),self.line,1+pi-self.line_start));	 
     }
 
     // at this point, must be error
     self.position = self.input.len();
     if pi<self.position {
       eprintln!("Tokenizer error: unrecognized symbols starting on line {}, column {}",line0,pi-self.line_start+1);
-     return Some((LexError,line0,pi-self.line_start+1));
+     return Some((LexError,line0,1+pi-self.line_start));
     }
     //else { return None; }
    } //while

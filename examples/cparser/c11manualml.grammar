@@ -535,6 +535,7 @@ initializer ==>
 	  expression
 	| Lbrace initializer_designation<Comma+> Comma? Rbrace
 	<==
+# replace initializer_list with initializer_designation<Comma+>
 initializer_designation --> designation? initializer
 
 designation --> designator+ ASSIGN

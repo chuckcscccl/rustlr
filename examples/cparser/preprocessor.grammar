@@ -1,0 +1,13 @@
+
+auto
+lifetime 'lt
+lexattribute add_custom("directive",r"^(?m)^#(.|(\\\n|\\\r))*$")
+lexattribute add_custom("junk",r"^(?m)^.*$")
+valueterminal directive ~ &'lt str ~ Custom("directive",d) ~ d
+valueterminal junk ~ () ~ Custom("junk",_) ~ ()
+nonterminals S Stuff 
+startsymbol S
+
+S --> Stuff*
+Stuff --> junk 
+Stuff --> directive:d { println!("See directive: {}",d); ... }

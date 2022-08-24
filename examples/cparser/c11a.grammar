@@ -144,9 +144,9 @@ left ELSE 200
 
 primary_expression ==>
 	 IDENTIFIER
+	| ( expression )
 	| constant
 	| stringnt
-	| ( expression )
         | generic_selection
 	<==
 
@@ -171,7 +171,8 @@ postfix_expression ==>
 	| postfix_expression PTR_OP IDENTIFIER
 	| postfix_expression INC_OP
 	| postfix_expression DEC_OP
-        | ( type_name ) Lbrace initializer_list Comma? Rbrace
+        | ( type_name ) Lbrace initializer_list Rbrace
+        | ( type_name ) Lbrace initializer_list Comma Rbrace        
 	<==
 
 argument_expression_list --> assignment_expression | argument_expression_list Comma assignment_expression
@@ -464,7 +465,7 @@ direct_declarator ==>
 	| direct_declarator ( identifier_list )
 	| direct_declarator ( )
 	<==
-#	| direct_declarator [ constant_expression ]
+
 
 pointer --> Star type_qualifier_list?:tql pointer?:ptr
 #pointer ==>
@@ -529,7 +530,6 @@ direct_abstract_declarator ==>
 	| direct_abstract_declarator ( )
 	| direct_abstract_declarator ( parameter_type_list )
 	<==
-#	| [ constant_expression ]
 
 initializer ==>
 	 assignment_expression

@@ -1,0 +1,5 @@
+
+lifetime 'lt
+
+
+lexattribute add_custom("directive",r"^(?m)^#.*$")
