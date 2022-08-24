@@ -1,0 +1,309 @@
+# Rustlr grammar converted from Yacc
+
+lexterminal TERMINAL0 in
+lexterminal TERMINAL1 end
+lexterminal TERMINAL2 ,
+lexterminal TERMINAL3 ;
+lexterminal TERMINAL4 do
+lexterminal TERMINAL5 and
+lexterminal TERMINAL6 {
+lexterminal TERMINAL7 fn
+lexterminal TERMINAL8 then
+lexterminal TERMINAL9 ]
+lexterminal TERMINAL10 let
+lexterminal TERMINAL11 case
+lexterminal TERMINAL12 open
+lexterminal TERMINAL13 ->
+lexterminal TERMINAL14 else
+lexterminal TERMINAL15 with
+lexterminal TERMINAL16 exception
+lexterminal TERMINAL17 :
+lexterminal TERMINAL18 =>
+lexterminal TERMINAL19 infixr
+lexterminal TERMINAL20 |
+lexterminal TERMINAL21 fun
+lexterminal TERMINAL22 #
+lexterminal TERMINAL23 infix
+lexterminal TERMINAL24 ...
+lexterminal TERMINAL25 of
+lexterminal TERMINAL26 if
+lexterminal TERMINAL27 [
+lexterminal TERMINAL28 abstype
+lexterminal TERMINAL29 *
+lexterminal TERMINAL30 andalso
+lexterminal TERMINAL31 datatype
+lexterminal TERMINAL32 withtype
+lexterminal TERMINAL33 op
+lexterminal TERMINAL34 )
+lexterminal TERMINAL35 nonfix
+lexterminal TERMINAL36 }
+lexterminal TERMINAL37 raise
+lexterminal TERMINAL38 orelse
+lexterminal TERMINAL39 while
+lexterminal TERMINAL40 (
+lexterminal TERMINAL41 type
+lexterminal TERMINAL42 handle
+lexterminal TERMINAL43 as
+lexterminal TERMINAL44 =
+lexterminal TERMINAL45 _
+lexterminal TERMINAL46 local
+lexterminal TERMINAL47 rec
+lexterminal TERMINAL48 val
+lexterminal WILDCARD ...
+lexterminal MATCH =>
+lexterminal APPL ->
+lexterminal ABSTYPE abstype
+lexterminal AND and
+lexterminal ANDALSO andalso
+lexterminal AS as
+lexterminal CASE case
+lexterminal DATATYPE datatype
+lexterminal DO do
+lexterminal ELSE else
+lexterminal END end
+lexterminal EXCEPTION exception
+lexterminal FN fn
+lexterminal FUN fun
+lexterminal HANDLE handle
+lexterminal IF if
+lexterminal IN in
+lexterminal INFIX infix
+lexterminal INFIXR infixr
+lexterminal LET let
+lexterminal LOCAL local
+lexterminal NONFIX nonfix
+lexterminal OF of
+lexterminal OP op
+lexterminal OPEN open
+lexterminal ORELSE orelse
+lexterminal RAISE raise
+lexterminal REC rec
+lexterminal THEN then
+lexterminal TYPE type
+lexterminal VAL val
+lexterminal WITH with
+lexterminal WITHTYPE withtype
+lexterminal WHILE while
+terminals VID TYVAR TYCON LAB STRID SCON DIGIT 
+nonterminals appexp atexp atpat atpatn conbind datbind dec exbind exp expcn expcn2 exprow expsn expsn2 fvalbind infexp match mfvalbind mrule op pat patcn patcn2 patrow sconbind sexbind sfvalbind spatrow stridn ty tycn tyop typbind tyrow tyseq tysn2 tyvarcn tyvarseq valbind vidn 
+startsymbol dec
+
+atexp ==>
+          SCON 
+        | op VID 
+        | TERMINAL6 exprow TERMINAL36 
+        | TERMINAL6 TERMINAL36 
+        | TERMINAL22 LAB 
+        | TERMINAL40 TERMINAL34 
+        | TERMINAL40 expcn2 TERMINAL34 
+        | TERMINAL27 expcn TERMINAL9 
+        | TERMINAL27 TERMINAL9 
+        | TERMINAL40 expsn2 TERMINAL34 
+        | TERMINAL10 dec TERMINAL0 expsn TERMINAL1 
+        | TERMINAL40 exp TERMINAL34 
+        <==
+expcn ==>
+          exp 
+        | expcn TERMINAL2 exp 
+        <==
+expcn2 ==>
+          exp TERMINAL2 exp 
+        | expcn2 TERMINAL2 exp 
+        <==
+expsn ==>
+          exp 
+        | expsn TERMINAL3 exp 
+        <==
+expsn2 ==>
+          exp TERMINAL3 exp 
+        | expsn2 TERMINAL3 exp 
+        <==
+exprow ==>
+          LAB TERMINAL44 exp 
+        | exprow TERMINAL2 LAB TERMINAL44 exp 
+        <==
+appexp ==>
+          atexp 
+        | appexp atexp 
+        <==
+infexp ==>
+          appexp 
+        | infexp VID infexp 
+        <==
+exp ==>
+          infexp 
+        | exp TERMINAL17 ty 
+        | exp TERMINAL30 exp 
+        | exp TERMINAL38 exp 
+        | exp TERMINAL42 match 
+        | TERMINAL37 exp 
+        | TERMINAL26 exp TERMINAL8 exp TERMINAL14 exp 
+        | TERMINAL39 exp TERMINAL4 exp 
+        | TERMINAL11 exp TERMINAL25 match 
+        | TERMINAL7 match 
+        <==
+match ==>
+          mrule 
+        | match TERMINAL20 mrule 
+        <==
+mrule ==>
+          pat TERMINAL18 exp 
+        <==
+dec ==>
+          TERMINAL48 tyvarseq valbind 
+        | TERMINAL21 fvalbind 
+        | TERMINAL41 typbind 
+        | TERMINAL31 datbind 
+        | TERMINAL31 datbind TERMINAL32 typbind 
+        | TERMINAL31 TYCON TERMINAL44 TERMINAL31 TYCON 
+        | TERMINAL28 datbind TERMINAL15 dec TERMINAL1 
+        | TERMINAL28 datbind TERMINAL32 typbind TERMINAL15 dec TERMINAL1 
+        | TERMINAL16 exbind 
+        | TERMINAL46 dec TERMINAL0 dec TERMINAL1 
+        | TERMINAL12 stridn 
+        | 
+        | dec dec 
+        | dec TERMINAL3 dec 
+        | TERMINAL23 vidn 
+        | TERMINAL23 DIGIT vidn 
+        | TERMINAL19 vidn 
+        | TERMINAL19 DIGIT vidn 
+        | TERMINAL35 vidn 
+        <==
+stridn ==>
+          STRID 
+        | stridn STRID 
+        <==
+vidn ==>
+          VID 
+        | vidn VID 
+        <==
+valbind ==>
+          pat TERMINAL44 exp 
+        | valbind TERMINAL5 pat TERMINAL44 exp 
+        | TERMINAL47 valbind 
+        <==
+fvalbind ==>
+          mfvalbind 
+        | fvalbind TERMINAL5 mfvalbind 
+        <==
+mfvalbind ==>
+          sfvalbind 
+        | mfvalbind TERMINAL20 sfvalbind 
+        <==
+sfvalbind ==>
+          op VID atpatn TERMINAL44 tyop exp 
+        <==
+op ==>
+          
+        | TERMINAL33 
+        <==
+tyop ==>
+          
+        | TERMINAL17 ty 
+        <==
+atpatn ==>
+          atpat 
+        | atpatn atpat 
+        <==
+typbind ==>
+          tyvarseq TYCON TERMINAL44 ty 
+        | typbind TERMINAL5 tyvarseq TYCON TERMINAL44 ty 
+        <==
+tyvarseq ==>
+          TYVAR 
+        | TERMINAL40 tyvarcn TERMINAL34 
+        | TERMINAL40 TERMINAL34 
+        | 
+        <==
+tyvarcn ==>
+          TYVAR 
+        | tyvarcn TERMINAL2 TYVAR 
+        <==
+datbind ==>
+          tyvarseq TYCON TERMINAL44 conbind 
+        | datbind TERMINAL5 tyvarseq TYCON TERMINAL44 conbind 
+        <==
+conbind ==>
+          sconbind 
+        | conbind TERMINAL20 sconbind 
+        <==
+sconbind ==>
+          op VID 
+        | op VID TERMINAL25 ty 
+        <==
+exbind ==>
+          sexbind 
+        | exbind TERMINAL5 sexbind 
+        <==
+sexbind ==>
+          op VID 
+        | op VID TERMINAL25 ty 
+        | op VID TERMINAL44 op VID 
+        <==
+atpat ==>
+          TERMINAL45 
+        | SCON 
+        | op VID 
+        | TERMINAL6 patrow TERMINAL36 
+        | TERMINAL6 TERMINAL36 
+        | TERMINAL40 TERMINAL34 
+        | TERMINAL40 patcn2 TERMINAL34 
+        | TERMINAL27 TERMINAL9 
+        | TERMINAL27 patcn TERMINAL9 
+        | TERMINAL40 pat TERMINAL34 
+        <==
+patcn ==>
+          pat 
+        | patcn TERMINAL2 pat 
+        <==
+patcn2 ==>
+          pat TERMINAL2 pat 
+        | patcn2 TERMINAL2 pat 
+        <==
+patrow ==>
+          TERMINAL24 
+        | spatrow 
+        | patrow TERMINAL2 spatrow 
+        <==
+spatrow ==>
+          LAB TERMINAL44 pat 
+        | VID tyop 
+        | VID tyop TERMINAL43 pat 
+        <==
+pat ==>
+          atpat 
+        | op VID atpat 
+        | pat VID pat 
+        | pat TERMINAL17 ty 
+        | op VID tyop TERMINAL43 pat 
+        <==
+ty ==>
+          TYVAR 
+        | TERMINAL6 tyrow TERMINAL36 
+        | tyseq TYCON 
+        | tysn2 
+        | ty TERMINAL13 ty 
+        | TERMINAL40 ty TERMINAL34 
+        <==
+tyseq ==>
+          ty 
+        | 
+        | TERMINAL40 tycn TERMINAL34 
+        | TERMINAL40 TERMINAL34 
+        <==
+tycn ==>
+          ty 
+        | tycn TERMINAL2 ty 
+        <==
+tysn2 ==>
+          ty TERMINAL29 ty 
+        | tysn2 TERMINAL29 ty 
+        <==
+tyrow ==>
+          LAB TERMINAL17 ty 
+        | tyrow TERMINAL2 LAB TERMINAL17 ty 
+        <==
+
+EOF
+

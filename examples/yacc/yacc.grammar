@@ -5,11 +5,12 @@ lifetime 'lt
 
 # symbol table keeps trackof terminals and nonterminals not
 # defined in the yacc_decl section.
-$pub use std::collections::HashSet;
+$pub use std::collections::{HashSet,BTreeSet};
 $#[derive(Default,Debug)]
 $pub struct symbol_table<'t> {
 $  pub lexterminals : HashSet<&'t str>,
-$  pub nonterminals : HashSet<&'t str>,
+$  pub nonterminals : BTreeSet<&'t str>,
+$  pub topsym : &'t str,
 $  pub skip: bool,
 $}
 
@@ -64,12 +65,13 @@ primary ==> RAWDECL?:raw_declarations
          grammar_rules+:rules
          { parser.shared_state.borrow_mut().skip = true; ... }
         <==
-Yacc --> primary (PERPERCENT ADDITIONALS)?
+Yacc --> primary PERPERCENT? ADDITIONALS?
 
 #rawdecls --> RAWDECL
 yacc_decl:terminals --> PERCENT token ID+
 yacc_decl:lexterminal --> PERCENT token ID LEXSTR
-yacc_decl:topsym --> PERCENT start ID
+yacc_decl:topsym --> PERCENT start ID:s { parser.shared_state.borrow_mut().topsym=s; ... }
+
 yacc_decl:nonterminal --> PERCENT TYPE tag? ID+
 tag --> LANGLE ID RANGLE
 
@@ -85,9 +87,10 @@ label:simple --> ID
 label:boxed --> LBRACK ID RBRACK
 label:parened --> LPAREN ID<COMMA+> COMMA? RPAREN
 
-rhsunit --> rhs_symbol ACTION?
-rhs --> ACTION? rhsunit*
+rhsunit --> ACTION? rhs_symbol
+rhs --> rhsunit* ACTION?
 
+# represents one set of rules separated by |:
 grammar_rules ==> ID:lhs COLON rhs<BAR+>:rhsides SEMICOLON {
   parser.shared_state.borrow_mut().nonterminals.insert(lhs);
   ... } <==

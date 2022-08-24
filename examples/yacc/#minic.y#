@@ -8,10 +8,6 @@
 /*                                 */
 /***********************************/
 
-/****************************************************
-  C'est une grammaire qui ressemble à celle de C, 
-  mais ce n'est pas une vraie grammaire de C
-****************************************************/
 
 %{
 
@@ -21,7 +17,6 @@ using namespace std;
 
 #include "arbre.h"
 
-/* définis dans Lex */
 extern int yylex (void);
 extern FILE* yyin;
 

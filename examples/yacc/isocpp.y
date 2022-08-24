@@ -1,5 +1,6 @@
 %token identifier
 %token COLONCOLON "::"
+%start id_expression
 %%
 /* 1.4  Expressions */
 

@@ -1,0 +1,364 @@
+# Rustlr grammar converted from Yacc
+
+lexterminal TERMINAL0 [
+lexterminal TERMINAL1 +
+lexterminal TERMINAL2 ]
+lexterminal TERMINAL3 -
+lexterminal TERMINAL4 ,
+lexterminal TERMINAL5 ^
+lexterminal TERMINAL6 <
+lexterminal TERMINAL7 ;
+lexterminal TERMINAL8 (
+lexterminal TERMINAL9 *
+lexterminal TERMINAL10 >
+lexterminal TERMINAL11 )
+lexterminal TERMINAL12 =
+lexterminal TERMINAL13 .
+lexterminal TERMINAL14 /
+lexterminal TERMINAL15 :
+terminals UNSIGNED_INT UNSIGNED_REAL STRING IDENTIFIER 
+terminals NE LE GE BECOMES DIV MOD NIL IN OR AND NOT DOTDOT 
+terminals IF THEN ELSE CASE OF REPEAT UNTIL WHILE DO FOR TO DOWNTO 
+terminals SBEGIN END WITH GOTO CONST VAR TYPE ARRAY RECORD SET SFILE FUNCTION 
+terminals PROCEDURE LABEL PACKED PROGRAM 
+nonterminals actual_param actual_params actuals_list add_op assignment block body case_label case_label_list case_list case_list_elem colon_things compound_stmt const_dcl_part const_def const_defs constant declaration declarations direction expression expressions external_files factor field_list fixed_part formal_p_sect formal_p_sects formal_params func_heading function_form ident index_spec index_specs index_t_list label label_dcl_part labels member member_list members mult_op new_id_list newident newident_list opt_declarations param_group paramtype proc_dcl_part proc_heading proc_or_func procedure_call program rec_var_list record_section record_var relational_op set simple_expr simple_type statement statement_part statements struct_type tag_field term type type_dcl_part type_def type_defs unsigned_lit unsigned_num var_dcl_part variable variable_dcl variable_dcls variant variant_part variants 
+startsymbol program
+
+program ==>
+          PROGRAM newident external_files TERMINAL7 block TERMINAL13 
+        <==
+external_files ==>
+          
+        | TERMINAL8 newident_list TERMINAL11 
+        <==
+block ==>
+          opt_declarations statement_part 
+        <==
+opt_declarations ==>
+          
+        | declarations 
+        <==
+declarations ==>
+          declarations declaration 
+        | declaration 
+        <==
+declaration ==>
+          label_dcl_part 
+        | const_dcl_part 
+        | type_dcl_part 
+        | var_dcl_part 
+        | proc_dcl_part 
+        <==
+label_dcl_part ==>
+          LABEL labels TERMINAL7 
+        <==
+labels ==>
+          labels TERMINAL4 label 
+        | label 
+        <==
+label ==>
+          UNSIGNED_INT 
+        <==
+const_dcl_part ==>
+          CONST const_defs TERMINAL7 
+        <==
+const_defs ==>
+          const_defs TERMINAL7 const_def 
+        | const_def 
+        <==
+const_def ==>
+          newident TERMINAL12 constant 
+        <==
+constant ==>
+          unsigned_num 
+        | TERMINAL1 unsigned_num 
+        | TERMINAL3 unsigned_num 
+        | ident 
+        | TERMINAL1 ident 
+        | TERMINAL3 ident 
+        | STRING 
+        <==
+unsigned_num ==>
+          UNSIGNED_INT 
+        | UNSIGNED_REAL 
+        <==
+type_dcl_part ==>
+          TYPE type_defs TERMINAL7 
+        <==
+type_defs ==>
+          type_defs TERMINAL7 type_def 
+        | type_def 
+        <==
+type_def ==>
+          newident TERMINAL12 type 
+        <==
+type ==>
+          simple_type 
+        | PACKED struct_type 
+        | struct_type 
+        | TERMINAL5 IDENTIFIER 
+        <==
+simple_type ==>
+          TERMINAL8 newident_list TERMINAL11 
+        | constant DOTDOT constant 
+        | ident 
+        <==
+struct_type ==>
+          ARRAY TERMINAL0 index_t_list TERMINAL2 OF type 
+        | RECORD field_list END 
+        | SET OF simple_type 
+        | SFILE OF type 
+        <==
+index_t_list ==>
+          index_t_list TERMINAL4 simple_type 
+        | simple_type 
+        <==
+field_list ==>
+          fixed_part 
+        | fixed_part TERMINAL7 variant_part 
+        | variant_part 
+        <==
+fixed_part ==>
+          fixed_part TERMINAL7 record_section 
+        | record_section 
+        <==
+record_section ==>
+          newident_list TERMINAL15 type 
+        | 
+        <==
+variant_part ==>
+          CASE tag_field OF variants 
+        <==
+tag_field ==>
+          newident TERMINAL15 ident 
+        | ident 
+        <==
+variants ==>
+          variants TERMINAL7 variant 
+        | variant 
+        <==
+variant ==>
+          case_label_list TERMINAL15 TERMINAL8 field_list TERMINAL11 
+        | 
+        <==
+var_dcl_part ==>
+          VAR variable_dcls TERMINAL7 
+        <==
+variable_dcls ==>
+          variable_dcls TERMINAL7 variable_dcl 
+        | variable_dcl 
+        <==
+variable_dcl ==>
+          newident_list TERMINAL15 type 
+        <==
+newident_list ==>
+          new_id_list 
+        <==
+new_id_list ==>
+          new_id_list TERMINAL4 newident 
+        | newident 
+        <==
+proc_dcl_part ==>
+          proc_or_func 
+        <==
+proc_or_func ==>
+          proc_heading TERMINAL7 body TERMINAL7 
+        | func_heading TERMINAL7 body TERMINAL7 
+        <==
+proc_heading ==>
+          PROCEDURE newident formal_params 
+        <==
+func_heading ==>
+          FUNCTION newident function_form 
+        <==
+function_form ==>
+          
+        | formal_params TERMINAL15 ident 
+        <==
+body ==>
+          block 
+        | IDENTIFIER 
+        <==
+formal_params ==>
+          
+        | TERMINAL8 formal_p_sects TERMINAL11 
+        <==
+formal_p_sects ==>
+          formal_p_sects TERMINAL7 formal_p_sect 
+        | formal_p_sect 
+        <==
+formal_p_sect ==>
+          param_group 
+        | VAR param_group 
+        | proc_heading 
+        | func_heading 
+        <==
+param_group ==>
+          newident_list TERMINAL15 paramtype 
+        <==
+paramtype ==>
+          ident 
+        | ARRAY TERMINAL0 index_specs TERMINAL2 OF paramtype 
+        | PACKED ARRAY TERMINAL0 index_spec TERMINAL2 OF ident 
+        <==
+index_specs ==>
+          index_specs TERMINAL7 index_spec 
+        | index_spec 
+        <==
+index_spec ==>
+          newident DOTDOT newident TERMINAL15 ident 
+        <==
+statement_part ==>
+          compound_stmt 
+        <==
+compound_stmt ==>
+          SBEGIN statements END 
+        <==
+statements ==>
+          statements TERMINAL7 statement 
+        | statement 
+        <==
+statement ==>
+          
+        | label TERMINAL15 statement 
+        | compound_stmt 
+        | assignment 
+        | procedure_call 
+        | GOTO label 
+        | IF expression THEN statement 
+        | IF expression THEN statement ELSE statement 
+        | CASE expression OF case_list END 
+        | WHILE expression DO statement 
+        | REPEAT statements UNTIL expression 
+        | FOR ident BECOMES expression direction expression DO statement 
+        | WITH rec_var_list DO statement 
+        <==
+direction ==>
+          TO 
+        | DOWNTO 
+        <==
+assignment ==>
+          variable BECOMES expression 
+        <==
+procedure_call ==>
+          ident actual_params 
+        <==
+actual_params ==>
+          
+        | TERMINAL8 actuals_list TERMINAL11 
+        <==
+actuals_list ==>
+          actuals_list TERMINAL4 actual_param 
+        | actual_param 
+        <==
+actual_param ==>
+          expression 
+        | expression colon_things 
+        <==
+colon_things ==>
+          TERMINAL15 expression 
+        | TERMINAL15 expression TERMINAL15 expression 
+        <==
+case_list ==>
+          case_list TERMINAL7 case_list_elem 
+        | case_list_elem 
+        <==
+case_list_elem ==>
+          case_label_list TERMINAL15 statement 
+        | 
+        <==
+case_label_list ==>
+          case_label_list TERMINAL4 case_label 
+        | case_label 
+        <==
+case_label ==>
+          constant 
+        <==
+rec_var_list ==>
+          rec_var_list TERMINAL4 record_var 
+        | record_var 
+        <==
+expression ==>
+          simple_expr 
+        | simple_expr relational_op simple_expr 
+        <==
+relational_op ==>
+          TERMINAL12 
+        | TERMINAL6 
+        | TERMINAL10 
+        | LE 
+        | GE 
+        | NE 
+        | IN 
+        <==
+simple_expr ==>
+          term 
+        | TERMINAL1 term 
+        | TERMINAL3 term 
+        | simple_expr add_op term 
+        <==
+add_op ==>
+          TERMINAL1 
+        | TERMINAL3 
+        | OR 
+        <==
+term ==>
+          factor 
+        | term mult_op factor 
+        <==
+mult_op ==>
+          TERMINAL9 
+        | TERMINAL14 
+        | DIV 
+        | MOD 
+        | AND 
+        <==
+factor ==>
+          variable 
+        | unsigned_lit 
+        | TERMINAL8 expression TERMINAL11 
+        | set 
+        | NOT factor 
+        <==
+unsigned_lit ==>
+          unsigned_num 
+        | STRING 
+        | NIL 
+        <==
+set ==>
+          TERMINAL0 member_list TERMINAL2 
+        <==
+member_list ==>
+          
+        | members 
+        <==
+members ==>
+          members TERMINAL4 member 
+        | member 
+        <==
+member ==>
+          expression 
+        | expression DOTDOT expression 
+        <==
+variable ==>
+          ident actual_params 
+        | variable TERMINAL0 expressions TERMINAL2 
+        | variable TERMINAL13 ident 
+        | variable TERMINAL5 
+        <==
+expressions ==>
+          expressions TERMINAL4 expression 
+        | expression 
+        <==
+record_var ==>
+          variable 
+        <==
+ident ==>
+          IDENTIFIER 
+        <==
+newident ==>
+          IDENTIFIER 
+        <==
+
+EOF
+
