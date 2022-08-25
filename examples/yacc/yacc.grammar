@@ -28,6 +28,7 @@ valueterminal RAWDECL ~ &'lt str ~ Custom("decls",d) ~ &d.trim()[2..d.len()-2]
 valueterminal ID ~ &'lt str ~ Alphanum(n) ~ n
 valueterminal LEXCHAR ~ &'lt str ~ Custom("literal",d)~ d[1..d.len()-1].trim()
 valueterminal LEXSTR ~ &'lt str ~ Strlit(d)~ d[1..d.len()-1].trim()
+valueterminal NUMBER ~ u32 ~ Num(n) ~ n as u32
 
 lexterminal PERPERCENT %%
 #lexterminal LBRACE {
@@ -53,7 +54,7 @@ lexterminal DOLLAR $
 lexterminal TWODOLLARS $$
 lexterminal DASH -
 terminals start token left right nonassoc union typeof
-nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag
+nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag idnum
 nonterminal primary
 nonterminal rhsunit
 resynch SEMICOLON BAR
@@ -68,15 +69,17 @@ primary ==> RAWDECL?:raw_declarations
 Yacc --> (PERCENT ID DASH ID)? primary PERPERCENT? ADDITIONALS?
 
 #rawdecls --> RAWDECL
-yacc_decl:terminals --> PERCENT token ID+
+yacc_decl:terminals --> PERCENT token idnum+
 yacc_decl:lexterminal --> PERCENT token ID LEXSTR
+
 yacc_decl:topsym --> PERCENT start ID:s { parser.shared_state.borrow_mut().topsym=s; ... }
-yacc_decl:left --> PERCENT left ID+:vs
-yacc_decl:right --> PERCENT right ID+:vs
-yacc_decl:nonassoc --> PERCENT nonassoc ID+:vs
+yacc_decl:left --> PERCENT left idnum+:vs
+yacc_decl:right --> PERCENT right idnum+:vs
+yacc_decl:nonassoc --> PERCENT nonassoc idnum+:vs
 yacc_decl:uniondec --> PERCENT union ACTION
 yacc_decl:nonterminal --> PERCENT typeof tag? ID+
 tag --> LANGLE ID RANGLE
+idnum --> ID NUMBER?
 
 rhs_symbol:ID --> ID (COLON label)?
 rhs_symbol:LEXCHAR ==> LEXCHAR:t {

@@ -20,7 +20,9 @@ use std::fs::File;
 use std::io::prelude::*;
 
 pub const DEFAULTPRECEDENCE:i32 = 0;
-pub const TRACE:usize = 0;
+pub const NONASSOCBIT:i32 = -1 - 0x40000000; // less than this means nonassoc
+// if lev<NONASSOCIBT, true precedence level = (lev-NONASSOCIBIT)*-1
+pub const TRACE:usize = 0; //deprecated
 
 #[derive(Clone)]
 pub struct Gsym // struct for a grammar symbol
@@ -543,25 +545,31 @@ impl Grammar
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
                self.Externtype = String::from(line[pos..].trim());            
             },            
-	    "left" | "right" if stage<2 => {
+	    "left" | "right" | "nonassoc" if stage<2 && stokens.len()>2 => {
                if stage==0 {stage=1;}
                if stokens.len()<3 {
 	         eprintln!("MALFORMED ASSOCIATIVITY/PRECEDENCE DECLARATION SKIPPED ON LINE {}",linenum);
 	         continue;
 	       }
 	       let mut preclevel:i32 = DEFAULTPRECEDENCE;
-	       if let Ok(n)=stokens[2].parse::<i32>() {preclevel = n;}
-               else {panic!("Did not read precedence level on line {}",linenum);}
-	       if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
+	       if let Ok(n)=stokens[2].parse::<i32>() {
+                 if n>0 && n<=0x40000000 {preclevel = n;}
+                 else {panic!("ERROR: PRECEDENCE VALUE MUST BE BETWEEN 1 AND {}, LINE {}\n",0x40000000,linenum);}
+               }
+               else {panic!("ERROR: Did not read precedence level on line {}\n",linenum);}
+               if stokens[0]=="nonassoc" && preclevel>0 { preclevel = NONASSOCBIT-preclevel;}
+	       else if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
                let mut targetsym = stokens[1];
                if targetsym=="_" {targetsym = "_WILDCARD_TOKEN_";}
                if let Some(index) = self.Symhash.get(targetsym) {
+               /*
                  if preclevel.abs()<=DEFAULTPRECEDENCE {
                    eprintln!("WARNING: precedence of {} is non-positive",stokens[1]);
                  }
+               */
                  self.Symbols[*index].precedence = preclevel;
-               }
-	    }, // precedence and associativity
+               } else {panic!("UNDEFINED GRAMMAR SYMBOL {}, LINE {}\n",targetsym,linenum);}
+	    }, // precedence and associativity, left or right or nonassoc
 	    "lexname"  => {
                if stokens.len()<3 {
 	         eprintln!("MALFORMED lexname declaration line {} skipped",linenum);
@@ -819,7 +827,7 @@ strtok is bstokens[i], but will change
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
 		     let gsymi = *self.Symhash.get(retoki).expect(&errmsg);
                      let igsym = &self.Symbols[gsymi];
-                     if igsym.precedence.abs()>precd {precd =igsym.precedence;}
+                     if prec_level(igsym.precedence).abs()>prec_level(precd).abs() {precd =igsym.precedence;}
                      if passthru==-1 && (!igsym.terminal || igsym.rusttype!="()") {
                        passthru=jk;
                        //newnt2.rusttype = igsym.rusttype.clone();
@@ -938,7 +946,6 @@ strtok is bstokens[i], but will change
                    newrule1.lhs.index = newnt.index;
                    let nr1type = &self.Symbols[newnt.index].rusttype;
                    newrule1.precedence = self.Symbols[gsymi].precedence;
-//                   newrule1.iprecedence = 2;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type.starts_with("Option<LBox<") {
@@ -971,7 +978,6 @@ strtok is bstokens[i], but will change
                      printrule(&newrule0,self.Rules.len());
                      printrule(&newrule1,self.Rules.len()+1);   
                    }
-//                   newrule0.iprecedence = 4;
 		   self.Rules.push(newrule0);
 		   self.Rules.push(newrule1);
 		   let mut rulesforset = HashSet::with_capacity(2);
@@ -1064,8 +1070,6 @@ strtok is bstokens[i], but will change
                     newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
                     newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
                   } // else leave at default for ()
-//                  newrule3.iprecedence = 3;
-//                  newrule4.iprecedence = 1;
                   if self.tracelev>3 {
                     printrule(&newrule3,self.Rules.len());
                     printrule(&newrule4,self.Rules.len()+1);
@@ -1102,8 +1106,6 @@ strtok is bstokens[i], but will change
                        newrule5.action = String::from(" vec![] }");
                        newrule6.action = String::from("_item0_ }");
                     }
-//                    newrule5.iprecedence = 7;  // iprecedence!
-//                    newrule6.iprecedence = 5;
                     if self.tracelev>3 {
                       printrule(&newrule5,self.Rules.len());
                       printrule(&newrule6,self.Rules.len()+1);
@@ -1156,11 +1158,9 @@ strtok is bstokens[i], but will change
 		       newsym.setlabel(label.trim_end_matches('@'));
 	             }//label exists
 			
-                     if maxprec.abs() < newsym.precedence.abs()  {
-                        maxprec=newsym.precedence;
-                     }
+                     if prec_level(maxprec).abs() < prec_level(newsym.precedence).abs()  { maxprec=newsym.precedence; }
 		     rhsyms.push(newsym);
-                   }
+                   },
                 }//match
 	      } // while there are tokens on rhs
 
@@ -1193,7 +1193,6 @@ strtok is bstokens[i], but will change
 		rhs : rhsyms,
 		action: semaction.to_owned(),
 		precedence : maxprec,
-//                iprecedence : 0,
 	      };
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
 	      self.Rules.push(rule);
@@ -1657,3 +1656,15 @@ fn findmatch(s:&str, left:char, right:char) -> (usize,usize)
    }
    ax
 }//findmatch
+
+// calculate real precedence level as a signed value: always use this
+// function to extract true precedence level. call .abs() to get nonneg val
+pub fn nonassoc(lev:i32)-> bool { lev<NONASSOCBIT }
+pub fn leftassoc(lev:i32)->bool { lev>0 }
+pub fn rightassoc(lev:i32) -> bool {lev<0 && lev>NONASSOCBIT }
+pub fn make_nonassoc(lev:i32) -> i32 { NONASSOCBIT-lev}
+pub fn prec_level(lev:i32) -> i32
+{
+   if lev<NONASSOCBIT {-1*(lev-NONASSOCBIT)} else {lev}
+}//prec_level
+

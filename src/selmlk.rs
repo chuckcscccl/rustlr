@@ -838,12 +838,9 @@ if LTRACE {
 
 // try-add returns option<not-clearly resolved conflict>
 pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool, failed:bool) -> (bool,Option<(bool,usize,usize)>)
-  {  //printout=true;
-     //let mut force = true;
-     //if force {FSM[si].insert(la,newaction); return None;}
+  {  
      let mut answer = None;
      let currentaction = FSM[si].get(&la);
-//if let Some(act)=currentaction {println!("SURPRISE! {:?}",act);}
      let mut changefsm = true; // add or keep current
      match (currentaction, &newaction) {
        (None,_) => {},  // most likely: just add
@@ -859,12 +856,12 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
          let winner = if (cri<nri) {cri} else {nri};
          if printout {
-           println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
+           println!("Reduce-Reduce conflict between rules {} and {} resolved by default to {} ",cri,nri,winner);
            printrulela(*cri,Gmr,la);
            printrulela(*nri,Gmr,la);
          }
          if winner==cri {changefsm=false;} //***
-         answer = Some((true,*cri,*nri));
+         answer = Some((true,*cri,*nri)); //true means rr instead of sr
        },
        (Some(Accept),_) => { changefsm = false; },
        (Some(Shift(_)), Reduce(rsi)) => {
@@ -888,28 +885,33 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
   // returns (clear,reduce/shift)
 fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>,printout:bool) -> (bool,bool)
   {
-     if let Some((true,r)) = known_conflicts.get(&(false,*ri,la)) {
-        return (true,*r!=0);
-     }
+     let mut isknown = true;
+     match known_conflicts.get(&(false,*ri,la)) {
+       Some((true,r)) => {return (true,*r!=0);},
+       None => { isknown=false; },
+       _ => {},
+     }//match
+     
      let mut clearly_resolved = true;
      let mut resolution = false; // shift
      let lasym = &Gmr.Symbols[la];
      let lapred = lasym.precedence;
      let rulepred = Gmr.Rules[*ri].precedence;
-     if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
+     if (lapred==rulepred) && rightassoc(lapred) { 
        /* default */
      } // right-associative lookahead, return shift
      else
-     if (lapred==rulepred) && lapred>0 { // left associative
+     if (lapred==rulepred) && leftassoc(lapred) { // left associative
         resolution = true;
      } // right-associative lookahead, return shift     
-     else if (lapred.abs()>rulepred.abs() && rulepred!=0) {/*default*/}
-     else if (lapred.abs()<rulepred.abs() ) {
+     else if (prec_level(lapred).abs()>prec_level(rulepred).abs() && rulepred!=0) {/*default  println!("HERE! {}",prec_level(rulepred)); */ }
+     else if (prec_level(lapred).abs()<prec_level(rulepred).abs() ) {
        resolution = true;
+//println!("HERE2! {}, {}, {}, {}",prec_level(lapred),&Gmr.Rules[*ri].lhs.sym,Gmr.Rules[*ri].rhs.len(),&Gmr.Rules[*ri].rhs[0].sym);       
        if lapred==0 {
           clearly_resolved = false;
-          if printout {
-            println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved in favor of Reduce. The lookahead has undeclared precedence",&Gmr.Symbols[la].sym,ri,si);
+          if printout && !isknown {
+            println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} non clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
             printrulela(*ri,Gmr,la);
           }
        }
@@ -917,8 +919,8 @@ fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut
      else {
        clearly_resolved=false;
        // report unclear case
-       if printout {
-         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
+       if printout && !isknown {
+         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
          printrulela(*ri,Gmr,la);
        }
      }

@@ -14,7 +14,7 @@ use std::cell::{RefCell,Ref,RefMut};
 use std::hash::{Hash,Hasher};
 use std::mem;
 use crate::grammar_processor::*;
-use crate::lr_statemachine::{Stateaction,Statemachine,printrulela,add_action,sr_resolve};
+use crate::lr_statemachine::{Stateaction,Statemachine,printrulela,add_action};
 use crate::lr_statemachine::Stateaction::*;
 
 // temporary
