@@ -72,13 +72,13 @@ nonterminal rhsunit
 resynch SEMICOLON BAR
 topsym Yacc
 
-primary ==> RAWDECL?:raw_declarations
-         yacc_decl+:yacc_declarations
+primary ==> # RAWDECL?:raw_declarations
+         yacc_decl+:yacc_declarations #
          PERPERCENT
          grammar_rules+:rules
          { parser.shared_state.borrow_mut().skip = true; ... }
         <==
-Yacc --> (PERCENT ID DASH ID)? primary PERPERCENT? ADDITIONALS?
+Yacc --> # (PERCENT ID DASH ID)? primary # PERPERCENT? ADDITIONALS?
 
 #rawdecls --> RAWDECL
 yacc_decl:terminals --> PERTOKEN idnum+
@@ -89,7 +89,7 @@ yacc_decl:left --> PERLEFT idnum+:vs
 yacc_decl:right --> PERRIGHT idnum+:vs
 yacc_decl:nonassoc --> PERNONASSOC idnum+:vs
 yacc_decl:uniondec --> PERCENT union ACTION
-yacc_decl:nonterminal --> PERTYPE tag? ID+
+yacc_decl:nonterminal --> PERTYPE # tag? ID+ #
 tag --> LANGLE ID RANGLE
 idnum --> ID NUMBER?
 

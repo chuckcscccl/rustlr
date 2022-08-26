@@ -19,8 +19,8 @@ to be written that's closer to EBNF syntax.
 
 <p>
 
-**Versions 0.3.3** introduces the experimental -lrsd option for LR parsing
-with *selective delays*
+**Versions 0.3.4** introduces the experimental -lrsd option for LR parsing
+with *selective delays*.  See the appendix of the tutorial.
 
 ### Major Features and the Versions that Introduced Them
 

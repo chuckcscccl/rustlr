@@ -46,10 +46,10 @@ reduce.)  But that would not help here: reducing would be the wrong
 choice if the last input symbol is `y` and shifting would be the wrong
 choice if the last symbol is `x`.
 
-It is possible to save the situation, however, by *delaying* the choice
-to reduce until more have been read *and* more reductions applied.  
-This is done by a "Marcus-Leermakers"
-transformation, as named in a [research paper][bns] by Bertsch, Nederhof and Schmitz.
+It is possible to save the situation, however, by *delaying* the
+choice to reduce until more have been read *and* more reductions
+applied.  This is done by a "Marcus-Leermakers" transformation, as
+named in a [research paper][bns] by Bertsch, Nederhof and Schmitz.
 ```
 S --> A | B
 C --> c | C c
@@ -83,13 +83,23 @@ are selML then are LR.
 The paper gives an algorithm that
 automatically applies the required transformations to a grammar, up to a fixed
 maximum k.  However, only a prototype of the algorithm was ever implemented
-and was never applied on a large scale.  The algorithm does not appear to
-be compatible with how LALR parsers are constructed efficiently (as outlined
-in the Dragon Book).
+and was never applied on a large scale.  We have implemented a
+version of this algorithm for Rustlr. Starting with
+version 3.4, rustlr accepts the **-lrsd k** option, where k is an (optional) number
+indicating the maximum delay length.  This will attempt to construct a
+*selML(k,1)* grammar.  The default value for k is 3. -lrsd 0 is equivalent
+to LR(1): rustlr always computes exactly one lookahead. The algorithm is fast
+enough when it succeeds, but when it should fail, such as for ambiguous
+grammars, it may take a long time before failure is detected, especially
+for larger values of k.  Still, the option has already proven useful.  We
+have used to construct a new grammar for ANSI C (2011 edition). The new
+grammar is *selML(3,1)*.  This feature is currently in experimental status,
+but Rustlr is the first know parser generator that has seriously attempted
+to incorporate this promising extension of LR parsing.  
 
-We are experimenting with implementations of this
-algorithm to see if it's practical beyond small grammars. In the meantime,
-Rustlr allows a very simple mechanism that costs minimal overhead: the
+While we continue to experiment with implementations of this
+algorithm, in the meantime
+Rustlr also allows a very simple mechanism that costs minimal overhead: the
 grammar writer can mark where the transformations need to occur:
 ```
 S --> A | B
@@ -103,10 +113,9 @@ confuse # at the very beginning of a line, which indicates a comment -
 the notation may evolve).  The symbol immediately following the first
 marker must be non-terminal.  The transformation is applied to the grammar
 before an LR(1) or LALR(1) engine is build.
-
 While not nearly as powerful as the generalized algorithm (it cannot
 apply transformations to the internally generated productions
-themselves), this simple mechanism is already a useful addition.  From a
+themselves), this simple mechanism is still a useful addition.  From a
 practical standpoint, it allows us to recover a degree of referential
 transparency with minimal effort (both human effort and computational cost).
 In the published Yacc grammar for ANSI C (2011 edition), we find the following
@@ -141,9 +150,19 @@ two productions for `P`, thereby recovering the original LALR grammar. But
 the transformation is internal: we get to write a different style of grammar
 and generate ASTs, write semantic actions for them as such.
 
-Regular expressions are well-liked by most programmers, and many
-modern parser generators allow them.  But there is a fundamental
-distinction between Regex and CFGs that cannot be ignored. Regex offer
+Regular expressions are well-liked by most programmers and many
+modern parser generators allow them.  It makes writing grammars easier.
+On the surface it may not appear
+too difficult to add them to any LR parser generator: just add new productions
+rules like A --> A a | null, etc.  But if adding such productions 
+lead to further non-determinisms (conflicts) in the grammar, then clearly it
+would defeat the purpose of making it easier to write grammars.  We've
+already seen that the selective-delay technique helps to alleviate this
+problem.
+
+
+Programmers need to understand that there is a fundamental
+distinction between Regex and CFGs. Regex offer
 full referential transparency.  You can use `*`, `+` and `?` in any
 combination and we can build a deterministic finite state machine for
 it in the end.  Two regular expressions juxtaposed, like `A*A*`, is
@@ -160,9 +179,8 @@ a warning that something is wrong because according to definition nothing
 can ever be wrong.  It's like writing a program with
 a bunch of type errors and still have it compile and run, because the
 language considers them not errors but features.
-Nobody can ever be unhappy in the happy house.
-Such an approach is popular, however, because most programmers, in
-academia as well as industry, are only interested in "getting something to work."  They are not as interested in something that "should not work."
+Such an approach is popular, however, because most programmers
+are only interested in "getting something to work."  They are not as interested in something that "should not work."
 The contrast between
 strongly, statically typed programming languages and untyped scripting
 languages is a good analogy for the difference between LR-style parser generators
@@ -177,9 +195,7 @@ Given an ambiguous grammar, like most LR parser generators, Rustlr will
 at least give you a warning before applying any defaults.  Sometimes defaults
 work correctly, like for the dangling-else problem.  But as we've shown
 above, they do not always work.  This is why we are interested in
-more rigorous approaches to extend LR parsing.  We are hopeful in our
-conjecture that delayed reductions will allow unambiguous grammars to be more
-compositional, that is to say, more easy to use.
+more rigorous approaches to extend LR parsing.
 
 
 

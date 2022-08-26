@@ -16,8 +16,18 @@ use std::path::Path;
 use crate::{Grammar,is_alphanum,checkboxlabel};
 //use crate::parser_writer::checkboxlabel;
 
-// auto-generate abstract syntax
+// metaast for asts
+// grammar_processor needs to keep set of nti's to have types flattened.
+// keep a hashmap from nt names to structs
+// structasts:HashMap<usize,(simpletypebool,Vec<(labelString,typename)>)>
+// generate all struct types first and store in table,
+// then generate enums.   complements toextend.
+// How can structs flatten into structs?  By changing the definition
+// into structasts.  How to prevent circular flattening? make sure flatten
+// target is..   Howabout need for lbox because of reachability? more lboxes
+// ok, not less....
 
+// auto-generate abstract syntax
 // prepare Grammar - after parse_grammar first creates grammar
 impl Grammar
 {

@@ -1,21 +1,21 @@
 # Rustlr grammar converted from Yacc
 
-lexterminal TERMINAL0 .
-lexterminal TERMINAL1 ]
-lexterminal TERMINAL2 *
-lexterminal TERMINAL3 <
-lexterminal TERMINAL4 =
+lexterminal TERMINAL0 :
+lexterminal TERMINAL1 [
+lexterminal TERMINAL2 .
+lexterminal TERMINAL3 /
+lexterminal TERMINAL4 ;
 lexterminal TERMINAL5 >
-lexterminal TERMINAL6 )
-lexterminal TERMINAL7 -
-lexterminal TERMINAL8 :
-lexterminal TERMINAL9 ,
-lexterminal TERMINAL10 +
-lexterminal TERMINAL11 [
-lexterminal TERMINAL12 /
-lexterminal TERMINAL13 ;
+lexterminal TERMINAL6 =
+lexterminal TERMINAL7 +
+lexterminal TERMINAL8 ,
+lexterminal TERMINAL9 ^
+lexterminal TERMINAL10 ]
+lexterminal TERMINAL11 *
+lexterminal TERMINAL12 -
+lexterminal TERMINAL13 <
 lexterminal TERMINAL14 (
-lexterminal TERMINAL15 ^
+lexterminal TERMINAL15 )
 terminals UNSIGNED_INT UNSIGNED_REAL STRING IDENTIFIER 
 terminals NE LE GE BECOMES DIV MOD NIL IN OR AND NOT DOTDOT 
 terminals IF THEN ELSE CASE OF REPEAT UNTIL WHILE DO FOR TO DOWNTO 
@@ -24,15 +24,15 @@ terminals PROCEDURE LABEL PACKED PROGRAM
 nonterminals actual_param actual_params actuals_list add_op assignment block body case_label case_label_list case_list case_list_elem colon_things compound_stmt const_dcl_part const_def const_defs constant declaration declarations direction expression expressions external_files factor field_list fixed_part formal_p_sect formal_p_sects formal_params func_heading function_form ident index_spec index_specs index_t_list label label_dcl_part labels member member_list members mult_op new_id_list newident newident_list opt_declarations param_group paramtype proc_dcl_part proc_heading proc_or_func procedure_call program rec_var_list record_section record_var relational_op set simple_expr simple_type statement statement_part statements struct_type tag_field term type type_dcl_part type_def type_defs unsigned_lit unsigned_num var_dcl_part variable variable_dcl variable_dcls variant variant_part variants 
 startsymbol program
 
-left ELSE 20
-left IF 10
+nonassoc ELSE 20
+nonassoc IF 10
 
 program ==>
-          PROGRAM newident external_files TERMINAL13 block TERMINAL0 
+          PROGRAM newident external_files TERMINAL4 block TERMINAL2 
         <==
 external_files ==>
           
-        | TERMINAL14 newident_list TERMINAL6 
+        | TERMINAL14 newident_list TERMINAL15 
         <==
 block ==>
           opt_declarations statement_part 
@@ -53,32 +53,32 @@ declaration ==>
         | proc_dcl_part 
         <==
 label_dcl_part ==>
-          LABEL labels TERMINAL13 
+          LABEL labels TERMINAL4 
         <==
 labels ==>
-          labels TERMINAL9 label 
+          labels TERMINAL8 label 
         | label 
         <==
 label ==>
           UNSIGNED_INT 
         <==
 const_dcl_part ==>
-          CONST const_defs TERMINAL13 
+          CONST const_defs TERMINAL4 
         <==
 const_defs ==>
-          const_defs TERMINAL13 const_def 
+          const_defs TERMINAL4 const_def 
         | const_def 
         <==
 const_def ==>
-          newident TERMINAL4 constant 
+          newident TERMINAL6 constant 
         <==
 constant ==>
           unsigned_num 
-        | TERMINAL10 unsigned_num 
         | TERMINAL7 unsigned_num 
+        | TERMINAL12 unsigned_num 
         | ident 
-        | TERMINAL10 ident 
         | TERMINAL7 ident 
+        | TERMINAL12 ident 
         | STRING 
         <==
 unsigned_num ==>
@@ -86,87 +86,87 @@ unsigned_num ==>
         | UNSIGNED_REAL 
         <==
 type_dcl_part ==>
-          TYPE type_defs TERMINAL13 
+          TYPE type_defs TERMINAL4 
         <==
 type_defs ==>
-          type_defs TERMINAL13 type_def 
+          type_defs TERMINAL4 type_def 
         | type_def 
         <==
 type_def ==>
-          newident TERMINAL4 type 
+          newident TERMINAL6 type 
         <==
 type ==>
           simple_type 
         | PACKED struct_type 
         | struct_type 
-        | TERMINAL15 IDENTIFIER 
+        | TERMINAL9 IDENTIFIER 
         <==
 simple_type ==>
-          TERMINAL14 newident_list TERMINAL6 
+          TERMINAL14 newident_list TERMINAL15 
         | constant DOTDOT constant 
         | ident 
         <==
 struct_type ==>
-          ARRAY TERMINAL11 index_t_list TERMINAL1 OF type 
+          ARRAY TERMINAL1 index_t_list TERMINAL10 OF type 
         | RECORD field_list END 
         | SET OF simple_type 
         | SFILE OF type 
         <==
 index_t_list ==>
-          index_t_list TERMINAL9 simple_type 
+          index_t_list TERMINAL8 simple_type 
         | simple_type 
         <==
 field_list ==>
           fixed_part 
-        | fixed_part TERMINAL13 variant_part 
+        | fixed_part TERMINAL4 variant_part 
         | variant_part 
         <==
 fixed_part ==>
-          fixed_part TERMINAL13 record_section 
+          fixed_part TERMINAL4 record_section 
         | record_section 
         <==
 record_section ==>
-          newident_list TERMINAL8 type 
+          newident_list TERMINAL0 type 
         | 
         <==
 variant_part ==>
           CASE tag_field OF variants 
         <==
 tag_field ==>
-          newident TERMINAL8 ident 
+          newident TERMINAL0 ident 
         | ident 
         <==
 variants ==>
-          variants TERMINAL13 variant 
+          variants TERMINAL4 variant 
         | variant 
         <==
 variant ==>
-          case_label_list TERMINAL8 TERMINAL14 field_list TERMINAL6 
+          case_label_list TERMINAL0 TERMINAL14 field_list TERMINAL15 
         | 
         <==
 var_dcl_part ==>
-          VAR variable_dcls TERMINAL13 
+          VAR variable_dcls TERMINAL4 
         <==
 variable_dcls ==>
-          variable_dcls TERMINAL13 variable_dcl 
+          variable_dcls TERMINAL4 variable_dcl 
         | variable_dcl 
         <==
 variable_dcl ==>
-          newident_list TERMINAL8 type 
+          newident_list TERMINAL0 type 
         <==
 newident_list ==>
           new_id_list 
         <==
 new_id_list ==>
-          new_id_list TERMINAL9 newident 
+          new_id_list TERMINAL8 newident 
         | newident 
         <==
 proc_dcl_part ==>
           proc_or_func 
         <==
 proc_or_func ==>
-          proc_heading TERMINAL13 body TERMINAL13 
-        | func_heading TERMINAL13 body TERMINAL13 
+          proc_heading TERMINAL4 body TERMINAL4 
+        | func_heading TERMINAL4 body TERMINAL4 
         <==
 proc_heading ==>
           PROCEDURE newident formal_params 
@@ -176,7 +176,7 @@ func_heading ==>
         <==
 function_form ==>
           
-        | formal_params TERMINAL8 ident 
+        | formal_params TERMINAL0 ident 
         <==
 body ==>
           block 
@@ -184,10 +184,10 @@ body ==>
         <==
 formal_params ==>
           
-        | TERMINAL14 formal_p_sects TERMINAL6 
+        | TERMINAL14 formal_p_sects TERMINAL15 
         <==
 formal_p_sects ==>
-          formal_p_sects TERMINAL13 formal_p_sect 
+          formal_p_sects TERMINAL4 formal_p_sect 
         | formal_p_sect 
         <==
 formal_p_sect ==>
@@ -197,19 +197,19 @@ formal_p_sect ==>
         | func_heading 
         <==
 param_group ==>
-          newident_list TERMINAL8 paramtype 
+          newident_list TERMINAL0 paramtype 
         <==
 paramtype ==>
           ident 
-        | ARRAY TERMINAL11 index_specs TERMINAL1 OF paramtype 
-        | PACKED ARRAY TERMINAL11 index_spec TERMINAL1 OF ident 
+        | ARRAY TERMINAL1 index_specs TERMINAL10 OF paramtype 
+        | PACKED ARRAY TERMINAL1 index_spec TERMINAL10 OF ident 
         <==
 index_specs ==>
-          index_specs TERMINAL13 index_spec 
+          index_specs TERMINAL4 index_spec 
         | index_spec 
         <==
 index_spec ==>
-          newident DOTDOT newident TERMINAL8 ident 
+          newident DOTDOT newident TERMINAL0 ident 
         <==
 statement_part ==>
           compound_stmt 
@@ -218,12 +218,12 @@ compound_stmt ==>
           SBEGIN statements END 
         <==
 statements ==>
-          statements TERMINAL13 statement 
+          statements TERMINAL4 statement 
         | statement 
         <==
 statement ==>
           
-        | label TERMINAL8 statement 
+        | label TERMINAL0 statement 
         | compound_stmt 
         | assignment 
         | procedure_call 
@@ -248,10 +248,10 @@ procedure_call ==>
         <==
 actual_params ==>
           
-        | TERMINAL14 actuals_list TERMINAL6 
+        | TERMINAL14 actuals_list TERMINAL15 
         <==
 actuals_list ==>
-          actuals_list TERMINAL9 actual_param 
+          actuals_list TERMINAL8 actual_param 
         | actual_param 
         <==
 actual_param ==>
@@ -259,26 +259,26 @@ actual_param ==>
         | expression colon_things 
         <==
 colon_things ==>
-          TERMINAL8 expression 
-        | TERMINAL8 expression TERMINAL8 expression 
+          TERMINAL0 expression 
+        | TERMINAL0 expression TERMINAL0 expression 
         <==
 case_list ==>
-          case_list TERMINAL13 case_list_elem 
+          case_list TERMINAL4 case_list_elem 
         | case_list_elem 
         <==
 case_list_elem ==>
-          case_label_list TERMINAL8 statement 
+          case_label_list TERMINAL0 statement 
         | 
         <==
 case_label_list ==>
-          case_label_list TERMINAL9 case_label 
+          case_label_list TERMINAL8 case_label 
         | case_label 
         <==
 case_label ==>
           constant 
         <==
 rec_var_list ==>
-          rec_var_list TERMINAL9 record_var 
+          rec_var_list TERMINAL8 record_var 
         | record_var 
         <==
 expression ==>
@@ -286,8 +286,8 @@ expression ==>
         | simple_expr relational_op simple_expr 
         <==
 relational_op ==>
-          TERMINAL4 
-        | TERMINAL3 
+          TERMINAL6 
+        | TERMINAL13 
         | TERMINAL5 
         | LE 
         | GE 
@@ -296,13 +296,13 @@ relational_op ==>
         <==
 simple_expr ==>
           term 
-        | TERMINAL10 term 
         | TERMINAL7 term 
+        | TERMINAL12 term 
         | simple_expr add_op term 
         <==
 add_op ==>
-          TERMINAL10 
-        | TERMINAL7 
+          TERMINAL7 
+        | TERMINAL12 
         | OR 
         <==
 term ==>
@@ -310,8 +310,8 @@ term ==>
         | term mult_op factor 
         <==
 mult_op ==>
-          TERMINAL2 
-        | TERMINAL12 
+          TERMINAL11 
+        | TERMINAL3 
         | DIV 
         | MOD 
         | AND 
@@ -319,7 +319,7 @@ mult_op ==>
 factor ==>
           variable 
         | unsigned_lit 
-        | TERMINAL14 expression TERMINAL6 
+        | TERMINAL14 expression TERMINAL15 
         | set 
         | NOT factor 
         <==
@@ -329,14 +329,14 @@ unsigned_lit ==>
         | NIL 
         <==
 set ==>
-          TERMINAL11 member_list TERMINAL1 
+          TERMINAL1 member_list TERMINAL10 
         <==
 member_list ==>
           
         | members 
         <==
 members ==>
-          members TERMINAL9 member 
+          members TERMINAL8 member 
         | member 
         <==
 member ==>
@@ -345,12 +345,12 @@ member ==>
         <==
 variable ==>
           ident actual_params 
-        | variable TERMINAL11 expressions TERMINAL1 
-        | variable TERMINAL0 ident 
-        | variable TERMINAL15 
+        | variable TERMINAL1 expressions TERMINAL10 
+        | variable TERMINAL2 ident 
+        | variable TERMINAL9 
         <==
 expressions ==>
-          expressions TERMINAL9 expression 
+          expressions TERMINAL8 expression 
         | expression 
         <==
 record_var ==>

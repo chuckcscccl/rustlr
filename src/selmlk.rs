@@ -489,7 +489,8 @@ if LTRACE {println!("new state {} added to agenda from state {}",newstateindex,p
      else { // add to prev_states
 if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
        self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
-       // propagate conflicts backwards
+       // propagate conflicts backwards, unless will be done on preagenda
+      if !self.preagenda.contains(&toadd) {
        let mut backconfs = HashSet::new();
        for item@LRitem{ri,pi,la} in self.States[toadd].conflicts.iter() {
          //if self.States[toadd].deprecated.contains(item) {continue;} //??
@@ -514,6 +515,7 @@ if LTRACE {println!("state {} pushed back onto agenda because of backward confli
          if self.States[toadd].conflicts.len()==0 || bchanged {answer=true;}
 //         self.prev_states.get_mut(&toadd).unwrap().insert((nextsymi,psi));
        }       // instead of deprecating conflict alltogether
+      }
      }// existing state
 
      // add to- or change FSM TABLE ...  only Shift or Gotnext added here.
@@ -599,9 +601,10 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
        agenda.push(si);
        true
      } else {false}
- */
+
      let mut answer = self.States[si].close_all(&mut self.Gmr,&mut self.combing,&mut self.known_conflicts,&mut self.Ruleshash,self.maxk,self.failed);
      if !answer {self.failed=true;}
+  */     
      self.preagenda.insert(si)
   }
 
@@ -642,7 +645,11 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
 //println!("PREAGENDA SIZE {}",self.preagenda.len());       
          let statei = *self.preagenda.iter().next().unwrap();
          self.preagenda.remove(&statei);
-//         if self.deprecated_states.contains(&statei) {continue;}
+         onagenda.remove(&statei);
+
+         let mut answer = self.States[statei].close_all(&mut self.Gmr,&mut self.combing,&mut self.known_conflicts,&mut self.Ruleshash,self.maxk,self.failed);
+         if !answer {self.failed=true; break;}
+
          // if closure creates new conflicts, they will be propagated.
          let mut propagated = false;
          let mut new_preagenda = HashSet::new();
@@ -663,14 +670,15 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
            if propagated {new_preagenda.insert(*psi);}
          }//for each previous state
 //         for dc in deprecated_conflicts {self.States[statei].deprecated.insert(dc); }
-         for psi in new_preagenda {
-           self.preagenda_add(psi);
-         }
          if !propagated && !onagenda.contains(&statei) {
            agenda.push(statei);
            onagenda.insert(statei);
          }
-//         else {self.deprecated_states.insert(statei);}
+         for psi in new_preagenda {
+           self.preagenda_add(psi);
+           //onagenda.remove(&psi);  //redundant
+         }
+         //else {self.deprecated_states.insert(statei);}
          //else { self.prev_states.get_mut(&statei).unwrap().clear(); }
          // if not propagated, can move to agenda, else, invalidate state?
          // not here - prev links could still be useful, if state is
@@ -681,6 +689,7 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
        if agenda.len()==0 {break;} //stop outer loop
 
        let si = agenda.pop().unwrap();
+       if !onagenda.contains(&si) {/*println!("REMOVED {}",&si);*/ continue;}
        onagenda.remove(&si);
 
        if self.failed {

@@ -42,7 +42,7 @@ use yacc_ast::label::*;
 // ignore all raw C code and all semantic actions as they are meaningless
 // in rust anyway.  Only extract and translate the pure grammar.
 
-fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
+pub fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
 {
   let mut rrgmr = String::from("# Rustlr grammar converted from Yacc\n\n");
   let Yacc(_,primary{raw_declarations,yacc_declarations,rules},_) = yygmr;
@@ -60,7 +60,7 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
   
   // process yacc_declarations for more terminals,
   let mut precedence:i32 = 10;
-  let nonassocbit:i32 = 0x40000000;
+  let nonassocbit:i32 = -1 - 0x40000000;
   let mut prec_table = HashMap::new();
   for decl in yacc_declarations {  //decl is of type Lbox<yacc_decl>
     match &**decl {
@@ -69,10 +69,11 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
       },
       terminals(tlist) => {
         rrgmr.push_str("terminals ");
-        for lbxterm in tlist.iter() {
-          let lower = (**lbxterm); //.to_owned();
+        for lbxterm in tlist.iter() {   // lbox<idnum>
+          let idnum(termname,_) = **lbxterm;
+//          let lower = (**lbxterm); //.to_owned();
 //          lower.make_ascii_lowercase();
-          rrgmr.push_str(lower); rrgmr.push(' ');
+          rrgmr.push_str(termname); rrgmr.push(' ');
         }
         rrgmr.push('\n');
       },
@@ -82,22 +83,24 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
         rrgmr.push('\n');  
       },
       left(ids) => {
-        for id in ids {  // in LBox
-          prec_table.insert(**id,precedence);
-          precedence += 10;
+        for idn in ids {  // in LBox
+          let idnum(id,_) = **idn;
+          prec_table.insert(id,precedence);
         }
+        precedence += 10;
       },
       right(ids) => {
-        for id in ids {  // in LBox
-          prec_table.insert(**id,-1*precedence);
-          precedence += 10;
+        for idn in ids {  // in LBox
+          let idnum(id,_) = **idn;
+          prec_table.insert(id,-1*precedence);
         }
+        precedence += 10;
       },      
       nonassoc(ids) => {
         for id in ids {  // in LBox
-          prec_table.insert(**id,precedence+nonassocbit);
-          precedence += 10;
+          prec_table.insert((**id).0,nonassocbit-precedence);
         }
+        precedence += 10;
       },      
       // topsym placed in symbol table by metaparser
       _ => {},
@@ -119,12 +122,12 @@ fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
 
   // operator precedence and associativity
   for (sym,lev) in prec_table.iter() {
-    /* not supported by rustlr yet
-    if *lev>nonassocbit {
-      rrgmr.push_str(&format!("nonassoc {} {}\n",sym,lev.abs()));
-    } else
+    if *lev<nonassocbit {
+      rrgmr.push_str(&format!("nonassoc {} {}\n",sym,(lev-nonassocbit).abs()));
+    }
+    /*
+    if *lev<nonassocbit { rrgmr.push_str(&format!("left {} {}\n",sym,-1*(lev-nonassocbit))); }
     */
-    if *lev>nonassocbit { rrgmr.push_str(&format!("left {} {}\n",sym,lev-nonassocbit)); }
     else if *lev>0 { rrgmr.push_str(&format!("left {} {}\n",sym,lev)); }
     else if *lev<0 { rrgmr.push_str(&format!("right {} {}\n",sym,-1*lev)); }
   }//precedence
