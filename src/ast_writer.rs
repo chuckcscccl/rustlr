@@ -24,7 +24,8 @@ use crate::{Grammar,is_alphanum,checkboxlabel};
 // then generate enums.   complements toextend.
 // How can structs flatten into structs?  By changing the definition
 // into structasts.  How to prevent circular flattening? make sure flatten
-// target is..   Howabout need for lbox because of reachability? more lboxes
+// target is not reachable from itself using the reachability_type relation
+// Howabout need for lbox because of reachability? more lboxes
 // ok, not less....
 
 // auto-generate abstract syntax

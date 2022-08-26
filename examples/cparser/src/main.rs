@@ -33,7 +33,11 @@ fn main()
 
   let mut scanner2 = c11lexer::from_source(&source);
   let mut parser2 = make_parser();
-  let result2 = parse_with(&mut parser2, &mut scanner2);
+  let mut training = false;
+  if args.len()>2 && &args[2]=="train" {training = true;}
+  let result2;
+  if training {result2=parse_train_with(&mut parser2, &mut scanner2,"src/c11parser.rs");}
+  else {result2 = parse_with(&mut parser2, &mut scanner2);}
   let absyntree2 = result2.unwrap_or_else(|x|{println!("Parsing Errors Encountered"); x});
   println!("abstract syntax tree after parse: {:?}\n",absyntree2);
 }//main

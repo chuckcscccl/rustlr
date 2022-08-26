@@ -154,7 +154,7 @@ fn rustle(args:&Vec<String>) // called from main
     println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
     //fsm0 = lrsdfsm.to_statemachine();
-
+    if lrsdfsm.failed {return;}
     if !lrsdfsm.failed && lrsdfsm.regenerate { 
       println!("Re-Generating LR(1) machine for transformed grammar...");
       lrsd = false;
