@@ -1,0 +1,35 @@
+# Rustlr grammar converted from Yacc
+
+lexterminal TERMINAL0 )
+lexterminal TERMINAL1 (
+terminals Name 
+nonterminals CastExpression Expression PostfixExpression Primary PrimitiveType UnaryExpression UnaryExpressionNotPlusMinus 
+startsymbol Expression
+
+
+PrimitiveType ==>
+          Name 
+        <==
+Expression ==>
+          UnaryExpression 
+        <==
+UnaryExpression ==>
+          UnaryExpressionNotPlusMinus 
+        <==
+UnaryExpressionNotPlusMinus ==>
+          PostfixExpression 
+        | CastExpression 
+        <==
+PostfixExpression ==>
+          Primary 
+        | Name 
+        <==
+Primary ==>
+          TERMINAL1 Expression TERMINAL0 
+        <==
+CastExpression ==>
+          TERMINAL1 PrimitiveType TERMINAL0 UnaryExpression 
+        <==
+
+EOF
+

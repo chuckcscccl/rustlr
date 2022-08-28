@@ -12,8 +12,8 @@
 auto
 lifetime 'lt
 
-# The following structure is shared between the parser and lexer and represents
-# a rudimentary kind of symbol table, to keep track of identifiers that should
+# This structure is shared between the parser and lexer and represents a
+# rudimentary kind of symbol table, to keep track of identifiers that should
 # be tokenized as TYPE_NAME or ENUMERATION_CONSTANT instead of IDENTIFIER.
 # It also contains a stateful flag that triggers the recognition of typedefs:
 # this simplifies the process of unraveling the abstract syntax.
@@ -24,8 +24,6 @@ $pub struct defined_id_table<'t> {
 $  pub typedefs: HashSet<&'t str>,
 $  pub enum_ids: HashSet<&'t str>,
 $  pub anticipate_typedef: bool,
-$  pub in_function:bool,
-$  pub warnings_issued:bool,
 $}
 
 externtype defined_id_table<'lt>
@@ -162,22 +160,21 @@ nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
 nonterminals struct_or_union struct_declaration translation_unit
 nonterminals enum_specifier enumerator type_qualifier
-nonterminals pointer struct_declarator elseopt
+nonterminals pointer type_qualifier_list struct_declarator
 nonterminals parameter_type_list parameter_declaration
-nonterminals type_name abstract_declarator
+nonterminals identifier_list type_name abstract_declarator
 nonterminals direct_abstract_declarator initializer Constant Stringlit
-nonterminals external_declaration generic_selection function_header
+nonterminals external_declaration generic_selection
 nonterminals generic_association static_assert_declaration designation
 nonterminals function_specifier alignment_specifier atomic_type_specifier
 nonterminals designator block_item declaration_specifier
 nonterminals specifier_qualifier initializer_designation
 nonterminals direct_declarator direct_contents declarator da_base
+
 nonterminal direct_base
 nonterminal function_definition : external_declaration
-terminal errorterm
 
 topsym translation_unit
-errsym errorterm
 
 # added for Rustlr edition to resolve dangling else problem:
 nonassoc IF 20
@@ -185,8 +182,6 @@ nonassoc ELSE 30
 # Known issue with ANSI grammar:
 nonassoc ( 2
 nonassoc ATOMIC 1
-
-resynch SEMICOLON )
 
 primary_expression --> IDENTIFIER
 primary_expression --> ( expression )
@@ -309,7 +304,6 @@ constant_expression:const_expr --> conditional_expression
 
 declaration:DecSpec --> declaration_specifier+ SEMICOLON
 declaration:Statassert --> static_assert_declaration
-declaration:illegalfundef --> function_definition
 
 # TYPEDEF CASES
 declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
@@ -472,11 +466,6 @@ block_item:Statement --> statement
 
 expression_statement:Expr_list --> expressions? SEMICOLON
 
-
-#selection_statement:Ifstat --> IF ( expressions ) statement (ELSE statement)?
-#elseopt -->
-#elseopt --> ELSE statement
-
 selection_statement:Ifstat --> IF ( expressions ) statement
 selection_statement:Ifelse --> IF ( expressions ) statement ELSE statement
 selection_statement:Switchstat --> SWITCH ( expressions ) statement
@@ -492,25 +481,21 @@ jump_statement:Breakstat --> BREAK SEMICOLON
 jump_statement:Returnstat --> RETURN assignment_expression<Comma*> SEMICOLON
 
 translation_unit --> external_declaration+
+#	 external_declaration
+#	| translation_unit external_declaration
+#	<==
 
-#external_declaration --> function_definition
+external_declaration --> function_definition
 external_declaration:declaration --> declaration
 external_declaration:directive --> COMPILER_DIRECTIVE
 
-function_header ==> declaration_specifier+:[ds] declarator declaration* {
-  let mut table=parser.shared_state.borrow_mut();
-  let mut report = String::new();
-  if table.in_function {
-     println!("WARNING: NESTED FUNCTION DEFINITIONS ARE NOT TECHNICALLY ALLOWED IN ANSI C, line {}, column {}",ds.line,ds.column);
-     table.warnings_issued=true;
-  } else { table.in_function=true; }
-  ... } <==
+function_definition:functiondef --> declaration_specifier+ declarator declaration* compound_statement
 
-function_definition:functiondef ==> function_header compound_statement {
-  parser.shared_state.borrow_mut().in_function=false;
-  ... } <==
+#	| declaration_specifiers declarator compound_statement
+#	| declarator declaration_list compound_statement
+#	| declarator compound_statement
+#	<==
 
-#function_definition:functiondef --> declaration_specifier+ declarator declaration* compound_statement
 
 EOF
 

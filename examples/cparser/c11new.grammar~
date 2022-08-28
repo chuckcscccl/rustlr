@@ -432,7 +432,7 @@ alignment_specifier --> ALIGNAS ( expression )
 # PROBLEMATIC LINE
 declarator --> # pointer? direct_declarator #
 
-#declarator:DEC --> pointer? direct_declarator
+#declarator:DEC --> # pointer? direct_declarator #
 #declarator --> pointer?:ptropt direct_declarator:direct_dec
 #declarator:with_pointer -->  pointer direct_declarator
 #declarator:no_pointer -->  direct_declarator
@@ -448,7 +448,7 @@ direct_base --> IDENTIFIER
 direct_base:DEC --> ( declarator )
 direct_contents ==>
           [ Star?:star ]
-        | [ STATIC?:is_static expression ]
+        | [ # STATIC?:is_static expression # ]
         | [ type_qualifier+ Star ]
         | [ # STATIC?:is_static type_qualifier+ expression # ]
         | [ type_qualifier+ (STATIC expression)? ]

@@ -1,31 +1,31 @@
 # Rustlr grammar converted from Yacc
 
 lexterminal TERMINAL0 ~
-lexterminal TERMINAL1 }
-lexterminal TERMINAL2 ,
-lexterminal TERMINAL3 {
-lexterminal TERMINAL4 ]
-lexterminal TERMINAL5 .
-lexterminal TERMINAL6 <
-lexterminal TERMINAL7 /
-lexterminal TERMINAL8 (
-lexterminal TERMINAL9 0
-lexterminal TERMINAL10 _
-lexterminal TERMINAL11 %
+lexterminal TERMINAL1 _
+lexterminal TERMINAL2 :
+lexterminal TERMINAL3 *
+lexterminal TERMINAL4 &
+lexterminal TERMINAL5 /
+lexterminal TERMINAL6 =
+lexterminal TERMINAL7 ^
+lexterminal TERMINAL8 ]
+lexterminal TERMINAL9 +
+lexterminal TERMINAL10 {
+lexterminal TERMINAL11 )
 lexterminal TERMINAL12 ?
-lexterminal TERMINAL13 -
-lexterminal TERMINAL14 +
-lexterminal TERMINAL15 =
-lexterminal TERMINAL16 &
-lexterminal TERMINAL17 [
-lexterminal TERMINAL18 )
-lexterminal TERMINAL19 >
-lexterminal TERMINAL20 *
+lexterminal TERMINAL13 |
+lexterminal TERMINAL14 ;
+lexterminal TERMINAL15 <
+lexterminal TERMINAL16 ,
+lexterminal TERMINAL17 -
+lexterminal TERMINAL18 [
+lexterminal TERMINAL19 (
+lexterminal TERMINAL20 .
 lexterminal TERMINAL21 !
-lexterminal TERMINAL22 |
-lexterminal TERMINAL23 ;
-lexterminal TERMINAL24 ^
-lexterminal TERMINAL25 :
+lexterminal TERMINAL22 %
+lexterminal TERMINAL23 }
+lexterminal TERMINAL24 >
+lexterminal TERMINAL25 0
 terminals IDENTIFIER INTEGER FLOATING CHARACTER STRING 
 terminals TYPEDEF_NAME NAMESPACE_NAME CLASS_NAME ENUM_NAME TEMPLATE_NAME 
 terminals ELLIPSIS COLONCOLON DOTSTAR ADDEQ SUBEQ MULEQ DIVEQ MODEQ 
@@ -102,7 +102,7 @@ primary_expression ==>
         | COLONCOLON identifier 
         | COLONCOLON operator_function_id 
         | COLONCOLON qualified_id 
-        | TERMINAL8 expression TERMINAL18 
+        | TERMINAL19 expression TERMINAL11 
         | id_expression 
         <==
 id_expression ==>
@@ -128,25 +128,25 @@ class_or_namespace_name ==>
         <==
 postfix_expression ==>
           primary_expression 
-        | postfix_expression TERMINAL17 expression TERMINAL4 
-        | postfix_expression TERMINAL8 expression_list_opt TERMINAL18 
-        | simple_type_specifier TERMINAL8 expression_list_opt TERMINAL18 
-        | postfix_expression TERMINAL5 TEMPLATE_opt COLONCOLON_opt id_expression 
+        | postfix_expression TERMINAL18 expression TERMINAL8 
+        | postfix_expression TERMINAL19 expression_list_opt TERMINAL11 
+        | simple_type_specifier TERMINAL19 expression_list_opt TERMINAL11 
+        | postfix_expression TERMINAL20 TEMPLATE_opt COLONCOLON_opt id_expression 
         | postfix_expression ARROW TEMPLATE_opt COLONCOLON_opt id_expression 
-        | postfix_expression TERMINAL5 pseudo_destructor_name 
+        | postfix_expression TERMINAL20 pseudo_destructor_name 
         | postfix_expression ARROW pseudo_destructor_name 
         | postfix_expression PLUSPLUS 
         | postfix_expression MINUSMINUS 
-        | DYNAMIC_CAST TERMINAL6 type_id TERMINAL19 TERMINAL8 expression TERMINAL18 
-        | STATIC_CAST TERMINAL6 type_id TERMINAL19 TERMINAL8 expression TERMINAL18 
-        | REINTERPRET_CAST TERMINAL6 type_id TERMINAL19 TERMINAL8 expression TERMINAL18 
-        | CONST_CAST TERMINAL6 type_id TERMINAL19 TERMINAL8 expression TERMINAL18 
-        | TYPEID TERMINAL8 expression TERMINAL18 
-        | TYPEID TERMINAL8 type_id TERMINAL18 
+        | DYNAMIC_CAST TERMINAL15 type_id TERMINAL24 TERMINAL19 expression TERMINAL11 
+        | STATIC_CAST TERMINAL15 type_id TERMINAL24 TERMINAL19 expression TERMINAL11 
+        | REINTERPRET_CAST TERMINAL15 type_id TERMINAL24 TERMINAL19 expression TERMINAL11 
+        | CONST_CAST TERMINAL15 type_id TERMINAL24 TERMINAL19 expression TERMINAL11 
+        | TYPEID TERMINAL19 expression TERMINAL11 
+        | TYPEID TERMINAL19 type_id TERMINAL11 
         <==
 expression_list ==>
           assignment_expression 
-        | expression_list TERMINAL2 assignment_expression 
+        | expression_list TERMINAL16 assignment_expression 
         <==
 pseudo_destructor_name ==>
           COLONCOLON_opt nested_name_specifier_opt type_name COLONCOLON TERMINAL0 type_name 
@@ -158,24 +158,24 @@ unary_expression ==>
         | MINUSMINUS cast_expression 
         | unary_operator cast_expression 
         | SIZEOF unary_expression 
-        | SIZEOF TERMINAL8 type_id TERMINAL18 
+        | SIZEOF TERMINAL19 type_id TERMINAL11 
         | new_expression 
         | delete_expression 
         <==
 unary_operator ==>
-          TERMINAL20 
-        | TERMINAL16 
-        | TERMINAL14 
-        | TERMINAL13 
+          TERMINAL3 
+        | TERMINAL4 
+        | TERMINAL9 
+        | TERMINAL17 
         | TERMINAL21 
         | TERMINAL0 
         <==
 new_expression ==>
           COLONCOLON_opt NEW new_placement_opt new_type_id new_initializer_opt 
-        | COLONCOLON_opt NEW new_placement_opt TERMINAL8 type_id TERMINAL18 new_initializer_opt 
+        | COLONCOLON_opt NEW new_placement_opt TERMINAL19 type_id TERMINAL11 new_initializer_opt 
         <==
 new_placement ==>
-          TERMINAL8 expression_list TERMINAL18 
+          TERMINAL19 expression_list TERMINAL11 
         <==
 new_type_id ==>
           type_specifier_seq new_declarator_opt 
@@ -185,19 +185,19 @@ new_declarator ==>
         | direct_new_declarator 
         <==
 direct_new_declarator ==>
-          TERMINAL17 expression TERMINAL4 
-        | direct_new_declarator TERMINAL17 constant_expression TERMINAL4 
+          TERMINAL18 expression TERMINAL8 
+        | direct_new_declarator TERMINAL18 constant_expression TERMINAL8 
         <==
 new_initializer ==>
-          TERMINAL8 expression_list_opt TERMINAL18 
+          TERMINAL19 expression_list_opt TERMINAL11 
         <==
 delete_expression ==>
           COLONCOLON_opt DELETE cast_expression 
-        | COLONCOLON_opt DELETE TERMINAL17 TERMINAL4 cast_expression 
+        | COLONCOLON_opt DELETE TERMINAL18 TERMINAL8 cast_expression 
         <==
 cast_expression ==>
           unary_expression 
-        | TERMINAL8 type_id TERMINAL18 cast_expression 
+        | TERMINAL19 type_id TERMINAL11 cast_expression 
         <==
 pm_expression ==>
           cast_expression 
@@ -206,14 +206,14 @@ pm_expression ==>
         <==
 multiplicative_expression ==>
           pm_expression 
-        | multiplicative_expression TERMINAL20 pm_expression 
-        | multiplicative_expression TERMINAL7 pm_expression 
-        | multiplicative_expression TERMINAL11 pm_expression 
+        | multiplicative_expression TERMINAL3 pm_expression 
+        | multiplicative_expression TERMINAL5 pm_expression 
+        | multiplicative_expression TERMINAL22 pm_expression 
         <==
 additive_expression ==>
           multiplicative_expression 
-        | additive_expression TERMINAL14 multiplicative_expression 
-        | additive_expression TERMINAL13 multiplicative_expression 
+        | additive_expression TERMINAL9 multiplicative_expression 
+        | additive_expression TERMINAL17 multiplicative_expression 
         <==
 shift_expression ==>
           additive_expression 
@@ -222,8 +222,8 @@ shift_expression ==>
         <==
 relational_expression ==>
           shift_expression 
-        | relational_expression TERMINAL6 shift_expression 
-        | relational_expression TERMINAL19 shift_expression 
+        | relational_expression TERMINAL15 shift_expression 
+        | relational_expression TERMINAL24 shift_expression 
         | relational_expression LTEQ shift_expression 
         | relational_expression GTEQ shift_expression 
         <==
@@ -234,15 +234,15 @@ equality_expression ==>
         <==
 and_expression ==>
           equality_expression 
-        | and_expression TERMINAL16 equality_expression 
+        | and_expression TERMINAL4 equality_expression 
         <==
 exclusive_or_expression ==>
           and_expression 
-        | exclusive_or_expression TERMINAL24 and_expression 
+        | exclusive_or_expression TERMINAL7 and_expression 
         <==
 inclusive_or_expression ==>
           exclusive_or_expression 
-        | inclusive_or_expression TERMINAL22 exclusive_or_expression 
+        | inclusive_or_expression TERMINAL13 exclusive_or_expression 
         <==
 logical_and_expression ==>
           inclusive_or_expression 
@@ -254,7 +254,7 @@ logical_or_expression ==>
         <==
 conditional_expression ==>
           logical_or_expression 
-        | logical_or_expression TERMINAL12 expression TERMINAL25 assignment_expression 
+        | logical_or_expression TERMINAL12 expression TERMINAL2 assignment_expression 
         <==
 assignment_expression ==>
           conditional_expression 
@@ -262,7 +262,7 @@ assignment_expression ==>
         | throw_expression 
         <==
 assignment_operator ==>
-          TERMINAL15 
+          TERMINAL6 
         | MULEQ 
         | DIVEQ 
         | MODEQ 
@@ -276,7 +276,7 @@ assignment_operator ==>
         <==
 expression ==>
           assignment_expression 
-        | expression TERMINAL2 assignment_expression 
+        | expression TERMINAL16 assignment_expression 
         <==
 constant_expression ==>
           conditional_expression 
@@ -292,43 +292,43 @@ statement ==>
         | try_block 
         <==
 labeled_statement ==>
-          identifier TERMINAL25 statement 
-        | CASE constant_expression TERMINAL25 statement 
-        | DEFAULT TERMINAL25 statement 
+          identifier TERMINAL2 statement 
+        | CASE constant_expression TERMINAL2 statement 
+        | DEFAULT TERMINAL2 statement 
         <==
 expression_statement ==>
-          expression_opt TERMINAL23 
+          expression_opt TERMINAL14 
         <==
 compound_statement ==>
-          TERMINAL3 statement_seq_opt TERMINAL1 
+          TERMINAL10 statement_seq_opt TERMINAL23 
         <==
 statement_seq ==>
           statement 
         | statement_seq statement 
         <==
 selection_statement ==>
-          IF TERMINAL8 condition TERMINAL18 statement 
-        | IF TERMINAL8 condition TERMINAL18 statement ELSE statement 
-        | SWITCH TERMINAL8 condition TERMINAL18 statement 
+          IF TERMINAL19 condition TERMINAL11 statement 
+        | IF TERMINAL19 condition TERMINAL11 statement ELSE statement 
+        | SWITCH TERMINAL19 condition TERMINAL11 statement 
         <==
 condition ==>
           expression 
-        | type_specifier_seq declarator TERMINAL15 assignment_expression 
+        | type_specifier_seq declarator TERMINAL6 assignment_expression 
         <==
 iteration_statement ==>
-          WHILE TERMINAL8 condition TERMINAL18 statement 
-        | DO statement WHILE TERMINAL8 expression TERMINAL18 TERMINAL23 
-        | FOR TERMINAL8 for_init_statement condition_opt TERMINAL23 expression_opt TERMINAL18 statement 
+          WHILE TERMINAL19 condition TERMINAL11 statement 
+        | DO statement WHILE TERMINAL19 expression TERMINAL11 TERMINAL14 
+        | FOR TERMINAL19 for_init_statement condition_opt TERMINAL14 expression_opt TERMINAL11 statement 
         <==
 for_init_statement ==>
           expression_statement 
         | simple_declaration 
         <==
 jump_statement ==>
-          BREAK TERMINAL23 
-        | CONTINUE TERMINAL23 
-        | RETURN expression_opt TERMINAL23 
-        | GOTO identifier TERMINAL23 
+          BREAK TERMINAL14 
+        | CONTINUE TERMINAL14 
+        | RETURN expression_opt TERMINAL14 
+        | GOTO identifier TERMINAL14 
         <==
 declaration_statement ==>
           block_declaration 
@@ -354,7 +354,7 @@ block_declaration ==>
         | using_directive 
         <==
 simple_declaration ==>
-          decl_specifier_seq_opt init_declarator_list_opt TERMINAL23 
+          decl_specifier_seq_opt init_declarator_list_opt TERMINAL14 
         <==
 decl_specifier ==>
           storage_class_specifier 
@@ -408,18 +408,18 @@ elaborated_type_specifier ==>
           class_key COLONCOLON_opt nested_name_specifier_opt identifier 
         | ENUM COLONCOLON_opt nested_name_specifier_opt identifier 
         | TYPENAME COLONCOLON_opt nested_name_specifier identifier 
-        | TYPENAME COLONCOLON_opt nested_name_specifier identifier TERMINAL6 template_argument_list TERMINAL19 
+        | TYPENAME COLONCOLON_opt nested_name_specifier identifier TERMINAL15 template_argument_list TERMINAL24 
         <==
 enum_specifier ==>
-          ENUM identifier_opt TERMINAL3 enumerator_list_opt TERMINAL1 
+          ENUM identifier_opt TERMINAL10 enumerator_list_opt TERMINAL23 
         <==
 enumerator_list ==>
           enumerator_definition 
-        | enumerator_list TERMINAL2 enumerator_definition 
+        | enumerator_list TERMINAL16 enumerator_definition 
         <==
 enumerator_definition ==>
           enumerator 
-        | enumerator TERMINAL15 constant_expression 
+        | enumerator TERMINAL6 constant_expression 
         <==
 enumerator ==>
           identifier 
@@ -433,40 +433,40 @@ named_namespace_definition ==>
         | extension_namespace_definition 
         <==
 original_namespace_definition ==>
-          NAMESPACE identifier TERMINAL3 namespace_body TERMINAL1 
+          NAMESPACE identifier TERMINAL10 namespace_body TERMINAL23 
         <==
 extension_namespace_definition ==>
-          NAMESPACE original_namespace_name TERMINAL3 namespace_body TERMINAL1 
+          NAMESPACE original_namespace_name TERMINAL10 namespace_body TERMINAL23 
         <==
 unnamed_namespace_definition ==>
-          NAMESPACE TERMINAL3 namespace_body TERMINAL1 
+          NAMESPACE TERMINAL10 namespace_body TERMINAL23 
         <==
 namespace_body ==>
           declaration_seq_opt 
         <==
 namespace_alias_definition ==>
-          NAMESPACE identifier TERMINAL15 qualified_namespace_specifier TERMINAL23 
+          NAMESPACE identifier TERMINAL6 qualified_namespace_specifier TERMINAL14 
         <==
 qualified_namespace_specifier ==>
           COLONCOLON_opt nested_name_specifier_opt namespace_name 
         <==
 using_declaration ==>
-          USING TYPENAME_opt COLONCOLON_opt nested_name_specifier unqualified_id TERMINAL23 
-        | USING COLONCOLON unqualified_id TERMINAL23 
+          USING TYPENAME_opt COLONCOLON_opt nested_name_specifier unqualified_id TERMINAL14 
+        | USING COLONCOLON unqualified_id TERMINAL14 
         <==
 using_directive ==>
-          USING NAMESPACE COLONCOLON_opt nested_name_specifier_opt namespace_name TERMINAL23 
+          USING NAMESPACE COLONCOLON_opt nested_name_specifier_opt namespace_name TERMINAL14 
         <==
 asm_definition ==>
-          ASM TERMINAL8 string_literal TERMINAL18 TERMINAL23 
+          ASM TERMINAL19 string_literal TERMINAL11 TERMINAL14 
         <==
 linkage_specification ==>
-          EXTERN string_literal TERMINAL3 declaration_seq_opt TERMINAL1 
+          EXTERN string_literal TERMINAL10 declaration_seq_opt TERMINAL23 
         | EXTERN string_literal declaration 
         <==
 init_declarator_list ==>
           init_declarator 
-        | init_declarator_list TERMINAL2 init_declarator 
+        | init_declarator_list TERMINAL16 init_declarator 
         <==
 init_declarator ==>
           declarator initializer_opt 
@@ -477,14 +477,14 @@ declarator ==>
         <==
 direct_declarator ==>
           declarator_id 
-        | direct_declarator TERMINAL8 parameter_declaration_clause TERMINAL18 cv_qualifier_seq_opt exception_specification_opt 
-        | direct_declarator TERMINAL17 constant_expression_opt TERMINAL4 
-        | TERMINAL8 declarator TERMINAL18 
+        | direct_declarator TERMINAL19 parameter_declaration_clause TERMINAL11 cv_qualifier_seq_opt exception_specification_opt 
+        | direct_declarator TERMINAL18 constant_expression_opt TERMINAL8 
+        | TERMINAL19 declarator TERMINAL11 
         <==
 ptr_operator ==>
-          TERMINAL20 cv_qualifier_seq_opt 
-        | TERMINAL16 
-        | COLONCOLON_opt nested_name_specifier TERMINAL20 cv_qualifier_seq_opt 
+          TERMINAL3 cv_qualifier_seq_opt 
+        | TERMINAL4 
+        | COLONCOLON_opt nested_name_specifier TERMINAL3 cv_qualifier_seq_opt 
         <==
 cv_qualifier_seq ==>
           cv_qualifier cv_qualifier_seq_opt 
@@ -508,23 +508,23 @@ abstract_declarator ==>
         | direct_abstract_declarator 
         <==
 direct_abstract_declarator ==>
-          direct_abstract_declarator_opt TERMINAL8 parameter_declaration_clause TERMINAL18 cv_qualifier_seq_opt exception_specification_opt 
-        | direct_abstract_declarator_opt TERMINAL17 constant_expression_opt TERMINAL4 
-        | TERMINAL8 abstract_declarator TERMINAL18 
+          direct_abstract_declarator_opt TERMINAL19 parameter_declaration_clause TERMINAL11 cv_qualifier_seq_opt exception_specification_opt 
+        | direct_abstract_declarator_opt TERMINAL18 constant_expression_opt TERMINAL8 
+        | TERMINAL19 abstract_declarator TERMINAL11 
         <==
 parameter_declaration_clause ==>
           parameter_declaration_list_opt ELLIPSIS_opt 
-        | parameter_declaration_list TERMINAL2 ELLIPSIS 
+        | parameter_declaration_list TERMINAL16 ELLIPSIS 
         <==
 parameter_declaration_list ==>
           parameter_declaration 
-        | parameter_declaration_list TERMINAL2 parameter_declaration 
+        | parameter_declaration_list TERMINAL16 parameter_declaration 
         <==
 parameter_declaration ==>
           decl_specifier_seq declarator 
-        | decl_specifier_seq declarator TERMINAL15 assignment_expression 
+        | decl_specifier_seq declarator TERMINAL6 assignment_expression 
         | decl_specifier_seq abstract_declarator_opt 
-        | decl_specifier_seq abstract_declarator_opt TERMINAL15 assignment_expression 
+        | decl_specifier_seq abstract_declarator_opt TERMINAL6 assignment_expression 
         <==
 function_definition ==>
           decl_specifier_seq_opt declarator ctor_initializer_opt function_body 
@@ -534,20 +534,20 @@ function_body ==>
           compound_statement 
         <==
 initializer ==>
-          TERMINAL15 initializer_clause 
-        | TERMINAL8 expression_list TERMINAL18 
+          TERMINAL6 initializer_clause 
+        | TERMINAL19 expression_list TERMINAL11 
         <==
 initializer_clause ==>
           assignment_expression 
-        | TERMINAL3 initializer_list COMMA_opt TERMINAL1 
-        | TERMINAL3 TERMINAL1 
+        | TERMINAL10 initializer_list COMMA_opt TERMINAL23 
+        | TERMINAL10 TERMINAL23 
         <==
 initializer_list ==>
           initializer_clause 
-        | initializer_list TERMINAL2 initializer_clause 
+        | initializer_list TERMINAL16 initializer_clause 
         <==
 class_specifier ==>
-          class_head TERMINAL3 member_specification_opt TERMINAL1 
+          class_head TERMINAL10 member_specification_opt TERMINAL23 
         <==
 class_head ==>
           class_key identifier_opt base_clause_opt 
@@ -560,36 +560,36 @@ class_key ==>
         <==
 member_specification ==>
           member_declaration member_specification_opt 
-        | access_specifier TERMINAL25 member_specification_opt 
+        | access_specifier TERMINAL2 member_specification_opt 
         <==
 member_declaration ==>
-          decl_specifier_seq_opt member_declarator_list_opt TERMINAL23 
+          decl_specifier_seq_opt member_declarator_list_opt TERMINAL14 
         | function_definition SEMICOLON_opt 
-        | qualified_id TERMINAL23 
+        | qualified_id TERMINAL14 
         | using_declaration 
         | template_declaration 
         <==
 member_declarator_list ==>
           member_declarator 
-        | member_declarator_list TERMINAL2 member_declarator 
+        | member_declarator_list TERMINAL16 member_declarator 
         <==
 member_declarator ==>
           declarator pure_specifier_opt 
         | declarator constant_initializer_opt 
-        | identifier_opt TERMINAL25 constant_expression 
+        | identifier_opt TERMINAL2 constant_expression 
         <==
 pure_specifier ==>
-          TERMINAL15 TERMINAL9 
+          TERMINAL6 TERMINAL25 
         <==
 constant_initializer ==>
-          TERMINAL15 constant_expression 
+          TERMINAL6 constant_expression 
         <==
 base_clause ==>
-          TERMINAL25 base_specifier_list 
+          TERMINAL2 base_specifier_list 
         <==
 base_specifier_list ==>
           base_specifier 
-        | base_specifier_list TERMINAL2 base_specifier 
+        | base_specifier_list TERMINAL16 base_specifier 
         <==
 base_specifier ==>
           COLONCOLON_opt nested_name_specifier_opt class_name 
@@ -611,14 +611,14 @@ conversion_declarator ==>
           ptr_operator conversion_declarator_opt 
         <==
 ctor_initializer ==>
-          TERMINAL25 mem_initializer_list 
+          TERMINAL2 mem_initializer_list 
         <==
 mem_initializer_list ==>
           mem_initializer 
-        | mem_initializer TERMINAL2 mem_initializer_list 
+        | mem_initializer TERMINAL16 mem_initializer_list 
         <==
 mem_initializer ==>
-          mem_initializer_id TERMINAL8 expression_list_opt TERMINAL18 
+          mem_initializer_id TERMINAL19 expression_list_opt TERMINAL11 
         <==
 mem_initializer_id ==>
           COLONCOLON_opt nested_name_specifier_opt class_name 
@@ -630,21 +630,21 @@ operator_function_id ==>
 operator ==>
           NEW 
         | DELETE 
-        | NEW TERMINAL17 TERMINAL4 
-        | DELETE TERMINAL17 TERMINAL4 
-        | TERMINAL14 
-        | TERMINAL10 
-        | TERMINAL20 
-        | TERMINAL7 
-        | TERMINAL11 
-        | TERMINAL24 
-        | TERMINAL16 
+        | NEW TERMINAL18 TERMINAL8 
+        | DELETE TERMINAL18 TERMINAL8 
+        | TERMINAL9 
+        | TERMINAL1 
+        | TERMINAL3 
+        | TERMINAL5 
         | TERMINAL22 
+        | TERMINAL7 
+        | TERMINAL4 
+        | TERMINAL13 
         | TERMINAL0 
         | TERMINAL21 
-        | TERMINAL15 
         | TERMINAL6 
-        | TERMINAL19 
+        | TERMINAL15 
+        | TERMINAL24 
         | ADDEQ 
         | SUBEQ 
         | MULEQ 
@@ -665,18 +665,18 @@ operator ==>
         | OROR 
         | PLUSPLUS 
         | MINUSMINUS 
-        | TERMINAL2 
+        | TERMINAL16 
         | ARROWSTAR 
         | ARROW 
-        | TERMINAL8 TERMINAL18 
-        | TERMINAL17 TERMINAL4 
+        | TERMINAL19 TERMINAL11 
+        | TERMINAL18 TERMINAL8 
         <==
 template_declaration ==>
-          EXPORT_opt TEMPLATE TERMINAL6 template_parameter_list TERMINAL19 declaration 
+          EXPORT_opt TEMPLATE TERMINAL15 template_parameter_list TERMINAL24 declaration 
         <==
 template_parameter_list ==>
           template_parameter 
-        | template_parameter_list TERMINAL2 template_parameter 
+        | template_parameter_list TERMINAL16 template_parameter 
         <==
 template_parameter ==>
           type_parameter 
@@ -684,18 +684,18 @@ template_parameter ==>
         <==
 type_parameter ==>
           CLASS identifier_opt 
-        | CLASS identifier_opt TERMINAL15 type_id 
+        | CLASS identifier_opt TERMINAL6 type_id 
         | TYPENAME identifier_opt 
-        | TYPENAME identifier_opt TERMINAL15 type_id 
-        | TEMPLATE TERMINAL6 template_parameter_list TERMINAL19 CLASS identifier_opt 
-        | TEMPLATE TERMINAL6 template_parameter_list TERMINAL19 CLASS identifier_opt TERMINAL15 template_name 
+        | TYPENAME identifier_opt TERMINAL6 type_id 
+        | TEMPLATE TERMINAL15 template_parameter_list TERMINAL24 CLASS identifier_opt 
+        | TEMPLATE TERMINAL15 template_parameter_list TERMINAL24 CLASS identifier_opt TERMINAL6 template_name 
         <==
 template_id ==>
-          template_name TERMINAL6 template_argument_list TERMINAL19 
+          template_name TERMINAL15 template_argument_list TERMINAL24 
         <==
 template_argument_list ==>
           template_argument 
-        | template_argument_list TERMINAL2 template_argument 
+        | template_argument_list TERMINAL16 template_argument 
         <==
 template_argument ==>
           assignment_expression 
@@ -706,7 +706,7 @@ explicit_instantiation ==>
           TEMPLATE declaration 
         <==
 explicit_specialization ==>
-          TEMPLATE TERMINAL6 TERMINAL19 declaration 
+          TEMPLATE TERMINAL15 TERMINAL24 declaration 
         <==
 try_block ==>
           TRY compound_statement handler_seq 
@@ -718,7 +718,7 @@ handler_seq ==>
           handler handler_seq_opt 
         <==
 handler ==>
-          CATCH TERMINAL8 exception_declaration TERMINAL18 compound_statement 
+          CATCH TERMINAL19 exception_declaration TERMINAL11 compound_statement 
         <==
 exception_declaration ==>
           type_specifier_seq declarator 
@@ -730,11 +730,11 @@ throw_expression ==>
           THROW assignment_expression_opt 
         <==
 exception_specification ==>
-          THROW TERMINAL8 type_id_list_opt TERMINAL18 
+          THROW TERMINAL19 type_id_list_opt TERMINAL11 
         <==
 type_id_list ==>
           type_id 
-        | type_id_list TERMINAL2 type_id 
+        | type_id_list TERMINAL16 type_id 
         <==
 declaration_seq_opt ==>
           
@@ -842,7 +842,7 @@ ctor_initializer_opt ==>
         <==
 COMMA_opt ==>
           
-        | TERMINAL2 
+        | TERMINAL16 
         <==
 member_specification_opt ==>
           
@@ -858,7 +858,7 @@ member_declarator_list_opt ==>
         <==
 SEMICOLON_opt ==>
           
-        | TERMINAL23 
+        | TERMINAL14 
         <==
 pure_specifier_opt ==>
           

@@ -65,7 +65,7 @@ lexterminal AT @
 lexterminal DOLLAR $
 lexterminal TWODOLLARS $$
 lexterminal DASH -
-terminals start token left right nonassoc union
+terminals union
 nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag idnum
 nonterminal primary
 nonterminal rhsunit

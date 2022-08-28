@@ -2,12 +2,16 @@
 auto
 lifetime 'lt
 lexattribute add_custom("directive",r"^(?m)^#(.|(\\\n|\\\r))*$")
+#lexattribute add_custom("junk",r"(?m)(.|(\\\))*$")
 lexattribute add_custom("junk",r"^(?m)^.*$")
 valueterminal directive ~ &'lt str ~ Custom("directive",d) ~ d
+#valueterminal junk ~ &'lt str ~ Custom("junk",d) ~ d
 valueterminal junk ~ () ~ Custom("junk",_) ~ ()
 nonterminals S Stuff 
 startsymbol S
 
 S --> Stuff*
-Stuff --> junk 
+#Stuff --> junk:j { print!("see junk ({}): ",&j); for b in j.bytes() {print!("{}, ",b as u8);} println!(); ... }
+
 Stuff --> directive:d { println!("See directive: {}",d); ... }
+Stuff --> junk

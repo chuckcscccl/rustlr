@@ -92,7 +92,8 @@ lexterminal Lt <
 lexterminal Gt >
 lexterminal ASSIGN =
 lexterminal Quest ?
-terminals [ ] ( )  + - ~ ;
+lexterminal SEMICOLON ;
+terminals [ ] ( )  + - ~
 
 valueterminal TYPEDEF_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().contains(n)~ n
 # this has to change
@@ -154,23 +155,21 @@ nonterminal direct_base : direct_contents
 topsym translation_unit
 
 # added for Rustlr edition to resolve dangling else problem:
-left IF 10
-left ELSE 20
+nonassoc IF 20
+nonassoc ELSE 30
 # Known issue with ANSI grammar:
-left ( 2
-left ATOMIC 1
+nonassoc ( 2
+nonassoc ATOMIC 1
 
 # added to distinguish between IDENTIFIER and TYPE_NAME
 #transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
 
 
-primary_expression ==>
-	 IDENTIFIER
-	| Constant
-	| Stringlit
-	| ( expression )
-        | generic_selection
-	<==
+primary_expression --> IDENTIFIER
+primary_expression --> ( expression )
+primary_expression:Constant --> Constant
+primary_expression:Stringlit --> Stringlit
+primary_expression:Generic --> generic_selection
 
 # ENUMERATION CONSTANT needs to be treated like TYPE_NAME
 Constant --> I_CONSTANT | F_CONSTANT | ENUMERATION_CONSTANT
@@ -180,109 +179,80 @@ generic_selection --> GENERIC ( assignment_expression Comma generic_association<
 generic_association:by_type -->  type_name Colon assignment_expression
 generic_association:by_default -->  DEFAULT Colon assignment_expression 
 
-postfix_expression ==>
-	 primary_expression
-	| postfix_expression [ expression ]
-	| postfix_expression ( )        
-	| postfix_expression ( assignment_expression<Comma+> )
-	| postfix_expression Dot IDENTIFIER
-	| postfix_expression PTR_OP IDENTIFIER
-	| postfix_expression INC_OP
-	| postfix_expression DEC_OP
-        | ( type_name ) Lbrace initializer_designation<Comma+> Comma? Rbrace
-	<==
+postfix_expression --> primary_expression
+postfix_expression:Indexing --> postfix_expression [ expression ]
+postfix_expression:Function_call --> postfix_expression ( assignment_expression<Comma*> )
+postfix_expression:Dotaccess --> postfix_expression Dot IDENTIFIER
+postfix_expression:Ptraccess --> postfix_expression PTR_OP IDENTIFIER
+postfix_expression:PlusPlus --> postfix_expression INC_OP
+postfix_expression:MinusMinus --> postfix_expression DEC_OP
+postfix_expression:dont_know_what_this_is --> ( type_name ) Lbrace initializer_designation<Comma+> Comma? Rbrace
+
+unary_expression --> postfix_expression
+unary_expression:Unaryop --> unary_operator cast_expression
 
 unary_expression ==>
-	 postfix_expression
-	| INC_OP unary_expression
+	  INC_OP unary_expression
 	| DEC_OP unary_expression
-	| unary_operator cast_expression
 	| SIZEOF unary_expression
 	| SIZEOF ( type_name )
         | ALIGNOF ( type_name )
 	<==
 
-unary_operator ==>
-	 Amp
-	| Star
-	| +
-	| -
-	| ~
-	| Bang
-	<==
+unary_operator --> Amp
+unary_operator --> Star
+unary_operator:UniPlus --> +
+unary_operator:Neg --> -
+unary_operator:BinComp --> ~
+unary_operator:Not --> Bang
 
-cast_expression ==>
-	 unary_expression
-	| ( type_name ) cast_expression
-	<==
+cast_expression --> unary_expression
+cast_expression:Typecast --> ( type_name ) cast_expression
 
-multiplicative_expression ==>
-	 cast_expression
-	| multiplicative_expression Star cast_expression
-	| multiplicative_expression Div cast_expression
-	| multiplicative_expression Percent cast_expression
-	<==
+multiplicative_expression --> cast_expression
+multiplicative_expression:Times -->  multiplicative_expression Star cast_expression
+multiplicative_expression:Divide -->  multiplicative_expression Div cast_expression
+multiplicative_expression:Mod -->  multiplicative_expression Percent cast_expression
 
-additive_expression ==>
-	 multiplicative_expression
-	| additive_expression + multiplicative_expression
-	| additive_expression - multiplicative_expression
-	<==
+additive_expression --> multiplicative_expression
+additive_expression:Plus -->  additive_expression + multiplicative_expression
+additive_expression:Minus -->  additive_expression - multiplicative_expression
 
-shift_expression ==>
-	 additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
-	<==
+shift_expression --> additive_expression
+shift_expression:Lshift --> shift_expression LEFT_OP additive_expression
+shift_expression:Rshift --> shift_expression RIGHT_OP additive_expression
 
-relational_expression ==>
-	 shift_expression
-	| relational_expression Lt shift_expression
-	| relational_expression Gt shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
-        <==
-        
-equality_expression ==>
-	 relational_expression
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
-	<==
+relational_expression --> shift_expression
+relational_expression:Lt --> relational_expression Lt shift_expression
+relational_expression:Gt --> relational_expression Gt shift_expression
+relational_expression:Leq --> relational_expression LE_OP shift_expression
+relational_expression:Geq --> relational_expression GE_OP shift_expression
 
-and_expression ==>
-	 equality_expression
-	| and_expression Amp equality_expression
-	<==
+equality_expression -->	 relational_expression
+equality_expression:Equals --> equality_expression EQ_OP relational_expression
+equality_expression:NotEquals --> equality_expression NE_OP relational_expression
 
-exclusive_or_expression ==>
-	 and_expression
-	| exclusive_or_expression Hat and_expression
-	<==
+and_expression --> equality_expression
+and_expression:BitAnd --> and_expression Amp equality_expression
 
-inclusive_or_expression ==>
-	 exclusive_or_expression
-	| inclusive_or_expression Bar exclusive_or_expression
-	<==
+exclusive_or_expression --> and_expression
+exclusive_or_expression:BitXor --> exclusive_or_expression Hat and_expression
 
-logical_and_expression ==>
-	 inclusive_or_expression
-	| logical_and_expression AND_OP inclusive_or_expression
-	<==
+inclusive_or_expression --> exclusive_or_expression
+inclusive_or_expression:BitOr --> inclusive_or_expression Bar exclusive_or_expression
 
-logical_or_expression ==>
-	 logical_and_expression
-	| logical_or_expression OR_OP logical_and_expression
-	<==
+logical_and_expression --> inclusive_or_expression
+logical_and_expression:And --> logical_and_expression AND_OP inclusive_or_expression
 
-conditional_expression ==>
-	 logical_or_expression
-	| logical_or_expression Quest expression Colon conditional_expression
-	<==
+logical_or_expression --> logical_and_expression
+logical_or_expression:Or --> logical_or_expression OR_OP logical_and_expression
 
-assignment_expression ==>
-	 conditional_expression
-	| unary_expression assignment_operator assignment_expression
-	<==
+conditional_expression --> logical_or_expression
+conditional_expression:Quest --> logical_or_expression Quest expression Colon conditional_expression
+
+assignment_expression --> conditional_expression
+assignment_expression:Assignment --> unary_expression assignment_operator assignment_expression
+
 
 assignment_operator ==>
 	 ASSIGN
@@ -302,6 +272,9 @@ assignment_operator ==>
 expression:expr_list --> expressions
 expressions --> assignment_expression<Comma+>
 
+# intentionally ambiguous
+#expression --> assignment_expression<Comma+>
+
 # the following rule was marked "with constraints"
 constant_expression:const_expr --> conditional_expression
 
@@ -315,8 +288,8 @@ constant_expression:const_expr --> conditional_expression
 #!use crate::c11_ast::declaration_specifier::*;
 #!use crate::c11_ast::storage_class_specifier::*;
 
-declaration:DecSpec --> declaration_specifier+ ;
-declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc ;
+declaration:DecSpec --> declaration_specifier+ SEMICOLON
+declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
 declaration:Statassert --> static_assert_declaration
 
 declaration_specifier:storage --> storage_class_specifier
@@ -368,18 +341,14 @@ struct_or_union_specifier ==>
 	<==
 
 # labels ensure enum generated.
-struct_or_union --> STRUCT:x
-struct_or_union --> UNION:x
+struct_or_union --> STRUCT | UNION
 
 struct_declaration ==>
-         specifier_qualifier+ struct_declarator<Comma*> ;
+         specifier_qualifier+ struct_declarator<Comma*> SEMICOLON
        | static_assert_declaration
        <==
 
-#struct_declaration_list --> struct_declaration+
-
 specifier_qualifier --> type_specifier | type_qualifier
-#specifier_qualifier_list --> specifier_qualifier+
 
 # note that the rule is right-recursive, does it matter?
 #specifier_qualifier_list ==>
@@ -406,8 +375,7 @@ enum_specifier ==>
 	| ENUM IDENTIFIER Lbrace enumerator_list Comma? Rbrace
 	| ENUM IDENTIFIER
 	<==
-#	 ENUM Lbrace enumerator_list Comma? Rbrace
-enumerator_list(5) --> enumerator<Comma+>
+enumerator_list --> enumerator<Comma+>
 #enumerator_list ==>
 #	 enumerator
 #	| enumerator_list Comma enumerator
@@ -455,28 +423,13 @@ direct_declarator --> direct_base direct_contents*
 
 pointer --> Star type_qualifier*:tql pointer?:ptr
 
-#type_qualifier_list --> type_qualifier+
-#type_qualifier_list ==>
-#          type_qualifier
-#	| type_qualifier_list type_qualifier
-#	<==
-
-
 parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS)?:ellipsis
-#	| parameter_list Comma ELLIPSIS
-#	<==
-
-#parameter_list --> parameter_declaration<Comma+>
-#parameter_list --> parameter_list Comma parameter_declaration
-
 
 parameter_declaration ==>
 	 declaration_specifier+ declarator
 	| declaration_specifier+ abstract_declarator
 	| declaration_specifier+
 	<==
-
-identifier_list --> IDENTIFIER<Comma+>
 
 type_name --> specifier_qualifier+ abstract_declarator?
 
@@ -494,10 +447,9 @@ da_base --> [ type_qualifier+ ]
 #direct_abstract_declarator --> ( abstract_declarator )
 #abstract_declarator --> pointer? direct_abstract_declarator
 
-initializer ==>
-	  assignment_expression
-	| Lbrace initializer_designation<Comma+> Comma? Rbrace
-	<==
+initializer:expr --> assignment_expression
+initializer:values --> Lbrace initializer_designation<Comma+> Comma? Rbrace
+
 # replace initializer_list with initializer_designation<Comma+>        
 initializer_designation --> designation? initializer
 
@@ -506,7 +458,7 @@ designator:brackexpr --> [ constant_expression ]
 designator:dotid --> Dot IDENTIFIER
 
 
-static_assert_declaration --> STATIC_ASSERT ( constant_expression Comma STRING_LITERAL ) ;
+static_assert_declaration --> STATIC_ASSERT ( constant_expression Comma STRING_LITERAL ) SEMICOLON
 
 
 ################ statements
@@ -521,41 +473,30 @@ statement ==>
 	| jump_statement
 	<==
 
-labeled_statement ==>
-	 IDENTIFIER Colon statement
-	| CASE expression Colon statement
-	| DEFAULT Colon statement
-	<==
+labeled_statement:Labelstat --> IDENTIFIER Colon statement
+labeled_statement:Casestat --> CASE expression Colon statement
+labeled_statement:Defaultcase --> DEFAULT Colon statement
 
-
-#faithful to original?
-compound_statement --> Lbrace block_item* Rbrace
+compound_statement:Blockstat --> Lbrace block_item* Rbrace
 
 block_item:Declaration --> declaration
 block_item:Statement --> statement
 
-expression_statement --> expressions? ;
+expression_statement:Expr_list --> expressions? SEMICOLON
 
-selection_statement ==>
-	 IF ( expressions ) statement
-	| IF ( expressions ) statement ELSE statement
-	| SWITCH ( expressions ) statement
-	<==
+selection_statement:Ifstat --> IF ( expressions ) statement
+selection_statement:Ifelse --> IF ( expressions ) statement ELSE statement
+selection_statement:Switchstat --> SWITCH ( expressions ) statement
 
-iteration_statement ==>
-	 WHILE ( expressions ) statement
-	| DO statement WHILE ( expressions ) ;
-	| FOR ( expression_statement expression_statement expressions? ) statement
-        | FOR ( declaration expression_statement expressions? ) statement
-	<==
+iteration_statement:Whileloop --> WHILE ( expressions ) statement
+iteration_statement:Dowhileloop --> DO statement WHILE ( expressions ) SEMICOLON
+iteration_statement:Forloop --> FOR ( expression_statement expression_statement expressions? ) statement
+iteration_statement:ForDecloop --> FOR ( declaration expression_statement expressions? ) statement
 
-jump_statement ==>
-	 GOTO IDENTIFIER ;
-	| CONTINUE ;
-	| BREAK ;
-	| RETURN ;
-	| RETURN expressions ;
-	<==
+jump_statement:Goto_oh_no --> GOTO IDENTIFIER SEMICOLON
+jump_statement:Continuestat --> CONTINUE SEMICOLON
+jump_statement:Breakstat --> BREAK SEMICOLON
+jump_statement:Returnstat --> RETURN assignment_expression<Comma*> SEMICOLON
 
 translation_unit --> external_declaration+
 #	 external_declaration
@@ -579,7 +520,7 @@ function_definition --> declaration_specifier+ declarator declaration* compound_
 EOF
 
 
-declaration:DecSpecList ==> declaration_specifier+:ds init_declarator<Comma+>:il ; 
+declaration:DecSpecList ==> declaration_specifier+:ds init_declarator<Comma+>:il SEMICOLON 
   { if let (declaration_specifier+{_item0_:tdl}, ils) = (&ds,&il)  {
      if let storage(typedeff) = &*tdl[0] {
       if let TYPEDEF = &**typedeff {
@@ -628,3 +569,20 @@ left Div 650
 left Percent 650
 left SIZEOF 655
 # type cast expressions have higher precedence
+
+
+# associativity and precedence
+
+#unary operators
+# Amp, +, *, -, are also unary operators.  So can't use declarations
+# for them.  So preserve it's own class unary-expressions.
+right Bang 800
+right ~ 800
+right INC_OP 750
+right DEC_OP 750
+right Dot 3000
+right PTR_OP 3000
+left [ 2500
+left ( 2800
+left Comma 5   -- always reduce before a comma when conflict
+
