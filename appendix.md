@@ -71,7 +71,7 @@ by generating a tuple for the semantic value of the new symbol (`MCd`), then
 deconstructing it before applying the action of the original grammar.
 
 The original grammar is not LR(k) but the transformed one is LR(1) (and LALR(1)). 
-The Bertsch-Nederhof-Schmitz [paper][bns] shows that such transformations can
+The [research paper][bns] shows that such transformations can
 be selective, and the amount of right-context to absorb should be flexible
 lest further non-determinism may be introduced.
 The original grammar is called an "selML(2,1)" grammar because it absorbs

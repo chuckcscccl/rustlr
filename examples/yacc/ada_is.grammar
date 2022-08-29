@@ -1,0 +1,33 @@
+# Rustlr grammar converted from Yacc
+
+terminals PROCEDURE identifier IS NEW generic_procedure_name SEPARATE 
+nonterminals body_stub declarative_part declarative_part_opt formal_part_opt generic_instantiation subprogram_body subprogram_specification 
+startsymbol declarative_part
+
+
+declarative_part ==>
+          subprogram_body 
+        | body_stub 
+        | generic_instantiation 
+        <==
+subprogram_body ==>
+          subprogram_specification IS declarative_part_opt 
+        <==
+declarative_part_opt ==>
+          
+        <==
+body_stub ==>
+          subprogram_specification IS SEPARATE 
+        <==
+subprogram_specification ==>
+          PROCEDURE identifier formal_part_opt 
+        <==
+formal_part_opt ==>
+          
+        <==
+generic_instantiation ==>
+          PROCEDURE identifier IS NEW generic_procedure_name 
+        <==
+
+EOF
+

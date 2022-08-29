@@ -252,7 +252,7 @@ included in the AST by giving it an explicit lable such as `-:minus UnaryExpr`.
 This would create an enum variant that includes a unit type value.
 
 
-##### 'Flattening' Structs
+##### Flattening Structs
 
 Rustlr provides another way to control the generation of ASTs so that
 it is not always dependent on the structure of the grammar, although
@@ -272,7 +272,7 @@ type `Threebs` can be **flattened** into other structures:
 flatten Threebs
 ```
 This means that the AST for Threebs should be absorbed into other types if
-possible.
+possible (multiple nonterminals can be so declared on the same line).
 This will still create a `struct A(a,Threebs,c)`, but it will create for A:
 **`struct A(a,b,b,b,c)`**.
 
@@ -286,12 +286,27 @@ are several enforced rules governing the flattening of types:
   3. A tuple struct can only absorb the flattened form of another tuple struct.
   In the above example, if `Threeb` was a non-tuple struct with named fields (which can be created
   by giving of the the b's a label), then it cannot be absorted into `A`.
-  4. Recursive structs, directly or indirectly, cannot be flattened.
-  5. A boxed-labeled field cannot absorb a 'flatten' type.  That is, if
+  4. A boxed-labeled field cannot absorb a 'flatten' type.  That is, if
   the rule for `A` above was written `A --> a:a Threebs:[b] c:c` then the AST
   for A would become `pub struct A{a:a, b:LBox<Threebs>, c:c}`.  This is
   the only way to prevent the absorption of a 'flatten' type on a case-by-case
   basis.
+  5. Mutually recursive types cannot flatten into each other.
+  6. Nested flattening is not currently supported.  This is a temporary restriction.
+
+Point 5 is rather subtle.  Consider productions rules `A --> B` and
+`B --> A`.  It is perfectly valid to declare `flatten B`: This will
+result in a `struct A(LBox<A>)`: the [LBox][2] is created for the AST of B using reachability calculations.  What we cannot have is `flatten A` and 
+`flatten B`: the flattening is only allowed in one direction.  Otherwise we
+would be replacing B with A and A with ... what?  One consequence of
+this restriction is that a type cannot flatten into itself: `B --> B`
+would not be valid for `flatten B`: *B is mutually recursive with
+itself.*
+
+The last restriction is related to the mutual-flattening restriction.  However,
+there are cases where it would be safe to flatten A into B and then flatten
+B into C. This ability is not currently supported (as of Rustlr 0.3.5).
+
 
 
 ##### Importance of Labels

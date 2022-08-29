@@ -69,6 +69,7 @@ terminals union
 nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag idnum
 nonterminal primary
 nonterminal rhsunit
+flatten tag
 resynch SEMICOLON BAR
 topsym Yacc
 
@@ -89,8 +90,8 @@ yacc_decl:left --> PERLEFT idnum+:vs
 yacc_decl:right --> PERRIGHT idnum+:vs
 yacc_decl:nonassoc --> PERNONASSOC idnum+:vs
 yacc_decl:uniondec --> PERCENT union ACTION
-yacc_decl:nonterminal --> PERTYPE tag? ID+
-tag --> LANGLE ID RANGLE
+yacc_decl:nonterminal --> PERTYPE tag ID+
+tag --> (LANGLE ID RANGLE)?
 idnum --> ID NUMBER?
 
 rhs_symbol:ID --> ID (COLON label)?

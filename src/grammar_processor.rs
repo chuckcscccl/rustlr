@@ -284,6 +284,7 @@ impl Grammar
      wildcard.index = self.Symbols.len();
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
      self.Symbols.push(wildcard); // wildcard is first symbol.
+     let mut markersexist = false; //delay markers exist
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -775,7 +776,7 @@ impl Grammar
 		   break;
                 }
 // look for delay marker and record
-                if strtok=="#" {markers.push(i-1-iadjust); iadjust+=1; continue; }
+                if strtok=="#" {markers.push(i-1-iadjust); iadjust+=1; markersexist=true; continue; }
 
 /*
 Strategfy for parsing EBNF syntax:
@@ -888,8 +889,13 @@ strtok is bstokens[i], but will change
                   rulesforset.insert(self.Rules.len()-1);
                   self.Rulesfor.insert(self.Symbols.len()-1,rulesforset);
                   // i-1 is now at token with )* or )+
-                  if defaultrelab2.len()<1 {defaultrelab2=format!("_item{}_",i-1-iadjust);}
-//   if defaultrelab2.len()<1 {defaultrelab2=format!("_itemre{}_{}",i-1-iadjust,ntcx); ntcx+=1;}                  
+                  if defaultrelab2.len()<1 && !markersexist {defaultrelab2=format!("_item{}_",i-1-iadjust);}
+                  else if defaultrelab2.len()<1 {defaultrelab2=format!("_itemre{}_{}",i-1-iadjust,ntcx); ntcx+=1;}
+                  /*
+                  labels must be different to avoid clashes if static delay
+                  markers exist.  But they should be the standard _item_ to
+                  recognize passthru on user defined types during AST gen.
+                  */
                   NEWNTs.insert(hashkey,self.Symbols.len()-1); //record
                   }// create new nt       
                   newtok2 = format!("{}{}:{}",&ntname2,suffix,&defaultrelab2);
@@ -905,9 +911,13 @@ strtok is bstokens[i], but will change
 		let retoks:Vec<&str> = strtok.split(':').collect();
 		if retoks.len()>0 && retoks[0].len()>1 && (retoks[0].ends_with('*') || retoks[0].ends_with('+') || retoks[0].ends_with('?')) {
 		   strtok = retoks[0]; // to be changed back to normal a:b
-		   let defaultrelab = format!("_item{}_",i-1-iadjust);
-//	   let defaultrelab = format!("_itemre{}_{}",i-1-iadjust,ntcx);
-//         ntcx+=1;
+                   let defaultrelab;
+                   if !markersexist {
+		     defaultrelab = format!("_item{}_",i-1-iadjust);
+                   } else {
+                     defaultrelab = format!("_itemre{}_{}",i-1-iadjust,ntcx);
+                     ntcx+=1;
+                   }
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0
                      {
                          if !is_alphanum(checkboxlabel(retoks[1])) {
@@ -1024,9 +1034,13 @@ strtok is bstokens[i], but will change
                     termi = *termiopt.unwrap();
                   } else {panic!("MALFORMED EXPRESSION LINE {}\n",linenum);}
                   strtok = septoks[0]; // to the left of :, E<,*>
-   	          let defaultrelab3 = format!("_item{}_",i-1-iadjust);
-//     let defaultrelab3 = format!("_itemre{}_{}",i-1-iadjust,ntcx);
-//     ntcx+=1;
+                  let defaultrelab3;
+                  if !markersexist {
+   	            defaultrelab3 = format!("_item{}_",i-1-iadjust);
+                  } else {
+                    defaultrelab3 = format!("_itemre{}_{}",i-1-iadjust,ntcx);
+                    ntcx+=1;
+                  }
 		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
                      if !is_alphanum(checkboxlabel(septoks[1])) {
                        panic!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum);
