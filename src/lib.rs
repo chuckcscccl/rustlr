@@ -1,12 +1,13 @@
 //! Rustlr is an LR-style parser generator for Rust.  Advanced features
 //! include:
-//!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible.  The types generated do not necessarily
-//! reflect the format of the grammar.
+//!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible.  Rustlr's grammar format contains a sublanguage
+//!   that controls how ASTS are created, so that the generated types do
+//!   not necessarily reflect the format of the grammar.
 //!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
-//!  3. Experimental features include the ability to use *delayed reduction*
-//!  transformations on a grammar.  This extends the class of grammars usable
-//!  with Rustlr beyond traditional LR and LALR grammars.
+//!  3. Experimental features include the ability to use a larger class of
+//!  grammars than traditional LR, in particular LR grammars with *delayed
+//!  reductions.*
 //!  4. The ability to train the parser interactively for better error reporting
 //!  5. External state access allows parsers go to beyond CFGs
 //!
