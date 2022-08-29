@@ -1,0 +1,40 @@
+# Grammar testing automatic generation of abstract syntax: use -auto option
+
+lifetime 'lt
+nonterminals Expr ExprList
+terminals + - * / ( ) =
+terminals let in
+lexterminal SEMICOLON ;
+valueterminal int i64 Num(n) n
+valueterminal var~ &'lt str~ Alphanum(n)~ n
+topsym ExprList
+resync SEMICOLON
+
+left * 500
+left / 500
+left + 400
+left - 400
+left = 300
+
+lexattribute set_line_comment("#")
+
+Expr:Val --> int
+Expr:Var --> var
+Expr:Letexp --> let var = Expr in Expr
+Expr:Plus --> Expr + Expr
+Expr:Minus --> Expr - Expr
+Expr:Div --> Expr / Expr
+Expr:Times --> Expr * Expr
+Expr(600):Neg --> - Expr
+Expr --> ( Expr )
+ExprList:nil -->
+ExprList:cons --> Expr SEMICOLON ExprList
+EOF
+
+
+#nonterminal ExprList Vec<LBox<Expr<'lt>>>
+# override auto-generated creation of abstract syntax, but type matters
+Expr --> ( Expr:e )  { e }
+#ExprList --> Expr:[e] SEMICOLON { vec![e] }
+#ExprList --> ExprList:v Expr:[e] SEMICOLON  { v.push(e); v }
+

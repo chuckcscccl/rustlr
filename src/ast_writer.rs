@@ -134,7 +134,24 @@ impl Grammar
      ////////////////////////////// struct generation stage
      // third pass: generate structtypes first so they can be flattened,
      // store generated types in metaast map:
-     
+
+     // two mutually recursive types cannot flatten into each other
+     let mut flattentypes = self.flattentypes.clone();
+     for a in self.flattentypes.iter() {
+       let mut acanflatten = true;
+       if !flattentypes.contains(a) {continue;}
+       for b in self.flattentypes.iter() {
+         if a!=b && flattentypes.contains(b) {
+            let areach = self.Reachable.get(a).unwrap();
+            let breach = self.Reachable.get(b).unwrap();
+            if areach.contains(b) && breach.contains(a) {
+               flattentypes.remove(a); flattentypes.remove(b);
+               eprintln!("WARNING: MUTUALLY RECURSIVE TYPES {} AND {} CANNOT FLATTEN INTO EACHOTHER\n",&self.Symbols[*a].sym,&self.Symbols[*b].sym);
+            }
+         }
+       }
+     }// discover mutually recursive flatten types
+
      let mut structasts = METAASTTYPE::new(); 
      for (nt,NTrules) in self.Rulesfor.iter() {  //first loop
        if NTrules.len()!=1 || extendtargets.contains(nt) || toextend.contains_key(nt) { /*print warning*/ continue;}
@@ -144,10 +161,12 @@ impl Grammar
        let lhsymtype = self.Symbols[*nt].rusttype.clone();         
        if !lhsymtype.starts_with(NT) {continue;}
        let mut canflatten = true;
+       /*
        if self.Reachable.get(nt).unwrap().contains(nt) {
          canflatten=false;
          if self.flattentypes.contains(nt) {eprintln!("WARNING: Recursive non-terminals cannot have their ASTs flattened ({})\n",NT);}
        }
+       */
        let mut simplestruct = true;
        for rs in &self.Rules[sri].rhs {
          if rs.label.len()>0 && !rs.label.starts_with("_item") 
@@ -203,8 +222,11 @@ impl Grammar
        let mut viadjust:i32 = 0; //not used (not inc'ed)
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields { //original field
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
+         if rhssymi==*nt {
+            eprintln!("WARNING: TYPE {} CANNOT FLATTEN INTO ITSELF\n",&self.Rules[sri].rhs[*rhsi].sym);
+         }
          let mut flattened = false;
-         if self.flattentypes.contains(&rhssymi) { // maybe able to flatten in
+         if rhssymi!=*nt && flattentypes.contains(&rhssymi) { // maybe able to flatten in
            match structasts.get(&rhssymi) {
              Some((simp,true,pthr,_,flatfields)) => {  //flatten in
                if *pthr<0 && flatfields.len()>0 && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
@@ -222,17 +244,23 @@ impl Grammar
                      fields.push_str(&format!("  pub {}:{},\n",&newlab,ftype));
                    }
                    let islbxtype = ftype.starts_with("LBox<");
-                   if *simplestruct && !islbxtype{
+                   if *simplestruct /*&& !islbxtype */{
                      SACTION.push_str(&newactionlab); SACTION.push(',');
-                   } else if *simplestruct {
+                   }
+                   /*
+                   else if *simplestruct {
                      SACTION.push_str(&format!("parser.lbx({},{}),",newindex,&newactionlab));
                    }
-                   else if !simplestruct && (!islbxtype || *albx) {
-                     SACTION.push_str(&format!("{}:{}, ",&newlab,&newactionlab));
+                   */
+                   else /* if !simplestruct  && (!islbxtype || *albx) */ {
+                    SACTION.push_str(&format!("{}:{}, ",&newlab,&newactionlab));
+                     
                    }
+                   /*
                    else { // !simplestruct and need to form parser.lbx
                      SACTION.push_str(&format!("{}:parser.lbx({},{}), ",&newlab,newindex,&newactionlab));
                    }
+                   */
                    vfields.push((newindex,newlab,*albx,ftype.to_owned()));
                    fi+=1;
                  }//for each field in flatten source
@@ -347,7 +375,7 @@ impl Grammar
             // Lbox or no Lbox:  ***************
             let rsymtype = &self.Symbols[rsym.index].rusttype;
             let mut flattened = false;
-            if !rsym.terminal && self.flattentypes.contains(&rsym.index) {
+            if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
                Some((simp,true,pthr,_,flatfields)) => {  //flatten in
                 if *pthr<0 && flatfields.len()>0 && !rsym.label.starts_with('['){
@@ -360,12 +388,15 @@ impl Grammar
                    let newindex = rhsi+viadjust+fi;
                    //enumvar.push_str("pub ");
                    enumvar.push_str(ftype); enumvar.push(',');
+                   ACTION.push_str(&newactionlab); ACTION.push(',');
+                   /*
                    let islbxtype = ftype.starts_with("LBox<");
                    if !islbxtype{
                      ACTION.push_str(&newactionlab); ACTION.push(',');
                    } else  {
                      ACTION.push_str(&format!("parser.lbx({},{}),",newindex,&newactionlab));
                    }
+                   */
                    fi+=1;
                  }//for each field in flatten source
                  //viadjust += flatfields.len() -1;
@@ -662,16 +693,6 @@ use rustlr::LBox;\n")?;
      }//stillopen
   }// reachability closure  - combined version
 */
-
-  fn can_flatten(&self,nti:&usize, sas:&METAASTTYPE) -> bool
-  {
-    self.flattentypes.contains(nti) &&
-    match sas.get(nti) {
-      Some((_,true,_,_,_)) => true,
-      _ => false,
-    }
-  }//can flatten -call after structs are created in structsast
-
 }//impl Grammar
 
 

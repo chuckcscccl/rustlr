@@ -13,22 +13,14 @@ valueterminal var ~ &'lt str ~ Alphanum(n) ~ n
 #lexvalue var Alphanum(x) x
 lexattribute set_line_comment("#")
 
-nonterminal Expr
-nonterminal ExprList
-#nonterminal ExprList Vec<LBox<Expr<'lt>>>
+#lexvalue bigint BigNumber(n) n
+#nonterminal ExprList Vec<LBox<Expr<'lt>>
+
+nonterminals Expr ExprList
 nonterminal UnaryExpr : Expr
 nonterminal LetExpr : Expr
 #nonterminal UnaryExpr
 #nonterminal LetExpr
-nonterminal Txpr : Expr
-nonterminal Sxpr
-nonterminal Aexpr
-nonterminal Bexpr : Aexpr
-nonterminals Yxpr Zxpr Xxpr
-nonterminals AA BB
-flatten BB
-flatten Yxpr Zxpr Xxpr
-
 topsym ExprList
 resync ;
 
@@ -38,20 +30,6 @@ left + 400
 left - 400
 
 # rule for testing AST generation:
-#lexvalue bigint BigNumber(n) n
-Txpr --> ; int int ;
-Expr --> Sxpr ; Sxpr
-Sxpr --> Txpr ; Txpr
-Zxpr --> int:x ; Yxpr:a ; Yxpr:b int:y Xxpr:[xx] Expr Xxpr:yy { /*AAAA*/ ... } 
-Yxpr --> var ; var 
-Xxpr:X1 --> int:a int:[b] ; { /*BBBB*/ ... }
-Xxpr:X2 --> int ; Yxpr:u var { println!("see {:?}",u); ... }
-AA --> BB int BB
-BB --> var AA
-
-Aexpr:ae --> int
-Bexpr:be --> var
-Expr --> ; ; Aexpr
 
 UnaryExpr:Val --> int
 UnaryExpr:Var --> var
@@ -63,7 +41,6 @@ Expr:Plus --> Expr + Expr
 Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
 Expr:Times --> Expr * Expr
-#Expr:Times --> Expr:[a] * Expr:[b]@ee@ {println!("see {:?}",&ee); Expr::Times(a,b) }
 
 LetExpr --> Expr
 LetExpr:Let --> let var = Expr in LetExpr

@@ -1,0 +1,65 @@
+# Grammar testing automatic generation of abstract syntax
+
+# declare input lifetime:
+lifetime 'lt
+nonterminals Expr
+nonterminal Bxpr &'lt str
+nonterminal ExprList
+#nonterminal ExprList Vec<LBox<Expr<'lt>>>
+nonterminals EE
+# *Expr means type of ES1 will be copied from type of Expr
+#nonterminal ES1 *Expr
+terminals + - * / ( ) = ;
+terminals let in
+typedterminal int i64
+typedterminal bigint &'lt str
+typedterminal var &'lt str
+topsym ExprList
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+left = 300
+
+lexvalue int Num(n) n
+lexvalue var Alphanum(x) x
+lexvalue bigint BigNumber(n) n
+lexattribute set_line_comment("#")
+
+EE --> int int
+Bxpr --> bigint
+Expr:BigVal --> bigint
+Expr:Val --> int
+Expr:Var --> var
+Expr:Letexp --> let var = Expr in Expr
+Expr:Plus --> Expr + Expr
+Expr:Minus --> Expr - Expr
+Expr:Div --> Expr / Expr
+Expr:Times --> Expr * Expr
+Expr(600):Neg --> - Expr
+# override auto-generated creation of abstract syntax, but type matters
+#Expr --> ( Expr:e )  { e }
+# should recognize "passthru" case
+Expr --> ( Expr )
+
+# either spec Vec type directly and recognize pass-thru,
+# or give label
+#ExprList --> (Expr ;)+
+#ExprList:Seq --> (Expr ;)+
+ExprList:nil -->
+ExprList:cons --> Expr ; ExprList
+#ES1 --> Expr:e ; {e}
+#ExprList --> Expr:[e] ; { vec![e] }
+#ExprList --> ExprList:v Expr:[e] ;  { v.push(e); v }
+
+EOF
+
+notes:
+
+passthru will not change the type of a non-terminal.
+However, when generating a one-time use nonterminal when processing
++, ?, passthru will set the type of nonterminal, so E --> F means E
+will inherit the type of F.  But in writing a grammar, this is only
+possible if E and F have the same type.

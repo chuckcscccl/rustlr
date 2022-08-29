@@ -1,10 +1,34 @@
-# ]# ANSI C YACC Grammar 2011 version adopted to Rustlr
-# from http://www.quut.com/c/ANSI-C-grammar-y.html
-# intended for use with rustlr -auto
+# This part of the Rustlr tutorial is under construction and now only
+# contains the grammar.
+
+# ANSI C YACC Grammar 2011 version re-written in  Rustlr
+# Compare to the original from http://www.quut.com/c/ANSI-C-grammar-y.html
+
+# This grammar can only be processed with rustlr -lrsd 3, as it is
+# a "Selective Markus-Leermakers" or selML(3,1) grammar, which is a class
+# of unambiguous grammars properly larger than LR(1).
+
 
 auto
 lifetime 'lt
-externtype HashSet<&'lt str>
+
+# The following structure is shared between the parser and lexer and represents
+# a rudimentary kind of symbol table, to keep track of identifiers that should
+# be tokenized as TYPE_NAME or ENUMERATION_CONSTANT instead of IDENTIFIER.
+# It also contains a stateful flag that triggers the recognition of typedefs:
+# this simplifies the process of unraveling the abstract syntax.
+
+$pub use std::collections::HashSet;
+$#[derive(Debug,Default)]
+$pub struct defined_id_table<'t> {
+$  pub typedefs: HashSet<&'t str>,
+$  pub enum_ids: HashSet<&'t str>,
+$  pub anticipate_typedef: bool,
+$  pub in_function:bool,
+$  pub warnings_issued:bool,
+$}
+
+externtype defined_id_table<'lt>
 
 # new keywords
 lexterminal FUNC_NAME __func__
@@ -95,10 +119,11 @@ lexterminal Quest ?
 lexterminal SEMICOLON ;
 terminals [ ] ( )  + - ~
 
-valueterminal TYPEDEF_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().contains(n)~ n
-# this has to change
+# self below refers to the generated lexer, which will always have a
+# shared_state with the parser (via an Rc<RefCell<defined_id_table>>)
+valueterminal TYPEDEF_NAME~ &'lt str~ Alphanum(n) if self.shared_state.borrow().typedefs.contains(n)~ n
+valueterminal ENUMERATION_CONSTANT~ &'lt str~ Alphanum(n) if self.shared_state.borrow().enum_ids.contains(n) ~ n
 valueterminal IDENTIFIER~ &'lt str~ Alphanum(n)~ n
-valueterminal ENUMERATION_CONSTANT~ &'lt str~ Alphanum(n)~ n
 valueterminal I_CONSTANT~ i32~ Num(n)~ (n as i32)
 valueterminal F_CONSTANT~ f64~ Float(n)~ n
 valueterminal STRING_LITERAL~ &'lt str~ Strlit(s)~ s
@@ -124,7 +149,6 @@ nonterminal logical_or_expression : expression
 nonterminal conditional_expression : expression
 nonterminal assignment_expression : expression
 nonterminal constant_expression : expression
-# should expressions type be unified with expression as well?
 nonterminal expressions
 
 nonterminal labeled_statement : statement
@@ -137,22 +161,23 @@ nonterminal jump_statement : statement
 nonterminals declaration declaration_specifiers init_declarator
 nonterminals storage_class_specifier type_specifier struct_or_union_specifier
 nonterminals struct_or_union struct_declaration translation_unit
-nonterminals enum_specifier enumerator_list enumerator type_qualifier
-nonterminals pointer type_qualifier_list struct_declarator
+nonterminals enum_specifier enumerator type_qualifier
+nonterminals pointer struct_declarator elseopt
 nonterminals parameter_type_list parameter_declaration
-nonterminals identifier_list type_name abstract_declarator
+nonterminals type_name abstract_declarator
 nonterminals direct_abstract_declarator initializer Constant Stringlit
-nonterminals external_declaration function_definition generic_selection
+nonterminals external_declaration generic_selection function_header
 nonterminals generic_association static_assert_declaration designation
 nonterminals function_specifier alignment_specifier atomic_type_specifier
 nonterminals designator block_item declaration_specifier
 nonterminals specifier_qualifier initializer_designation
 nonterminals direct_declarator direct_contents declarator da_base
-
-nonterminal direct_base : direct_contents 
-
+nonterminal direct_base
+nonterminal function_definition : external_declaration
+terminal errorterm
 
 topsym translation_unit
+errsym errorterm
 
 # added for Rustlr edition to resolve dangling else problem:
 nonassoc IF 20
@@ -161,9 +186,7 @@ nonassoc ELSE 30
 nonassoc ( 2
 nonassoc ATOMIC 1
 
-# added to distinguish between IDENTIFIER and TYPE_NAME
-#transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
-
+resynch SEMICOLON )
 
 primary_expression --> IDENTIFIER
 primary_expression --> ( expression )
@@ -280,17 +303,16 @@ constant_expression:const_expr --> conditional_expression
 
 ############# declarations
 
-#$use crate::c11_ast::init_declarator::*;
-#!use crate::c11_ast::declarator::*;
-#!use crate::c11_ast::declaration::*;
-#!use crate::c11_ast::direct_declarator::*;
-#!use crate::c11_ast::declaration_specifiers::*;
-#!use crate::c11_ast::declaration_specifier::*;
-#!use crate::c11_ast::storage_class_specifier::*;
+!use crate::c11_ast::declaration_specifier::*;
+!use crate::c11_ast::storage_class_specifier::*;
+!use crate::c11_ast::direct_base::*;
 
 declaration:DecSpec --> declaration_specifier+ SEMICOLON
-declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
 declaration:Statassert --> static_assert_declaration
+declaration:illegalfundef --> function_definition
+
+# TYPEDEF CASES
+declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
 
 declaration_specifier:storage --> storage_class_specifier
 declaration_specifier:typespec --> type_specifier
@@ -298,22 +320,16 @@ declaration_specifier:typequal --> type_qualifier
 declaration_specifier:funcspec --> function_specifier
 declaration_specifier:alignspec --> alignment_specifier
 
-#declaration_specifiers --> declaration_specifier+
-
-# this rule corresponds to typedef: set next identifier to be TYPE_NAME
-#declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
-
 init_declarator --> declarator:decl (ASSIGN initializer)?:initializer
 
-#storage_class_specifier:Typedef --> TYPEDEF
 storage_class_specifier ==>
 	EXTERN
 	| STATIC
 	| AUTO
 	| REGISTER
         | THREAD_LOCAL
-        | TYPEDEF
 	<==
+storage_class_specifier --> TYPEDEF { parser.shared_state.borrow_mut().anticipate_typedef=true; ...}
 
 type_specifier:Typename --> TYPEDEF_NAME        
 type_specifier ==>
@@ -350,39 +366,17 @@ struct_declaration ==>
 
 specifier_qualifier --> type_specifier | type_qualifier
 
-# note that the rule is right-recursive, does it matter?
-#specifier_qualifier_list ==>
-# 	  type_qualifier specifier_qualifier_list
-#	| type_qualifier
-# 	| type_specifier specifier_qualifier_list
-#	| type_specifier
-#	<==
-
-#struct_declarator_list --> struct_declarator<Comma+>
-#struct_declarator_list ==>
-#	 struct_declarator
-#	| struct_declarator_list Comma struct_declarator
-#	<==
-
-struct_declarator ==> 
-	 declarator
-	| Colon constant_expression
-	| declarator Colon constant_expression
-	<==
+struct_declarator:declare --> declarator (Colon constant_expression)?
+struct_declarator:nodeclare --> Colon constant_expression
 
 enum_specifier ==>
-	 ENUM Lbrace enumerator_list Comma? Rbrace
-	| ENUM IDENTIFIER Lbrace enumerator_list Comma? Rbrace
+	 ENUM IDENTIFIER? Lbrace enumerator<Comma+> Comma? Rbrace
 	| ENUM IDENTIFIER
 	<==
-enumerator_list --> enumerator<Comma+>
-#enumerator_list ==>
-#	 enumerator
-#	| enumerator_list Comma enumerator
-#	<==
 
-# change IDENTIFIER TO ENUMERATION_CONSTANT?
-enumerator --> ENUMERATION_CONSTANT (ASSIGN constant_expression)?
+enumerator ==> IDENTIFIER:id (ASSIGN constant_expression)? {
+  parser.shared_state.borrow_mut().enum_ids.insert(id); 
+  ... } <==
 
 atomic_type_specifier --> ATOMIC ( type_name )
 
@@ -397,18 +391,15 @@ alignment_specifier --> ALIGNAS ( constant_expression )
 # PROBLEMATIC LINE
 declarator -->  pointer? direct_declarator
 #declarator:DEC --> # pointer? direct_declarator #
-#declarator --> pointer?:ptropt direct_declarator:direct_dec
-#declarator:with_pointer -->  pointer direct_declarator
-#declarator:no_pointer -->  direct_declarator
-#	<==
 
-# we can't replace all type_qualifier_list with type_qualifier+
-# below because the left context (plus one lookahead), won't be
-# able to distinguish between the identical productions that are
-# generated dynamically.  Plus it's not as efficient.
-# .. but there are places where the opposite is true.
-
-direct_base --> IDENTIFIER
+direct_base ==> IDENTIFIER:id {
+ let mut table = parser.shared_state.borrow_mut();
+ if table.anticipate_typedef {
+    table.typedefs.insert(id);
+    table.anticipate_typedef = false;
+ }
+ ... } <==
+ 
 direct_base:DEC --> ( declarator )
 direct_contents ==>
           [ Star?:star ]
@@ -443,9 +434,6 @@ da_base --> [ expression ]
 da_base --> [ STATIC type_qualifier* assignment_expression ]
 da_base --> [ type_qualifier+ STATIC?:is_static assignment_expression ]
 da_base --> [ type_qualifier+ ]
-#direct_abstract_declarator --> da_base*
-#direct_abstract_declarator --> ( abstract_declarator )
-#abstract_declarator --> pointer? direct_abstract_declarator
 
 initializer:expr --> assignment_expression
 initializer:values --> Lbrace initializer_designation<Comma+> Comma? Rbrace
@@ -484,6 +472,11 @@ block_item:Statement --> statement
 
 expression_statement:Expr_list --> expressions? SEMICOLON
 
+
+#selection_statement:Ifstat --> IF ( expressions ) statement (ELSE statement)?
+#elseopt -->
+#elseopt --> ELSE statement
+
 selection_statement:Ifstat --> IF ( expressions ) statement
 selection_statement:Ifelse --> IF ( expressions ) statement ELSE statement
 selection_statement:Switchstat --> SWITCH ( expressions ) statement
@@ -499,90 +492,52 @@ jump_statement:Breakstat --> BREAK SEMICOLON
 jump_statement:Returnstat --> RETURN assignment_expression<Comma*> SEMICOLON
 
 translation_unit --> external_declaration+
-#	 external_declaration
-#	| translation_unit external_declaration
-#	<==
 
-external_declaration ==>
-	 function_definition
-	| declaration
-	<==
+#external_declaration --> function_definition
+external_declaration:declaration --> declaration
 external_declaration:directive --> COMPILER_DIRECTIVE
 
-function_definition --> declaration_specifier+ declarator declaration* compound_statement
+function_header ==> declaration_specifier+:[ds] declarator declaration* {
+  let mut table=parser.shared_state.borrow_mut();
+  let mut report = String::new();
+  if table.in_function {
+     println!("WARNING: NESTED FUNCTION DEFINITIONS ARE NOT TECHNICALLY ALLOWED IN ANSI C, line {}, column {}",ds.line,ds.column);
+     table.warnings_issued=true;
+  } else { table.in_function=true; }
+  ... } <==
 
-#	| declaration_specifiers declarator compound_statement
-#	| declarator declaration_list compound_statement
-#	| declarator compound_statement
-#	<==
+function_definition:functiondef ==> function_header compound_statement {
+  parser.shared_state.borrow_mut().in_function=false;
+  ... } <==
 
+#function_definition:functiondef --> declaration_specifier+ declarator declaration* compound_statement
 
 EOF
 
+everything after EOF is ignored
 
-declaration:DecSpecList ==> declaration_specifier+:ds init_declarator<Comma+>:il SEMICOLON 
-  { if let (declaration_specifier+{_item0_:tdl}, ils) = (&ds,&il)  {
-     if let storage(typedeff) = &*tdl[0] {
-      if let TYPEDEF = &**typedeff {
-       if let init_declarator {declarator:nplid, initializer} = &*ils[0] {
-        match &**nplid {
-          no_pointer(lid) | with_pointer(_,lid) => {
-             if let IDENTIFIER(id) = &**lid {
-               parser.shared_state.borrow_mut().insert(id);
-             }
-          },
-          _ => {},
+
+alternative rule without the anticipate_typedef flag:
+this would look nicer if Rust allows deep pattern matching on recursive
+structures:
+declaration:DecSpecList ==> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
+ {
+  if let (dslvec,idvec) = (&dsl,&initdc) { //vec<lbox<..>>
+    if let storage(TYPEDEF) = &*dslvec[0] {
+      if let init_declarator{decl,initializer} = &*idvec[0] {
+        if let direct_declarator(dbid,_) = &*(decl.1) {
+          if let IDENTIFIER(id) = &**dbid {
+            parser.shared_state.borrow_mut().typedefs.insert(id);
+          }
+          else if let DEC(lbxdecl) = &**dbid {
+            if let direct_declarator(dbid2,_) = &*lbxdecl.1 {
+              if let IDENTIFIER(id) = &**dbid2 {
+                parser.shared_state.borrow_mut().typedefs.insert(id);
+              }
+            }
+          }
         }
-    }}}}  ...
-  } <==
-
-right ASSIGN 100
-right MUL_ASSIGN 100
-right DIV_ASSIGN 100
-right MOD_ASSIGN 100
-right ADD_ASSIGN 100
-right SUB_ASSIGN 100
-right LEFT_ASSIGN 100
-right RIGHT_ASSIGN 100
-right AND_ASSIGN 100
-right XOR_ASSIGN 100
-right OR_ASSIGN 100
-right Quest 150
-#right Colon 150
-left OR_OP 200
-left AND_OP 250
-left Bar 300
-left Hat 350
-left Amp 400
-left EQ_OP 450
-left NE_OP 450
-left Lt 500
-left Gt 500
-left LE_OP 500
-left GE_OP 500
-left LEFT_OP 550
-left RIGHT_OP 550
-left + 600
-left - 600
-left Star 650
-left Div 650
-left Percent 650
-left SIZEOF 655
-# type cast expressions have higher precedence
-
-
-# associativity and precedence
-
-#unary operators
-# Amp, +, *, -, are also unary operators.  So can't use declarations
-# for them.  So preserve it's own class unary-expressions.
-right Bang 800
-right ~ 800
-right INC_OP 750
-right DEC_OP 750
-right Dot 3000
-right PTR_OP 3000
-left [ 2500
-left ( 2800
-left Comma 5   -- always reduce before a comma when conflict
-
+      }  
+    }
+  } ...
+ } <==

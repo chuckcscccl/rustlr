@@ -1,0 +1,38 @@
+# Grammar testing automatic generation of abstract syntax
+
+# declare input lifetime:
+lifetime 'lt
+nonterminals Expr ES
+#nonterminal ES Vec<LBox<Expr<'lt>>>
+terminals + - * / ( ) = ;
+terminals let in
+typedterminal int i64
+typedterminal var &'lt str
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+left = 300
+
+lexvalue int Num(n) n
+lexvalue var Alphanum(x) x
+lexattribute set_line_comment("#")
+
+Expr:Val --> int
+Expr:Var --> var
+Expr:Letexp --> let var = Expr in Expr
+Expr:Plus --> Expr + Expr
+Expr:Minus --> Expr - Expr
+Expr:Div --> Expr / Expr
+Expr:Times --> Expr * Expr
+Expr(600):Neg --> - Expr
+# override auto-generated creation of abstract syntax, but type matters
+Expr --> ( Expr:e )  { e }
+ES:nil -->
+ES:cons --> Expr ; ES
+#ES --> Expr:[e] ; { vec![e] }
+#ES --> ES:v Expr:[e] ;  { v.push(e); v }
+EOF

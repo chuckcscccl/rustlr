@@ -188,7 +188,7 @@ nonassoc ATOMIC 1
 
 resynch SEMICOLON )
 
-primary_expression --> IDENTIFIER
+primary_expression:Var --> IDENTIFIER
 primary_expression --> ( expression )
 primary_expression:Constant --> Constant
 primary_expression:Stringlit --> Stringlit
@@ -309,7 +309,7 @@ constant_expression:const_expr --> conditional_expression
 
 declaration:DecSpec --> declaration_specifier+ SEMICOLON
 declaration:Statassert --> static_assert_declaration
-declaration:illegalfundef --> function_definition
+declaration:fundef --> function_definition
 
 # TYPEDEF CASES
 declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
@@ -410,6 +410,7 @@ direct_contents ==>
 	| ( parameter_type_list )
 	| ( IDENTIFIER<Comma*> )
         <==
+flatten direct_declarator        
 direct_declarator --> direct_base direct_contents*
 
 pointer --> Star type_qualifier*:tql pointer?:ptr
@@ -470,21 +471,21 @@ compound_statement:Blockstat --> Lbrace block_item* Rbrace
 block_item:Declaration --> declaration
 block_item:Statement --> statement
 
-expression_statement:Expr_list --> expressions? SEMICOLON
+expression_statement:Expr_list --> expression? SEMICOLON
 
 
-#selection_statement:Ifstat --> IF ( expressions ) statement (ELSE statement)?
+#selection_statement:Ifstat --> IF ( expression ) statement (ELSE statement)?
 #elseopt -->
 #elseopt --> ELSE statement
 
-selection_statement:Ifstat --> IF ( expressions ) statement
-selection_statement:Ifelse --> IF ( expressions ) statement ELSE statement
-selection_statement:Switchstat --> SWITCH ( expressions ) statement
+selection_statement:Ifstat --> IF ( expression ) statement
+selection_statement:Ifelse --> IF ( expression ) statement ELSE statement
+selection_statement:Switchstat --> SWITCH ( expression ) statement
 
-iteration_statement:Whileloop --> WHILE ( expressions ) statement
-iteration_statement:Dowhileloop --> DO statement WHILE ( expressions ) SEMICOLON
-iteration_statement:Forloop --> FOR ( expression_statement expression_statement expressions? ) statement
-iteration_statement:ForDecloop --> FOR ( declaration expression_statement expressions? ) statement
+iteration_statement:Whileloop --> WHILE ( expression ) statement
+iteration_statement:Dowhileloop --> DO statement WHILE ( expression ) SEMICOLON
+iteration_statement:Forloop --> FOR ( expression_statement expression_statement expression? ) statement
+iteration_statement:ForDecloop --> FOR ( declaration expression_statement expression? ) statement
 
 jump_statement:Goto_oh_no --> GOTO IDENTIFIER SEMICOLON
 jump_statement:Continuestat --> CONTINUE SEMICOLON
