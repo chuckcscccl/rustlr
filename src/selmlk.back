@@ -17,10 +17,11 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use crate::grammar_processor::*;
 use crate::lr_statemachine::*;
 use crate::Stateaction::*;
+use crate::sd_parserwriter::decode_label;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 3;
+pub const MAXK:usize = 3; // this is only the default
 
 type AGENDATYPE = Vec<usize>;
 type PREAGENDATYPE = BTreeSet<usize>;
@@ -141,12 +142,25 @@ impl MLState
 
         for citem@LRitem{ri:cri,pi:cpi,la:cla} in self.conflicts.iter() {
 
+            //failure detection
+            let rilhs = Gmr.Rules[*ri].lhs.index;
+            let defaultcomb = vec![rilhs];            
+            let comb = combing.get(&rilhs).unwrap_or(&defaultcomb);
+             if *cpi==0 && comb.len()>maxk { // cannot be extended
+               if !failed {
+                  print!("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[");
+                  for x in comb {
+                    print!("{} ",&Gmr.Symbols[*x].sym);
+                  }
+                  println!("]]");
+               }
+               return false;    // report failure
+             }//failure detection
+
+            
             // same conflict item can be used to detect other extension
             // possibilities. can't deprecate til end of for citems loop
             //if self.deprecated.contains(citem) {continue;} //MUST NOT HAVE
-//print!("...CHECKING item "); printitem(&item,Gmr);
-//print!("...AGAINST CONFLICTS: "); printitem(citem,Gmr);
-
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
               newconflicts.insert(item);
 //print!("CONFLICT PROPAGATION: ");  printitem(&item,Gmr);
@@ -158,17 +172,21 @@ impl MLState
               let nti = Gmr.Rules[*ri].rhs[*pi].index;
               let defaultcomb = vec![nti];
               let comb = combing.get(&nti).unwrap_or(&defaultcomb);
+              /*
               if comb.len()>maxk {
                 answer= false;
-                print!("CANNOT FURTHER EXTEND COMBING [[");
-                for x in comb {
-                  print!("{} ",&Gmr.Symbols[*x].sym);
+                if !failed {
+                  print!("FAILURE. MAXIMUM COMBING IN CONFLICT: [[");
+                  for x in comb {
+                    print!("{} ",&Gmr.Symbols[*x].sym);
+                  }
+                  println!("]]");
                 }
-                println!("]]");
-                answer = false;
+                return answer
                 //panic!("\nFAILED!!!!!!!!\n");      ///////PANIC
               }
-             else {
+              */
+//             else {
 
 if LTRACE {print!("EXTENSION OF: "); printitem2(&item,Gmr,combing);}
 
@@ -200,7 +218,7 @@ if LTRACE {print!("EXTENSION OF: "); printitem2(&item,Gmr,combing);}
                 //closed=0;
 //print!("AAAdded extension item "); printitem2(&extenditem,Gmr,combing);
               }
-             } // can extend
+//             } // can extend
             } // conflict extension
         }//for each conflict item
         let mut added = false;
@@ -448,6 +466,7 @@ if LTRACE {println!("state {} added back to agenda due to new conflicts",si);}
      let mut toadd = newstateindex; // defaut is add new state (will push)
      for i in indices.iter() //0..self.States.len()
      {
+//       if self.preagenda.contains(&i) {continue;}
        if &state==&self.States[*i] {toadd=*i; break; } // state i exists
      }
 
@@ -619,6 +638,7 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
      {
        while self.preagenda.len()>0
        {
+         if self.failed {break;}
 //println!("PREAGENDA SIZE {}",self.preagenda.len());       
          let statei = *self.preagenda.iter().next().unwrap();
          self.preagenda.remove(&statei);
@@ -634,6 +654,7 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
              if *pi==0 || *symi!=self.Gmr.Rules[*ri].rhs[pi-1].index /* || self.States[statei].deprecated.contains(citem) */ {continue;}
              //propagated = true;
              topropagate.insert(LRitem {ri:*ri, pi:pi-1, la:*la});
+             // should detect failure here?
              //if true || propagated {deprecated_conflicts.insert(*citem);}
            }//for each conflict item that must be propagated.
            for bc in topropagate {
@@ -723,13 +744,16 @@ if LTRACE {
        eprintln!("\nSELECTIVE DELAY ALGORITHM FAILED; DEFAULTS APPLIED.\n");
      }
 
-if LTRACE {println!("CALLING FINAL mlset_reduce..");}
+     if LTRACE {println!("CALLING FINAL mlset_reduce..");}
      self.mlset_reduce();
+
+     if self.failed {
+       eprintln!("\nConsider the following options:\n  1. extending the maximum length of delays unless you already notice\n     a repeating pattern in the \"maximum combing in conflict.\"\n  2. adding operator precedence and associativity declarations\n  3. rewriting the grammar, perhaps it was ambiguous\n");
+     }
 
 // re-prepare grammar
   if self.regenerate {
     // prepare grammar, recompute reachability and eliminate unused rules
-    // but how?
     let mut liverules = BTreeSet::new();
     for state in &self.States {
       if self.FSM[state.index].len()==0 {continue;} //non-reachable state
@@ -814,12 +838,9 @@ if LTRACE {println!("CALLING FINAL mlset_reduce..");}
 
 // try-add returns option<not-clearly resolved conflict>
 pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool, failed:bool) -> (bool,Option<(bool,usize,usize)>)
-  {  //printout=true;
-     //let mut force = true;
-     //if force {FSM[si].insert(la,newaction); return None;}
+  {  
      let mut answer = None;
      let currentaction = FSM[si].get(&la);
-//if let Some(act)=currentaction {println!("SURPRISE! {:?}",act);}
      let mut changefsm = true; // add or keep current
      match (currentaction, &newaction) {
        (None,_) => {},  // most likely: just add
@@ -835,12 +856,12 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
          let winner = if (cri<nri) {cri} else {nri};
          if printout {
-           println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
+           println!("Reduce-Reduce conflict between rules {} and {} resolved by default to {} ",cri,nri,winner);
            printrulela(*cri,Gmr,la);
            printrulela(*nri,Gmr,la);
          }
          if winner==cri {changefsm=false;} //***
-         answer = Some((true,*cri,*nri));
+         answer = Some((true,*cri,*nri)); //true means rr instead of sr
        },
        (Some(Accept),_) => { changefsm = false; },
        (Some(Shift(_)), Reduce(rsi)) => {
@@ -864,28 +885,33 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
   // returns (clear,reduce/shift)
 fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>,printout:bool) -> (bool,bool)
   {
-     if let Some((true,r)) = known_conflicts.get(&(false,*ri,la)) {
-        return (true,*r!=0);
-     }
+     let mut isknown = true;
+     match known_conflicts.get(&(false,*ri,la)) {
+       Some((true,r)) => {return (true,*r!=0);},
+       None => { isknown=false; },
+       _ => {},
+     }//match
+     
      let mut clearly_resolved = true;
      let mut resolution = false; // shift
      let lasym = &Gmr.Symbols[la];
      let lapred = lasym.precedence;
      let rulepred = Gmr.Rules[*ri].precedence;
-     if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
+     if (lapred==rulepred) && rightassoc(lapred) { 
        /* default */
      } // right-associative lookahead, return shift
      else
-     if (lapred==rulepred) && lapred>0 { // left associative
+     if (lapred==rulepred) && leftassoc(lapred) { // left associative
         resolution = true;
      } // right-associative lookahead, return shift     
-     else if (lapred.abs()>rulepred.abs() && rulepred!=0) {/*default*/}
-     else if (lapred.abs()<rulepred.abs() ) {
+     else if (prec_level(lapred).abs()>prec_level(rulepred).abs() && rulepred!=0) {/*default  println!("HERE! {}",prec_level(rulepred)); */ }
+     else if (prec_level(lapred).abs()<prec_level(rulepred).abs() ) {
        resolution = true;
+//println!("HERE2! {}, {}, {}, {}",prec_level(lapred),&Gmr.Rules[*ri].lhs.sym,Gmr.Rules[*ri].rhs.len(),&Gmr.Rules[*ri].rhs[0].sym);       
        if lapred==0 {
           clearly_resolved = false;
-          if printout {
-            println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved in favor of Reduce. The lookahead has undeclared precedence",&Gmr.Symbols[la].sym,ri,si);
+          if printout && !isknown {
+            println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} non clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
             printrulela(*ri,Gmr,la);
           }
        }
@@ -893,8 +919,8 @@ fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut
      else {
        clearly_resolved=false;
        // report unclear case
-       if printout {
-         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
+       if printout && !isknown {
+         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
          printrulela(*ri,Gmr,la);
        }
      }
@@ -934,7 +960,6 @@ impl Grammar
        let combget = combing.rget(&comb);
        if let Some(cnti) = combget {
           newnt = self.Symbols[*cnti].clone();
-//println!("REUSING COMBING NT {}",newnt.index);          
        }
        else
 */
@@ -989,7 +1014,16 @@ impl Grammar
            let newvar = format!("_delvar_{}_{}_",&newnt.index,dbegin);
 // check for return at end of last action.
 
-           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+
+//           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+           // change this to a _rrsemaction_ri call on the first args
+           let mut aargs=String::from("parser");
+           for k in 0..self.Rules[*ntri].rhs.len() { //original len
+             let (ltype,label)=decode_label(&self.Rules[*ntri].rhs[k].label,k);
+             aargs.push(',');  aargs.push_str(&label);
+           }
+           let mut actionri= format!(" let {} = _rrsemaction_{}_({}); ",&newvar,ntri,aargs);
+
            // need to assign values to new items added to delta
            // they will be popped off of the stack by parser_writer as
            // item2, item1 item0...  because parser writer will write an action
@@ -999,18 +1033,17 @@ impl Grammar
            let mut dtuple = format!("({},",&newvar);
            let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
            for sym in &delta {
-             let defaultlabel =format!("_item_del{}_{}_{}_",&labi,newrulenum,ntri);
-             let slabel = if sym.label.len()>0 {checkboxlabel(&sym.label)}
-               else {
-               // set label!
-               newrule.rhs[labi].label = defaultlabel.clone();
-                &defaultlabel
-             };
+             let (_,mut slabel) = decode_label(&sym.label,labi);
+             if slabel.starts_with("_item") {
+               slabel = format!("_item_del{}_{}_{}_",&labi,newrulenum,ntri);
+               newrule.rhs[labi].label = slabel.clone();
+             }
              dtuple.push_str(&format!("{},",slabel));
              labi+=1;
            }
            actionri.push_str(&format!("{}) }}",&dtuple));  //rparen added here.
            newrule.action = actionri;
+           rulehash.insert(rhashv,self.Rules.len());
            self.Rules.push(newrule);
            
 if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,la:self.eoftermi};  printitem2(&pitem,self,combing);}
@@ -1033,7 +1066,7 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        }
        let mut clonenewnt = newnt.clone();
        // this is a new grammar sym, can give it any label
-       let ntlabel = format!("_delayitem{}_{}",dbegin,ntcx); ntcx+=1;
+       let ntlabel = format!("_delayitem{}_{}_{}",dbegin,ri,ntcx); ntcx+=1;
        clonenewnt.label = ntlabel.clone();
        newrhs.push(clonenewnt); // newnt added to rule!
        for i in dend .. self.Rules[ri].rhs.len() {
@@ -1051,17 +1084,30 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        /////// change semantic action of original rule.
        let mut newaction = String::from(" ");
        let newri = self.Rules.len(); // index of new rule (extended)
-       // break up tuple
-//       let mut dlabels = Vec::with_capacity(dend-dbegin);
+       // break up tuple, for arguments to original action
+       let mut aargs = String::from("parser");
+       for i in 0..dbegin {
+          let (_,labeli) = decode_label(&self.Rules[ri].rhs[i].label,i);
+          aargs.push(',');  aargs.push_str(&labeli);       
+       }
        for i in dbegin..dend {
-          let defaultlab = format!("_item{}_",i);
-          let symi = &self.Rules[ri].rhs[i]; // original rule
-          let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
-            else {&defaultlab};
-//          dlabels.push(labeli.to_owned());
-          newaction.push_str(&format!("let mut {} = {}.{}; ",labeli,&ntlabel,i-dbegin));
-          //labi+=1;
+//          let symi = &self.Rules[ri].rhs[i]; // original rule
+//          let (ltype,labeli) = decode_label(&symi.label,i);
+//           let defaultlab = format!("_item{}_",i);
+//          let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
+//            else {&defaultlab};
+
+//          if ltype==2 {newaction.push_str(&format!("let ref mut {} = {}.{}; ",&labeli,&ntlabel,i-dbegin));}
+//          else {newaction.push_str(&format!("let {} = {}.{}; ",&labeli,&ntlabel,i-dbegin));}
+//          aargs.push(',');  aargs.push_str(&labeli);
+            aargs.push_str(&format!(",{}.{}",&ntlabel,i-dbegin));
        }// break up tuple
+       // add rest of original arguments
+       for i in dend .. self.Rules[ri].rhs.len() {
+          let (_,labeli) = decode_label(&self.Rules[ri].rhs[i].label,i-(dend-dbegin-1));
+          aargs.push(',');  aargs.push_str(&labeli);
+       }
+/*       
        // anything to do with the other values?  they have labels, but indexes
        // may be off - but original actions will refer to them as-is.
        // original action will assume labels are _item{}_, unless
@@ -1073,13 +1119,9 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        for i in dend..self.Rules[ri].rhs.len() {
          originalact=originalact.replace(&format!("_rrtempitem{}_",i),&format!("_item{}_",i-1));
        }
-       /*
-       for i in dbegin..dend {
-         originalact = originalact.replace(&format!("_item{}_",i),&dlabels[i-dbegin]);
-       }
-       */
-//       newaction.push_str(&self.Rules[ri].action);
        newaction.push_str(&originalact);
+*/
+       newaction.push_str(&format!("_rrsemaction_{}_({}) }}",ri,aargs));
        newrulei.action = newaction;
 
 ////////////////////*************
@@ -1250,7 +1292,7 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
 } // transformation
 
 
-
+/*
 //// generic structure bijective hashmap
 #[derive(Default,Debug)]
 pub struct Bimap<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone>
@@ -1308,7 +1350,7 @@ impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
   }
 }//impl Bimap
 // will be used to map nonterminal symbols to vectors of symbols
-
+*/
 
 fn printitem(item:&LRitem, Gmr:&Grammar)
 {
@@ -1381,3 +1423,7 @@ fn hashrule(rule:&Grule) -> Vec<usize>
    h
 }//hashrule
 
+/*
+The way failure is detected was not exactly as decribed in paper,
+this version tries to change that.
+*/

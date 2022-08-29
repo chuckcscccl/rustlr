@@ -221,53 +221,49 @@ pub fn printstate_raw(state:&LR1State,Gmr:&Grammar)
   { printitem(item,Gmr); }
 }
 
-/*
-pub fn stateclosure0(state:&mut LR1State, Gmr:&Grammar) // new attempt
+
+pub fn stateclosure0(state:&mut LR1State, Gmr:&Grammar)
 {
   //algorithm is like that of a spanning tree
-  let mut closed = 0
-  let mut closure = HashMap::new();
+  let mut closed = 0;
+  let mut closure = Vec::new();
+  let mut onclosure = HashSet::new();
   for item in state.items.iter() {
      let lhsi = Gmr.Rules[item.ri].lhs.index;
-     closure.insert(*item,lhsi);
+     closure.push(*item);
+     onclosure.insert(*item);
   } // cover over to new hashmap from items to lhsi
   while closed < closure.len()
   {
-     for item in items
-     {  
-        let (ri,pi,la) = (item.ri,item.pi,item.la);
-        let rulei = &Gmr.Rules[ri]; //.get(ri).unwrap();
-        let lhsi = rulei.lhs.index;
-        //closed.insert(nextitem,lhsi); // place item in interior
-        if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
-          let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
-          let nti_lhsi = nti.index;
-          let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
-          for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
-          {
-            for lafollow in lookaheads 
-            { 
-              let newitem = LRitem {
-                 ri: *rulent,
-                 pi: 0,
-                 la: *lafollow,
-              };
-              if !state.items.contains(&newitem) && !toadd.contains_key(&newitem) { toadd.insert(newitem,nti_lhsi);    } 
-            }//for each possible lookahead following non-terminal
-          }// for each rule with this non-terminal on lhs
-        } // if candidate for add (dot before nonterminal)
-     } // for all existing items
-     if toadd.len()==0 {break;} // exit loop
-     for (fitem,flhsi) in toadd.iter()
-     {
-        state.insert(*fitem,*flhsi);   // move to interior
-     }
-     // tooadd still exists,
-     items = toadd.keys().collect();  // change items to toadd
-     toadd.clear();
-  }  // loop until no more to add
+     let item = closure[closed];
+     closed+=1;
+     let (ri,pi,la) = (item.ri,item.pi,item.la);
+     let rulei = &Gmr.Rules[ri]; //.get(ri).unwrap();
+     let lhsi = rulei.lhs.index;
+     if pi<rulei.rhs.len() && !rulei.rhs[pi].terminal {
+        let nti = &rulei.rhs[pi]; // non-terminal after dot (Gsym)
+        let nti_lhsi = nti.index;
+        let lookaheads=&Gmr.Firstseq(&rulei.rhs[pi+1..],la);
+        for rulent in Gmr.Rulesfor.get(&nti.index).unwrap()
+        {
+          for lafollow in lookaheads 
+          { 
+            let newitem = LRitem {
+               ri: *rulent,
+               pi: 0,
+               la: *lafollow,
+            };
+            if !state.items.contains(&newitem) && !onclosure.contains(&newitem) {
+             closure.push(newitem);
+             onclosure.insert(newitem);
+             state.insert(newitem,nti_lhsi);
+            } 
+          }//for each possible lookahead following non-terminal
+        }// for each rule with this non-terminal on lhs (rulent loop)
+     } // if candidate for add (dot before nonterminal)
+  }  // loop until closed
 }//stateclosure0 generation
-*/
+
 
 
 pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
@@ -475,9 +471,11 @@ impl Statemachine
      // form closures for all new states and add to self.States list
      for key in keyvec // keyvec must be separate to avoid borrow error
      {
-        let kernel = newstates.remove(&key).unwrap();
-        let fullstate = stateclosure(kernel,&self.Gmr);
-        self.addstate(fullstate,si,key); //only place addstate called
+        let mut kernel = newstates.remove(&key).unwrap();
+        //let fullstate = stateclosure(kernel,&self.Gmr);
+        //self.addstate(fullstate,si,key); //only place addstate called        
+        stateclosure0(&mut kernel,&self.Gmr);
+        self.addstate(kernel,si,key); //only place addstate called
      }
   }//makegotos
 

@@ -4,7 +4,7 @@
 //! reflect the format of the grammar.
 //!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
-//!  3. Experimental features include the ability to signal *delayed reduction*
+//!  3. Experimental features include the ability to use *delayed reduction*
 //!  transformations on a grammar.  This extends the class of grammars usable
 //!  with Rustlr beyond traditional LR and LALR grammars.
 //!  4. The ability to train the parser interactively for better error reporting
@@ -75,7 +75,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.3.4";
+pub const VERSION:&'static str = "0.3.5";
 
 ////// main function, called from main with command-line args
 

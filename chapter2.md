@@ -35,7 +35,7 @@ left * 500
 left / 500
 left + 400
 left - 400
-left = 200
+nonassoc = 200
 
 # for lexical scanner generation:
 lexvalue int Num(n) Val(n)
@@ -150,15 +150,15 @@ The grammar shown above differs from the [first][chap1] chapter in the following
 the pure grammar that are resolved using operator precedence and
 associativity rules as declared by grammar directives such as **`left * 500`**.
 A terminal symbol that's to be used as an operator can be
-declared as left or right associative and a positive integer defines
+declared as left, right or non-associative and a positive integer defines
 the precedence level.  
 If a production rule is not explicitly assigned a precedence,
 it is assigned to be the same as that of the right-hand side
 symbol with the highest precedence.
 The default precedence of all grammar symbols is zero.
 *(Internally, the precedence is represented by the absolute value of a signed integer: positive
-for left-associative, negative for right-associative, and zero means
-unassigned.)*
+for left-associative, negative for right-associative.  The second-most
+significant bit is used to distinguish these from non-associative values. Zero means unassigned.)*
 
      Rustlr resolves **shift-reduce** conflicts as follows:
 

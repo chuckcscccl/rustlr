@@ -1,10 +1,10 @@
 [package]
 name = "rustlr"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["Chuck Liang"]
 edition = "2021"
 license = "MIT"
-description = "LR parser generator that can automatically create abstract syntax trees"
+description = "LR parser generator that can automatically create ASTs"
 repository = "https://github.com/chuckcscccl/rustlr/"
 keywords = ["parser", "parsing", "parser-generator", "lr", "yacc"]
 categories = ["parsing", "compilers"]

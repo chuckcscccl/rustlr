@@ -33,6 +33,7 @@ pub struct Gsym // struct for a grammar symbol
   pub label : String,  // object-level variable holding value
   pub precedence : i32,   // negatives indicate right associativity
   pub index : usize,   // index into Grammar.Symbols list, Grammar.Symhash
+//  pub canextend:boold, // for selML(k,1) algorithm (not static)
 }
 
 impl Gsym
@@ -46,6 +47,7 @@ impl Gsym
       rusttype : String::new(),
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
       index:0,
+//      canextend: true,
     }
   }
   pub fn setlabel(&mut self, la:&str)
@@ -141,6 +143,7 @@ pub struct Grammar
   pub ASTExtras : String,
   pub haslt_base: HashSet<usize>,
   pub delaymarkers: HashMap<usize,BTreeSet<(usize,usize)>>,
+  pub flattentypes: HashSet<usize>, //for AST generation
   pub ntcxmax : usize,
   pub startnti: usize,
   pub eoftermi: usize,
@@ -189,6 +192,7 @@ impl Grammar
        ASTExtras: String::new(),
        haslt_base: HashSet::new(), //terminals that contains lifetime
        delaymarkers:HashMap::new(), // delayed LR markers for transformation
+       flattentypes:HashSet::new(),
        ntcxmax : 0,
        startnti : 0,
        eoftermi : 0,
@@ -495,6 +499,15 @@ impl Grammar
                }//match
 	       //if TRACE>4 {println!("top symbol is {}",stokens[1]);}
 	    }, //topsym
+            "flatten" if stokens.len()>=2 => {
+              for tok in stokens[1..].iter() {
+                let fnti = *self.Symhash.get(&tok[..]).expect(&format!("UNDEFINED GRAMMAR SYMBOL {}, LINE {}\n",tok,linenum));
+                if self.Symbols[fnti].terminal {
+                  eprintln!("WARNING: ONLY NON-TERMINALS CAN HAVE THEIR ASTS FLATTENED ({}), LINE {}\n",tok,linenum);
+                }
+                else {self.flattentypes.insert(fnti);}
+              }//for each tok
+            },
             "errsym" | "errorsymbol" => {
                if stage>1 {
                  panic!("!!! Error recover symbol must be declared before production rules, line {}",linenum);
@@ -1142,7 +1155,11 @@ strtok is bstokens[i], but will change
                      }
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<1 && !self.genabsyn {newsym.rusttype = self.Absyntype.clone();}
-		     
+
+                     if toks.len()>1 && toks[1].trim().len()==0 {
+                       eprintln!("WARNING: EMPTY LABEL FOR {}, LINE {}; remove whitespaces between ':' and the label\n",toks[0],linenum);
+                     }
+                     else
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
 		       let mut label = String::new();
 		       

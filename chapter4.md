@@ -11,7 +11,18 @@ by hand, as demonstrated in the previous chapters.  Even with Rustlr
 capable of generating nearly everything one might need from a parser,
 it is still possible that careful fine tuning will be required.
 
-Rustlr Version 0.3.0 has significantly upgraded the ability to generate abstract syntax from earlier versions.
+Automatically creating the AST from the grammar (or the grammar from
+the AST) is not a new idea and can cause problems if not done
+carefully.  For example, one usually wants the AST to stay relatively
+stable even when the grammar changes. Also, the grammar is usually
+written to the contraints of LR parsing, and may not reflect what one
+wants the AST to look like.  However, Rustlr essentially defines a
+language, embedded with the grammar syntax, for describing how ASTs
+should be generated.  The language will allow one to create ASTs that
+are relatively stable and independent of the format of the grammar.
+It is also possible to override the types and semantic actions of any
+non-terminal, and use a hybrid approach between automatic and manually
+written AST generation.
 
 We redo the enhanced calculator example from [Chapter 2][chap2].
 Although some form of abstract syntax can be generated for any
@@ -203,7 +214,7 @@ generate a variant that also has its first component in an LBox.  The
 reachability relation also determines if a type requires a lifetime
 parameter.
 
-Although the generated parser may not be very readable, rustlr also generated semantic actions that create instances of these AST types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
+Although the generated parser code may not be very readable, rustlr also generated semantic actions that create instances of these AST types.  For example, the rule `Expr:Plus --> Expr + Expr` will have semantic action equivalent to one created from:
 
 ```
 Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
@@ -211,6 +222,7 @@ Expr --> Expr:[a] + Expr:[b] {Plus(a,b)}
 
 Recall from [Chapter 2][chap2] that a label of the form `[a]` means that the semantic value associated with the symbol is enclosed in an [LBox][2].
 
+##### 'Passthru'
 
 There are three production rules in the grammar that do not
 correspond to enum variants: `Expr --> UnaryExpr`, `LetExpr --> Expr`
@@ -239,6 +251,51 @@ We can also force the minus sign to be
 included in the AST by giving it an explicit lable such as `-:minus UnaryExpr`.
 This would create an enum variant that includes a unit type value.
 
+
+##### 'Flattening' Structs
+
+Rustlr provides another way to control the generation of ASTs so that
+it is not always dependent on the structure of the grammar, although
+it is not illustrated in the calculator example.  When writing a
+grammar, we sometimes create extra non-terminal symbols and rules for the
+purpose of organization.  As an abstract example:
+```
+A --> a Threebs c
+Threebs --> b b b
+```
+Rustlr will create two tuple structs for these types. Assuming that a, b, c
+are not of unit type, there will be a `struct A(a,Threebs,c)` and a
+`struct Threebs(b,b,b)`.  However, it is possible to declare in the grammar,
+once the non-terminals `A` and `Threebs` have been declared, that the
+type `Threebs` can be **flattened** into other structures:
+```
+flatten Threebs
+```
+This means that the AST for Threebs should be absorbed into other types if
+possible.
+This will still create a `struct A(a,Threebs,c)`, but it will create for A:
+**`struct A(a,b,b,b,c)`**.
+
+Both structs and enums can absorb 'flatten' types.  However, there
+are several enforced rules governing the flattening of types:
+  1. Only struct types can be flattened: thus only nonterminals that has but a
+  single production rule can have its AST absorbed into other types. Enum
+  types can absorb 'flatten' structs but cannot be absorbed into other types.
+  2. Types already defined to 'extend' the enum of another type cannot be
+  flattened
+  3. A tuple struct can only absorb the flattened form of another tuple struct.
+  In the above example, if `Threeb` was a non-tuple struct with named fields (which can be created
+  by giving of the the b's a label), then it cannot be absorted into `A`.
+  4. Recursive structs, directly or indirectly, cannot be flattened.
+  5. A boxed-labeled field cannot absorb a 'flatten' type.  That is, if
+  the rule for `A` above was written `A --> a:a Threebs:[b] c:c` then the AST
+  for A would become `pub struct A{a:a, b:LBox<Threebs>, c:c}`.  This is
+  the only way to prevent the absorption of a 'flatten' type on a case-by-case
+  basis.
+
+
+##### Importance of Labels
+
 In general, the usage of labels greatly affect how the AST datatype is
 generated.  Labels on the left-hand side of a production rule give
 names to enum variants.  Their presence also cancel "pass-thru"
@@ -249,9 +306,10 @@ Labels on the right-hand side give names to struct components.  Their
 presence on unit-typed grammar symbols means that the symbols won't be
 ignored and will be included in the the type.  If a non-terminal has a
 single production rule, the lack of any labels left or right leads
-to the creation of a simpler tuple struct.  Finally, the use of box
-labels such as [e] forces the semantic value to be wrapped inside an LBox
-whether or not it is required to define recursive types.
+to the creation of a simpler tuple struct.  The use of boxed
+labels such as `[e]` forces the semantic value to be wrapped inside an LBox
+whether or not it is required to define recursive types.  Boxed labels also
+prevent the absorption of 'flatten' types.
 
 
 #### Overriding Types and Actions

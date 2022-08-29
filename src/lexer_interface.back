@@ -266,7 +266,7 @@ pub trait Tokenizer<'t,AT:Default>
   /// using the -genlex option.
   fn transform_wildcard(&self,t:TerminalToken<'t,AT>) -> TerminalToken<'t,AT>
   {t}
-  
+
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
   /// value=AT::default().  The is the only provided function that should *not*
@@ -407,7 +407,9 @@ impl<'t> StrTokenizer<'t>
   {
     let decuint = Regex::new(r"^\d+").unwrap();
     let hexnum = Regex::new(r"^0x[\dABCDEFabcdef]+").unwrap();
-    let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
+    let floatp = Regex::new(r"^\d*\x2E\d+([eE][+-]?\d+)?").unwrap();
+    // not allowing +- before numbers is right decision.  How to tokenize 1-2?
+    //let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
@@ -774,7 +776,6 @@ impl<'t> LexSource<'t>
   pub fn new(path:&'t str) -> std::io::Result<LexSource<'t>>
   {
      let tryread=std::fs::read_to_string(path);
-     //println!("READTHIS: {:?}",&tryread);
      match tryread {
        Ok(st) => {
          Ok(LexSource {
@@ -783,7 +784,10 @@ impl<'t> LexSource<'t>
            contents:st,
          })
        },
-       Err(e) => {Err(e)}
+       Err(e) => {
+         eprintln!("\nFAILED TO OPEN PATH TO SOURCE '{}'\n",path);
+         Err(e)
+       },
      }//match
   }//new
   /// retrieves entire contents of lexsource

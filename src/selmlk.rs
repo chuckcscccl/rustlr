@@ -21,7 +21,7 @@ use crate::sd_parserwriter::decode_label;
 
 const LTRACE:bool = false; //true;
 
-pub const MAXK:usize = 3; // this is only the default
+pub const MAXK:usize = 2; // this is only the default
 
 type AGENDATYPE = Vec<usize>;
 type PREAGENDATYPE = HashSet<usize>;
@@ -34,7 +34,6 @@ pub struct MLState // emulates LR1/oldlalr engine
    index: usize, // index into vector
    items: ITEMSETTYPE,
    lhss: BTreeSet<usize>,  // set of left-side non-terminal indices
-   lr0kernel: HashSet<(usize,usize)>, // used only by lalr
    conflicts: ITEMSETTYPE,
    deprecated: HashSet<LRitem>,
    lrkernel : ITEMSETTYPE,  // must be btree, else non-deterministic
@@ -47,7 +46,6 @@ impl MLState
         index : 0,   // need to change
         items : ITEMSETTYPE::new(), //HashSet::with_capacity(512),
         lhss: BTreeSet::new(), // for quick lookup
-        lr0kernel : HashSet::with_capacity(64),
         conflicts: ITEMSETTYPE::new(),
         deprecated: HashSet::new(),
         lrkernel : ITEMSETTYPE::new(),
@@ -649,11 +647,33 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
      
      loop // until agenda empty
      {
+       //let mut prcounter = 0;
        priority_states.clear();
        while self.preagenda.len()>0
        {
          if self.failed {break;}
 //println!("PREAGENDA SIZE {}, RULES {}",self.preagenda.len(),self.Gmr.Rules.len());
+
+/*
+        //////// really crude way to address non-termination (re-shuffle)
+        prcounter+=1;
+        if prcounter>32 {
+println!("PREAGENDA RESUFFLE, preagenda len {}, states {}, rules {}",self.preagenda.len(),self.States.len(),self.Gmr.Rules.len());
+if self.preagenda.len()==3 {
+  for tsi in self.preagenda.iter() {
+    printmlstate(&self.States[*tsi],&self.Gmr,&self.combing);
+    println!("{} items, {} kernels",self.States[*tsi].items.len(),self.States[*tsi].lrkernel.len());
+  }
+  println!();
+}
+          prcounter = 0;
+          let mut newset = HashSet::with_capacity(self.preagenda.len());
+          for si in self.preagenda.iter() {newset.insert(*si);}
+          self.preagenda = newset;
+          priority_states.clear();
+        }
+        //////// really crude way to address non-termination        
+*/
 
          let mut statei = *self.preagenda.iter().next().unwrap();
       
@@ -1481,6 +1501,7 @@ pub fn printmlstate(state:&MLState,Gmr:&Grammar,combing:&COMBINGTYPE)
 {
   println!("-----------\nState {}:",state.index);
   for item@LRitem{ri,pi,la} in state.items.iter() {
+//  for item@LRitem{ri,pi,la} in state.lrkernel.iter() {
      if state.deprecated.contains(item) {print!("DEPRECATED: ");}
      printitem2(item,Gmr,combing);  
   }//for item

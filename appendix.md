@@ -87,15 +87,17 @@ and was never applied on a large scale.  We have implemented a
 version of this algorithm for Rustlr. Starting with
 version 3.4, rustlr accepts the **-lrsd k** option, where k is an (optional) number
 indicating the maximum delay length.  This will attempt to construct a
-*selML(k,1)* grammar.  The default value for k is 3. -lrsd 0 is equivalent
+*selML(k,1)* grammar.  The default value for k is 2. -lrsd 0 is equivalent
 to LR(1): rustlr always computes exactly one lookahead. The algorithm is fast
 enough when it succeeds, but when it should fail, such as for ambiguous
 grammars, it may take a long time before failure is detected, especially
 for larger values of k.  Still, the option has already proven useful.  We
-have used to construct a new grammar for ANSI C (2011 edition). The new
-grammar is *selML(3,1)*.  This feature is currently in experimental status,
-but Rustlr is the first know parser generator that has seriously attempted
-to incorporate this promising extension of LR parsing.  
+have used it to construct a new grammar for ANSI C (2011 edition). The new
+grammar is *selML(2,1)*.  We've also used it to write a "metagrammar" for
+converting Yacc grammars to Rustlr format, which is *selML(1,1)*.
+This feature is currently still in experimental status,
+but Rustlr is the first parser generator that we're aware of that has
+seriously attempted to incorporate this promising extension of LR parsing.  
 
 While we continue to experiment with implementations of this
 algorithm, in the meantime
@@ -148,7 +150,9 @@ declarator --> # pointer?  direct_declarator #
 This particular transformation attaches `direct_declarator` to the end of the
 two productions for `P`, thereby recovering the original LALR grammar. But
 the transformation is internal: we get to write a different style of grammar
-and generate ASTs, write semantic actions for them as such.
+and generate ASTs, write semantic actions for them as such.  The new
+-lrsd option can automatically create the transformation without the markers,
+but using markers is more efficient.
 
 Regular expressions are well-liked by most programmers and many
 modern parser generators allow them.  It makes writing grammars easier.
@@ -156,9 +160,8 @@ On the surface it may not appear
 too difficult to add them to any LR parser generator: just add new productions
 rules like A --> A a | null, etc.  But if adding such productions 
 lead to further non-determinisms (conflicts) in the grammar, then clearly it
-would defeat the purpose of making it easier to write grammars.  We've
-already seen that the selective-delay technique helps to alleviate this
-problem.
+would defeat the purpose of making it easier to write grammars.  The
+selective-delay technique helps to alleviate this problem.
 
 
 Programmers need to understand that there is a fundamental

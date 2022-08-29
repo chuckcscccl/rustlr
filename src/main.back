@@ -34,6 +34,8 @@ use zc_parser::*;
 
 mod parser_writer;
 use parser_writer::*;
+mod sd_parserwriter;
+use sd_parserwriter::*;
 
 mod ast_writer;
 use ast_writer::*;
@@ -66,6 +68,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut genabsyn = false;
   let mut lrsd = false;
   let mut lrsdmaxk:usize = selmlk::MAXK;
+  let mut regenerate = false;
   while argi<argc
   {
      match &args[argi][..] {
@@ -73,7 +76,15 @@ fn rustle(args:&Vec<String>) // called from main
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
        "oldlalr" | "-oldlalr" | "-selML" => {newlalr=false; lalr=true;}
-       "-lrsd" | "lrsd" => {newlalr=false; lalr=false; lrsd=true;}       
+       "-lrsd" | "lrsd" => {
+         newlalr=false; lalr=false; lrsd=true;
+         if argi+1<argc {
+           if let Ok(mk)=args[argi+1].parse::<usize>() {
+             lrsdmaxk=mk; argi+=1;
+           } // next arg is number
+         }//if next arg exists
+       },
+       "-regenerate" => { regenerate=true; },
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -139,11 +150,23 @@ fn rustle(args:&Vec<String>) // called from main
   let mut fsm0;
   if lrsd {
     let mut lrsdfsm = MLStatemachine::new(grammar1);
-    println!("Generating Experimental LR-Selective Delay State Machine");
+    lrsdfsm.regenerate = regenerate;
+    println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
-    fsm0 = lrsdfsm.to_statemachine();
-    
-  } else
+    //fsm0 = lrsdfsm.to_statemachine();
+    if lrsdfsm.failed {println!("NO PARSER GENERATED"); return;}
+    if !lrsdfsm.failed && lrsdfsm.regenerate { 
+      println!("Re-Generating LR(1) machine for transformed grammar...");
+      lrsd = false;
+      fsm0 = Statemachine::new(lrsdfsm.Gmr);
+      fsm0.lalr = false;
+      fsm0.generatefsm(); //GENERATE THE FSM
+    } else {     fsm0 = lrsdfsm.to_statemachine(); }
+    // but of course there will be more conflicts since there will be
+    // more rules.  The original rules that caused conflicts for LR are
+    // still there??
+
+  } else  // not lrsd
   if newlalr { // newlalr takes precedence over other flags
      let mut lalrfsm = LALRMachine::new(grammar1);
      println!("Generating LALR(1) state machine");
@@ -168,7 +191,8 @@ fn rustle(args:&Vec<String>) // called from main
     if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)
       //fsm0.writelbaparser(&parserfile)
-      fsm0.writeenumparser(&parserfile)
+      if !lrsd {fsm0.writeenumparser(&parserfile)}
+      else {fsm0.writelrsdparser(&parserfile)}
     }
     else {  // non-zc, original before version 0.2.0
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
