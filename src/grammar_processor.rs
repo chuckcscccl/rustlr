@@ -148,6 +148,7 @@ pub struct Grammar
   pub startnti: usize,
   pub eoftermi: usize,
   pub startrulei: usize,
+  pub mode: i32, // generic mode information
 }
 
 impl Default for Grammar {
@@ -197,6 +198,7 @@ impl Grammar
        startnti : 0,
        eoftermi : 0,
        startrulei : 0,
+       mode : 0,
      }
   }//new grammar
 
@@ -653,7 +655,8 @@ impl Grammar
                let tokform = dtokens[2].to_owned();
 	       self.Lexvals.push((termname.to_string(),tokform,valform));
 	       // record that this terminal always carries a value
-	       self.Haslexval.insert(dtokens[0].to_string());
+//println!("inserting ({}) into haslexval",dtokens[0]);               
+	       self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //valueterminal
             "lexterminal" => {

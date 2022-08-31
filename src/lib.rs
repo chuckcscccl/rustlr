@@ -65,10 +65,10 @@ pub mod zc_parser;
 use zc_parser::*;
 mod parser_writer;
 mod sd_parserwriter;
+mod fs_parserwriter;
 mod ast_writer;
 
 mod lalr_statemachine;
-
 mod selmlk; // experimental
 
 pub use lr_statemachine::{Stateaction,decode_action};

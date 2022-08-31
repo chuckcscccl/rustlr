@@ -36,6 +36,7 @@ mod parser_writer;
 use parser_writer::*;
 mod sd_parserwriter;
 use sd_parserwriter::*;
+mod fs_parserwriter;
 
 mod ast_writer;
 use ast_writer::*;
@@ -69,6 +70,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut lrsd = false;
   let mut lrsdmaxk:usize = selmlk::MAXK;
   let mut regenerate = false;
+  let mut mode = 0;
   while argi<argc
   {
      match &args[argi][..] {
@@ -85,6 +87,7 @@ fn rustle(args:&Vec<String>) // called from main
          }//if next arg exists
        },
        "-regenerate" => { regenerate=true; },
+       "-fsharp" => {mode=1;},
        "-trace" => {
           argi+=1;
           if argi<argc {
@@ -116,6 +119,7 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.genlex = genlex;
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
+  grammar1.mode = mode; // 0 for rust, 1 for fsharp
   grammar1.parse_grammar(filepath);  //  ***
   // Check grammar integrity: now done inside parse
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
@@ -130,10 +134,12 @@ fn rustle(args:&Vec<String>) // called from main
   }// derive grammar name
   let gramname = grammar1.name.clone();
 
+  let pfsuffix = if mode==1 {"fs"} else {"rs"};
+
   if grammar1.genabsyn {
      let mut slashpos = parserfile.rfind('/');
      if let None = slashpos {slashpos = parserfile.rfind('\\');}
-     let mut astpath = format!("{}_ast.rs",&gramname);
+     let mut astpath = format!("{}_ast.{}",&gramname,pfsuffix);
      if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
      let wres = grammar1.writeabsyn(&astpath);
      if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
@@ -182,12 +188,14 @@ fn rustle(args:&Vec<String>) // called from main
   } // old code
   if tracelev>2 && !newlalr && !lrsd { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
   else if tracelev>1 && !newlalr && !lrsd {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
-  if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.rs",&gramname));}
+  if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.{}",&gramname,pfsuffix));}
   if fsm0.States.len()>65536  {
     println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
     return;
   }
   let write_result =
+    if mode==1 { fsm0.writefsparser(&parserfile) }
+    else
     if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)
       //fsm0.writelbaparser(&parserfile)
