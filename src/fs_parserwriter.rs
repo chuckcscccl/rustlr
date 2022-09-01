@@ -160,7 +160,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
         let mut symtype=self.Gmr.Symbols[gsym.index].rusttype.as_str();
         if symtype=="()" {symtype=UNITTYPE;}
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
-        let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
+        let eindex = self.Gmr.enumhash.get(&self.Gmr.Symbols[gsym.index].rusttype).expect(&emsg);
         actualargs.push(format!("{}",&poppedlab));
         let stat = format!("let {0} = (match parser.Pop().svalue with | FLTypeDUnion.Enumvariant_{1}(_rr_{1}) ->  _rr_{1} | _ -> Unchecked.defaultof<{2}>) in ",&poppedlab,&eindex,symtype); // only for simple labels
         write!(fd,"{}",&stat)?;
@@ -181,7 +181,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
       let fnname = format!("_rrsemaction_{}_",ri);
       let mut typei = self.Gmr.Symbols[*lhsi].rusttype.as_str();
       if typei=="()" {typei=UNITTYPE;}
-      let enumindex = self.Gmr.enumhash.get(typei).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
+      let enumindex = self.Gmr.enumhash.get(&self.Gmr.Symbols[*lhsi].rusttype).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
       write!(fd," FLTypeDUnion.Enumvariant_{}({}(parser{})));\n",enumindex,&fnname,aargs)?;
       write!(fd,"  parser1.Rules.[{}] <- rule;\n",ri)?;
     }// write each rule action
@@ -199,29 +199,37 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
     
 //    write!(fd,"  load_extras(parser1);\n")?;
     write!(fd,"  parser1;;\n")?;
-//    write!(fd,"}} //make_parser\n\n")?;
+
 
 /////////////////////////////
 
 
 //////////////////// write conver_token function
-     write!(fd,"\nlet convert_token (lt:LexToken) =\n  if lt=null then None\n  else\n    let uval = \n      match lt.token_type with\n")?;
+     write!(fd,"\nlet convert_token (lt:RawToken) =\n  if lt=null then None\n  else\n    let (uval,utype) = \n      match lt.token_name with\n")?;
      let abindex = self.Gmr.enumhash.get(&self.Gmr.Absyntype).expect("F absyn - Sharp!");
      let unitindex = self.Gmr.enumhash.get("()").expect("F absyn - Sharp!");
-     for i in 0 .. self.Gmr.Symbols.len() {
-       if !self.Gmr.Symbols[i].terminal {continue;}
-       let symi = &self.Gmr.Symbols[i];
-       let mut stype = symi.rusttype.as_str();
+   //let lexform = self.Gmr.Lexnames.get() ...
+   // worry about lexterminals later.. assume .lex file does the conversion
+     for (terminalname,tokentype,valfun) in &self.Gmr.Lexvals {
+       let symi = *self.Gmr.Symhash.get(terminalname).unwrap();
+       let sym = &self.Gmr.Symbols[symi];
+       let eindex = self.Gmr.enumhash.get(&sym.rusttype).expect("F- Sharp!");
+       if /* stype!=UNITTYPE && */ &sym.sym!="EOF" {
+         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,valfun.trim(),terminalname)?;
+       }  // has been declared like valueterminal~ num~ int~ n int(n)
+     } //for (name,form,val) entry in Lexvals
+     ///// now for other terminals, token type expected to be Symbol? NO
+     //for now, expect type and text to be the same
+     for i in 1..self.Gmr.Symbols.len() {  // skip wildcard
+       let sym = &self.Gmr.Symbols[i];
+       if !sym.terminal || self.Gmr.Haslexval.contains(&sym.sym) {continue;}
+       let eindex = self.Gmr.enumhash.get(&sym.rusttype).expect("F- Sharp 2!");
+       let mut stype = sym.rusttype.as_str();
        if stype=="()" {stype=UNITTYPE;}
-       let eindex = self.Gmr.enumhash.get(&symi.rusttype).expect("F- Sharp!");
-       //let lexform = self.Gmr.Lexnames.get(
-println!("sym {} in haslexval: {}",&symi.sym, self.Gmr.Haslexval.contains(&symi.sym));       
-       if stype!=UNITTYPE && &symi.sym!="EOF" && self.Gmr.Haslexval.contains(&symi.sym) {
-         write!(fd,"        | \"{}\" -> FLTypeDUnion.Enumvariant_{}(lt.token_value :?> {})\n",&symi.sym,eindex,stype)?;
-       } 
-     } //for i
-     write!(fd,"        | _ -> FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>)\n",abindex,absyn)?;
-     write!(fd,"    Some({{TerminalToken.sym=lt.token_type; svalue=uval; line=lt.line; column=lt.column;}});;\n")?;
+       write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>),\"{}\")\n",&sym.sym,eindex,stype,&sym.sym)?;
+     }//terminals not in lexvals
+     write!(fd,"        | _ -> (FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>),\"LexError\")\n",abindex,absyn)?;
+     write!(fd,"    Some({{TerminalToken.sym=utype; svalue=uval; line=lt.line; column=lt.column;}});;\n")?;
      
 
 
