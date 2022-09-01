@@ -655,7 +655,6 @@ impl Grammar
                let tokform = dtokens[2].to_owned();
 	       self.Lexvals.push((termname.to_string(),tokform,valform));
 	       // record that this terminal always carries a value
-//println!("inserting ({}) into haslexval",dtokens[0]);               
 	       self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //valueterminal

@@ -296,7 +296,7 @@ expression:expr_list --> expressions
 expressions --> assignment_expression<Comma+>
 
 # intentionally ambiguous
-#expression --> assignment_expression<Comma+>
+expression --> assignment_expression<Comma+>
 
 # the following rule was marked "with constraints"
 constant_expression:const_expr --> conditional_expression
@@ -320,6 +320,7 @@ declaration_specifier:typequal --> type_qualifier
 declaration_specifier:funcspec --> function_specifier
 declaration_specifier:alignspec --> alignment_specifier
 
+flatten init_declarator
 init_declarator --> declarator:decl (ASSIGN initializer)?:initializer
 
 storage_class_specifier ==>
@@ -410,6 +411,7 @@ direct_contents ==>
 	| ( parameter_type_list )
 	| ( IDENTIFIER<Comma*> )
         <==
+        
 flatten direct_declarator        
 direct_declarator --> direct_base direct_contents*
 
@@ -439,7 +441,9 @@ da_base --> [ type_qualifier+ ]
 initializer:expr --> assignment_expression
 initializer:values --> Lbrace initializer_designation<Comma+> Comma? Rbrace
 
-# replace initializer_list with initializer_designation<Comma+>        
+# replace initializer_list with initializer_designation<Comma+>
+
+#flatten initializer_designation
 initializer_designation --> designation? initializer
 
 designation --> designator+ ASSIGN

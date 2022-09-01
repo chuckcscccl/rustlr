@@ -25,7 +25,7 @@ pub const MAXK:usize = 2; // this is only the default
 
 type AGENDATYPE = Vec<usize>;
 type PREAGENDATYPE = HashSet<usize>;
-type COMBINGTYPE = HashMap<usize,Vec<usize>>;
+type COMBINGTYPE = Bimap<usize,Vec<usize>>;
 type ITEMSETTYPE = HashSet<LRitem>;
 
 // #[derive(Clone,Debug,Default)]
@@ -37,6 +37,7 @@ pub struct MLState // emulates LR1/oldlalr engine
    conflicts: ITEMSETTYPE,
    deprecated: HashSet<LRitem>,
    lrkernel : ITEMSETTYPE,  // must be btree, else non-deterministic
+   closed:bool,
 }
 impl MLState
 {
@@ -49,6 +50,7 @@ impl MLState
         conflicts: ITEMSETTYPE::new(),
         deprecated: HashSet::new(),
         lrkernel : ITEMSETTYPE::new(),
+        closed:false,
      }
   }
   pub fn insert(&mut self, item:LRitem, lhs:usize) -> bool
@@ -84,7 +86,8 @@ impl MLState
 // if conflicts are detected here, will also have to resolve based on
 // precedence, known_conflicts
   fn close_all(&mut self, Gmr:&mut Grammar, combing:&mut COMBINGTYPE, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, rhash:&mut HashMap<Vec<usize>,usize>,maxk:usize,mut failed:bool) -> bool
-  {  let mut answer = true;
+  {  //if self.closed {return true;}
+     let mut answer = true;
      // start with kernel items.
      if !failed {self.items.clear();}
      //self.items.clear();
@@ -209,8 +212,10 @@ impl MLState
               /////// got to create new symbol, rule, then insert into
               /////// items (closed), and deprecate others.
               // maybe dynamically create new symbol, change rule here...***
-              // extend one at a time              
+              // extend one at a time
+//let rulelen = Gmr.Rules.len();              
               let eri=Gmr.delay_extend(*ri,*pi,pi+2,combing/*,comb*/,rhash);
+//if rulelen<Gmr.Rules.len() {println!("{}\t NEW RULES from combing size {}, {} rules",Gmr.Rules.len()-rulelen,comblen+1,Gmr.Rules.len());}              
               // this return index of new rule with longer delay
               let extenditem = LRitem{ri:eri, pi:*pi, la:*la};
               // same rule in different places: deprecation in one place
@@ -251,7 +256,8 @@ impl MLState
         self.items.len()==isize && self.deprecated.len()==dsize {break;}
    } // loop
    if loopcx>2 {println!("LOOP RAN {} TIMES",loopcx);}
-*/   
+*/
+     self.closed=true;
      answer
   }//close_all
 
@@ -484,6 +490,7 @@ if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
                reportfailure(&self.Gmr.Rules[bc.ri].lhs.index,&self.Gmr,&self.combing);
                self.failed=true; break;
             }//failure check
+            else if bc.pi==0 {self.States[psi].closed=false;}
          }//inserted
        }//for bc
        if /* !self.failed &&*/ bchanged && self.preagenda_add(psi) {
@@ -704,6 +711,7 @@ if self.preagenda.len()==3 {
            for citem@LRitem{ri,pi,la} in self.States[statei].conflicts.iter() {
              if *pi==0 || *symi!=self.Gmr.Rules[*ri].rhs[pi-1].index  || self.States[statei].deprecated.contains(citem)  {continue;}
              topropagate.insert(LRitem {ri:*ri, pi:pi-1, la:*la});
+propagated =true; //do not do makegotos
              if pi-1>0 { priority=true; }
            }//for each conflict item that must be propagated.
            for bc in topropagate {
@@ -712,6 +720,7 @@ if self.preagenda.len()==3 {
                  reportfailure(&self.Gmr.Rules[bc.ri].lhs.index,&self.Gmr,&self.combing);
                  self.failed=true; break;
                   }
+                  else if bc.pi==0 {self.States[*psi].closed=false;}
                propedpsi=true;
              }
            }//for each bc
@@ -1045,16 +1054,15 @@ impl Grammar
        // check that no such name already exists
        // construct new nonterminal
        let mut newnt = Gsym::new(&newntname,false);
-/*
-       let combget = combing.rget(&comb);
-       if let Some(cnti) = combget {
-          newnt = self.Symbols[*cnti].clone();
+       let targetcomb = uncombslice(&self.Rules[ri].rhs[dbegin..dend],combing);
+       let tcombget = combing.rget(&targetcomb);
+       if let Some(cnti) = tcombget {
+         newnt = self.Symbols[*cnti].clone();
+//println!("**REUSING BY COMB-GET {}, {} rules",&newnt.sym,self.Rules.len())
        }
-       else
-*/
-       if let Some(nti) = self.Symhash.get(&newntname) {
+       else if let Some(nti) = self.Symhash.get(&newntname) {
           newnt = self.Symbols[*nti].clone();
-//println!("REUSING BY-NAME NT {}",&newnt.sym);       //checked         
+//println!("REUSING BY-NAME NT {}",&newnt.sym);       //checked
        } else { // really new
 
          let mut nttype = String::from("(");
@@ -1078,12 +1086,13 @@ impl Grammar
          // register new combed NT with combing map
          //let defvec = vec![self.Rules[ri].rhs[dbegin].index];
          //let mut oldvec = combing.get(&self.Rules[ri].rhs[dbegin].index).unwrap_or(&defvec).clone();
-         let mut oldvec = uncombing(&self.Rules[ri].rhs[dbegin].index,combing);
+         //let mut oldvec = uncombing(&self.Rules[ri].rhs[dbegin].index,combing);
          // this assumes that dend = debegin+2
-         let mut extension = uncombing(&self.Rules[ri].rhs[dend-1].index,combing);
-         oldvec.append(&mut extension);
+         //let mut extension = uncombing(&self.Rules[ri].rhs[dend-1].index,combing);
+         //oldvec.append(&mut extension);
          //oldvec.push(self.Rules[ri].rhs[dend-1].index);
-         combing.insert(newnt.index,oldvec);
+//         combing.insert(newnt.index,oldvec);
+          combing.insert(newnt.index,targetcomb);
 
          let NTrules:Vec<_> = self.Rulesfor.get(&NT1.index).unwrap().iter().collect();
          let mut rset = HashSet::new(); // rules set for newnt (delayed nt)
@@ -1225,6 +1234,9 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
          self.Rulesfor.get_mut(&newrulei.lhs.index).unwrap().insert(self.Rules.len());
          self.Rules.push(newrulei);
          rulehash.insert(hashr,self.Rules.len()-1);
+
+if true ||LTRACE {print!("New rule: "); printrule2(self.Rules.len()-1,self,combing);}
+
          self.ntcxmax = ntcx;
          return self.Rules.len()-1;
        }// new rule added (not start rule, which is replaced).
@@ -1383,7 +1395,7 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
 } // transformation
 
 
-/*
+
 //// generic structure bijective hashmap
 #[derive(Default,Debug)]
 pub struct Bimap<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone>
@@ -1441,7 +1453,8 @@ impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
   }
 }//impl Bimap
 // will be used to map nonterminal symbols to vectors of symbols
-*/
+
+
 
 fn printitem(item:&LRitem, Gmr:&Grammar)
 {
@@ -1536,6 +1549,14 @@ fn uncombing(nti:&usize, /*Gmr:&Grammar,*/ combing:&COMBINGTYPE) -> Vec<usize>
   comb
 }//uncombing
 
+fn uncombslice(nts:&[Gsym], combing:&COMBINGTYPE) -> Vec<usize>
+{
+  let mut comb = Vec::new();
+  for gs in nts {
+    comb.append(&mut uncombing(&gs.index,combing));
+  }
+  comb
+}//uncombslice
 
 // recursively calculate true length of combing
 fn comblength(nti:&usize, /*Gmr:&Grammar,*/ combing:&COMBINGTYPE) -> usize
