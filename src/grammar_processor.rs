@@ -493,7 +493,7 @@ impl Grammar
               	    self.topsym = String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
                     if toptype != &self.Absyntype && !self.genabsyn && toptype.len()>0 {
-                       eprintln!("Type of Grammar start symbol {} set to {}",stokens[1],&self.Absyntype);
+                       eprintln!("WARNING: Type of Grammar start symbol {} set to {}; you should declare the valuetype unless using -auto mode.",stokens[1],&self.Absyntype);
                        if !self.genabsyn {self.Symbols[*tsi].rusttype = self.Absyntype.clone();}
                     }
                  },
@@ -1288,6 +1288,7 @@ strtok is bstokens[i], but will change
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
      // compute sametype value (default true)
      if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
+        eprintln!("\nWARNING: THE TYPE FOR THE START SYMBOL ({}) IS NOT THE SAME AS THE VALUETYPE ({}",&topgsym.rusttype,&self.Absyntype);
         self.Absyntype = topgsym.rusttype.clone();
      }
      /*

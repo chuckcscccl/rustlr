@@ -23,6 +23,8 @@ use std::collections::{HashSet,BTreeMap};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
+//use std::rc::Rc;
+//use std::cell::RefCell;
 
 /// **This structure is deprecated by [TerminalToken]**.
 /// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
@@ -228,6 +230,8 @@ pub trait Tokenizer<'t,AT:Default>
   /// returns the absolute character position of the tokenizer.  The
   /// default implementation returns 0;
   fn position(&self) -> usize { 0 }
+  // returns (line, column) information based on given position
+  //fn get_line_column(&self, position:usize) -> (usize,usize) { (0,0) }
   /*
   /// returns the previous position (before as opposed to after the current token).
   /// The default implementation returns 0.
@@ -262,7 +266,7 @@ pub trait Tokenizer<'t,AT:Default>
   /// using the -genlex option.
   fn transform_wildcard(&self,t:TerminalToken<'t,AT>) -> TerminalToken<'t,AT>
   {t}
-  
+
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
   /// value=AT::default().  The is the only provided function that should *not*
@@ -296,7 +300,7 @@ pub enum RawToken<'t>
   BigNumber(&'t str),
   /// single character inside single quotes.
   Char(char), 
-  /// String literal, allows for nested quotes
+  /// String literal, allows for nested quotes.  **String literals always contain the enclosing double quotes**
   Strlit(&'t str),
   /// Alphanumeric sequence, staring with an alphabetical character or '_',
   /// and followed by arbitrary numbers of alphabetical, numeric or _.
@@ -318,7 +322,11 @@ pub enum RawToken<'t>
   Verbatim(&'t str),
   /// Custom token type, allows for user extension.  The first string should
   /// define the type of the token while the second should carry raw text.
+  /// This token type is intended to be enabled with **`lexattribute add_custom`** directives,
+  /// which correspond to the function [StrTokenizer::add_custom]
   Custom(&'static str, &'t str),
+  /// special token triggered by internal flag, returns skipped text
+  Skipto(&'t str),
   /// tokenizer error
   LexError,
 }//RawToken
@@ -363,7 +371,8 @@ pub struct StrTokenizer<'t>
    //strlit:Regex,
    alphan:Regex,
    nonalph:Regex,
-   custom_defined:BTreeMap<&'static str, Regex>, // added for 0.2.95
+   //custom_defined:BTreeMap<&'static str, Regex>, // added for 0.2.95
+   custom_defined:Vec<(&'static str,Regex)>,
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
    triples:HashSet<&'t str>,
@@ -391,6 +400,9 @@ pub struct StrTokenizer<'t>
    src:&'t str, // source name
    /// vector of starting byte position of each line, position 0 not used.
    pub line_positions:Vec<usize>, // starting position of each line
+   skipbegin: &'static str,
+   skipend: &'static str,
+   pub specialeof: &'static str,
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -399,11 +411,13 @@ impl<'t> StrTokenizer<'t>
   {
     let decuint = Regex::new(r"^\d+").unwrap();
     let hexnum = Regex::new(r"^0x[\dABCDEFabcdef]+").unwrap();
-    let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
+    let floatp = Regex::new(r"^\d*\x2E\d+([eE][+-]?\d+)?").unwrap();
+    // not allowing +- before numbers is right decision.  How to tokenize 1-2?
+    //let floatp = Regex::new(r"^\d*\x2E\d+").unwrap();
     //let strlit = Regex::new(r"^\x22(?s)(.*?)\x22").unwrap();
     let alphan = Regex::new(r"^[_a-zA-Z][_\da-zA-Z]*").unwrap();
     let nonalph=Regex::new(r"^[!@#$%\^&*\?\-\+\*/\.,<>=~`';:\|\\]+").unwrap();
-    let custom_defined = BTreeMap::new();
+    let custom_defined = Vec::new(); //BTreeMap::new();
     let mut doubles = HashSet::with_capacity(16);
     let mut triples = HashSet::with_capacity(16);        
     let mut singles = HashSet::with_capacity(16);
@@ -422,7 +436,11 @@ impl<'t> StrTokenizer<'t>
     let line_start=0;
     let src = "";
     let line_positions = vec![0,0];
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions}
+    let skipbegin = "";
+    let skipend = "";
+    let specialeof = "$_RREOF_$";
+//    let skipclosure = Box::new(||false);
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,specialeof}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -439,6 +457,24 @@ impl<'t> StrTokenizer<'t>
   pub fn add_triple(&mut self, s:&'t str)
   { if s.len()==3 {self.triples.insert(s);} }
 
+/*
+  pub fn skip_trigger<FC:Fn()->bool+ 'static>(&mut self, target:&'static str, closure:FC) 
+  {
+    self.skiptarget=target;
+    self.skipclosure = Box::new(closure);
+  }
+*/
+
+  /// sets the skiptarget, enables Skipto token, overrides other matches.
+  pub fn skip_set(&mut self, begin:&'static str, target:&'static str)
+  {self.skipend=target; self.skipbegin=begin; }
+
+  /// cancels recoginition of Skipto tokens
+  pub fn skip_reset(&mut self) {
+    self.skipend="";  self.skipbegin="";
+//    self.skipclosure = Box::new(||false);
+  }
+  
   /*
   /// add symbol of length greater than two. Symbols that are prefixes of
   /// other symbols should be added after the longer symbols.
@@ -450,12 +486,13 @@ impl<'t> StrTokenizer<'t>
   /// add custom defined regex, will correspond to [RawToken::Custom] variant.
   /// Custom regular expressions should not start with whitespaces and will
   /// override all others.  Multiple Custom types will be matched by the
-  /// alphabetical ordering of their type keys.  
+  /// order in which they where declared in the grammar file.
   pub fn add_custom(&mut self, tkind:&'static str, reg_expr:&str)
   {
-    let reg = if reg_expr.starts_with('^') {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
+    let reg = if reg_expr.starts_with('^') || reg_expr.starts_with("(?m") {reg_expr.to_owned()} else {format!("^{}",reg_expr)};
     let re = Regex::new(&reg).expect(&format!("Error compiling custom regular expression \"{}\"",reg_expr));
-    self.custom_defined.insert(tkind,re);
+    //self.custom_defined.insert(tkind,re);
+    self.custom_defined.push((tkind,re));
   }//add_custom
 
   /// sets the input str to be parsed, resets position information.  Note:
@@ -488,7 +525,10 @@ impl<'t> StrTokenizer<'t>
   /// the current line that the tokenizer is on
   pub fn line(&self)->usize {self.line}
   /// the current column of the tokenizer
-  pub fn column(&self)->usize {self.position-self.line_start+1}
+  pub fn column(&self)->usize {
+    if self.position<self.line_start {1}
+    else {self.position-self.line_start+1}
+  }
   /// returns the current absolute byte position of the Tokenizer
   pub fn current_position(&self)-> usize {self.position}
   /// returns the previous absolute byte position of the Tokenizer
@@ -500,7 +540,8 @@ impl<'t> StrTokenizer<'t>
   /// gets the current line of the source input
   pub fn current_line(&self) -> &str
   {
-     let startl = self.line_start;
+     let mut startl = self.line_start;
+     if startl>self.input.len() {startl=self.input.len();}
      let max = self.input.len() - startl;
      let endl = self.input[startl..].find('\n').unwrap_or(max);
      &self.input[startl..startl+endl]
@@ -535,8 +576,6 @@ impl<'t> StrTokenizer<'t>
    self.line_positions = vec![0,0];
   }
 
-  // transform_wildcard cannot be implemented here: need to know RetTypeEnum
-
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along
   /// with a message printed to stderr if a tokenizer error occured.
@@ -546,6 +585,7 @@ impl<'t> StrTokenizer<'t>
    self.prev_position = self.position;
    let clen = self.line_comment.len();
    let (cms,cme) = (self.ml_comment_start,self.ml_comment_end);
+   let mut skipping = false;
    while self.position<self.input.len()
    {
     pi = self.position;
@@ -575,11 +615,67 @@ impl<'t> StrTokenizer<'t>
     else if i>pi {continue;}
     //if pi>=self.input.len() {return None;}
 
+    if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input[pi..].starts_with(self.skipbegin) {
+      let endpos;
+       if self.skipend!=self.specialeof {
+        let findend= self.input[pi+self.skipbegin.len()..].rfind(self.skipend);
+        endpos = findend.unwrap_or(self.input.len());
+       } else {endpos=self.input.len();}
+       if endpos<self.input.len() {
+         self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
+//         let sti = pi+self.skipbegin.len();
+       } else {
+         self.position = self.input.len();
+         if self.skipend==self.specialeof {
+           return Some((Skipto(&self.input[pi+self.skipbegin.len()..]),line0,(1+pi)-lstart0));
+         } //else reset position and re-read
+         self.position = pi;
+         continue;
+       }// did not find target
+       // find newline chars
+       let mut ci = pi;
+       while let Some(nli) = self.input[ci..self.position].find('\n')
+       {
+          self.line+=1; ci += nli+1;  self.line_start=ci;
+          self.line_positions.push(ci);
+          // Newline token is never returned if inside skipped text
+       }
+       //self.skip_reset();
+       return Some((Skipto(&self.input[pi..self.position]),line0,(1+pi)-lstart0));
+    }//skiptarget
+    else if self.skipend.len()!=0 {  // skip til skipend
+       let endpos;
+       if self.skipend!=self.specialeof {
+         let findend = self.input[pi..].rfind(self.skipend);
+         endpos = findend.unwrap_or(self.input.len());
+       } else {endpos = self.input.len();}
+       if endpos<self.input.len() {
+         self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
+       } else {
+         if self.skipend==self.specialeof {
+           self.position = endpos;
+           return Some((Skipto(&self.input[pi..]),line0,(1+pi)-lstart0));
+         }
+         self.position = pi;
+         continue;
+       }// else skip to end or restart
+       let mut ci = pi;
+       while let Some(nli) = self.input[ci..self.position].find('\n')
+       {
+          self.line+=1; ci += nli+1;  self.line_start=ci;
+          self.line_positions.push(ci);
+          // Newline token is never returned if inside skipped text
+       }
+       return Some((Skipto(&self.input[pi..self.position]),line0,pi-lstart0+1));      
+    }//skip to end
+
+
     // look for custom-defined regular expressions
     for (ckey,cregex) in self.custom_defined.iter()
     {
-       //println!("custom token type {}, regex {}",ckey,cregex);
+//println!("custom token type {}, regex {}, input: {}",ckey,cregex,&self.input[pi..pi+10]);
        if let Some(mat) = cregex.find(&self.input[pi..]) {
+//println!("RECOGNIZED ({})",&cregex);
          self.position = mat.end()+pi;
          let rawtext = &self.input[pi..self.position];
          let oldline = self.line;  let oldstart = self.line_start;
@@ -590,7 +686,8 @@ impl<'t> StrTokenizer<'t>
            self.line_start += x+1;  
            self.line_positions.push(self.line_start);
          } // record new lines
-         return Some((Custom(ckey,rawtext),oldline,pi-oldstart+1));
+         let pos9 = if pi>oldstart {pi-oldstart} else {0};
+         return Some((Custom(ckey,rawtext),oldline,1+pos9));
        } // match to cregex found
     }//for each custom key
 
@@ -599,12 +696,12 @@ impl<'t> StrTokenizer<'t>
       if let Some(nlpos) = self.input[pi+clen..].find("\n") {
         self.position = nlpos+pi+clen;
         if self.keep_comment {
-          return Some((Verbatim(&self.input[pi..pi+clen+nlpos]),self.line,pi-self.line_start+1));
+          return Some((Verbatim(&self.input[pi..pi+clen+nlpos]),self.line,1+pi-self.line_start));
         }
         else {continue;}
       } else { // no newline fould
         self.position = self.input.len(); 
-        if self.keep_comment {return Some((Verbatim(&self.input[pi..]),self.line,pi-self.line_start+1));}
+        if self.keep_comment {return Some((Verbatim(&self.input[pi..]),self.line,1+pi-self.line_start));}
         else {break;}
       }
     }// line comment
@@ -616,7 +713,7 @@ impl<'t> StrTokenizer<'t>
        } else {
          self.position = self.input.len();
          eprintln!("Tokenizer error: unclosed multi-line comment starting on line {}, column {}",line0,pi-self.line_start+1);
-         return Some((LexError,line0,pi-self.line_start+1));
+         return Some((LexError,line0,1+pi-self.line_start));
        }
        // find newline chars
        let mut ci = pi;
@@ -627,7 +724,7 @@ impl<'t> StrTokenizer<'t>
           // Newline token is never returned if inside string literal
        }
        if self.keep_comment {
-         return Some((Verbatim(&self.input[pi..self.position]),line0,pi-lstart0+1));
+         return Some((Verbatim(&self.input[pi..self.position]),line0,1+pi-lstart0));
        }
        else {continue;}
     }//multi-line comments
@@ -678,7 +775,9 @@ impl<'t> StrTokenizer<'t>
       }// while ci < input.len()
       // terminated without finding end of string
       self.position = self.input.len();
-        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
+//        eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
+        eprintln!("Tokenizer error: unclosed string, line {}, possibly starting earlier",line0);
+        let errposition = if (lstart0-1)<pi {1+pi-lstart0} else {0};
         return Some((LexError,line0,pi-lstart0+1)); 
     }//strlit
     
@@ -692,14 +791,15 @@ impl<'t> StrTokenizer<'t>
     }//hexnum
     // look for alphanum    
     if let Some(mat) = self.alphan.find(&self.input[pi..]) {
-        self.position = mat.end()+pi;  
-        return Some((Alphanum(&self.input[pi..self.position]),self.line,pi-self.line_start+1));
+        self.position = mat.end()+pi;
+        let pos9 = if pi<self.line_start {0} else {pi-self.line_start};
+        return Some((Alphanum(&self.input[pi..self.position]),self.line,pos9+1));
     }//alphanums
     // floats
     if let Some(mat) = self.floatp.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
         let tryparse = self.input[pi..self.position].parse::<f64>();
-        if let Ok(n)=tryparse {return Some((Float(n),self.line,pi-self.line_start+1));}
+        if let Ok(n)=tryparse {return Some((Float(n),self.line,(pi+1)-self.line_start));}
         else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}
         //return Some((Float(self.input[pi..self.position].parse::<f64>().unwrap()),self.line,pi-self.line_start+1));
     }//floatp
@@ -707,8 +807,8 @@ impl<'t> StrTokenizer<'t>
     if let Some(mat) = self.decuint.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
         let tryparse = self.input[pi..self.position].parse::<i64>();
-        if let Ok(n)=tryparse {return Some((Num(n),self.line,pi-self.line_start+1));}
-        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,pi-self.line_start+1));}        
+        if let Ok(n)=tryparse {return Some((Num(n),self.line,1+pi-self.line_start));}
+        else {return Some((BigNumber(&self.input[pi..self.position]),self.line,1+pi-self.line_start));}        
 //        return Some((Num(self.input[pi..self.position].parse::<i64>().unwrap()),self.line,pi-self.line_start+1));
     }//decuint
 
@@ -716,20 +816,20 @@ impl<'t> StrTokenizer<'t>
     if pi<self.input.len() && &self.input[pi..pi+1]=="\"" {
         self.position = self.input.len();
         eprintln!("Tokenizer error: unclosed string starting on line {}, column {}",line0,pi-self.line_start+1);
-        return Some((LexError,line0,pi-self.line_start+1));        
+        return Some((LexError,line0,1+pi-self.line_start));        
     }//unclosed string
       
     // at this point, what remains must be a recognized, non-alphanumeric symbol
     if let Some(mat) = self.nonalph.find(&self.input[pi..]) {
         self.position = mat.end()+pi;
-        return Some((Symbol(&self.input[pi..self.position]),self.line,pi-self.line_start+1));	 
+        return Some((Symbol(&self.input[pi..self.position]),self.line,1+pi-self.line_start));	 
     }
 
     // at this point, must be error
     self.position = self.input.len();
     if pi<self.position {
       eprintln!("Tokenizer error: unrecognized symbols starting on line {}, column {}",line0,pi-self.line_start+1);
-     return Some((LexError,line0,pi-self.line_start+1));
+     return Some((LexError,line0,1+pi-self.line_start));
     }
     //else { return None; }
    } //while
@@ -763,7 +863,6 @@ impl<'t> LexSource<'t>
   pub fn new(path:&'t str) -> std::io::Result<LexSource<'t>>
   {
      let tryread=std::fs::read_to_string(path);
-     //println!("READTHIS: {:?}",&tryread);
      match tryread {
        Ok(st) => {
          Ok(LexSource {
@@ -772,7 +871,10 @@ impl<'t> LexSource<'t>
            contents:st,
          })
        },
-       Err(e) => {Err(e)}
+       Err(e) => {
+         eprintln!("\nFAILED TO OPEN PATH TO SOURCE '{}'\n",path);
+         Err(e)
+       },
      }//match
   }//new
   /// retrieves entire contents of lexsource
@@ -902,3 +1004,21 @@ impl<'t, AT:Default> Tokenizer<'t,AT> for charscanner<'t>
    fn current_line(&self) -> &str  {self.contents}   
 }//impl Tokenizer for charscanner
 
+// binary range search
+// given position, return line number and starting position of that line
+fn brsearch(ps:&[usize], p:usize) -> (usize,usize) // returns (0,0) none
+{
+   let mut min = 1;
+   let mut max = ps.len();
+   while min<max
+   {
+      let mid = (min+max)/2;
+      if ps[mid]>p {max = mid;}
+      else { // possible., p>=ps[mid]
+        if mid == ps.len()-1 || p<ps[mid+1] {return (mid,ps[mid]);}
+        else {min = mid+1;}
+      }
+   }
+   (0,0)  // not found, there's no line 0
+}// determine line based on position
+// given (l,s), column is calculated py p-s+1.

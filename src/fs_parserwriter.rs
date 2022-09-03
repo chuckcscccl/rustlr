@@ -204,12 +204,10 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
 /////////////////////////////
 
 
-//////////////////// write conver_token function
+//////////////////// write convert_token function
      write!(fd,"\nlet convert_token (lt:RawToken) =\n  if lt=null then None\n  else\n    let (uval,utype) = \n      match lt.token_name with\n")?;
      let abindex = self.Gmr.enumhash.get(&self.Gmr.Absyntype).expect("F absyn - Sharp!");
      let unitindex = self.Gmr.enumhash.get("()").expect("F absyn - Sharp!");
-   //let lexform = self.Gmr.Lexnames.get() ...
-   // worry about lexterminals later.. assume .lex file does the conversion
      for (terminalname,tokentype,valfun) in &self.Gmr.Lexvals {
        let symi = *self.Gmr.Symhash.get(terminalname).unwrap();
        let sym = &self.Gmr.Symbols[symi];
@@ -218,6 +216,16 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
          write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,valfun.trim(),terminalname)?;
        }  // has been declared like valueterminal~ num~ int~ n int(n)
      } //for (name,form,val) entry in Lexvals
+     // for lexterminals:
+     // assuming that for these the lt.token_name and lt_token_text are same
+     for (textform,termname) in self.Gmr.Lexnames.iter() {
+        let tsymi = *self.Gmr.Symhash.get(termname).unwrap();
+        let tsym = &self.Gmr.Symbols[tsymi];
+        let eindex = self.Gmr.enumhash.get(&tsym.rusttype).expect("F-Sharp3!");
+        let mut ttype = tsym.rusttype.as_str();
+        if ttype=="()" {ttype=UNITTYPE;}
+        write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>),\"{}\")\n",textform,eindex,ttype,termname)?;
+     }//for Lexnames
      ///// now for other terminals, token type expected to be Symbol? NO
      //for now, expect type and text to be the same
      for i in 1..self.Gmr.Symbols.len() {  // skip wildcard

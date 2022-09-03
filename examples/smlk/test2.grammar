@@ -1,0 +1,13 @@
+terminals a b c x y
+nonterminals S A B D M
+topsym S
+
+S --> A | B | D
+
+B --> a b c x
+A --> a b M
+M -->
+M --> c
+D --> A y
+
+EOF

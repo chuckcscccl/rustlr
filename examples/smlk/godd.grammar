@@ -5,12 +5,14 @@ nonterminals S A B M N C D
 topsym S
 
 S --> A | B
-A --> D a b c+ d e f x
-B --> D (a b)? c+ d e f y
+A --> d* a b c+ d e f x
+B --> d* M c+ d e f y
 M --> a b
-N --> M
-N -->
-D -->  | D d
+M -->
+C --> c | C c
+D --> d | D d
+N --> | D
+
 #B --> c d y | a b c d y
 
 # ambiguous on purpose:
@@ -20,8 +22,14 @@ EOF
 
 
 S --> A | B
-A --> d a b c+ d e f g x
-B --> d (a b)? c+ d e f g y
+A --> d* a b c+ d e f x
+B --> d* (a b)? c+ d e f y
 M --> a b
 N --> M
 N -->
+D -->  | D d
+
+
+
+
+selML(5,1) grammar
