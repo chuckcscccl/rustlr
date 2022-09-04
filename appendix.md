@@ -140,8 +140,8 @@ declarator --> P  direct_declarator
 P --> pointer
 P --> 
 ```
-The internal introduction of the empty production causes a shift-reduce
-conflict (when the lookahead is a left-parentheses).  We still don't know for
+The internal introduction of the P productions cause shift-reduce
+conflicts (when the lookahead is a left-parentheses).  We still don't know for
 sure what's causing the conflict, and we know that adopting a default
 shift or reduce strategy might not work, but we solved the problem with
 ```
@@ -152,7 +152,7 @@ two productions for `P`, thereby recovering the original LALR grammar. But
 the transformation is internal: we get to write a different style of grammar
 and generate ASTs, write semantic actions for them as such.  The new
 -lrsd option can automatically create the transformation without the markers,
-but using markers is more efficient.
+but using markers is more efficient in some cases.
 
 Regular expressions are well-liked by most programmers and many
 modern parser generators allow them.  It makes writing grammars easier.

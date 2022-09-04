@@ -1,0 +1,27 @@
+# Unambiguous LR grammar for simple calculator.
+# F# first test
+
+valuetype int
+nonterminals E T F
+#nonterminal E int
+#nonterminal T int
+#nonterminal F int
+terminals + *
+# these will be used later...
+# The first two args are same as for rust, third is string representing
+# type of token returned by lexer, last arg is a function of type
+# string -> value to be applied to the string text of the parsed token
+#valueterminal realnum ~ float ~ Float ~ float
+valueterminal number ~ int ~ Num ~ (fun x->int x)
+lexterminal LPAREN (
+lexterminal RPAREN )
+topsym E
+
+E --> E:e + T:t { e + t }
+E --> T:t { t }
+T --> T:t * F:f { t*f }
+T --> F:f { f }
+F --> LPAREN E:e RPAREN  { e }
+F --> number:n { n }
+
+EOF

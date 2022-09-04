@@ -5,7 +5,8 @@
 
 Among the features that Rustlr supports are:
 
-1. The option of automatically creating the abstract syntax data types and semantic actions from the grammar.
+1. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
+to be generated.
 2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
 3. Experimental features include the ability to apply *delayed reduction*

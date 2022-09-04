@@ -1,0 +1,39 @@
+# F# version
+
+!type expr = Val of int | Var of string | Plus of expr*expr | Times of expr*expr | Minus of expr*expr | Divide of expr*expr | Negative of expr | Letexp of string*expr*expr;;
+
+valuetype Vec<expr>
+nonterminal E expr
+nonterminal ES
+terminals + - * / ( ) = ;
+terminals let in
+valueterminal Val ~ int ~ Num ~ int
+valueterminal Var ~ string ~ Alphanum ~ (fun x -> x)
+#typedterminal Val int
+#typedterminal Var string
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+nonassoc = 300
+
+#lexvalue int Num(n) n
+#lexvalue var Alphanum(x) x
+#lexattribute set_line_comment("#")
+
+E --> Val:m { Val(m) }
+E --> Var:s { Var(s) }
+E --> let Var:x = E:e in E:b {Letexp(x,e,b)}
+E --> E:e1 + E:e2 { Plus(e1,e2) }
+E --> E:e1 - E:e2 { Minus(e1,e2) }
+E --> E:e1 * E:e2 { Times(e1,e2) }
+E --> E:e1 / E:e2 { Divide(e1,e2) }
+E(600) --> - E:e { Negative(e) }
+E --> ( E:e )  { e }
+ES --> E:e ; { let v = Vec<expr>() in (v.Add(e); v) }
+ES --> ES:es  E:e ;  { (es.Add(e); es) }
+
+EOF

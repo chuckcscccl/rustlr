@@ -133,13 +133,6 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
     // write action functions fn _semaction_rule_{} ..
     for deffn in &actions { write!(fd,"{}\n\n",deffn)?; }
 
-
-    //////////////////////// not done yet
-    ////// WRITE LEXER
-    //if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
-
-
-
     write!(fd,"let make_parser() : RTParser<FLTypeDUnion,{}> =\n",extype)?; 
     write!(fd,"  let parser1 = skeleton_parser(Unchecked.defaultof<{}>,{},{})\n",extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates to call action fns, cast
@@ -189,7 +182,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
     
     //write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
     // resynch vector
-    for s in &self.Gmr.Resynch {write!(fd,"  parser1.resynch.Add(\"{}\");\n",s)?;}
+    for s in &self.Gmr.Resynch {write!(fd,"  ignore (parser1.resynch.Add(\"{}\"));\n",s)?;}
 
     // generate code to load RSM from TABLE
     write!(fd,"\n  for i in 0..{} do\n",totalsize-1)?; //F# ranges inclusive
@@ -264,6 +257,20 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
 //    write!(fd,"\n  let load_extras(parser:RTParser<FLTypeDUnion,{}>) =\n    ();\n",extype)?;
 //    write!(fd,"  //end of load_extras: don't change this line as it affects augmentation\n")?;
 
+     //////// generate lexer in a different file
+     if self.Gmr.genlex {
+       // extract path from filename
+       let mut lexpath = "";
+       if let Some(rpos)=filename.rfind('/') {
+          lexpath = &filename[..rpos+1];
+       }else if let Some(rpos)=filename.rfind('\\') {
+          lexpath = &filename[..rpos+1];
+       }
+       let mut lexfd = File::create(&format!("{}{}.lex",lexpath,&self.Gmr.name))?;
+       if let Err(e) = self.gencslex(&mut lexfd) {eprintln!("ERROR GENERATING .lex, {:?}",&e);}
+       else {println!("Created {}{}.lex",lexpath,&self.Gmr.name);}
+     }
+
     Ok(())
   }//writefsparser
 
@@ -285,6 +292,123 @@ pub fn gen_fsunion(&self,fd:&mut File) -> Result<(),std::io::Error>
     Ok(())
 }// generate enum from rusttype defs FLTypeDUnion::Enumvariant_0 is absyntype
 
+
+/////////////// auto genlex option
+
+// generated .lex file to be processed by CSLex. follows template in
+// test1.lex
+pub fn gencslex(&self,fd:&mut File) -> Result<(),std::io::Error>
+{
+   write!(fd,"//CsLex file generated from grammar {}\n",&self.Gmr.name)?;
+   write!(fd,"#pragma warning disable 0414
+using System;
+using System.Text;\n\n")?;
+   write!(fd,"public class {}lexer<ET> : AbstractLexer<ET>  {{\n",&self.Gmr.name)?;
+   write!(fd,"  Yylex lexer;\n  ET shared_state;\n")?;
+   write!(fd,"  public {}lexer(string n) {{ lexer = new Yylex(new System.IO.StringReader(n)); }}\n",&self.Gmr.name)?;
+   write!(fd,"  public {}lexer(System.IO.FileStream f) {{ lexer=new Yylex(f); }}\n",&self.Gmr.name)?;
+   write!(fd,"  public RawToken next_lt() => lexer.yylex();\n  public void set_shared(ET shared) {{shared_state=shared;}}\n}}//lexer class\n\n")?;
+   write!(fd,"{}\n",r#"%%
+%namespace Fussless
+%type RawToken
+%eofval{
+  return new RawToken("EOF","EOF",yyline,yychar);
+%eofval}  
+%{
+private static int comment_count = 0;
+private static int line_char = 0;
+%}
+%line
+%char
+%state COMMENT
+
+ALPHA=[A-Za-z]
+DIGIT=[0-9]
+DIGITS=[0-9]+
+FLOATS = [0-9]*\.[0-9]+  
+HEXDIGITS=(0x)[0-9A-Fa-f]*
+NEWLINE=((\r\n)|\n)
+NONNEWLINE_WHITE_SPACE_CHAR=[\ \t\b\012]
+WHITE_SPACE_CHAR=[{NEWLINE}\ \t\b\012]
+STRING_TEXT=(\\\"|[^{NEWLINE}\"]|{WHITE_SPACE_CHAR}+)*
+COMMENT_TEXT=([^*/\r\n]|[^*\r\n]"/"[^*\r\n]|[^/\r\n]"*"[^/\r\n]|"*"[^/\r\n]|"/"[^*\r\n])*
+ALPHANUM=[A-Za-z][A-Za-z0-9_]*
+"#)?;
+
+  write!(fd,"{}",r#"%% 
+<YYINITIAL> {NEWLINE}+ { line_char = yychar+yytext().Length; return null; }
+<YYINITIAL> {NONNEWLINE_WHITE_SPACE_CHAR}+ { return null; }
+"#)?;
+
+  //////////// now for all terminals
+  // write Lexnames forms first
+  for form in self.Gmr.Lexnames.keys() {
+    write!(fd,"<YYINITIAL> \"{0}\" {{ return new RawToken(\"{0}\",yytext(),yyline,yychar-line_char,yychar); }}\n",form)?;
+  }
+  for i in 1..self.Gmr.Symbols.len() {
+     if i==self.Gmr.eoftermi || !self.Gmr.Symbols[i].terminal || self.Gmr.Haslexval.contains(&self.Gmr.Symbols[i].sym) {continue;}
+     write!(fd,"<YYINITIAL> \"{0}\" {{ return new RawToken(\"{0}\",yytext(),yyline,yychar-line_char,yychar); }}\n",&self.Gmr.Symbols[i].sym)?;
+  }// for all terminals on in lexnames list
+
+  write!(fd,"\n{}\n",r#"<YYINITIAL,COMMENT> [(\r\n?|\n)] { return null; }
+
+<YYINITIAL> "/*" { yybegin(COMMENT); comment_count = comment_count + 1; return null;
+}
+<YYINITIAL> "//".*\n { line_char=yychar+yytext().Length; return null; }
+<COMMENT> "/*" { comment_count = comment_count + 1; return null; }
+<COMMENT> "*/" { 
+	comment_count = comment_count - 1;
+	if (comment_count == 0) {
+            yybegin(YYINITIAL);
+        }
+        return null;
+}
+
+<COMMENT> {COMMENT_TEXT} { return null; }
+
+<YYINITIAL> \"{STRING_TEXT}\" {
+        return new RawToken("StrLit",yytext(),yyline,yychar-line_char,yychar);
+}
+<YYINITIAL> \"{STRING_TEXT} {
+	String str =  yytext().Substring(1,yytext().Length);
+	Utility.error(Utility.E_UNCLOSEDSTR);
+        return new RawToken("Unclosed String",str,yyline,yychar-line_char,yychar);
+}
+"#)?;
+
+  //// important categories
+  write!(fd,"{}",r#"<YYINITIAL> {DIGIT}+ { 
+  return new RawToken("Num",yytext(),yyline,yychar-line_char,yychar);
+}
+<YYINITIAL> {HEXDIGITS} { 
+return new RawToken("Hexnum",yytext(),yyline,yychar-line_char,yychar);  
+}
+<YYINITIAL> {FLOATS} { 
+  return new RawToken("Float",yytext(),yyline,yychar-line_char,yychar);
+}	
+<YYINITIAL> ({ALPHA}|_)({ALPHA}|{DIGIT}|_)* {
+        return new RawToken("Alphanum",yytext(),yyline,yychar-line_char,yychar);
+}	
+<YYINITIAL,COMMENT> . {
+	StringBuilder sb = new StringBuilder("Illegal character: <");
+	String s = yytext();
+	for (int i = 0; i < s.Length; i++)
+	  if (s[i] >= 32)
+	    sb.Append(s[i]);
+	  else
+	    {
+	    sb.Append("^");
+	    sb.Append(Convert.ToChar(s[i]+'A'-1));
+	    }
+        sb.Append(">");
+	Console.WriteLine(sb.ToString());	
+	Utility.error(Utility.E_UNMATCHED);
+        return null;
+}
+"#)?;
+
+   Ok(())
+}//gencslex
 
 }//impl statemachine
 
