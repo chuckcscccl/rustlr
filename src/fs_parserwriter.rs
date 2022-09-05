@@ -11,7 +11,7 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 use std::io::{self,Read,Write,BufReader,BufRead};
-use std::collections::HashSet;
+use std::collections::{HashSet,HashMap};
 //use std::hash::{Hash,Hasher};
 //use std::any::Any;
 use std::fs::File;
@@ -28,8 +28,95 @@ const UNITTYPE:&'static str = "unit";  // "unit"
 ////////////////////////////////////////////////
 impl Statemachine
 {
-  pub fn writefsparser(&self, filename:&str)->Result<(),std::io::Error>
+
+  fn re_transform(&mut self)
   {
+     let Gmr = &mut self.Gmr;
+     let mut ntcx = Gmr.ntcxmax + 1;
+// must set passthru type for newseqnt's first, otherwise other actions
+// won't konw their type
+     for (nti,ntrules) in Gmr.Rulesfor.iter() {
+       if Gmr.Symbols[*nti].sym.starts_with("NEWSEQNT_") {   // (E ;)
+         let mut newtype = String::from("unit");
+         // must determine passthru independently
+         let mut passthru:i32 = -1;  // allowed only for single non-terminal,
+         let mut rsymi = 0;
+         // or terminal that is not same as absyntype (for now)
+         assert!(Gmr.Rulesfor.get(nti).unwrap().len()==1);
+         for nri in Gmr.Rulesfor.get(nti).unwrap().iter() { // 1 rule
+           for i in 0.. Gmr.Rules[*nri].rhs.len() {
+             let rsym = &Gmr.Rules[*nri].rhs[i];
+             if passthru==-1 && ((!rsym.terminal && rsym.rusttype!="()") || (&rsym.rusttype!="()" && (&rsym.rusttype != &Gmr.Absyntype))) { passthru = i as i32; rsymi = Gmr.Rules[*nri].rhs[i].index; }
+             else if passthru>=0 && ((!rsym.terminal && rsym.rusttype!="()") || (&rsym.rusttype!="()" && &rsym.rusttype!=&Gmr.Absyntype) || rsym.precedence!=0) {passthru=-2;}
+           }//for each rhs symbol for single rule for NESEQNT
+           if passthru>=0 {
+             Gmr.Symbols[*nti].rusttype = Gmr.Symbols[rsymi].rusttype.clone();
+             Gmr.Rules[*nri].action = format!(" _item{}_ }}",passthru);
+           }
+         }// for single rule nri for NEWSEQNT
+         if passthru<0 {eprintln!("ERROR: SEQUENCES ENCLOSED IN (..) MUST HAVE EXACTLY ONE NON-DEFAULT TYPE SYMBOL");}
+//         else {
+           //println!("passthru found at {}, type {}",passthru,&Gmr.Symbols[*nti].rusttype);
+//         }
+       } // is NEWSEQNT
+     } // first pass to look for NEWSEQNT's
+
+     let mut newretypes = HashMap::new();
+     for (nti,ntrules) in Gmr.Rulesfor.iter() {
+       if Gmr.Symbols[*nti].sym.starts_with("NEWRENT_") || Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT") { //is for *, + or ?
+         for nri in ntrules.iter() {
+           if Gmr.Symbols[*nti].rusttype.starts_with("Option<") {
+             if Gmr.Rules[*nri].rhs.len()==0 {
+               Gmr.Rules[*nri].action = " None }".to_owned();
+             } // change action for Option NT
+             else if Gmr.Rules[*nri].rhs.len()==1 {
+               Gmr.Rules[*nri].action = " Some(_item0_) }".to_owned();
+               let targetindex = Gmr.Rules[*nri].rhs[0].index;
+               let targettype = &Gmr.Symbols[targetindex].rusttype;
+               Gmr.Symbols[*nti].rusttype = format!("{} option",targettype);
+               if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
+                 Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
+                 ntcx+=1;
+               } // register type
+             } //rhs.len is 1
+           } //is of option type
+           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<") && Gmr.Rules[*nri].rhs.len()>=2 { // sets type first
+             let lasti = Gmr.Rules[*nri].rhs.len()-1;
+             let targetindex = Gmr.Rules[*nri].rhs[lasti].index;
+             let targettype = Gmr.Symbols[targetindex].rusttype.clone();
+             Gmr.Symbols[*nti].rusttype = format!("Vec<{}>",&targettype);
+             if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
+               Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
+               ntcx+=1;
+             } // register type             
+             Gmr.Rules[*nri].action = format!(" (_item0_.Add(_item{}_); _item0_) }}",lasti);
+             newretypes.insert(*nti,targettype);
+           } // if for  + or *
+         }// for each rule of this NEWRENT
+       }// is NEWRENT
+     }// for each (nt,ntrules) in Rulesfor
+     // third pass sets actions for NEWRENT's
+     for (nti,targettype) in newretypes.iter() {
+       for nri in Gmr.Rulesfor.get(nti).unwrap() {
+         if Gmr.Rules[*nri].rhs.len()==0 {
+           Gmr.Rules[*nri].action = format!(" Vec<{}>() }}",targettype);
+         } // rhs len 0
+         else if Gmr.Rules[*nri].rhs.len()==1 && !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") {
+           Gmr.Rules[*nri].action = format!(" let _yyv = Vec<{}>() in (_yyv.Add(_item0_); _yyv) }}",targettype);
+         } // else action is correct: _item0_
+       } // for each rule for nti
+     }//third pass
+     Gmr.ntcxmax = ntcx;
+  }// transforms grammar NEWRENT's to have F# types and actions
+
+
+///////////////// main writeparser function
+
+  pub fn writefsparser(&mut self, filename:&str)->Result<(),std::io::Error>
+  {
+
+    self.re_transform(); // change type and actions for NEWRENTs
+
     let mut absyn = self.Gmr.Absyntype.as_str();
     let mut extype = self.Gmr.Externtype.as_str();
     if absyn=="()" {absyn=UNITTYPE;}
@@ -174,7 +261,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
       let fnname = format!("_rrsemaction_{}_",ri);
       let mut typei = self.Gmr.Symbols[*lhsi].rusttype.as_str();
       if typei=="()" {typei=UNITTYPE;}
-      let enumindex = self.Gmr.enumhash.get(&self.Gmr.Symbols[*lhsi].rusttype).expect("FATAL ERROR: TYPE {typei} NOT USED IN GRAMMAR");
+      let enumindex = self.Gmr.enumhash.get(&self.Gmr.Symbols[*lhsi].rusttype).expect(&format!("FATAL ERROR: TYPE {} NOT USED IN GRAMMAR",typei));
       write!(fd," FLTypeDUnion.Enumvariant_{}({}(parser{})));\n",enumindex,&fnname,aargs)?;
       write!(fd,"  parser1.Rules.[{}] <- rule;\n",ri)?;
     }// write each rule action
@@ -325,14 +412,14 @@ private static int line_char = 0;
 ALPHA=[A-Za-z]
 DIGIT=[0-9]
 DIGITS=[0-9]+
-FLOATS = [0-9]*\.[0-9]+  
+FLOATS = [0-9]*\.[0-9]+([eE]([+-]?){DIGITS})?
 HEXDIGITS=(0x)[0-9A-Fa-f]*
 NEWLINE=((\r\n)|\n)
 NONNEWLINE_WHITE_SPACE_CHAR=[\ \t\b\012]
 WHITE_SPACE_CHAR=[{NEWLINE}\ \t\b\012]
 STRING_TEXT=(\\\"|[^{NEWLINE}\"]|{WHITE_SPACE_CHAR}+)*
 COMMENT_TEXT=([^*/\r\n]|[^*\r\n]"/"[^*\r\n]|[^/\r\n]"*"[^/\r\n]|"*"[^/\r\n]|"/"[^*\r\n])*
-ALPHANUM=[A-Za-z][A-Za-z0-9_]*
+ALPHANUM=[A-Za-z_][A-Za-z0-9_]*
 "#)?;
 
   write!(fd,"{}",r#"%% 
