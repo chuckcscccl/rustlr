@@ -19,13 +19,20 @@ to be written that's closer to EBNF syntax.
 
 <p>
 
-**Versions 0.3.4 and 0.3.5** introduces the experimental -lrsd option for
-LR parsing with *selective delays*.  AST generation abilities improved.
-See the appendix and chapter 4 of the tutorial, respectively.
+**Version 0.3.6** adds the ability to generate a rudimentary parser for the
+F\# language (Microsoft's version of ocaml).  The system is called "Fussless"
+and the F\# end of the code is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
 
 ### Major Features and the Versions that Introduced Them
 
-#### Version 0.3.0: Experimental feature: markers that allow delayed-reduction
+
+#### Version 0.3.5:
+
+The -lrsd option for *selective Marcus-Leermakers* grammars added as an experimental feature.  See the [Appendix](https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html) of the tutorial.
+
+#### Version 0.3.0:
+
+Experimental feature: markers that allow delayed-reduction
 grammar transformations.  Improved ability to generate reasonable abstract
 syntax.
 
