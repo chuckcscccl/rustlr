@@ -51,6 +51,7 @@ impl MLState
         lrkernel : ITEMSETTYPE::new(),
      }
   }
+
   pub fn insert(&mut self, item:LRitem, lhs:usize) -> bool
   {
      let inserted = self.items.insert(item);
@@ -175,6 +176,12 @@ impl MLState
               //assert!(!Gmr.Rules[*ri].rhs[*pi].terminal);
               
               // (extension) step
+              /*
+              // make sure set of la's are exactly the same (according to alg)
+              let lascitem = collect_la(&self.conflicts,*cri,*cpi);
+              if lascitem != clas {continue;} // onto next item
+              */
+
               let nti = Gmr.Rules[*ri].rhs[*pi].index;
               //let defaultcomb = vec![nti];
               //let comb = combing.get(&nti).unwrap_or(&defaultcomb);
@@ -704,6 +711,7 @@ if self.preagenda.len()==3 {
            for citem@LRitem{ri,pi,la} in self.States[statei].conflicts.iter() {
              if *pi==0 || *symi!=self.Gmr.Rules[*ri].rhs[pi-1].index  || self.States[statei].deprecated.contains(citem)  {continue;}
              topropagate.insert(LRitem {ri:*ri, pi:pi-1, la:*la});
+propagated=true;             
              if pi-1>0 { priority=true; }
            }//for each conflict item that must be propagated.
            for bc in topropagate {
@@ -1567,3 +1575,16 @@ fn reportfailure(rilhs:&usize, Gmr:&Grammar,combing:&COMBINGTYPE)
    }
    println!("]]");
 }//reportfailure
+
+
+  // look for all lookaheads of LRitems having ri,pi
+  fn collect_la(items:&ITEMSETTYPE,ri:usize, pi:usize) -> HashSet<usize>
+  {
+    let mut ax = HashSet::new();
+    for item in items.iter() {
+       if item.ri==ri && item.pi==pi {ax.insert(item.la);}
+    }
+    ax
+  }
+
+// hashsets impls Eq already.

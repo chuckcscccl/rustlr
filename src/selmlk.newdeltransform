@@ -178,9 +178,15 @@ impl MLState
               // (extension) step
 
               // make sure set of la's are exactly the same (according to alg)
-              let lascitem = collect_la(&self.conflicts,*cri,*cpi);
-              if lascitem != clas {continue;} // onto next item
-              
+              //let lascitem = collect_la(&self.conflicts,*cri,*cpi);
+              //if lascitem != clas {continue;} // onto next item
+              /*
+              let mut shouldcontinue = false;
+              for la in clas.iter() {
+                 if !lascitem.contains(la) {shouldcontinue=true; break;}
+              }
+              if shouldcontinue {continue;}
+              */
 
               let nti = Gmr.Rules[*ri].rhs[*pi].index;
               //let defaultcomb = vec![nti];
@@ -711,7 +717,11 @@ if self.preagenda.len()==3 {
            for citem@LRitem{ri,pi,la} in self.States[statei].conflicts.iter() {
              if *pi==0 || *symi!=self.Gmr.Rules[*ri].rhs[pi-1].index  || self.States[statei].deprecated.contains(citem)  {continue;}
              topropagate.insert(LRitem {ri:*ri, pi:pi-1, la:*la});
-propagated=true;             
+
+// do it here would be consistent with alg. description. such states
+// are only for the purpose of back-propagating conflicts
+propagated=true;
+
              if pi-1>0 { priority=true; }
            }//for each conflict item that must be propagated.
            for bc in topropagate {
@@ -1114,7 +1124,7 @@ impl Grammar
 // check for return at end of last action.
 
 
-//           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+           //let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
            // change this to a _rrsemaction_ri call on the first args
            let mut aargs=String::from("parser");
            for k in 0..self.Rules[*ntri].rhs.len() { //original len
@@ -1256,8 +1266,6 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        }// NT1 is non-terminal
        // construct suffix delta to be added to each rule
        let mut delta = Vec::new();
-//println!("!!!!dbegin:{}, dend:{}, ri:{}",dbegin,dend,ri);
-//printrule(&self.Rules[*ri],*ri);
        for i in dbegin+1..*dend {
          delta.push(self.Rules[*ri].rhs[i].clone());
        }
@@ -1270,8 +1278,8 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        if let Some(nti) = self.Symhash.get(&newntname) {
           newnt = self.Symbols[*nti].clone();
        } else { // really new
-
-         if self.sametype || !self.genabsyn {newnt.rusttype = self.Absyntype.clone();}  else {
+        
+         if self.sametype || !self.genabsyn {newnt.rusttype = self.Absyntype.clone();}  else {  // only works with -auto
             let mut nttype = String::from("(");
             for i in *dbegin .. *dend {
              let rsymi = self.Rules[*ri].rhs[i].index;
@@ -1307,14 +1315,40 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
            // need to form a tuple.
            // internal variable symbol.
            let newvar = format!("_delvar_{}_{}_",&newnt.index,dbegin);
-// check for return at end of last action.
 
-           let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
+           //let mut actionri = format!(" let {} = {{ {}; ",&newvar,self.Rules[*ntri].action); // retrieves value from original action.
            // need to assign values to new items added to delta
            // they will be popped off of the stack by parser_writer as
            // item2, item1 item0...  because parser writer will write an action
            // for the extended rule. [Mc] --> abc
-           
+
+           // call action of original rule, then form tuple:
+           let mut aargs=String::from("parser");
+           for k in 0..self.Rules[*ntri].rhs.len() { //original len
+             let (ltype,label)=decode_label(&self.Rules[*ntri].rhs[k].label,k);
+             aargs.push(',');  aargs.push_str(&label);
+           }
+           let mut actionri= format!(" let {} = _rrsemaction_{}_({}); ",&newvar,ntri,aargs);
+
+           let newrulenum = self.Rules.len(); //will be index of new rule
+           let mut dtuple = format!("({},",&newvar);
+           let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
+           for sym in &delta {
+             let (_,mut slabel) = decode_label(&sym.label,labi);
+             if slabel.starts_with("_item") {
+               slabel = format!("_item_del{}_{}_{}_",&labi,newrulenum,ntri);
+               newrule.rhs[labi].label = slabel.clone();
+             }
+             dtuple.push_str(&format!("{},",slabel));
+             labi+=1;
+           }
+           actionri.push_str(&format!("{}) }}",&dtuple));  //rparen added here.
+           newrule.action = actionri;
+           //rulehash.insert(rhashv,self.Rules.len());
+           self.Rules.push(newrule);
+           rset.insert(self.Rules.len()-1);
+
+           /*
            let mut dtuple = format!("({},",&newvar);
            let mut labi = self.Rules[*ntri].rhs.len(); // original rule rhs len
            for sym in &delta {
@@ -1338,22 +1372,56 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
 
            self.Rules.push(newrule);
            rset.insert(self.Rules.len()-1);
+           */
+           
          }// for each rule for this NT1 to be delayed, add suffix
          self.Rulesfor.insert(newnt.index,rset);
        } // newnt is actually a new symbol, else it and its rules exist
-       // change original rule ri to refer to newnt
+
+       ////// do not change original rule, form a new rule.
+       ////// HOW TO AVOID DUPLICATE RULES?
+       let mut newrulei = Grule::from_lhs(&self.Rules[*ri].lhs); //copy
        let mut newrhs = Vec::with_capacity(self.Rules[*ri].rhs.len()-1);
        if *dbegin>0 {
          for i in 0..*dbegin {newrhs.push(self.Rules[*ri].rhs[i].clone());}
        }
        let mut clonenewnt = newnt.clone();
-       let ntlabel = format!("_delayeditem{}_",dbegin);
+       // this is a new grammar sym, can give it any label
+       let ntlabel = format!("_delayitem{}_{}_{}",dbegin,ri,ntcx); ntcx+=1;
        clonenewnt.label = ntlabel.clone();
-       newrhs.push(clonenewnt); // newnt added to rule!
+       newrhs.push(clonenewnt); // newnt added to rule!  [BX]
        for i in *dend .. self.Rules[*ri].rhs.len() {
          newrhs.push(self.Rules[*ri].rhs[i].clone());
        }
 
+       /////// change semantic action of original rule.
+       // move rule to end, replace with new rule
+       let dri = self.Rules.len(); // index of deprecated rule
+       self.Rules.push(self.Rules[*ri].clone());
+       
+       let mut newaction = String::from(" ");
+       // break up tuple, for arguments to original action
+       let mut aargs = String::from("parser");
+       for i in 0..*dbegin {
+          let (_,labeli) = decode_label(&self.Rules[dri].rhs[i].label,i);
+          aargs.push(',');  aargs.push_str(&labeli);       
+       }
+       for i in *dbegin..*dend {
+            aargs.push_str(&format!(",{}.{}",&ntlabel,i-dbegin));
+       }// break up tuple
+       // add rest of original arguments
+       for i in *dend .. self.Rules[*ri].rhs.len() {
+          let (_,labeli) = decode_label(&self.Rules[dri].rhs[i].label,i-(dend-dbegin-1));
+          aargs.push(',');  aargs.push_str(&labeli);
+       }
+       newaction.push_str(&format!("_rrsemaction_{}_({}) }}",dri,aargs));
+       newrulei.action = newaction;
+
+       // deprecate previous rule, register new one.
+       self.Rules[*ri] = newrulei;
+
+
+/*
        /////// change semantic action of original rule.
        let mut newaction = String::from(" ");
        // break up tuple
@@ -1383,7 +1451,7 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
          print!("TRANSFORMED RULE FOR DELAY: ");
          printrule(&self.Rules[*ri],*ri);
        }
-       
+*/     
      } // for each pair of delay marks assume dend>dbegin+1
     }//for each rule
     self.ntcxmax = ntcx;
