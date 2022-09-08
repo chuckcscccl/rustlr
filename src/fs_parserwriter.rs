@@ -458,7 +458,7 @@ ALPHANUM=[A-Za-z_][A-Za-z0-9_]*
   write!(fd,"\n<YYINITIAL> \"{}\".*\\n {{ line_char=yychar+yytext().Length; return null; }}\n",linecomment)?;
 // <YYINITIAL> "//".*\n { line_char=yychar+yytext().Length; return null; }
 
-  write!(fd,"{}\n",r#"<YYINITIAL,COMMENT> [(\r\n?|\n)] { return null; }
+  write!(fd,"{}\n",r#"<YYINITIAL,COMMENT> [(\r\n?|\n)] { line_char=yychar+yytext().Length; return null; }
 
 <YYINITIAL> "/*" { yybegin(COMMENT); comment_count = comment_count + 1; return null;
 }
