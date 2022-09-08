@@ -437,6 +437,7 @@ ALPHANUM=[A-Za-z_][A-Za-z0-9_]*
      write!(fd,"<YYINITIAL> \"{0}\" {{ return new RawToken(\"{0}\",yytext(),yyline,yychar-line_char,yychar); }}\n",&self.Gmr.Symbols[i].sym)?;
   }// for all terminals on in lexnames list
 
+  let mut linecomment = "//"; // if there is one
 /// write custom tokens: lexattribute custom ULong regex
   for attribute in &self.Gmr.Lexextras {
     let asplit:Vec<_> = attribute.split_whitespace().collect();
@@ -448,15 +449,19 @@ ALPHANUM=[A-Za-z_][A-Za-z0-9_]*
        }   // need trim
        write!(fd,"<YYINITIAL> {} {{ return new RawToken(\"{}\",yytext(),yyline,yychar-line_char,yychar); }}\n",re.trim(),tokenname)?;
     } // long enough
+    else if asplit.len()==2 && asplit[0]=="line_comment" {
+      linecomment = asplit[1].trim();
+    }
   }//for possible custom token
   ///////////////// customs
 
+  write!(fd,"\n<YYINITIAL> \"{}\".*\\n {{ line_char=yychar+yytext().Length; return null; }}\n",linecomment)?;
+// <YYINITIAL> "//".*\n { line_char=yychar+yytext().Length; return null; }
 
-  write!(fd,"\n{}\n",r#"<YYINITIAL,COMMENT> [(\r\n?|\n)] { return null; }
+  write!(fd,"{}\n",r#"<YYINITIAL,COMMENT> [(\r\n?|\n)] { return null; }
 
 <YYINITIAL> "/*" { yybegin(COMMENT); comment_count = comment_count + 1; return null;
 }
-<YYINITIAL> "//".*\n { line_char=yychar+yytext().Length; return null; }
 <COMMENT> "/*" { comment_count = comment_count + 1; return null; }
 <COMMENT> "*/" { 
 	comment_count = comment_count - 1;
