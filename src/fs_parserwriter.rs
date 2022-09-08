@@ -316,7 +316,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
        if stype=="()" {stype=UNITTYPE;}
        write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>),\"{}\")\n",&sym.sym,eindex,stype,&sym.sym)?;
      }//terminals not in lexvals
-     write!(fd,"        | _ -> (FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>),\"LexError\")\n",abindex,absyn)?;
+     write!(fd,"        | x -> (FLTypeDUnion.Enumvariant_{}(Unchecked.defaultof<{}>),\"Error:\"+x)\n",abindex,absyn)?;
      write!(fd,"    Some({{TerminalToken.sym=utype; svalue=uval; line=lt.line; column=lt.column;}});;\n")?;
      
 
@@ -436,6 +436,21 @@ ALPHANUM=[A-Za-z_][A-Za-z0-9_]*
      if i==self.Gmr.eoftermi || !self.Gmr.Symbols[i].terminal || self.Gmr.Haslexval.contains(&self.Gmr.Symbols[i].sym) {continue;}
      write!(fd,"<YYINITIAL> \"{0}\" {{ return new RawToken(\"{0}\",yytext(),yyline,yychar-line_char,yychar); }}\n",&self.Gmr.Symbols[i].sym)?;
   }// for all terminals on in lexnames list
+
+/// write custom tokens: lexattribute custom ULong regex
+  for attribute in &self.Gmr.Lexextras {
+    let asplit:Vec<_> = attribute.split_whitespace().collect();
+    if asplit.len()>=3 && asplit[0]=="custom" {
+       let tokenname = asplit[1];
+       let mut re = String::new();
+       for i in 2..asplit.len() {
+         re.push_str(asplit[i]); re.push(' ');
+       }   // need trim
+       write!(fd,"<YYINITIAL> {} {{ return new RawToken(\"{}\",yytext(),yyline,yychar-line_char,yychar); }}\n",re.trim(),tokenname)?;
+    } // long enough
+  }//for possible custom token
+  ///////////////// customs
+
 
   write!(fd,"\n{}\n",r#"<YYINITIAL,COMMENT> [(\r\n?|\n)] { return null; }
 
