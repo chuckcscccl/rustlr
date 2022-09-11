@@ -149,7 +149,7 @@ impl Statemachine
         //match labelkind only implemented for type 0
         fndef.push_str(&fargk);
       }// for each symbol on rhs
-      fndef.push_str(") =\n ");
+      fndef.push_str(") = ");
 
       // ALL SEMANTIC ACTIONS WILL RETURN OPTION TYPES? NO.
       let defaultaction = format!("  Unchecked.defaultof<{}>",rettype);

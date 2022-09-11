@@ -1,8 +1,8 @@
 ## Special Chapter: Generating Parsers for F\# using Rustlr and Fussless
 
-Rustlr can also generate parsers for F\#.  With .Net
-interoperability, this implies that other .Net languages (C\#) can
-also use the generated parsers with a little adaptation.  The .Net side
+Rustlr can also generate parsers for F\#.  With .Net interoperability,
+other languages (C\#) can also use the generated parsers with a little
+adaptation, though some knowledge of F\# is required.  The .Net side
 of this aspect of Rustlr is a system called **[Fussless][fussless]**.
 This repository contains the runtime parser written in F\#.  The lexical
 analysis aspect of Fussless uses [CsLex][cslex], which is written in C\#.
@@ -138,7 +138,7 @@ including "Float", "Alphanum" and "StrLit", which will be discussed in
 a later section.
 
 In contrast, terminals such as +, * ( and ) do not carry significant values:
-they will always be assigned Unchecked.defaultof<valuetype> just as a filler.
+they will always be assigned Unchecked.defaultof\<valuetype\> just as a filler.
 These terminals can be defined in one of two ways.
 
   1. if the name of the terminal is the same as the text of the terminal,
@@ -154,7 +154,7 @@ These terminals can be defined in one of two ways.
 Nonterminal symbols that are to have the same type as the declared valuetype
 of the grammar can be defined on one `nonterminals` line.  You should use only
 alphanumeric names for non-terminals (Rustlr is also not guaranteed to work
-with non-ascii characters).  In this example all nonterminals have int, so
+with non-ascii characters).  In this example all nonterminals have type int, so
 one such line suffices.  Otherwise declare differently typed non-terminals
 using lines such as `nonterminal S string`.
 
@@ -366,6 +366,142 @@ used to change the symbol for single-line comments, such as
 lexattribute line_comment #
 ```
 The symbol selected should be non-alphanumeric.  `lexattribute line_comment disable` will disable the recognition of single-line comments.
+
+
+#### Operator precedence and associativity declarations.
+
+Rustlr allows **left**, **right** and **nonassoc** declarations for terminal
+symbols.  Each such declaration must specify a positive integer defining the
+precedence levels.  These declarations are used to break shift-reduce conflicts
+and allows the writing of some ambiguous grammars (`E --> E+E`) instead of 
+(`E --> E+T`).   The default precedence is zero, which means no precedence has
+been defined.  However, these kinds of declarations should not be overused.
+
+#### Using Regular Expression-Like Operators +, \*, ?, etc
+
+Rustlr allows grammar rules to be written in the following way:
+```
+E --> A* B+ C? D<,+> E<;*>
+```
+These regular-expression like operators serve to translate the grammar into the
+following:
+```
+E --> As Bp Cq Dp Es
+As -->  | As A
+Bp --> B | Bp B
+Cq -->  | C
+Dp --> D | Dp , D
+Es -->  | Ep
+Ep --> E | Ep ; E
+```
+Furthermore, the semantic values associated with A*, B+ D<,+> and E<;*>
+are always of type Vec<\_> (ResizeArray<\_>) and type for C? is
+option<\_>, where _ represents the types of the respective
+non-terminals.  The \*, + and ? operators have the same meaning as in 
+regular expressions.  In <sym+> and <sym\*>, sym must be a terminal symbol.
+These operations represent sequences separated by the terminal, but not
+ending in the terminal.  For example:
+```
+function_call --> functional_name ( expression<,*> )
+```
+defines function calls with zero or more comma-separated arguments.
+
+These operators are available as a convenience, but they come at a price.
+The introduction of new production rules to a grammar increases the chance
+of non-determinism even if the grammar remains unambiguous.  Rustlr does not
+allow the regex-like operators to be *nested*, not as a limitation but as
+a precaution.
+
+...
+
+
+#### A More Advanced Example
+
+We consolidate the features of Fussless with a more advanced version of an
+online calculator.  In addition to several new terminal token types, this 
+grammar approaches the sophistication of a programming language with let-expression, as in `let x=1 in x+(let x=3 in x+x)+x` (which should evaluate to 8).  
+Checking for the proper scoping of variables, however, is typically not done
+at the parsing stage.  It also allows several expressions to be separated
+by semicolons.
+
+This time, the parser will build abstract syntax trees, and we've injected
+the AST discriminated union type directly into the parser, though usually
+this is done separately in another module.  Discriminated unions and
+pattern matching definitely give F\# and similar languages an advantage over
+conventional languages when processing ASTs.  Even Rust cannot compete as
+recursive types require smart pointers (Box) that prevent deep pattern matching.
+
+```
+!type expr = Val of int | Var of string | Float of float | Plus of expr*expr | Times of expr*expr | Minus of expr*expr | Divide of expr*expr | Negative of expr | Letexp of string*expr*expr | Equals of (expr*expr) | Uint of uint64;;
+!
+!let conv64 (x:string) :uint64 = System.UInt64.Parse(x.Substring(0,x.Length-2))
+
+valuetype Vec<expr>
+# Vec is defined in the Fussless namespace as an alias for ResizeArray
+
+nonterminal E expr
+nonterminal ES
+terminals + - * / ( ) == = ;
+terminals let in
+valueterminal Val ~ int ~ Num ~ int
+valueterminal Var ~ string ~ Alphanum ~ (fun x -> x)
+valueterminal Float ~ float ~ Float ~ float
+lexattribute custom U64 [0-9]+UL
+valueterminal Ulong ~ uint64 ~ U64 ~ conv64
+
+lexattribute line_comment #
+
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+nonassoc = 200
+right == 300
+
+E --> Val:m { Val(m) }
+E --> Var:s { Var(s) }
+E --> Float:f { Float(f) }
+E --> Ulong:u { Uint(u) }
+E --> let Var:x = E:e in E:b {Letexp(x,e,b)}
+E --> E:e1 + E:e2 { Plus(e1,e2) }
+E --> E:e1 - E:e2 { Minus(e1,e2) }
+E --> E:e1 * E:e2 { Times(e1,e2) }
+E ==> E:e1 / E:e2 {
+  if e2=Val(0) then
+     let (ln,cl) = parser.position(2)
+     printfn "Warning:obvious divsion by 0, line %d column %d" ln cl
+  Divide(e1,e2)
+  } <==
+
+E --> E:e1 == E:e2 { Equals(e1,e2) }
+E(600) --> - E:e { Negative(e) }
+E --> ( E:e )  { e }
+ES --> E<;+>:v ;? { v }
+
+EOF
+```
+Note that the - (minus) symbol serves as both a unary and a binary operator.
+As a unary operator, it should have precedence over \*.
+This means that using operator precedence/associativity declarations for
+the symbol is not enough.  "-3*5" should be parsed as (-3)\*5 and not as
+-(3\*5): never mind that they both evaluate to 15: the point is that the
+parse trees are different.  Thus, a precedence level can also be assigned
+to a *rule*, which is done for the rule for unary minus.  Without a 
+particular precedence assignment, a rule is assigned the precedence of the
+highest precedence symbol it finds on the right-hand side.
+
+
+#### Using C\#
+
+F\# has no difficulty importing any library compiled from C\#.  However, 
+depending on the development platform, you may face some difficulty importing
+a .dll compiled with F\# into a C\# project.  In particular, the "main" of
+the project that invokes the parser may have to be written in F\#, 
+although it can then call C\# for further processing.  The abstract syntax
+structures can definately be defined in C\#.
 
 
 -----------
