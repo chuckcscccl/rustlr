@@ -113,7 +113,7 @@ before writing any grammar rules.  Terminal symbols can be divided
 into two categories: those that carry important values, and those that
 do not.  In this example, the only terminal symbol with imporant values
 is *number*, which carries values of type *int*.  Such terminals should be
-declared using a **valueterminal* line, which has the following format
+declared using a **valueterminal** line, which has the following format
 
 >      valueterminal terminal_name ~ terminal_type ~ token_name ~ fun:string->terminal_type
 
@@ -124,8 +124,9 @@ to be generated that recognizes these terminals.  Fussless
 automatically creates a .lex file that returns lexical tokens of type
 *RawToken* (defined in absLexer.cs).  Each RawToken carries a string
 (token_name) that defines the type of the token and a string (token_text)
-that defines the text of the token.  The lexer recognizes (unsigned) integers
-as type "Num".  Thus the third argument to *valueterminal* is the lexer token
+that defines the text of the token.  The lexer pre-defines a category for
+(unsigned) integers as token_type "Num".  Thus the third argument to
+*valueterminal* is the lexer token
 type (not to be confused with the terminal_name, which is what the grammar
 will refer to).  The last component of a valueterminal declaration is a
 *function* of type *string -> terminal_type*.  The *int* function in F\#
@@ -148,7 +149,7 @@ These terminals can be defined in one of two ways.
   are reserved for other uses in Rustlr, including { } | : and a few others.
   The parentheses are also best not used to name terminals by themselfs.
   Thus `lexterminal LPAREN (` means that we will refer to the terminal as
-  LPAREN in the grammer and the lexical analyzer will recognize "(" as
+  LPAREN in the grammar and the lexical analyzer will recognize "(" as
   this type of token.
 
 Nonterminal symbols that are to have the same type as the declared valuetype
@@ -189,16 +190,16 @@ non-terminal on the left side of `-->` "nullable".
 ####  SEMANTIC ACTIONS
 
 Values for non-terminal symbols are returned by functions commonly referred
-to as *semantic actions*.
+to as *semantic actions*. 
 Each rule can optionally end with a semantic action inside \{ and \},
 which can only follow all grammar symbols making up the right-hand
 side of the production rule.  This is a piece of F\# code that will form
-the body of the semantic action function  This code will have
+the body of the semantic action function.  This code will have
 access to any labels associated with the symbols defined using ":".
 In a label such as `E:e`, e is a mutable variable intialized to the value
 associated with E.  
 
-**The semantic action of each rule must return a value of the type associated
+The semantic action of each rule must return a value of the type associated
 with the left-hand side symbol of that rule.  Generally speaking,
 the semantic action of a rule `A --> B:b C:c D:d` is a function that
 `f` that takes as arguments value of the types for `B`, `C` and `D`
@@ -292,7 +293,8 @@ lexer.  Under mono this is done with
 
 >       fsharpc test1main.fs -r test1parser.dll -r test1_lex.dll
 
-which produces an executable.
+which produces an executable.  Alternatively, there is a [Makefile](https://github.com/chuckcscccl/Fussless/blob/main/Makefile) included inside the Fussless
+repository.  Consult the [Fussless Readme](https://github.com/chuckcscccl/Fussless/blob/main/README.md) for instructions.
 
 The `parse_with` function must be passed instances of a parser and a lexer.
 It returns an **option type** value of type **valuetype option**.

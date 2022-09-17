@@ -91,7 +91,16 @@ impl Statemachine
              } // register type             
              Gmr.Rules[*nri].action = format!(" (_item0_.Add(_item{}_); _item0_) }}",lasti);
              newretypes.insert(*nti,targettype);
-           } // if for  + or *
+           } // if for +, *?
+           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<@") {
+             let pos1 = Gmr.Symbols[*nti].rusttype.find("Vec<LBox<@").unwrap();
+             let pos2 = Gmr.Symbols[*nti].rusttype[pos1+10..].find('>').unwrap();
+             let rtargettype = &Gmr.Symbols[*nti].rusttype[pos1+10..pos1+10+pos2];
+             let targeti = *Gmr.Symhash.get(rtargettype).expect(&format!("Cannot find {} in grammar",rtargettype));
+             let targettype = Gmr.Symbols[targeti].rusttype.clone();
+             Gmr.Symbols[*nti].rusttype = format!("Vec<{}>",&targettype);
+             newretypes.insert(*nti,targettype);
+           } // for *
          }// for each rule of this NEWRENT
        }// is NEWRENT
      }// for each (nt,ntrules) in Rulesfor

@@ -10,6 +10,7 @@
 //!  reductions.*
 //!  4. The ability to train the parser interactively for better error reporting
 //!  5. External state access allows parsers go to beyond CFGs
+//!  6. Also generates parsers for F# and other .Net languages
 //!
 //! A [**tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)
 //! is separately available that will explain the
@@ -76,7 +77,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.3.7";
+pub const VERSION:&'static str = "0.3.8";
 
 ////// main function, called from main with command-line args
 

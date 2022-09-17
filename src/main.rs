@@ -120,7 +120,11 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
   grammar1.mode = mode; // 0 for rust, 1 for fsharp
-  grammar1.parse_grammar(filepath);  //  ***
+  let parsedok = grammar1.parse_grammar(filepath);  //  ***
+  if !parsedok {
+    println!("\nFailed to process grammar");
+    return;
+  }
   // Check grammar integrity: now done inside parse
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
 //  let toptype = &grammar1.Symbols[topi].rusttype;
@@ -208,7 +212,7 @@ fn rustle(args:&Vec<String>) // called from main
     }; // write_result =
   if tracelev>0 && !lrsd {eprintln!("{} total states",fsm0.FSM.len());}
   if let Ok(_) = write_result {
-     if tracelev>0 {println!("written parser to {}",&parserfile);}
+     if tracelev>0 {println!("Parser saved in {}",&parserfile);}
   }
   else if let Err(err) = write_result {
      println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    

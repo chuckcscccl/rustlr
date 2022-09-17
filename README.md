@@ -6,7 +6,7 @@
 Among the features that Rustlr supports are:
 
 1. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
-to be generated.
+to be generated, so that the ASTs are not always dependent on the structure of the grammar.
 2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
 3. An experimental feature that allows the use of *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR and helps to allow new productions to be added to a grammar without
@@ -19,8 +19,8 @@ to be written that's closer to EBNF syntax.
 
 <p>
 
-**Version 0.3.6** adds the ability to generate a rudimentary parser for the
-F\# language (Microsoft's version of ocaml).  The system is called "Fussless"
+**Version 0.3.8** adds the ability to generate a rudimentary parser for the
+F\# language (Microsoft's version of Ocaml).  The system is called "Fussless"
 and the F\# end of the code is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
 
 ### Major Features and the Versions that Introduced Them
