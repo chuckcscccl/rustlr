@@ -28,7 +28,6 @@ const UNITTYPE:&'static str = "unit";  // "unit"
 ////////////////////////////////////////////////
 impl Statemachine
 {
-
   fn re_transform(&mut self)
   {
      let Gmr = &mut self.Gmr;
@@ -146,16 +145,18 @@ impl Statemachine
 
 // first arg to semaction is parser itself. - this is a must.
       let mut fndef = format!("let _rrsemaction_{}_(parser:RTParser<FLTypeDUnion,{}>",ri,extype);
-      // now for other arguments
+      // now for other formal arguments
       // inside actions, can still bind labels to patterns
       for k in 0..self.Gmr.Rules[ri].rhs.len() {
         let symk= &self.Gmr.Rules[ri].rhs[k]; 
         let mut symktype = self.Gmr.Symbols[symk.index].rusttype.as_str();
         if symktype=="()" {symktype=UNITTYPE;}
         let(labelkind,label) = decode_label(&symk.label,k);
-        if labelkind!=0 {panic!("ONLY SIMPLE LABELS ARE SUPPORTED IN F# GRAMMARS");}
-        let mut fargk = format!(", {}:{}",&label,symktype);
-        //match labelkind only implemented for type 0
+        if labelkind>1 {panic!("PATTERN LABELS ARE NOT SUPPORTED IN F# GRAMMARS\n");}
+        let mut fargk = if labelkind==0 {
+            format!(", {}:{}",&label,symktype) // type 0 labels
+          } else { format!(", {}:LBox<{}>",&label,symktype) }; // type 1 labels
+
         fndef.push_str(&fargk);
       }// for each symbol on rhs
       fndef.push_str(") = ");
@@ -251,7 +252,12 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
         let eindex = self.Gmr.enumhash.get(&self.Gmr.Symbols[gsym.index].rusttype).expect(&emsg);
         actualargs.push(format!("{}",&poppedlab));
-        let stat = format!("let {0} = (match parser.Pop().svalue with | FLTypeDUnion.Enumvariant_{1}(_rr_{1}) ->  _rr_{1} | _ -> Unchecked.defaultof<{2}>) in ",&poppedlab,&eindex,symtype); // only for simple labels
+        let stat;
+        if lbtype==0 {
+          stat = format!("let {0} = (match parser.Pop().svalue with | FLTypeDUnion.Enumvariant_{1}(_rr_{1}) ->  _rr_{1} | _ -> Unchecked.defaultof<{2}>) in ",&poppedlab,&eindex,symtype);  // only for simple labels
+        } else { // must decode value!
+          stat = format!("let {0}_sitem = parser.Pop() in let {0}_val = (match {0}_sitem.svalue with | FLTypeDUnion.Enumvariant_{1}(_rr_{1}) ->  _rr_{1} | _ -> Unchecked.defaultof<{2}>) in let {0} = lbox({0}_val,{0}_sitem.line,{0}_sitem.column) in ",&poppedlab,&eindex,symtype);  // only for simple labels          
+        }
         write!(fd,"{}",&stat)?;
         k-=1;
       } // while k>0
