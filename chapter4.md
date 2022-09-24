@@ -273,7 +273,7 @@ flatten Threebs
 ```
 This means that the AST for Threebs should be absorbed into other types if
 possible (multiple nonterminals can be so declared on the same line).
-This will still create a `struct A(a,Threebs,c)`, but it will create for A:
+This will still create a `struct Threebs(b,b,b)`, but it will create for A:
 **`struct A(a,b,b,b,c)`**.
 
 Both structs and enums can absorb 'flatten' types.  However, there
@@ -465,12 +465,16 @@ as the semantic values of such expressions.  Please avoid whitespaces in
 these expressions: `<Comma *>` is not recognized.
 
 Be warned that overusing `+`, `*` and `?`, especially in the same
-production rule, can easily lead to new ambiguities in the grammar, especially
-with `*` and `?`.  The new productions generated for these operators
-could lead to additional Shift-Reduce and even
-Reduce-Reduce conflicts.  For example, a production with right-hand side
-**`Expr<Comma*> Comma?`** will lead to a shift-reduce conflict. However,
-**`Expr<Comma+> Comma?`** will not.
+production rule, can easily lead to new ambiguities in the grammar,
+especially with `*` and `?`.  The new productions generated for these
+operators could lead to additional Shift-Reduce and even Reduce-Reduce
+conflicts.  For example, a production with right-hand side
+**`Expr<Comma*> Comma?`** will lead to a shift-reduce conflict as it
+is ambiguous. However, **`Expr<Comma+> Comma?`** is OK.  The
+operators also **cannot be nested,** for such combinations are almost
+certainly ambiguous.  For example, with **`(a?)+`**, even a single `a`
+will have an infinite number of derivations: as one `a?` or as three
+with two empty, etc.
 
 Generally speaking, context free grammars do not have the same
 properties as regular expressions.  Regex operators including

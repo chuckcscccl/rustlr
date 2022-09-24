@@ -1,27 +1,31 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
-**LR-Style Parser Generator with Advanced Options**
+**LR-Style Parser Generator**
 
 **A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
 
-Among the features that Rustlr supports are:
+Besides traditional LR and LALR parser generation, Rustlr supports the following
+options
 
-1. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
-to be generated, so that the ASTs are not always dependent on the structure of the grammar.
-2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
+1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR and helps to allow new productions to be added to a grammar without
+creating conflicts (see the [Appendix](https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html) of the tutorial).
+2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
+to be generated.  For example, in a grammar with `E --> E + T` a dependency
+between `T` and `E` can be declared so that only one AST type is generated for both.
+3. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
-3. An experimental feature that allows the use of *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR and helps to allow new productions to be added to a grammar without
-creating conflicts (see the Appendix of the tutorial).
-4. Operator precedence and associativity declarations further allow grammars
+4. Generates a lexical scanner automatically from the grammar.
+5. Operator precedence and associativity declarations further allow grammars
 to be written that's closer to EBNF syntax.
-5. The ability to train the parser, interactively or from script, for better error reporting.
-6. Semantic actions have access to mutable external state, which (with manually written actions) can recognize some non-context free languages.
-
+6. The ability to train the parser, interactively or from script, for better error reporting.
+7. Generates parsers for Rust and for F\#.  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
+language-analysis tools.  Parser generation for other such languages will
+gradually become available.
 
 <p>
 
 **Version 0.3.8** adds the ability to generate a rudimentary parser for the
 F\# language (Microsoft's version of Ocaml).  The system is called "Fussless"
-and the F\# end of the code is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
+and the F\# end is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
 
 ### Major Features and the Versions that Introduced Them
 

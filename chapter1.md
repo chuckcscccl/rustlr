@@ -110,8 +110,8 @@ form   `START -->  topsym EOF`
 
 You will get an error message if the grammar symbols are not defined before
 the grammar rules.  Each rule is indicated by a non-terminal symbol followed
-by `-->`, `::=` , or  `==>`.  The symbol `::=` is interpreted to be the same
-as `-->`.  `==>` is for rules that span multiple lines that you will find used
+by `-->`, or  `==>`.  The symbol `==>` is for rules that span multiple
+lines that you will find used
 in other grammars (later chapters).  You can specify multiple production
 rules with the same left-hand side nonterminal using |  which you will
 also find used in other grammars.

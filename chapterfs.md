@@ -1,13 +1,15 @@
 ## Special Chapter: Generating Parsers for F\# using Rustlr and Fussless
 
-Rustlr can also generate parsers for F\#.  With .Net interoperability,
+Rustlr can generate parsers for F\#.  With .Net interoperability,
 other languages (C\#) can also use the generated parsers with a little
 adaptation, though some knowledge of F\# is required.  The .Net side
 of this aspect of Rustlr is a system called **[Fussless][fussless]**.
 This repository contains the runtime parser written in F\#.  The lexical
 analysis aspect of Fussless uses [CsLex][cslex], which is written in C\#.
 Fussless can automatically generate a CsLex .lex file from the grammar.
-Download Fussless and compile absLexer.cs into a .dll, then, using that
+Download Fussless and follow instructions in the [Fussless README][fussless]
+to install the system.  If you're not using the latest Mono, you may have
+to re-compile absLexer.cs into a .dll, and then, using that
 .dll, compile RuntimeParser.fs to a .dll.
 
 At the time of this writing, there are certain limitations to the
@@ -95,7 +97,7 @@ A context free grammar is not very useful unless we associate *values*
 with grammar symbols.  Without these values all a parser can do is
 tell us if something parsed or not.  The first line in the grammar
 specification should define the default type of value carried by each
-grammar symbols.  Not all symbols need to have values of the same
+grammar symbol.  Not all symbols need to have values of the same
 type.  However, the "start symbol" or "topsym" of the grammar must
 have this type, and this is the type of value that's ultimately
 returned by the parser.
@@ -173,9 +175,8 @@ try to assign it a different type.
 
 You will get an error message if the grammar symbols are not defined
 before the grammar rules.  Each rule is indicated by a non-terminal
-symbol followed by `-->`, `::=` , or `==>`.  The symbol `::=` is
-interpreted to be the same as `-->`.  `==>` is for rules that span
-multiple lines: they must be terminaed with `<==`.  You can specify
+symbol followed by `-->`  or `==>`. The symbol `==>` is for rules that 
+span multiple lines: they must be terminated with `<==`.  You can specify
 multiple production rules with the same left-hand side nonterminal
 using | but Rustlr discourages their use.
 
@@ -254,6 +255,57 @@ should be called from semantic actions.  There are other functions that would
 corrupt the parser and should never be called.  In general, whatever code
 you write inside the braces are entirely your own responsibility.
 
+#### LBox
+
+  Not all errors are parsing errors.  After the AST is successfully
+built, other phases usually follow that perform semantic analysis such as
+type checking.  Errors detected in later stages must also be reported
+with line/column numbers indicating their origin.  The AST therefore must
+carry this information. Fussless defines a structure *LBox* that encapsulates
+a value along with line and column information:
+```
+type LBox<'AT> =
+  {
+    value: 'AT;
+    line : int;
+    column: int;
+  }
+let lbox<'AT> (v:'AT,ln:int,cn:int) = { LBox.value =v; line=ln; column=cn; }
+let (|Lbox|) (b:LBox<'AT>) = Lbox(b.value)
+```
+The structure comes with two other definitions: *lbox* is an ordinary
+constructor and *Lbox* is an *active pattern*.  The active pattern
+allows the lexical information to be hidden: exposing
+only the value within the box. ASTs can be defined using LBox as
+demonstrated below:
+```
+type expr = Val of LBox<int> | Plus of LBox<expr>*LBox<expr> | Times of LBox<expr>*LBox<expr> | Divide of LBox<expr>*LBox<expr> 
+```
+The active pattern form *Lbox* allows pattern matching on these
+structures without the intrusive line/column information, *except*
+when we actually need them
+```
+let rec eval = function
+  | Val(Lbox(x)) -> x
+  | Plus(Lbox(a),Lbox(b)) -> (eval a) + (eval b)
+  | Times(Lbox(a),Lbox(b)) -> (eval a) * (eval b)
+  | Divide(Lbox(a),(Lbox(b) as n)) ->
+    let bv = (eval b)
+    if bv=0 then
+       raise(Exception(sprintf "division by zero column %d\n" n.column))
+    (eval a) / bv
+```
+Fussless has built-in support for creating LBoxes.  In a grammar production,
+symbols on the right-hand side can be given "boxed labels".  For example:
+```
+E --> E:[e1] + T:[e2] { Plus(e1,e2) }
+```
+A boxed label such as `[e1]` instructs the parser to place the value
+associated with the grammar symbol inside an LBox and to bind the variable
+`e1` to it.
+
+The LBox is named for its counterpart in Rust parsers created by Rustlr,
+although it is not a "smart pointer".  
 
 
 #### **BUILDING AND INVOKING THE PARSER**
@@ -302,7 +354,7 @@ It returns an **option type** value of type **valuetype option**.
 
 #### Injection of Top Level Code
 
-A grammar can contain lines that begin with '!' will be injected verbatim into
+A line that begin with '!' will be injected verbatim into
 the generated parser.  Such lines will always be injected towards the beginning
 of the code regardless of where they appear in the grammar.  Typically, these
 lines will specify additional modules to open, such as
@@ -341,7 +393,7 @@ be done with the the function that you specify as the last argument to
 Besides the common types of tokens above, you can also define new token types
 and their associated regular expressions:
 
->      lexattribute ULong [0-9]+UL
+>      lexattribute custom ULong [0-9]+UL
 
 This defines a new token type that will be returned along with the text that
 matched the given regex.  Such user-defined custom categories **will override
@@ -377,7 +429,8 @@ symbols.  Each such declaration must specify a positive integer defining the
 precedence levels.  These declarations are used to break shift-reduce conflicts
 and allows the writing of some ambiguous grammars (`E --> E+E`) instead of 
 (`E --> E+T`).   The default precedence is zero, which means no precedence has
-been defined.  However, these kinds of declarations should not be overused.
+been defined.  However, these kinds of declarations should not be overused
+(see below).
 
 #### Using Regular Expression-Like Operators +, \*, ?, etc
 
@@ -411,20 +464,18 @@ defines function calls with zero or more comma-separated arguments.
 These operators are available as a convenience, but they come at a price.
 The introduction of new production rules to a grammar increases the chance
 of non-determinism even if the grammar remains unambiguous.  Rustlr does not
-allow the regex-like operators to be *nested*, not as a limitation but as
-a precaution.
-
-...
+allow the regex-like operators to be *nested*.
 
 
 #### A More Advanced Example
 
-We consolidate the features of Fussless with a more advanced version of an
-online calculator.  In addition to several new terminal token types, this 
-grammar approaches the sophistication of a programming language with let-expression, as in `let x=1 in x+(let x=3 in x+x)+x` (which should evaluate to 8).  
-Checking for the proper scoping of variables, however, is typically not done
-at the parsing stage.  It also allows several expressions to be separated
-by semicolons.
+We consolidate the features of Fussless with a more advanced version
+of an online calculator.  In addition to several new terminal token
+types, this grammar approaches the sophistication of a programming
+language with let-expression, as in `let x=1 in x+(let x=3 in x+x)+x`
+(which should evaluate to 8).  Checking for the proper scoping of
+variables, however, is typically not done at the parsing stage.
+The language also allows a sequence of expressions separated by semicolons.
 
 This time, the parser will build abstract syntax trees, and we've injected
 the AST discriminated union type directly into the parser, though usually
@@ -474,7 +525,7 @@ E --> E:e1 * E:e2 { Times(e1,e2) }
 E ==> E:e1 / E:e2 {
   if e2=Val(0) then
      let (ln,cl) = parser.position(2)
-     printfn "Warning:obvious divsion by 0, line %d column %d" ln cl
+     printfn "Warning:obvious division by 0, line %d column %d" ln cl
   Divide(e1,e2)
   } <==
 
@@ -489,11 +540,16 @@ Note that the - (minus) symbol serves as both a unary and a binary operator.
 As a unary operator, it should have precedence over \*.
 This means that using operator precedence/associativity declarations for
 the symbol is not enough.  "-3*5" should be parsed as (-3)\*5 and not as
--(3\*5): never mind that they both evaluate to 15: the point is that the
+-(3\*5): never mind that they both evaluate to -15: the point is that the
 parse trees are different.  Thus, a precedence level can also be assigned
 to a *rule*, which is done for the rule for unary minus.  Without a 
 particular precedence assignment, a rule is assigned the precedence of the
-highest precedence symbol it finds on the right-hand side.
+highest precedence symbol it finds on the right-hand side.  Precedence declarations are definitely a *hack*, almost as bad as some parser generators that
+claim to "work with any grammar".
+They should not be overly relied on.  One place where it
+is useful is in disambiguating the *dangling else* problem: assign "else"
+a higher precedence than "if".  This will force a *shift* when an "else" is
+encountered, which means that it will be associated with the nearest "if".
 
 
 #### Using C\#
@@ -503,7 +559,7 @@ depending on the development platform, you may face some difficulty importing
 a .dll compiled with F\# into a C\# project.  In particular, the "main" of
 the project that invokes the parser may have to be written in F\#, 
 although it can then call C\# for further processing.  The abstract syntax
-structures can definately be defined in C\#.
+structures can be defined in C\#.
 
 
 -----------
