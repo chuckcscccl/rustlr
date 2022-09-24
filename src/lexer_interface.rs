@@ -325,8 +325,10 @@ pub enum RawToken<'t>
   /// This token type is intended to be enabled with **`lexattribute add_custom`** directives,
   /// which correspond to the function [StrTokenizer::add_custom]
   Custom(&'static str, &'t str),
-  /// special token triggered by internal flag, returns skipped text
+  /// special token triggered by [StrTokenizer::skip_to], returns skipped text
   Skipto(&'t str),
+  /// special token triggered by [StrTokenizer::skip_match], returns matched text
+  Skipmatched(&'t str),
   /// tokenizer error
   LexError,
 }//RawToken
@@ -402,6 +404,7 @@ pub struct StrTokenizer<'t>
    pub line_positions:Vec<usize>, // starting position of each line
    skipbegin: &'static str,
    skipend: &'static str,
+   skipcount : i32,
    pub specialeof: &'static str,
 }
 impl<'t> StrTokenizer<'t>
@@ -438,9 +441,10 @@ impl<'t> StrTokenizer<'t>
     let line_positions = vec![0,0];
     let skipbegin = "";
     let skipend = "";
+    let skipcount = 0;
     let specialeof = "$_RREOF_$";
 //    let skipclosure = Box::new(||false);
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,specialeof}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,skipcount,specialeof}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -457,23 +461,35 @@ impl<'t> StrTokenizer<'t>
   pub fn add_triple(&mut self, s:&'t str)
   { if s.len()==3 {self.triples.insert(s);} }
 
-/*
-  pub fn skip_trigger<FC:Fn()->bool+ 'static>(&mut self, target:&'static str, closure:FC) 
-  {
-    self.skiptarget=target;
-    self.skipclosure = Box::new(closure);
-  }
-*/
+  /// Skips to last occurrence of target string, or to end of input.
+  /// Returns [RawToken::Skipto] token.
+  pub fn skip_to(&mut self, target:&'static str)
+  {self.skipend=target; self.skipbegin=""; }
 
-  /// sets the skiptarget, enables Skipto token, overrides other matches.
-  pub fn skip_set(&mut self, begin:&'static str, target:&'static str)
-  {self.skipend=target; self.skipbegin=begin; }
-
-  /// cancels recoginition of Skipto tokens
+  /// cancels recoginition of skip_to (called internally)
   pub fn skip_reset(&mut self) {
-    self.skipend="";  self.skipbegin="";
-//    self.skipclosure = Box::new(||false);
+    self.skipend="";  self.skipbegin="";  self.skipcount=0;
+    self.specialeof = "$_RREOF_$";    
   }
+
+  /// StrTokenizer can do a little more than recognize just regular
+  /// expressions.  It can detect matching brackets, and return
+  /// return the bracket-enclosed text as a [RawToken::Skipto] token.
+  /// An offset of 1 is commonly used, as this call is usually made
+  /// after an instance of the opening left-bracket is seen as lookahead.
+  /// The operation increases a counter, starting with the offset everytime
+  /// a left-bracket is seen and decreases it with every right-bracket, until
+  /// counter==0 or until the `delimit` string is reached.  If `delimit` is
+  /// is the empty string, then it may search until the end of input.
+  pub fn skip_match(&mut self,lbr:&'static str,rbr:&'static str,offset:i32,delimit:&'static str)
+  {
+    if lbr.len()==0 || rbr.len()==0 || lbr==rbr {eprintln!("LEXICAL SCANNER ERROR: ILLEGAL SKIP_MATCH BRACKETS"); return;}
+    self.skipbegin = lbr;
+    self.skipend = rbr;
+    self.skipcount = offset;
+    self.specialeof=delimit;
+  }//skip_match
+  
   
   /*
   /// add symbol of length greater than two. Symbols that are prefixes of
@@ -615,34 +631,42 @@ impl<'t> StrTokenizer<'t>
     else if i>pi {continue;}
     //if pi>=self.input.len() {return None;}
 
-    if self.skipbegin.len()!=0  && self.skipend.len()!=0 && self.input[pi..].starts_with(self.skipbegin) {
-      let endpos;
-       if self.skipend!=self.specialeof {
-        let findend= self.input[pi+self.skipbegin.len()..].rfind(self.skipend);
-        endpos = findend.unwrap_or(self.input.len());
-       } else {endpos=self.input.len();}
-       if endpos<self.input.len() {
-         self.position = pi+self.skipbegin.len()+endpos+self.skipend.len();
-//         let sti = pi+self.skipbegin.len();
-       } else {
-         self.position = self.input.len();
-         if self.skipend==self.specialeof {
-           return Some((Skipto(&self.input[pi+self.skipbegin.len()..]),line0,(1+pi)-lstart0));
-         } //else reset position and re-read
-         self.position = pi;
-         continue;
-       }// did not find target
-       // find newline chars
-       let mut ci = pi;
-       while let Some(nli) = self.input[ci..self.position].find('\n')
-       {
-          self.line+=1; ci += nli+1;  self.line_start=ci;
-          self.line_positions.push(ci);
-          // Newline token is never returned if inside skipped text
-       }
-       //self.skip_reset();
-       return Some((Skipto(&self.input[pi..self.position]),line0,(1+pi)-lstart0));
-    }//skiptarget
+    // replace with code to skip-match, use skipbegin/end as brackets
+    // with initial offset
+    
+    if self.skipbegin.len()!=0  && self.skipend.len()!=0 {
+      if self.skipcount==0 && !self.input.starts_with(self.skipbegin) {continue;}
+      let (llen,rlen) = (self.skipbegin.len(), self.skipend.len());
+      let mut counter = self.skipcount;  // local copy faster?
+      let mut stringmode = false;
+      let mut ci = pi;
+      loop {   // matching loop
+        if ci>=self.input.len() {break;}
+        else if !stringmode && self.specialeof.len()!=0 && self.input[ci..].starts_with(self.specialeof) { ci=self.input.len(); break; }
+        if self.input[ci..].starts_with(self.skipbegin) {
+          counter+=1; ci+=llen;
+        }
+        else if !stringmode && self.input[ci..].starts_with(self.skipend) {
+          counter-=1; ci +=rlen;
+          if counter==0 {break;}
+        }
+        else if &self.input[ci..ci+1]=="\n" {
+          self.line+=1; ci += 1;  self.line_start=ci;
+          self.line_positions.push(ci);          
+        }
+        else if &self.input[ci..ci+1]=="\"" {
+          ci +=1; stringmode=!stringmode;
+        }
+        else { ci += 1; }
+      }// loop until self.skipcount==0, or eof
+      self.skip_reset();
+      if ci>=self.input.len() { continue; } // try again
+      self.position = ci;
+//println!("RETURNING SKIPMATCHED: \"{}\"",&self.input[pi..ci]);
+      let poss = if pi+1>=lstart0 {pi+1-lstart0} else {0};
+      return Some((Skipmatched(&self.input[pi..ci]),line0,poss));
+    }//skipmatch
+    // keep:
     else if self.skipend.len()!=0 {  // skip til skipend
        let endpos;
        if self.skipend!=self.specialeof {

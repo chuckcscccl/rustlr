@@ -237,7 +237,7 @@ the rule for multiplication can be replaced with
 ```
 T ==> T:t * F:f {
   let tf = t*f
-  if f<>0 && ((tf%f) + tf/f <> t) then
+  if f<>0 && (tf/f <> t) then
     let (ln,cl) = parser.position(1)
     printfn "Warning: arithmetic overflow line %d, column %d" ln cl
   t*f
@@ -305,7 +305,7 @@ associated with the grammar symbol inside an LBox and to bind the variable
 `e1` to it.
 
 The LBox is named for its counterpart in Rust parsers created by Rustlr,
-although it is not a "smart pointer".  
+although it is not a "smart pointer".
 
 
 #### **BUILDING AND INVOKING THE PARSER**
@@ -464,7 +464,9 @@ defines function calls with zero or more comma-separated arguments.
 These operators are available as a convenience, but they come at a price.
 The introduction of new production rules to a grammar increases the chance
 of non-determinism even if the grammar remains unambiguous.  Rustlr does not
-allow the regex-like operators to be *nested*.
+allow the regex-like operators to be *nested*: such expressions easily become
+ambiguous.  Consider `(a?)+`:  a single `a` will have an infinite
+number of parse trees because any number of `a?` can be empty.
 
 
 #### A More Advanced Example
