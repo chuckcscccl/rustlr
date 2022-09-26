@@ -475,12 +475,14 @@ impl<'t> StrTokenizer<'t>
   /// StrTokenizer can do a little more than recognize just regular
   /// expressions.  It can detect matching brackets, and return
   /// return the bracket-enclosed text as a [RawToken::Skipto] token.
-  /// An offset of 1 is commonly used, as this call is usually made
+  /// An offset of 1 is recommended, as this call is usually made
   /// after an instance of the opening left-bracket is seen as lookahead.
   /// The operation increases a counter, starting with the offset everytime
   /// a left-bracket is seen and decreases it with every right-bracket, until
-  /// counter==0 or until the `delimit` string is reached.  If `delimit` is
-  /// is the empty string, then it may search until the end of input.
+  /// counter==0, at which point it returns the skipped text in a
+  /// [RawToken::Skipmatched] token. It will top searching when the `delimit`
+  /// string is reached.  If `delimit` is
+  /// the empty string, then it will search until the end of input.
   pub fn skip_match(&mut self,lbr:&'static str,rbr:&'static str,offset:i32,delimit:&'static str)
   {
     if lbr.len()==0 || rbr.len()==0 || lbr==rbr {eprintln!("LEXICAL SCANNER ERROR: ILLEGAL SKIP_MATCH BRACKETS"); return;}

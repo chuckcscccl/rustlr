@@ -12,12 +12,13 @@ $  pub lexterminals : HashSet<&'t str>,
 $  pub nonterminals : BTreeSet<&'t str>,
 $  pub topsym : &'t str,
 $  pub skip: bool,
+$  pub skip_match : bool,
 $}
 
 externtype symbol_table<'lt>
 
-#lexattribute skip_set("%%","EOF")
-lexconditional self.shared_state.borrow().skip ~ self.stk.skip_set("","$_RREOF_$");
+lexconditional shared_state.borrow().skip ~ skip_to("$_RREOF_$");
+
 lexattribute add_custom("literal",r"^'.'")
 lexattribute add_custom("%type",r"^%type")
 lexattribute add_custom("%token",r"^%token")
@@ -27,8 +28,16 @@ lexattribute add_custom("%nonassoc",r"^%nonassoc")
 lexattribute add_custom("%start",r"^%start")
 #lexattribute add_custom("decls",r"^(?m)^%\{(?s).*%\}$")
 lexattribute add_custom("decls",r"^(?m)^%\{(?s)[^%\}]*%\}")
-lexattribute add_custom("action",r"^\{[^\}]*\}")
-valueterminal ACTION ~ &'lt str ~ Custom("action",d) ~ d
+
+
+# the following only works if action does not contain nested {}'s
+#lexattribute add_custom("action",r"^\{[^\}]*\}")
+#valueterminal ACTION ~ &'lt str ~ Custom("action",d) ~ d
+
+lexconditional shared_state.borrow().skip_match ~ skip_match("{","}",1,"-->")
+valueterminal ACTION ~ &'lt str ~ Skipmatched(d) ~ d
+
+
 valueterminal ADDITIONALS ~ &'lt str~ Skipto(d) ~ d
 valueterminal RAWDECL ~ &'lt str ~ Custom("decls",d) ~ &d.trim()[2..d.len()-2]
 valueterminal ID ~ &'lt str ~ Alphanum(n) ~ n
@@ -43,8 +52,8 @@ valueterminal PERNONASSOC ~ () ~ Custom("%nonassoc",_) ~ ()
 valueterminal PERSTART ~ () ~ Custom("%start",_) ~ ()
 
 lexterminal PERPERCENT %%
-#lexterminal LBRACE {
-#lexterminal RBRACE }
+lexterminal LBRACE {
+lexterminal RBRACE }
 lexterminal LPAREN (
 lexterminal RPAREN )
 lexterminal LBRACK [
@@ -69,6 +78,7 @@ terminals union
 nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag idnum
 nonterminal primary
 nonterminal rhsunit
+nonterminals semaction semcontent semstart
 flatten tag
 resynch SEMICOLON BAR
 topsym Yacc
@@ -81,7 +91,6 @@ primary ==> RAWDECL?:raw_declarations
         <==
 Yacc --> (PERCENT ID DASH ID)? primary PERPERCENT? ADDITIONALS?
 
-#rawdecls --> RAWDECL
 yacc_decl:terminals --> PERTOKEN idnum+
 yacc_decl:lexterminal --> PERTOKEN ID LEXSTR
 
@@ -106,8 +115,14 @@ label:simple --> ID
 label:boxed --> LBRACK ID RBRACK
 label:parened --> LPAREN ID<COMMA+> COMMA? RPAREN
 
-rhsunit --> ACTION? rhs_symbol
-rhs --> rhsunit* ACTION?
+rhsunit --> semaction? rhs_symbol
+rhs --> rhsunit* semaction?
+
+semstart --> { parser.shared_state.borrow_mut().skip_match=true; ... }
+semaction --> semstart LBRACE ACTION:s {parser.shared_state.borrow_mut().skip_match=false; ... }
+
+#semcontent --> _ | RBRACE
+#semaction --> LBRACE semcontent* RBRACE
 
 # represents one set of rules separated by |:
 grammar_rules ==> ID:lhs COLON rhs<BAR+>:rhsides SEMICOLON {
