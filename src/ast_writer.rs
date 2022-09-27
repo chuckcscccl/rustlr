@@ -329,8 +329,8 @@ impl Grammar
         let mut ntsym = &self.Symbols[nti];
         let willextend = toextend.contains_key(nt);
         // default for new enum
-	let mut AST = format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype);
-        if willextend {AST=String::new();}
+	let mut AST = if willextend {String::new()}
+          else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
         let NT = &self.Symbols[nti].sym;
 	for ri in NTrules  // for each rule with NT on lhs
 	{
@@ -353,13 +353,25 @@ impl Grammar
 	  let mut ACTION = format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
           // enumvariant
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
-	  if self.Rules[*ri].rhs.len()>0 { //for enums
-	    enumvar.push('(');
-	    ACTION.push('(');
-	  }//enum
+
+          // determine if tuple variant or struct/named variant
+          let mut tuplevariant = true;
+          for rs in &self.Rules[*ri].rhs {
+            if rs.label.len()>0 && !rs.label.starts_with("_item") 
+              { tuplevariant = false; break; }
+          } //determine if tuplevariant
+
+	  if self.Rules[*ri].rhs.len()>0 { // rhs exists
+            if tuplevariant {
+	      enumvar.push('('); ACTION.push('(');
+            } else {
+              enumvar.push('{'); ACTION.push('{');
+            }  // struct variant
+	  }//rhsexists
 	  let mut rhsi = 0; // right-side index
           let mut viadjust = 0;
 	  let mut passthru:i32 = -1; // index of path-thru NT value
+          if tuplevariant {passthru = -2;} // forget about it
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
             let expectedlabel = format!("_item{}_",&rhsi);
@@ -371,9 +383,11 @@ impl Grammar
             // presence of rhs label also cancels passthru
               passthru=-2; checkboxlabel(&rsym.label).to_owned()
             } else {expectedlabel};
+            
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
             // Lbox or no Lbox:  ***************
             let rsymtype = &self.Symbols[rsym.index].rusttype;
+            
             let mut flattened = false;
             if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
@@ -386,17 +400,15 @@ impl Grammar
                    let newactionlab = if *simp {format!("{}.{}",itemlabel,fi)}
                        else {format!("{}.{}",itemlabel,flab)};
                    let newindex = rhsi+viadjust+fi;
-                   //enumvar.push_str("pub ");
-                   enumvar.push_str(ftype); enumvar.push(',');
-                   ACTION.push_str(&newactionlab); ACTION.push(',');
-                   /*
-                   let islbxtype = ftype.starts_with("LBox<");
-                   if !islbxtype{
+
+                   if tuplevariant {
+                     enumvar.push_str(ftype); enumvar.push(',');
                      ACTION.push_str(&newactionlab); ACTION.push(',');
-                   } else  {
-                     ACTION.push_str(&format!("parser.lbx({},{}),",newindex,&newactionlab));
-                   }
-                   */
+                   } else {
+                     enumvar.push_str(&format!("{}:{}, ",&newlab,ftype));
+                     ACTION.push_str(&format!("{}:{}, ",&newlab,&newactionlab));
+                   }//non-tuplevariant
+                   
                    fi+=1;
                  }//for each field in flatten source
                  //viadjust += flatfields.len() -1;
@@ -414,16 +426,30 @@ impl Grammar
                Some(rset) => rset.contains(&lhsi),
               };
             if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) /* && !self.basictypes.contains(&rsymtype[..]) */) {
-              enumvar.push_str(&format!("LBox<{}>,",rsymtype));
-              let semact = if alreadyislbx {format!("{}, ",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
+
+              let semact;
+              if tuplevariant {
+                enumvar.push_str(&format!("LBox<{}>,",rsymtype));
+                semact = if alreadyislbx {format!("{}, ",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
+              } else {
+                enumvar.push_str(&format!("{}:LBox<{}>,",itemlabel,rsymtype));
+                semact = if alreadyislbx {format!("{0}:{0}, ",&itemlabel)} else {format!("{}:parser.lbx({},{}),",&itemlabel,&rhsi, &itemlabel)};                
+              } // non-tuple variant
               ACTION.push_str(&semact);
+              
                if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
                else {passthru = -2;}
 	    } // with Lbox
 	    else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox
 //println!("looking at symbol {}, rusttype {}, label {}",&rsym.sym, &rsym.rusttype, &rsym.label);
-              enumvar.push_str(&format!("{},",rsymtype));
-              ACTION.push_str(&format!("{},",&itemlabel));
+              if tuplevariant {
+                enumvar.push_str(&format!("{},",rsymtype));
+                ACTION.push_str(&format!("{},",&itemlabel));
+              } else {
+                enumvar.push_str(&format!("{}:{},",&itemlabel,rsymtype));
+                ACTION.push_str(&format!("{0}:{0},",&itemlabel));              
+              }// non-tuple variant
+              
               if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
               else {passthru = -2;}
 	    }// could still be nonterminal but not unit type - no lbox
@@ -440,10 +466,12 @@ impl Grammar
 	  }// for each symbol on rhs of rule ri
           if enumvar.ends_with(',') {
 	      enumvar.pop(); 
-	      enumvar.push(')');
+	      if tuplevariant {enumvar.push(')');}
+              else {enumvar.push('}');}
 	      ACTION.pop();
-	      ACTION.push(')');
-	  } else if enumvar.ends_with('(') {
+	      if tuplevariant {ACTION.push(')');}
+              else {ACTION.push('}');}
+	  } else if enumvar.ends_with('(') || enumvar.ends_with('{') {
 	    enumvar.pop();
 	    ACTION.pop();
 	  }

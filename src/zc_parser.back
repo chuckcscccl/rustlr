@@ -514,13 +514,14 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
       ////// WRITE parse_with and parse_train_with
       let lexerlt = if has_lt {&ltopt} else {"<'t>"};
+      let traitlt = if has_lt {&self.Gmr.lifetime} else {"'t"};
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,&lexername,absyn,absyn)?;
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut dyn Tokenizer<{},{}>) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,traitlt,absyn,absyn,absyn)?;
       write!(fd,"  let _xres_ = parser.parse(lexer); ")?;
       write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_with public function\n")?;
       // training version
-      write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,&lexername,absyn,absyn)?;
+      write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<{},{}>, lexer:&mut dyn Tokenizer<{},{}>, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,traitlt,absyn,absyn,absyn)?;
       write!(fd,"  let _xres_ = parser.parse_train(lexer,parserpath); ")?;
       write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_train_with public function\n")?;
 
