@@ -371,7 +371,6 @@ impl Grammar
 	  let mut rhsi = 0; // right-side index
           let mut viadjust = 0;
 	  let mut passthru:i32 = -1; // index of path-thru NT value
-          if tuplevariant {passthru = -2;} // forget about it
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
             let expectedlabel = format!("_item{}_",&rhsi);
@@ -405,8 +404,8 @@ impl Grammar
                      enumvar.push_str(ftype); enumvar.push(',');
                      ACTION.push_str(&newactionlab); ACTION.push(',');
                    } else {
-                     enumvar.push_str(&format!("{}:{}, ",&newlab,ftype));
-                     ACTION.push_str(&format!("{}:{}, ",&newlab,&newactionlab));
+                     enumvar.push_str(&format!("{}:{},",&newlab,ftype));
+                     ACTION.push_str(&format!("{}:{},",&newlab,&newactionlab));
                    }//non-tuplevariant
                    
                    fi+=1;
@@ -430,10 +429,10 @@ impl Grammar
               let semact;
               if tuplevariant {
                 enumvar.push_str(&format!("LBox<{}>,",rsymtype));
-                semact = if alreadyislbx {format!("{}, ",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
+                semact = if alreadyislbx {format!("{},",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
               } else {
                 enumvar.push_str(&format!("{}:LBox<{}>,",itemlabel,rsymtype));
-                semact = if alreadyislbx {format!("{0}:{0}, ",&itemlabel)} else {format!("{}:parser.lbx({},{}),",&itemlabel,&rhsi, &itemlabel)};                
+                semact = if alreadyislbx {format!("{0}:{0},",&itemlabel)} else {format!("{}:parser.lbx({},{}),",&itemlabel,&rhsi, &itemlabel)};                
               } // non-tuple variant
               ACTION.push_str(&semact);
               

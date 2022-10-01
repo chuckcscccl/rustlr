@@ -82,21 +82,21 @@ pub fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
         for lbxnt in nts { rrgmr.push_str(**lbxnt); rrgmr.push(' ');}
         rrgmr.push('\n');  
       },
-      left(ids) => {
+      left{vs:ids} => {
         for idn in ids {  // in LBox
           let idnum(id,_) = **idn;
           prec_table.insert(id,precedence);
         }
         precedence += 10;
       },
-      right(ids) => {
+      right{vs:ids} => {
         for idn in ids {  // in LBox
           let idnum(id,_) = **idn;
           prec_table.insert(id,-1*precedence);
         }
         precedence += 10;
       },      
-      nonassoc(ids) => {
+      nonassoc{vs:ids} => {
         for id in ids {  // in LBox
           prec_table.insert((**id).0,nonassocbit-precedence);
         }
@@ -149,7 +149,7 @@ pub fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
               rrgmr.push_str(name);
               nlabel.as_deref().map(|lab|{rrgmr.push_str(&format!(":{}",&getlabel(lab)));});
             },
-            LEXCHAR(n) | LEXSTR(n) => {
+            LEXCHAR{t:n} | LEXSTR{t:n} => {
               let nname = lexhash.get(n).expect("UNEXPECTED ERROR: Grammar's Symbol Table Corrupted");
               rrgmr.push_str(nname);
             },

@@ -711,7 +711,12 @@ if self.preagenda.len()==3 {
            for citem@LRitem{ri,pi,la} in self.States[statei].conflicts.iter() {
              if *pi==0 || *symi!=self.Gmr.Rules[*ri].rhs[pi-1].index  || self.States[statei].deprecated.contains(citem)  {continue;}
              topropagate.insert(LRitem {ri:*ri, pi:pi-1, la:*la});
-propagated=true;             
+
+// should be here according to alg.  All such states are transitory and only
+// exists to propagate conflicts backwards.  But what if it also has a
+//meaningful conflict of its own?  conflicts can't be deprecated
+propagated=true;
+
              if pi-1>0 { priority=true; }
            }//for each conflict item that must be propagated.
            for bc in topropagate {

@@ -34,6 +34,7 @@ lexattribute add_custom("decls",r"^(?m)^%\{(?s)[^%\}]*%\}")
 #lexattribute add_custom("action",r"^\{[^\}]*\}")
 #valueterminal ACTION ~ &'lt str ~ Custom("action",d) ~ d
 
+# this works but may be inefficient
 lexconditional shared_state.borrow().skip_match ~ skip_match("{","}",1,"-->")
 valueterminal ACTION ~ &'lt str ~ Skipmatched(d) ~ d
 
@@ -78,7 +79,7 @@ terminals union
 nonterminals yacc_decl Yacc grammar_rules rhs_symbol rhs label tag idnum
 nonterminal primary
 nonterminal rhsunit
-nonterminals semaction semcontent semstart
+nonterminals semaction semcontent semstart unionset
 flatten tag
 resynch SEMICOLON BAR
 topsym Yacc
@@ -98,7 +99,8 @@ yacc_decl:topsym --> PERSTART ID:s { parser.shared_state.borrow_mut().topsym=s; 
 yacc_decl:left --> PERLEFT idnum+:vs
 yacc_decl:right --> PERRIGHT idnum+:vs
 yacc_decl:nonassoc --> PERNONASSOC idnum+:vs
-yacc_decl:uniondec --> PERCENT union ACTION
+yacc_decl:uniondec --> PERCENT unionset ACTION {parser.shared_state.borrow_mut().skip_match=false; ... }
+unionset --> union { parser.shared_state.borrow_mut().skip_match=true; ... } 
 yacc_decl:nonterminal --> PERTYPE tag ID+
 tag --> (LANGLE ID RANGLE)?
 idnum --> ID NUMBER?
@@ -118,11 +120,11 @@ label:parened --> LPAREN ID<COMMA+> COMMA? RPAREN
 rhsunit --> semaction? rhs_symbol
 rhs --> rhsunit* semaction?
 
-semstart --> { parser.shared_state.borrow_mut().skip_match=true; ... }
-semaction --> semstart LBRACE ACTION:s {parser.shared_state.borrow_mut().skip_match=false; ... }
+#semstart --> { parser.shared_state.borrow_mut().skip_match=true; ... }
+#semaction --> semstart LBRACE ACTION:s {parser.shared_state.borrow_mut().skip_match=false; ... }
 
-#semcontent --> _ | RBRACE
-#semaction --> LBRACE semcontent* RBRACE
+semcontent --> _ | RBRACE
+semaction --> LBRACE semcontent* RBRACE
 
 # represents one set of rules separated by |:
 grammar_rules ==> ID:lhs COLON rhs<BAR+>:rhsides SEMICOLON {

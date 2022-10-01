@@ -5,9 +5,9 @@
 //!   not necessarily reflect the format of the grammar.
 //!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
-//!  3. Experimental features include the ability to use a larger class of
-//!  grammars than traditional LR, in particular LR grammars with *delayed
-//!  reductions.*
+//!  3. An experimental feature that recognizes *Selective Marcus-Leermakers*
+//!  grammars.  This a larger class of unambiguous grammars that's 
+//!  larger than traditional LR grammars.
 //!  4. The ability to train the parser interactively for better error reporting
 //!  5. External state access allows parsers go to beyond CFGs
 //!  6. Also generates parsers for F# and other .Net languages
@@ -77,7 +77,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.3.9";
+pub const VERSION:&'static str = "0.3.91";
 
 ////// main function, called from main with command-line args
 
