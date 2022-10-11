@@ -15,8 +15,7 @@ to re-compile absLexer.cs into a .dll, and then, using that
 At the time of this writing, there are certain limitations to the
 Fussless system compared to the native Rust parser generator. There is
 no automatic creation of ASTs and the experimental -lrsd option is not
-available.  The F\# runtime parser has no significant error-recovery
-capability.  The interactive training feature is also not available.
+available.  The wildcard symbol cannot be used and the interactive training feature is also not available.
 These limitations will gradually be resolved with future releases.
 
 To create a parser, you will first need a .grammar file.  Rustlr/Fussless
@@ -432,6 +431,37 @@ and allows the writing of some ambiguous grammars (`E --> E+E`) instead of
 been defined.  However, these kinds of declarations should not be overused
 (see below).
 
+#### Error Recovery
+
+An LR parser is defined by a state action (transition) table and a stack of states.  The 
+top of the stack is the current state. A parsing error occurs when
+the current state has no entry defined for the next input.
+Currently, only one method of error recovery has been implemented for F\# parsers. 
+A declaration such as 
+
+ ```
+ resync SEMICOLON COMMA
+ ```
+
+designates one or more terminal symbols as *resynchronization points*.  When
+an error occurs, the parser will skip input tokens until it finds one of
+these points.  It then looks down its stack of states to find one that
+has an entry for the *next* input symbol after the resynch
+point, and continues parsing.  If no resync point is declared, the parser
+will just skip input until it finds one that has an entry defined with 
+respect to the current state.  A natural resync point is the semicolon
+that separates statements in many languages.  If an error occurs, the
+parser will skip past the semicolon and parse the next line.  
+
+There are more sophisticated error recovery techniques that could be
+implemented so this is currently a minimal feature.
+
+Up on the detection of any error, the **parser.err_occurred** flag will
+be set and it's up to the user to examine this flag before deciding what
+to do with the result.  
+
+
+
 #### Using Regular Expression-Like Operators +, \*, ?, etc
 
 Rustlr allows grammar rules to be written in the following way:
@@ -478,6 +508,7 @@ language with let-expression, as in `let x=1 in x+(let x=3 in x+x)+x`
 (which should evaluate to 8).  Checking for the proper scoping of
 variables, however, is typically not done at the parsing stage.
 The language also allows a sequence of expressions separated by semicolons.
+The semicolon (`;`) is also declared as the error-recovery resynch point.
 
 This time, the parser will build abstract syntax trees, and we've injected
 the AST discriminated union type directly into the parser, though usually

@@ -1,4 +1,4 @@
-## Chapter 4: Automatically Generating the AST and Using Regex in Grammars
+## Chapter 4: Automatically Generating the Abstract Syntax
 
 Rustlr is capable of automatically generating the data types
 (enums and structs) for the abstract syntax of a language as well as
@@ -13,11 +13,14 @@ it is still possible that careful fine tuning will be required.
 
 Automatically creating the AST from the grammar (or the grammar from
 the AST) is not a new idea and can cause problems if not done
-carefully.  For example, one usually wants the AST to stay relatively
-stable even when the grammar changes. Also, the grammar is usually
-written to the contraints of LR parsing, and may not reflect what one
-wants the AST to look like.  However, Rustlr essentially defines a
-language, embedded with the grammar syntax, for describing how ASTs
+carefully.  There is a gap between the *parse* tree and the
+*abstract syntax* tree that must be bridged. The grammar usually contains
+extraneous elements, in the form of non-terminal symbols such as
+'T', 'F' that enforce operator precedence, as well as terminal symbols
+such as ';' that should not be included in the AST.  In addition,
+the AST should stay relatively stable when minor modifications are made
+to the grammar.  Rustlr addresses these problems by essentially defining
+a language, embedded with the grammar syntax, for describing how ASTs
 should be generated.  The language will allow one to create ASTs that
 are relatively stable and independent of the format of the grammar.
 It is also possible to override the types and semantic actions of any
@@ -84,7 +87,7 @@ LetExpr --> Expr
 LetExpr:Let --> let var = Expr in LetExpr
 
 ExprList:nil -->
-ExprList:cons --> LetExpr ; ExprList
+ExprList:cons --> LetExpr:car ; ExprList:cdr
 
 EOF
 ```
@@ -106,7 +109,7 @@ same folder as the parser, a **[calcauto_ast.rs](https://cs.hofstra.edu/~cscccl/
 #[derive(Debug)]
 pub enum ExprList<'lt> {
   nil,
-  cons(Expr<'lt>,LBox<ExprList<'lt>>),
+  cons{car:Expr<'lt>,cdr:LBox<ExprList<'lt>>},
   ExprList_Nothing,
 }
 impl<'lt> Default for ExprList<'lt> { fn default()->Self { ExprList::ExprList_No
@@ -152,16 +155,29 @@ Leave out the `: Expr` portion from the declarations and we will get
 
 #### Rules of AST Generation
 
-An enum is created for each non-terminal symbol of the grammar that appears on the left-hand side of multiple production rules, unless the type of the non-terminal is declared to "extend" another type as explained above. The name of the enum is the
-same as the name of the non-terminal.
-The names of the variants are derived from the labels given to the left-hand side nonterminal, or are automatically generated from the nonterminal name and the rule number (e.g. `Expr_8`).  A special `Nothing` variant is also created to represent a default.
-There is normally an enum variant for each production rule of this non-terminal.  Each variant is composed of the right-hand side
-symbols of the rule that are associated with non-unit types.  Unit typed values
-can also become part of the enum if the symbol is given a label.  For example:
-  **` E:acase -->  a E `**  where terminal symbol `a` is of unit type, will result in a enum variant
-`acase(LBox<E>)`. whereas
-  **` E:acase -->  a:m E `**
-will result in a variant `acase((),LBox<E>)`
+An enum is created for each non-terminal symbol of the grammar that
+appears on the left-hand side of multiple production rules, unless the
+type of the non-terminal is declared to "extend" another type as
+explained above. The name of the enum is the same as the name of the
+non-terminal.  The names of the variants are derived from the labels
+given to the left-hand side nonterminal, or are automatically
+generated from the nonterminal name and the rule number (e.g. `Expr_8`).
+A special `Nothing` variant is also created to represent a default.
+There is normally an enum variant for each production rule of this
+non-terminal.  Each variant is composed of the right-hand side symbols
+of the rule that are associated with *non-unit* types.  If none of the
+right-hand side symbols are given labels, a tuple-variant is created.  The
+presence of any right-hand side label will result in a struct-like variant
+with named fields: the names will correspond to the labels, or are 
+generated automatically in the form `_item{i}_` where `i` refers to
+the position of the symbol on the right-hand side.
+Unit-typed values can also become part of the enum if the symbol is given a
+label.  For example: **` A:case1 --> a B `** where terminal symbol `a`
+is of unit type, will result in a enum variant
+`case1(B)`. whereas **` A:acase --> a:m B `** will result in a
+variant `case1{m:(), _item1_:B}`.  It is recommended that either
+labels are given to all right-hand side symbols that are to be included in
+the variant, or to none at all.
 
 A struct is created for any non-terminal symbol that appears on the
 left-hand side of exactly one production rule, unless the type of that
@@ -172,38 +188,36 @@ will name the sole variant of the enum (besides the `_Nothing` default).
 This would be required when you know that the type will be extended with
 other variants, as demonstrated above.
 
+The struct may be empty if all right-hand-side symbols of the single production
+rule are associated with the unit type and do not have labels. Rustlr will
+generate code to derive the Debug and Default traits for all structs (this
+works fine for recursive structs).
+
 The name of the struct is the same as the non-terminal.  If any of the grammar symbols
 on the right-hand side of the rule is given a label, it would create a struct
 with the fields of each struct named by these labels, or
 with `_item{i}_` if
 no labels are given.  For example, a nonterminal `Ifelse` with a singleton rule
   ```
-  Ifelse --> if Expr:condition Expr else Expr
+  Ifelse --> if Expr:condition Expr:truecase else Expr:falsecase
   ```
 will result in the generation of:
   ```
   #[derive(Default,Debug)]
   pub struct Ifelse {
     pub condition: LBox<Expr>,
-    pub _item2_: LBox<Expr>,
-    pub _item4_: LBox<Expr>,
+    pub truecase: LBox<Expr>,
+    pub falsecase: LBox<Expr>,
   }
   ```
-The `_item{i}_` labels are generated from the positions of the corresponding
-symbols on the right-hand side of the production rule.
 If none of the symbols on the right have labels, rustlr creates a tuple
 struct.  For Example a singleton rule such as **`whileloop --> while ( expr ) expr`**
 will produce an a `struct whileloop(expr,expr);`  Be careful to avoid
 using Rust keywords as the names of non-terminals.
 
-The struct may be empty if all right-hand-side symbols of the single production
-rule are associated with the unit type and do not have labels. Rustlr will
-generate code to derive the Debug and Default traits for all structs (this
-works fine for recursive structs).
-
 Rustlr also calculates a reachability closure so it is aware of which
 non-terminals are mutually recursive.  It uses this information to
-determine where smart pointer are required when defining these
+determine where smart pointers are required when defining these
 recursive types.  Rustlr always uses its [LBox][2] custom smartpointer
 to also include line/column information.  Notice that the variant
 `enum::cons` has only the second component in an LBox.  One can, for
@@ -311,14 +325,16 @@ B into C. This ability is not currently supported (as of Rustlr 0.3.5).
 
 ##### Importance of Labels
 
-In general, the usage of labels greatly affect how the AST datatype is
+The usage of labels greatly affect how the AST datatype is
 generated.  Labels on the left-hand side of a production rule give
 names to enum variants.  Their presence also cancel "pass-thru"
 recognition by always generating an enum variant for the rule.
 A left-hand side label will also prevent a struct from being generated even
 when a nonterminal has but a single production rule.
-Labels on the right-hand side give names to struct components.  Their
-presence on unit-typed grammar symbols means that the symbols won't be
+The absence of labels on the right-hand side leads to the creation of
+tuple variants or structs.  The presence of right-side labels creates
+structs or struct-variants with named fields.
+A label on unit-typed grammar symbol means that the symbol won't be
 ignored and will be included in the the type.  If a non-terminal has a
 single production rule, the lack of any labels left or right leads
 to the creation of a simpler tuple struct.  The use of boxed
@@ -356,151 +372,25 @@ The ellipsis are allowed only before the closing right-brace.  This indicates
 that the automatically generated portion of the semantic action should follow.
 The ellipsis cannot appear anywhere else.
 
+```
+
+```
+
 An easier way to parse a sequence of expressions separated by ; and to
-create a vector is to
-use the special suffixes `+`, `*`, `?`, `<_*>` and `<_+>`.  These are described below.
+create a vector for it, is to
+use the special suffixes `+`, `*`, `?`, `<_*>` and `<_+>`.
+These are described in [Chapter 5][chap5].
 
 ```
 
 ```
-
-
-   -------------------
-
-### Automatically Adding New Rules with *, + and ?
-
-Rustlr allows the use of regular-expression style symbols *, + and ?
-to automatically generate new production rules.  However, these
-symbols cannot be used unrestrictedly to form arbitrary regular
-expressions. They cannot be nested.  They are also guaranteed to only
-fully work in the -auto mode.
-
-Another way to achieve the same effects as the above (to derive a vector for symbol ExprList) is to use the following alternative grammar declarations:
-
-```
-nonterminal ExprList Vec<LBox<Expr<'lt>>>
-ExprList --> (LetExpr ;)*
-```
-This would lead to the generation of a tuple struct for type ExprList:
-```
-#[derive(Default,Debug)]
-pub struct ExprList<'lt>(pub Vec<LBox<Expr<'lt>>>,);
-```
-You can also eliminate the extra type for `ExprList` entirely by manually
-defining the type as:
-```
-nonterminal ExprList Vec<LBox<Expr<'lt>>>
-```
-This would cause
-
-The operator **`*`** means a sequence of zero or more.  This is done by generating several new non-terminal symbols internally.  Essentially, these correspond to
-
-```
-ES0 --> Expr:e ; {e}
-ES1 --> { Vec::new() }
-ES1 --> ES1:v ES0:[e] { v.push(e); v }
-ExprList --> ES1:v {v}
-```
-These rules replace the original in the grammar.  In the -auto mode,
-rustlr also infers that symbols such as ; has no meaning at the
-AST level (because it has the unit type and noprecedence/associativity
-declaration). It therefore infers that the type of the nonterminal ES0
-is the same as Expr, and automatically generates the appropriate semantic action.
-If override of this behavior is required, one can manually rewrite the grammar
-as
-```
-ES0:SEMI --> Expr ; 
-ExprList --> ES0*
-```
-The presence of the left-hand side label will cause the AST generator to 
-create an AST representation for the semicolon (assuming that is what's
-desired).  Another situation where the user has to write the ES0 rule
-manually is if `-auto` (or `-genabsyn`) is not specified, which implies
-that a rule with an explicit semantic action is required.  Generally speaking,
-the *, + and ? symbols will still work without `-auto` if it follows a
-single grammar symbol.
-
-The type rustlr associates with the new non-terminal ES1
-will be `Vec<LBox<Expr<'lt>>` and semantic actions are generated to
-create the vector for both ES1 rules.  A **`+`** means one or more
-`ES1` derivations, producing the same vector type, and a **`?`** will
-mean one or zero derivations with type `Option<LBox<Expr<'lt>>>`.
-
-Other alternatives are possible:
-```
-nonterminal ExprList
-ExprList:Sequence --> (Expr ;)*
-```
-This would generate a new struct type for the AST of ExprList, with a component of
-type
-`Vec<LBox<Expr<'lt>>>`.  If the type of ExprList is declared manually
-as above, rustlr infers that the appropriate semantic action is equivalent to
-`ExprList --> (Expr ;)*:v {v}`  because there is only one symbol (the internally
-generated ES1) on the right-hand side, and it is of the same type.
-**The label given for such an expression cannot be a pattern that includes `@...@`.**  It can only be a simple alphanumeric label or a boxed label (`[x]`).  These restrictions may eventually be eliminated in future releases.
-
-Another restriction is that the symbols `(`, `)`, `?`, `*` and `+` may not
-be separated by white spaces since that would confuse their interpretation
-as independent terminal symbols.  For example, `( Expr ; ) *` is not valid.
-
-Yet another alternative is to manually define the type of ExprList, from which Rustlr will infer that no struct/enum needs to be created for it:
-```
-nonterminal ExprList Vec<LBox<Expr<'lt>>>
-ExprList --> (LetExpr ;)*
-```
-This is because rustlr generates an internal non-terminal to represent the right-hand side `*` expression and assigns it type `Vec<LBox<Expr<'lt>>>`.
-It then recognizes that this is the only symbol on the
-right, which is of the same type as the left-hand side nonterminal `ExprList`
-as declared. This rule will again be given an action equivalent to
-`ExprList --> (Expr ;)*:v {v}`
-
-In addition to the `*`, `+` and `?` suffixes, rustlr also recognizes (non-nested)
-suffixes such as **`<Comma*>`** or **`<;+>`**.  Assuming that
-`Comma` is a declared terminal symbol of the grammer, the expression
-`Expr<Comma+>` represents a sequence of one or more Expr separated by Comma,
-but not ending in Comma, e.g *a,b,c* but not *a,b,c,*.  In contrast,
-`(Expr Comma)+` means that the expression must end in a Comma.  <Comma*>
-allows the sequence to be empty. The AST generator will also create vectors
-as the semantic values of such expressions.  Please avoid whitespaces in
-these expressions: `<Comma *>` is not recognized.
-
-Be warned that overusing `+`, `*` and `?`, especially in the same
-production rule, can easily lead to new ambiguities in the grammar,
-especially with `*` and `?`.  The new productions generated for these
-operators could lead to additional Shift-Reduce and even Reduce-Reduce
-conflicts.  For example, a production with right-hand side
-**`Expr<Comma*> Comma?`** will lead to a shift-reduce conflict as it
-is ambiguous. However, **`Expr<Comma+> Comma?`** is OK.  The
-operators also **cannot be nested,** for such combinations are almost
-certainly ambiguous.  For example, with **`(a?)+`**, even a single `a`
-will have an infinite number of derivations: as one `a?` or as three
-with two empty, etc.
-
-Generally speaking, context free grammars do not have the same
-properties as regular expressions.  Regex operators including
-`*`, `+` and `?` can be used in any combination such as `(a+a?)*` and we
-can always create an optimized, deterministic finite state machine to
-recognize it.  But grammars cannot be composed without losing their
-properties.  A rule like `A --> B* B*` is hopelessly ambiguous as
-there is no way to determine where the first sequence should stop and
-the second one begins.  In such a situation, rustlr will still create a
-parser by using defaults such as shift-over-reduce, but not before printing
-out a warning.
-
-The motivation for adding regex-like operators to a parser generator
-are both usability and improved ability in creating abstract syntax
-automatically.  But much work needs to be done before we can parse
-arbitrary EBNF syntax.  We are currently exploring extensions of LR
-parsing including *delayed reductions*, which can potentially allow
-non-ambiguous grammars to be more easily composed without running into
-new conflicts: see the [Appendix][apnd] of this tutorial for experimental
-features.
-
 
 ### Invoking the Parser
 
-Since the grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).  The procedure to invoke the parser is the same as described in [Chapter 3][chap3], using the **`parse_with`** or **`parse_train_with`** functions:
-
+Parsers created from grammars in `auto` mode must use
+the `parse_with` and `parse_train_with` functions to invoke the parser,
+as already shown in [Chapter 3][chap3].
+Since the above grammar also contains lexer generation directives, all we need to do is to write the procedures that interpret the AST (see [main](https://cs.hofstra.edu/~cscccl/rustlr_project/autocalc/src/main.rs)).
 ```rust
    let mut scanner = calcautoparser::calcautolexer::from_str("2*3+1;");
    let mut parser = calcautoparser::make_parser();
@@ -510,151 +400,12 @@ Since the grammar also contains lexer generation directives, all we need to do i
    
 ```
 The `parse_with` and `parse_train_with` functions were also backported for
-grammars with a single *absyntype.*
+grammars with a single *valuetype.*
 
 Please note that using [LBox][2] is already included in all parsers generated with the `-genabsyn` or `-auto` option, so do not use `!use ...` to include
 it again.
 
-   ----------------
 
-### JSON Parser
-
-To give another, complete example of the features described in this chapter,
-we build a parser for JSON.  The grammar is as follows
-```
-# Rustlr Grammar for JSON
-auto
-lifetime 'lt
-lexterminal LBRACE {
-lexterminal RBRACE }
-lexterminal LBRACK [
-lexterminal RBRACK ]
-lexterminal LPAREN (
-lexterminal RPAREN )
-lexterminal COLON :
-lexterminal COMMA ,
-lexterminal NULL null
-lexterminal MINUS -
-valueterminal TRUE~ bool~ Alphanum("true")~ true
-valueterminal FALSE~ bool~ Alphanum("false")~ false
-valueterminal STRING~ &'lt str~ Strlit(n)~ &n[1..n.len()-1]
-valueterminal NUM~ i64~ Num(n)~ n
-valueterminal FLOAT~ f64~ Float(n)~ n
-valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
-
-nonterminal Integer i64
-nonterminal Floatpt f64
-nonterminal Boolean bool
-nonterminals Value KeyValuePair Number
-nonterminal Object : Value
-nonterminal List : Value
-nonterminal Boolean : Value
-topsym Value
-resync COMMA RBRACK RBRACE
-
-Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
-Floatpt --> MINUS?:m FLOAT:n {if m.is_some() {-1.0*n} else {n}} 
-Number:Bignum --> MINUS?:m BIGNUM
-Number:Int --> Integer
-Number:Float --> Floatpt
-Boolean --> TRUE | FALSE
-
-Value:Number --> Number
-Value:Boolean --> Boolean
-Value:Str --> STRING
-Value --> Object
-Value --> List
-Value --> NULL
-Value --> LPAREN Value RPAREN
-KeyValuePair --> STRING COLON Value
-List:List --> LBRACK Value<COMMA*> RBRACK
-Object:Object --> LBRACE KeyValuePair<COMMA*> RBRACE
-```
-
-This grammar uses the latest variations on Rustlr syntax that were introduced
-in more recent versions.
-Note that the **`valueterminal`** lines, which combine `typedterminal` with
-`lexvalue` declarations, requires that their components be separated by
-a **`~`**.  The line for terminal STRING strips the string literal returned
-by the tokenizer of this enclosing double quotes.
-
-The grammar is a hybrid with some manually defined types and actions
-along with automatically generated ones.
-The AST types that are created by this grammar are
-```
-#[derive(Debug)]
-pub enum Number<'lt> {
-  Int(i64),
-  Bignum(Option<()>,&'lt str),
-  Float(f64),
-  Number_Nothing,
-}
-impl<'lt> Default for Number<'lt> { fn default()->Self { Number::Number_Nothing } }
-
-#[derive(Debug)]
-pub enum Value<'lt> {
-  Str(&'lt str),
-  Number(Number<'lt>),
-  NULL,
-  Boolean(bool),
-  Object(Vec<LBox<KeyValuePair<'lt>>>),
-  List(Vec<LBox<Value<'lt>>>),
-  Value_Nothing,
-}
-impl<'lt> Default for Value<'lt> { fn default()->Self { Value::Value_Nothing } }
-
-#[derive(Default,Debug)]
-pub struct KeyValuePair<'lt>(pub &'lt str,pub LBox<Value<'lt>>,);
-```
-
-The following is the Debug-output of a sample AST produced by the parser,
-from which anyone familiar with JSON can surely discern the original source:
-```
-Object([KeyValuePair("firstName", Str("John")), KeyValuePair("lastName", Str("Smith")), KeyValuePair("isAlive", Boolean(true)), KeyValuePair("age", Number(Int(27))), KeyValuePair("address", Object([KeyValuePair("streetAddress", Str("21 2nd Street")), KeyValuePair("city", Str("New York")), KeyValuePair("state", Str("NY")), KeyValuePair("postalCode", Str("10021-3100"))])), KeyValuePair("phoneNumbers", List([Object([KeyValuePair("type", Str("home")), KeyValuePair("number", Str("212 555-1234"))]), Object([KeyValuePair("type", Str("office")), KeyValuePair("number", Str("646 555-4567"))])])), KeyValuePair("children", List([Str("Catherine"), Str("Thomas"), Str("Trevor")])), KeyValuePair("spouse", NULL)])
-```
-
-Finally, here is an alternative way to parse JSON objects into
-Rust HashMaps.  We can override not only the type to be generated but the
-semantic action as well.  Modify the declarations and rules for Object as
-follows:
-```
-$use std::collections::HashMap;
-nonterminal Object HashMap<&'lt str, LBox<@Value>>
-
-Object ==> LBRACE KeyValPair<COMMA*>:entries RBRACE {
-  let mut kvmap = HashMap::new();
-  for (mut lbx) in entries {
-    if let KeyValPair(k,v) = lbx.take() { kvmap.insert(k,v); }
-  }
-  kvmap
-  } <==
-```
-The `$` directive is similar to `!`, except that it adds the verbatim line
-only to the generated AST file as opposed to parser file. The syntax
-**`@Value`** refers to the type of the `Value` nonterminal (or you can say
-`Value<'lt>`, but you will in general know what type would be generated
-by the system for the nonterminal: the `@` symbol offers a convenience.)
-
-Each key-value pair inside the vector created by `<COMMA*>` is wrapped
-inside an LBox.  We can take the value from the box with
-[LBox::take][take] (which leaves a default value inside the box).
-
-The debug output of the AST from the same JSON source would now be:
-```
-Object({"spouse": NULL, "age": Number(Int(27)), "phoneNumbers": List([Object({"type": Str("home"), "number": Str("212 555-1234")}), Object({"number": Str("646 555-4567"), "type": Str("office")})]), "children": List([Str("Catherine"), Str("Thomas"), Str("Trevor")]), "lastName": Str("Smith"), "address": Object({"streetAddress": Str("21 2nd Street"), "city": Str("New York"), "state": Str("NY"), "postalCode": Str("10021-3100")}), "isAlive": Boolean(true), "firstName": Str("John")})
-```
-
-Although we may at times want to insert such overrides, most of the
-automatically generated portions remain usable.
-
-Here are links to the [grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/jsontypes/json.grammar), [parser](https://cs.hofstra.edu/~cscccl/rustlr_project/jsontypes/src/jsonparser.rs), [ast types](https://cs.hofstra.edu/~cscccl/rustlr_project/jsontypes/src/json_ast.rs) and [main](https://cs.hofstra.edu/~cscccl/rustlr_project/jsontypes/src/main.rs) of the project, which may differ slightly
-from the above.
-
-
-----------------
-
-*The former section named "Generating a Parser for C" is being updated and
-moved to a new chapter.*
 
    ----------------
 
@@ -667,7 +418,8 @@ moved to a new chapter.*
 [sitem]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html
 [chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter1.html
 [chap2]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html
-[chap3]:  https://cs.hofstra.edu/~cscccl/rustlr_project/chapter3.html
+[chap3]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter3.html
+[chap5]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter5.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html
