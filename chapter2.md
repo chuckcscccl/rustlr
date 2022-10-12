@@ -91,12 +91,13 @@ precedence.  However, there are cases when we must assign the precedence
 manually, as in the rule `E(600) --> - E`.  The - symbol has higher precedence
 when it appears as a unary operator compared to all binary operators.
 
-One might argue that the theoretically correct approach is to write unambiguous
-grammars.  But that approach entails a steep learning curve and even
-seasoned grammar hackers may find it difficult to always write conflict-free
-grammars.  As well shall see in Chapter 4, using simpler, ambiguous grammars
-has another important advantage in that it allows us to generate reasonable
-abstract syntax representations from the grammar automatically.
+It is recommended that operator precedence and associativity declarations
+are used with moderation.  If abused, situations can arise that would
+require further, awkward declarations such as declaring `=` to have higher
+precedence than `[`.  It is best to restrict their usage only to the well-known
+binary operators.  Chapters [3][chap3] and [4][chap4] contain examples where
+moderate uses of these declarations are combined with more "grammatical"
+approaches to disambiguate precedence and associativity.
 
 The main purpose of a parser is to transform *concrete syntax*, which
 is usually a string, into *abstract syntax*, which is usually a tree.
@@ -107,11 +108,13 @@ syntax is not accepted by the grammar, or semantic, such as type
 incompatibilities.  Usually only syntactic errors are reported by the
 parser.  However, all error reports made by the interpreter/compiler
 must indicate the location in the orignal text (line and column
-numbers) where the error is traced to.  This implies that the parser
+numbers) where the error originates.  This implies that the parser
 must insert this location information into the abstract syntax tree.
 All data structures designed for the abstract syntax must accommodate
-this information.  In an object oriented programming language, this
-can be easily done by defining an abstract superclass for all such
+this information, which can become rather intrusive when coding all the
+match cases for the AST variants.
+In an object oriented programming language, this problem is easily
+solved by defining an abstract superclass for all AST 
 structures.  But Rust has only minimal support for OOP.  It has no
 direct support for inheritance.  Instead, rustlr implements a mechanism
 called **[LBox][2]**.
@@ -628,6 +631,8 @@ training from script has not yet been tested on a large scale.
 [5]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html#method.lbox
 [sitem]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.StackedItem.html
 [chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter1.html
+[chap3]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter3.html
+[chap4]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html

@@ -175,29 +175,35 @@ nonterminal Type &'lt str
 nonterminal Stat Stat<'lt>
 nonterminal Stats Vec<LBox<Stat<'lt>>>
 nonterminal Exp Expr<'lt>
+nonterminal Rxp Expr<'lt>
+nonterminal Dxp Expr<'lt>
+nonterminal Bxp Expr<'lt>
 nonterminal ExpLst Vec<LBox<Expr<'lt>>>
 nonterminal ExpRst Vec<LBox<Expr<'lt>>>
 topsym Program
 resync ;
 
-left + 500
-left - 510
+# precedence/associativity declarations for common binary operators
 left * 700
-left / 710
+left / 700
+left MOD 700
+left + 500
+left - 500
+left == 450
+left < 450
 left && 400
 left OROR 350
-left ! 450
-left == 310
-left = 800
-left < 300
-left MOD 705
-left DOT 810
+right = 200
+# other operators are defined by different levels of "Expression": from
+# loosest to tightest: Exp, Bxp, Rxp, Dxp.  These include unary operators,
+# array expressions and "." expressions.
+
 # to deal with the dangling-else problem, else is given higher precedence
 # than if. Reduction by (Stat --> if (Exp) Stat) will be delayed if the
 # the lookahead symbol is 'else'.
-left if 30
-left else 40
-left [ 20
+nonassoc if 30
+nonassoc else 40
+
 
 Program --> MainCl:[mc]  ClassDecl:cs  { Program {mainclass:mc, otherclasses:cs } }
    
@@ -234,17 +240,16 @@ MethodDec ==> public Type:ty ID:name ( FormalLst:args ) LBR Stats:mbody RBR {
 Decl -->  { Vec::new() }
 Decl --> Decl:ds VarDec:v { ds.push(parser.lbx(1,Vdec(v))); ds }
 Decl --> Decl:ds MethodDec:m { ds.push(parser.lbx(1,Mdec(m))); ds }
+
 FormalLst --> { Vec::new() }
-# warning: list constructed backwards:
-FormalLst ==> Type:ty ID:a FormalRst:frs {
-  frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
-  frs 
+FormalLst --> FormalRst:v {v}
+FormalRst ==> Type:ty ID:a {
+  vec![ parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}) ]
   } <==
-FormalRst --> { Vec::new() }
-FormalRst ==> , Type:ty ID:a FormalRst:frs {
-  frs.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing}));
-  frs 
+FormalRst ==> FormalRst:v , Type:ty ID:a {
+  v.push(parser.lb(VarDec{dname:a,dtype:ty,initval:Nothing})); v
   } <==
+
 Type --> int [ ] { return "int[]"; }
 Type --> boolean { return "boolean"; }
 Type --> String  { return "String"; }
@@ -259,8 +264,17 @@ Stat --> if ( Exp:[c] ) Stat:[a] { Ifstat(c,a,parser.lb(Nopst)) }
 Stat --> while ( Exp:[c] ) Stat:[s] { Whilest(c,s) }
 Stat --> ID:v = Exp:[e] ; { Assignst(v,e) }
 
-Stat --> Exp:[v] [ Exp:[i] ] = Exp:[e] ; { ArAssignst(v,i,e) }
-Stat --> Exp:[obj] DOT ID:m ( ExpLst:args ) ; {Callstat(obj,m,args)}
+Dxp --> Dxp:[obj] DOT ID:field  { Field(field,obj) }
+Rxp --> Dxp:e {e}
+
+Rxp --> Rxp:[a] [ Exp:[i] ] { Binop("[]",a,i) }
+Bxp --> Rxp:e {e}
+
+Bxp --> ! Bxp:[a] { Notexp(a) }
+Exp --> Bxp:e {e}
+
+Stat --> Rxp:[v] [ Exp:[i] ] = Exp:[e] ; { ArAssignst(v,i,e) }
+Stat --> Dxp:[obj] DOT ID:m ( ExpLst:args ) ; {Callstat(obj,m,args)}
 Stat --> return Exp:[e] ; { Returnst(e) }
 Stat --> VarDec:v  {Vardecst(v.dname,v.dtype,parser.lb(v.initval))}
 
@@ -270,29 +284,29 @@ Exp --> Exp:[a] / Exp:[b]  { Binop("/",a,b) }
 Exp --> Exp:[a] - Exp:[b]  { Binop("-",a,b) }
 Exp --> Exp:[a] && Exp:[b]  { Binop("&&",a,b) }
 Exp --> Exp:[a] OROR Exp:[b]  { Binop("OROR",a,b) }
-Exp --> ! Exp:[a]  { Notexp(a) }
 Exp --> Exp:[a] < Exp:[b]  { Binop("<",a,b) }
 Exp --> Exp:[a] MOD Exp:[b]  { Binop("%",a,b) }
 Exp --> Exp:[a] == Exp:[b]  { Binop("==",a,b) }
-Exp --> Exp:[a] [ Exp:[i] ] { Binop("[]",a,i) } 
-Exp --> Exp:[obj] DOT ID:field { Field(field,obj) }
+Exp --> Dxp:[obj] DOT ID:f ( ExpLst:args ) { Callexp(obj,f,args) }
 
-Exp --> Exp:[obj] DOT ID:f ( ExpLst:args ) { Callexp(obj,f,args) }
-Exp --> INTEGER:i { Int(i) }
-Exp --> STRING:s { Strlit(s) }
-Exp --> BOOL:b { Bool(b) }
-Exp --> ID:x { Var(x) }
-Exp --> this { Thisptr }
+Bxp --> INTEGER:i { Int(i) }
+Bxp --> STRING:s { Strlit(s) }
+Bxp --> BOOL:b { Bool(b) }
+Dxp --> ID:x { Var(x) }
+Dxp --> this { Thisptr }
+
 Exp --> new int [ Exp:[s] ] { Newarray(s) }
 Exp --> new Type:x ( ) { Newobj(x) }
-Exp --> ( Exp:e ) { e }
+Dxp --> ( Exp:e ) { e }
 
-
-# warning: backwards list:
+# zero or more comma-separated expressions with no trailing comma:
 ExpLst --> { Vec::new() }
-ExpLst --> Exp:[e] ExpRst:er { er.push(e); er }
-ExpRst --> { Vec::new() }
-ExpRst --> , Exp:[e] ExpRst:er { er.push(e); er }
+ExpLst --> ExpRst:v {v}
+ExpRst --> Exp:[e] { vec![e] }
+ExpRst --> ExpRst:v , Exp:[e]  { v.push(e); v }
+
+# With automatic AST generation, this can now be done with:
+# ExpLst --> Exp<,*>   (see Chapter 4 and 5 of the tutorial).
 
 
 # Lexical scanner setup using StrTokenizer
