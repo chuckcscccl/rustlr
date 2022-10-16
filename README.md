@@ -23,11 +23,15 @@ gradually become available.
 
 <p>
 
-**Version 0.3.8** adds the ability to generate a rudimentary parser for the
-F\# language (Microsoft's version of Ocaml).  The system is called "Fussless"
-and the F\# end is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
+**Version 0.3.92** adds enhancements to the AST generator and built-in lexical scanner
 
 ### Major Features and the Versions that Introduced Them
+
+#### Version 0.3.8:
+
+Adds the ability to generate a  parser for the
+F\# language (Microsoft's version of Ocaml).  The system is called "Fussless"
+and the F\# end is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
 
 
 #### Version 0.3.5:
