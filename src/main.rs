@@ -41,6 +41,8 @@ mod fs_parserwriter;
 mod ast_writer;
 use ast_writer::*;
 
+mod bumpast_writer;
+
 mod lalr_statemachine;
 use lalr_statemachine::LALRMachine;
 mod selmlk;
@@ -145,7 +147,9 @@ fn rustle(args:&Vec<String>) // called from main
      if let None = slashpos {slashpos = parserfile.rfind('\\');}
      let mut astpath = format!("{}_ast.{}",&gramname,pfsuffix);
      if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
-     let wres = grammar1.writeabsyn(&astpath);
+     let wres;
+     if !grammar1.bumpast { wres = grammar1.writeabsyn(&astpath); }
+     else {wres = grammar1.write_bumpast(&astpath); }
      if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
   }
 

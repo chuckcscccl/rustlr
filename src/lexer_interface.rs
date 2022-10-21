@@ -811,8 +811,6 @@ impl<'t> StrTokenizer<'t>
             return Some((Strlit(&self.input[pi..self.position]),line0,(self.linetabs*tsps)+pi-lstart0+1));
          }
          else if &self.input[ci..ci+1] == "\n" {
-           self.line+=1; self.line_start=ci+1;  self.linetabs=0;
-           self.line_positions.push(self.line_start);         
            if !self.allow_newline_in_string {
              eprintln!("Tokenizer Error: unclosed string line {} (allow_newline_in_string option set to false)",line0);
              //self.position = self.input[ci..].find('\"').unwrap_or(self.input.len());
@@ -820,6 +818,10 @@ impl<'t> StrTokenizer<'t>
              //return Some((LexError,line0,pos9));
              return None;
            }//don't allow newline in string
+           else {
+             self.line+=1; self.line_start=ci+1;  self.linetabs=0;
+             self.line_positions.push(self.line_start);         
+           }
          }//newline
          // else need to try again!
          else if &self.input[ci..ci+1] == "\\" {ci+=1;} // extra skip

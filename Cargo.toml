@@ -1,6 +1,6 @@
 [package]
 name = "rustlr"
-version = "0.3.92"
+version = "0.3.93"
 authors = ["Chuck Liang"]
 edition = "2021"
 license = "MIT"
@@ -12,6 +12,8 @@ categories = ["parsing", "compilers"]
 
 [dependencies]
 regex = "1"
+bumpalo = "3"
+
 #termion = "*"
 
 #[patch.crates-io]

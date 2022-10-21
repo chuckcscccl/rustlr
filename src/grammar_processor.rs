@@ -149,6 +149,7 @@ pub struct Grammar
   pub eoftermi: usize,
   pub startrulei: usize,
   pub mode: i32, // generic mode information
+  pub bumpast: bool,
 }
 
 impl Default for Grammar {
@@ -199,6 +200,7 @@ impl Grammar
        eoftermi : 0,
        startrulei : 0,
        mode : 0,
+       bumpast: false,
      }
   }//new grammar
 
@@ -346,6 +348,11 @@ impl Grammar
             "auto" | "genabsyn" => {
                if stage==0 {self.genabsyn=true;} else if !self.genabsyn {
                  eprintln!("ERROR: Place 'auto' at beginning of the grammar or run with -auto option, directive may not be effective.");
+               }
+            },
+            "auto-bump" => {
+               if stage==0 {self.bumpast=true; self.genabsyn=true;} else if !self.genabsyn {
+                 eprintln!("ERROR: Place 'auto' or 'auto-bump' at beginning of the grammar or run with -auto option, directive may not be effective.");
                }
             },
             "EOF" => {atEOF=true},
@@ -719,7 +726,8 @@ impl Grammar
               }
 
               if stage<2 {stage=2;}
-              
+              let LBC = if self.bumpast {"LC"} else {"LBox"};
+
 	    // construct lhs symbol
 	      let findcsplit:Vec<_> = stokens[0].split(':').collect();
 	      let mut LHS = findcsplit[0];
@@ -1301,6 +1309,12 @@ strtok is bstokens[i], but will change
      self.Rulesfor.insert(self.startnti,startrfset); //for START
 //     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
+
+     if self.bumpast {
+       if self.lifetime.len()==0 {self.lifetime="'src_lt".to_owned();}
+       self.Externtype = format!("Bumper<{},{}>",&self.lifetime,&self.Externtype);
+     }
+
      // compute sametype value (default true)
      if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
         eprintln!("\nWARNING: THE TYPE FOR THE START SYMBOL ({}) IS NOT THE SAME AS THE VALUETYPE ({}",&topgsym.rusttype,&self.Absyntype);

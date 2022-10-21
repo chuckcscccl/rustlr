@@ -64,6 +64,7 @@ use crate::zc_parser::ZCParser;
 //use crate::RuntimeParser;
 //use crate::GenAbsyn::*;
 use crate::{lbup,lbdown,lbget};
+use bumpalo::Bump;
 
 /// Custom smart pointer that encapsulates line and column numbers along with
 /// a regular [Box].  Implements [Deref] and [DerefMut] so the encapsulated
@@ -291,6 +292,135 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
         std::fmt::Debug::fmt(&**self, f)    
     }
 }
+
+/// Version of LBox that does not use a Box. This tuple struct contains
+/// a value of type T in the first position and a pair consisting of
+/// (line, column) numbers in the second position.
+/// This feature was added to Rustlr to support bumpalo-allocated ASTs.
+pub struct LC<T>(pub T,pub (u32,u32));
+
+impl<T:Default> Default for LC<T> {
+  fn default() -> Self {LC(T::default(),(0,0))}
+}
+impl<T> Deref for LC<T>
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> DerefMut for LC<T>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<T> AsRef<T> for LC<T>
+{
+  fn as_ref(&self) -> &T  { &self.0 }
+}
+impl<T> AsMut<T> for LC<T>
+{
+  fn as_mut(&mut self) -> &mut T  { &mut self.0 }
+}
+impl<T:std::fmt::Debug> std::fmt::Debug for LC<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.0, f)    
+    }
+}
+impl<T> LC<T>
+{
+  /// creates a new LC tuple struct in the form (value, (line,column))
+  pub fn new(x:T,ln:usize,cl:usize) -> Self {
+    LC(x,(ln as u32,cl as u32))
+  }
+  /// returns encapsulated line
+  pub fn line(&self) -> usize { (self.1.0) as usize }
+  /// returns encapsulated column
+  pub fn column(&self) -> usize { (self.1.1) as usize }
+  /// returns value reference
+  pub fn value(&self) -> &T { &self.0 }
+  /// transfers line/column information to another LC
+  pub fn transfer<U>(&self,x:U) -> LC<U> {
+   LC::new(x,self.line(),self.column()) 
+  }
+}
+/*
+/// Version of LC that encapsulates an immutable reference
+pub struct LCR<'t,T>
+{
+  pub exp:&'t T,
+  pub line:u32,
+  pub column:u32,
+}//LC
+//impl<T:Default> Default for LCR<'_,T> {
+//  fn default() -> Self {LCR{exp:None,line:0,column:0,}}
+//}
+impl<'t,T> Deref for LCR<'t,T>
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.exp
+    }
+}
+*/
+
+
+/// Structure intended to support [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) AST generations,
+///which allows recursive AST types to be defined using references instead of
+///smart pointers (LBox).  The benefit of bump-allocated ASTs is the ability to
+///pattern match against nested, recursive structures, e.g.,
+///`Negative(Negative(x))`.  The lifetime `'t` of a Bumper should be the same
+///as the lifetime of the parser's input.
+/// This structure is intended to become the
+///'external state' that's carried by the runtime parser (parser.exstate),
+///and therefore wraps another value (exstate) of the declared `externtype`.
+pub struct Bumper<'t,ET:Default>
+{
+  bump:Option<&'t Bump>,
+  exstate: ET,
+}//bumper struct
+impl<T:Default> Default for Bumper<'_,T>  {
+  fn default() -> Self { Bumper{exstate:T::default(), bump:None} }
+}
+impl<'t,T:Default> Bumper<'t,T>
+{
+  /// sets the encapsulated [Bump](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html) allocator
+  pub fn set(&mut self, b:&'t Bump) { self.bump = Some(b); }
+
+  /// tests if the allocator has been set
+  pub fn is_set(&self) -> bool { self.bump.is_some() }
+  
+  /// returns pointer to the bump allocator.  Warning: this function calls
+  /// unwrap and should only be called after [Bumper::set] has been called
+  pub fn get(&self)->&'t Bump { self.bump.expect("bump arena not set") }
+
+  /// bump-allocates x and returns a reference, which will live as long
+  /// as the bump allocator.  Warning: this function calls unwrap and
+  /// will panic if the Bumper is not set.
+  pub fn make<S>(&self,x:S) -> &'t S {
+     self.get().alloc(x)
+  }
+
+  /// version of make that returns Option, but will not panic
+  pub fn make_safe<S>(&self,x:S) -> Option<&'t S> {
+     if self.bump.is_some() {Some(self.get().alloc(x))}
+     else {None}
+  }
+
+  /// version of make_safe that returns a mutable reference to the allocated
+  /// value
+  pub fn alloc<S>(&self,x:S) -> Option<&'t mut S> {
+     self.bump.map(|b|b.alloc(x))
+  }
+
+  /// returns a mut reference to the encapsulated "state" of type ET
+  pub fn state(&mut self) -> &mut T { &mut self.exstate }
+}//impl Bumper
+
+
+
+
 
 // [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
 // unlike a generic LBox

@@ -1,0 +1,50 @@
+# types Expr, Calcscanner defined in exprtrees.rs
+!use crate::bxprtrees::*; /* ! lines are injected verbatim into parser */
+!use crate::bxprtrees::Expr::*;
+
+lifetime 'lt
+auto-bump
+nonterminals E ES
+terminals + - * / ( ) = ;
+terminals let in
+typedterminal int i64
+typedterminal var &'lt str
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+nonassoc = 300
+
+lexvalue int Num(n) n
+lexvalue var Alphanum(x) x
+lexattribute set_line_comment("#")
+
+E:Int --> int
+E:Var --> var
+E:Plus --> E + E
+E:Minus --> E - E
+E:Times --> E * E
+E:Div --> E:e1 / E:[e2]
+E(600):Neg --> - E:[e]
+E:Let --> let var = E in E
+E --> ( E:e )  { e }
+ES --> E<;+> ;?
+
+EOF
+
+ES ==> E:n ; {
+  let bump = &parser.exstate;
+  let mut v1 = Vec::new(); /* not bump-allocated */
+  v1.push(bump.make(parser.lc(0,n)));
+  Seq(v1)
+  } <==
+  
+ES ==> ES:@Seq(mut v)@  E:e ;  {
+   v.push(parser.exstate.make(parser.lc(1,e)));
+   Seq(v)
+   } <==
+
+

@@ -35,7 +35,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
 use crate::{TRACE,Stateaction,Statemachine,TerminalToken,Tokenizer};
-use crate::{LBox,LRc};
+use crate::{LBox,LRc,LC};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
 //extern crate termion;
@@ -325,6 +325,19 @@ This is correct because linenum/column will again reflect start of tos item
          ln = lc.0; cl=lc.1;
        }
        LBox::new(e,ln,cl)
+    }//lbx
+
+    /// creates [LC] enclosing e using line/column information associated
+    /// with right-hand side symbols, numbered left-to-right starting at 0
+    pub fn lc<T>(&self,i:usize,e:T) -> LC<T>
+    {
+       let (mut ln,mut cl) = (self.linenum,self.column);
+       if i<self.popped.len() {
+         let index = self.popped.len() - 1 - i;
+         let lc = self.popped[index];
+         ln = lc.0; cl=lc.1;
+       }
+       LC::new(e,ln,cl)
     }//lbx
 
     /// Like lbx but creates an LRc
@@ -1019,7 +1032,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     self.stack.clear();
     self.err_occurred = false;
     let mut result = AT::default();
-    self.exstate = ET::default();
+    //self.exstate = ET::default();
     self.stack.push(StackedItem::new(0,AT::default(),0,0));
     //self.stack.push(Stackelement {si:0, value:AT::default()});
     self.stopparsing = false;
