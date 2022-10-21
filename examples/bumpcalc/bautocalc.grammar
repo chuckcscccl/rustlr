@@ -1,9 +1,7 @@
-# types Expr, Calcscanner defined in exprtrees.rs
-!use crate::bxprtrees::*; /* ! lines are injected verbatim into parser */
-!use crate::bxprtrees::Expr::*;
+# auto-generate bump-allocated AST with refs instead of smart pointers
 
-lifetime 'lt
 auto-bump
+lifetime 'lt
 nonterminals E ES
 terminals + - * / ( ) = ;
 terminals let in
@@ -22,7 +20,7 @@ lexvalue int Num(n) n
 lexvalue var Alphanum(x) x
 lexattribute set_line_comment("#")
 
-E:Int --> int
+E:Val --> int
 E:Var --> var
 E:Plus --> E + E
 E:Minus --> E - E
@@ -30,7 +28,7 @@ E:Times --> E * E
 E:Div --> E:e1 / E:[e2]
 E(600):Neg --> - E:[e]
 E:Let --> let var = E in E
-E --> ( E:e )  { e }
+E --> ( E )
 ES --> E<;+> ;?
 
 EOF
