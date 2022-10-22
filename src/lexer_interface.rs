@@ -23,6 +23,7 @@ use std::collections::{HashSet,BTreeMap};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
+use bumpalo::Bump;
 //use std::rc::Rc;
 //use std::cell::RefCell;
 
@@ -909,7 +910,7 @@ pub struct LexSource<'t>
 {
    pathname:&'t str,
    contents:String,
-   //id:usize,
+   bump:Option<Bump>,
 }
 impl<'t> LexSource<'t>
 {
@@ -922,8 +923,8 @@ impl<'t> LexSource<'t>
        Ok(st) => {
          Ok(LexSource {
            pathname:path,
-           //id:0,
            contents:st,
+           bump:None,
          })
        },
        Err(e) => {
@@ -932,6 +933,36 @@ impl<'t> LexSource<'t>
        },
      }//match
   }//new
+
+  /// creates a new LexSource struct with given source path,
+  /// reads contents into struct using [std::fs::read_to_string],
+  /// creates [bump](https://docs.rs/bumpalo/latest/bumpalo/index.html)
+  /// allocator with same lifetime as the struct.  For use with `auto-bump`
+  /// grammar option
+  pub fn with_bump(path:&'t str) -> std::io::Result<LexSource<'t>>
+  {
+     let tryread=std::fs::read_to_string(path);
+     match tryread {
+       Ok(st) => {
+         let newsource = LexSource {
+             pathname:path,
+             contents:st,
+             bump:Some(Bump::new()),
+             };
+         Ok(newsource)
+       },
+       Err(e) => {
+         eprintln!("\nFAILED TO OPEN PATH TO SOURCE '{}'\n",path);
+         Err(e)
+       },
+     }//match
+  }//new
+
+  /// retrieves reference to bump allocator, if created iwth with_bump
+  pub fn get_bump(&self) -> Option<&Bump> {
+    self.bump.as_ref()
+  }
+
   /// retrieves entire contents of lexsource
   pub fn get_contents(&self)->&str {&self.contents}
   /// retrieves original path (such as filename) of this source

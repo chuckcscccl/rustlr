@@ -35,6 +35,7 @@ impl Statemachine
     let ref lifetime = self.Gmr.lifetime;
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
+    let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
 
     let rlen = self.Gmr.Rules.len();
     // generate action fn's from strings stored in gen-time grammar
@@ -42,12 +43,11 @@ impl Statemachine
     for ri in 0..rlen
     {
       let lhs = &self.Gmr.Rules[ri].lhs.sym;
-      let lhsi = self.Gmr.Rules[ri].lhs.index; //self.Gmr.Symhash.get(lhs).expect("GRAMMAR REPRESENTATION CORRUPTED");
+      let lhsi = self.Gmr.Rules[ri].lhs.index;
       let rettype = &self.Gmr.Symbols[lhsi].rusttype; // return type=rusttype
       let ltoptr = if has_lt || (lifetime.len()>0 && rettype.contains(lifetime))
         {format!("<{}>",lifetime)} else {String::from("")};
       let mut fndef = format!("\nfn _semaction_rule_{}_{}(parser:&mut ZCParser<RetTypeEnum{},{}>) -> {} {{\n",ri,&ltoptr,&ltopt,extype,rettype);
-//if rettype=="()" {println!("() type for {}",lhs);}
       let mut k = self.Gmr.Rules[ri].rhs.len(); //k=len of rhs of rule ri
       //form if-let labels and patterns as we go...
       let mut labels = String::from("(");
@@ -83,7 +83,11 @@ impl Statemachine
         if !boxedlabel { // not a [x] label
           stat = format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
         } else {
-          stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.lbx({3},_{0}_);  ",poppedlab,&eindex,symtype,k-1);
+          if self.Gmr.bumpast {
+            stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.exstate.make(parser.lc({3},_{0}_));  ",poppedlab,&eindex,symtype,k-1);
+          } else {
+            stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.lbx({3},_{0}_);  ",poppedlab,&eindex,symtype,k-1);
+          }//no bump
         }// is a [x] label
         
         fndef.push_str(&stat);
@@ -257,12 +261,19 @@ if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsiz
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
       write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      if self.Gmr.bumpast {
+        write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
+      }//bump
+      
       write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
       write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse(lexer) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
       // training version
       write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      if self.Gmr.bumpast {
+        write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
+      }//bump
       write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
       write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(lexer,parserpath) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;

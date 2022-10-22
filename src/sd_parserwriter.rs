@@ -36,6 +36,9 @@ impl Statemachine
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
     let rlen = self.Gmr.Rules.len();
+    let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
+    let LBC = if self.Gmr.bumpast {"LC"} else {"LBox"};
+    let bltref = if self.Gmr.bumpast {format!("&{} ",&self.Gmr.lifetime)} else {String::new()};
     
     // generate action fn's from strings stored in gen-time grammar
     // these are the _semaction_rule_ri functions.  move function to
@@ -62,7 +65,8 @@ impl Statemachine
         let(labelkind,label) = decode_label(&symk.label,k);
         let mut fargk = match labelkind {
           0 => {format!(", mut {}:{}",&label,symktype)},
-          1 => {format!(", mut {}:LBox<{}>",&label,symktype)},
+          1 => {format!(", mut {}:{}{}<{}>",&label,&bltref,LBC,symktype)},
+          //1 => {format!(", mut {}:LBox<{}>",&label,symktype)},
           2 => {   // label is a e@..@ pattern
             let ati = symk.label.find('@').unwrap();
             patternactions.push_str(&format!("let {} = {}; ",
@@ -73,7 +77,8 @@ impl Statemachine
             let ati = symk.label.find('@').unwrap();          
             patternactions.push_str(&format!("let {} = &mut *{}; ",
                                      &symk.label[ati+1..],&label));
-            format!(", mut {}:LBox<{}>",&label,symktype)
+            //format!(", mut {}:LBox<{}>",&label,symktype)
+            format!(", mut {}:{}{}<{}>",&label,&bltref,LBC,symktype)
           },
           _ => {
             let ati = symk.label.find('@').unwrap();          
@@ -188,7 +193,11 @@ if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsiz
              format!("let {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",&poppedlab,&eindex,symtype)
            },
            1  | 3 => {
-             format!("let _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lbx({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)
+             if self.Gmr.bumpast {
+               format!("let _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.exstate.make(parser.lc({3},_rr{0}_)); ",&poppedlab,&eindex,symtype,k-1)
+             } else {
+               format!("let _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lbx({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)
+             }
            },
            2 => {
              format!("let ref mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype)
@@ -273,12 +282,19 @@ if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsiz
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
       write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      if self.Gmr.bumpast {
+        write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
+      }//bump
+
       write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
       write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse(lexer) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
       // training version
       write!(fd,"\npub fn parse_train_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      if self.Gmr.bumpast {
+        write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
+      }//bump
       write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
       write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(lexer,parserpath) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;

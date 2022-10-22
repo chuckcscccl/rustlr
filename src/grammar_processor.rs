@@ -161,7 +161,7 @@ impl Grammar
   pub fn new() -> Grammar
   {
      let mut btypes = HashSet::with_capacity(14);
-     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)"] { btypes.insert(t);}
+     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)","isize",] { btypes.insert(t);}
      Grammar {
        name : String::from(""),       // name of grammar
        Symbols: Vec::new(),           // grammar symbols
@@ -727,6 +727,10 @@ impl Grammar
 
               if stage<2 {stage=2;}
               let LBC = if self.bumpast {"LC"} else {"LBox"};
+              if self.bumpast && self.lifetime.len()==0 {self.lifetime="'src_lt".to_owned();}
+              let bltref = if self.bumpast {format!("&{} ",&self.lifetime)} else {String::new()};
+              let LBCref = if self.bumpast {format!("&{} LC",&self.lifetime)}
+                else {"LBox".to_owned()};
 
 	    // construct lhs symbol
 	      let findcsplit:Vec<_> = stokens[0].split(':').collect();
@@ -969,13 +973,13 @@ strtok is bstokens[i], but will change
                    // part of ast type unless there is a given label: -?:m
                    if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
 		     newnt.rusttype = if strtok.ends_with('?') {
-                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with("LBox") {
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with(LBC) {
                         if self.genabsyn {format!("Option<@{}>",&self.Symbols[gsymi].sym)} else {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} }
                        else {
-                        if self.genabsyn {format!("Option<LBox<@{}>>",&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
+                        if self.genabsyn {format!("Option<{}<@{}>>",&LBCref,&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
                      }
                      else {
-                       if self.genabsyn {format!("Vec<LBox<@{}>>",&self.Symbols[gsymi].sym)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)} };
+                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)} };
                    }
                    // else type stays () (,*)
                    /*  later
@@ -995,15 +999,26 @@ strtok is bstokens[i], but will change
                    newrule1.precedence = self.Symbols[gsymi].precedence;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if nr1type.starts_with("Option<LBox<") {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if nr1type.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
+                     if nr1type.starts_with("Option<LBox<")  {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
+                     }
+                     else if self.bumpast && nr1type.starts_with(&format!("Option<{}<",&LBCref))  {
+                       newrule1.action=String::from(" Some(parser.exstate.make(parser.lc(0,_item0_))) }");
+                     }
+                     else if nr1type.starts_with("Option<") {
+                       newrule1.action = String::from(" Some(_item0_) }");
+                     } 
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type!="()" {
-		       newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
-                     }
+                       if self.bumpast {
+                         newrule1.action = String::from(" _item0_.push(parser.exstate.make(parser.lc(1,_item1_))); _item0_ }");
+                       } else {
+		         newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+                       }
+                     } // not () type
 		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
 		   //newrule0.lhs.rusttype = newnt.rusttype.clone();
@@ -1012,8 +1027,12 @@ strtok is bstokens[i], but will change
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
                      if nr0type!="()" {
-		       newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
-                     }
+                       if self.bumpast {
+                         newrule0.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");
+                       } else {
+  		         newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+                       }
+                     } // not () type
 		   }// ends with +
 		   else if strtok.ends_with('*') && nr0type!="()" {
 		     newrule0.action = String::from(" Vec::new() }");
@@ -1087,7 +1106,7 @@ strtok is bstokens[i], but will change
 	          let mut newnt3 = Gsym::new(&newntname3,false);
                   newnt3.rusttype = "()".to_owned();
                   if &self.Symbols[gsymi].rusttype!="()" || (septoks.len()>1 && septoks[1].len()>0) {
-		     newnt3.rusttype = format!("Vec<LBox<@{}>>",&self.Symbols[gsymi].sym);
+		     newnt3.rusttype = format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym);
                   } // else rusttype stays ()
                   // note: if types are not being generated, what should this
                   // type be? can note that it should follow from
@@ -1118,8 +1137,13 @@ strtok is bstokens[i], but will change
                   newrule4.rhs.push(self.Symbols[termi].clone());
                   newrule4.rhs.push(self.Symbols[gsymi].clone());//N-->N,E
                   if newnt3.rusttype.starts_with("Vec") {
-                    newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
-                    newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                    if self.bumpast {
+                      newrule3.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");                  
+                      newrule4.action=String::from(" _item0_.push(parser.exstate.make(parser.lc(2,_item2_))); _item0_ }");                    
+                    } else {
+                      newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
+                      newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                    }//no bump
                   } // else leave at default for ()
                   if self.tracelev>3 {
                     printrule(&newrule3,self.Rules.len());
@@ -1528,15 +1552,27 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
    stk: StrTokenizer<{2}>,
    keywords: HashSet<&'static str>,
    lexnames: HashMap<&'static str,&'static str>,
-   shared_state: Rc<RefCell<{1}>>,
+   shared_state: Rc<RefCell<{1}>>,",&lexername,extype,lifetime)?;
+   if self.bumpast {
+     write!(fd,"\n   bump: Option<&{} bumpalo::Bump>,",lifetime)?;
+   }
+   write!(fd,"
 }}
 impl<{2}> {0}<{2}> 
 {{
   pub fn from_str(s:&{2} str) -> {0}<{2}>  {{
     Self::new(StrTokenizer::from_str(s))
   }}
-  pub fn from_source(s:&{2} LexSource<{2}>) -> {0}<{2}>  {{
-    Self::new(StrTokenizer::from_source(s))
+  pub fn from_source(s:&{2} LexSource<{2}>) -> {0}<{2}> {1} {{
+",&lexername,"",lifetime)?;
+  if self.bumpast {
+    write!(fd,"    let mut st = Self::new(StrTokenizer::from_source(s));
+    st.bump = s.get_bump();
+    st")?;
+  } else {
+    write!(fd,"    Self::new(StrTokenizer::from_source(s))")?;
+  }
+  write!(fd,"
   }}
   pub fn new(mut stk:StrTokenizer<{2}>) -> {0}<{2}> {{
     let mut lexnames = HashMap::with_capacity(64);
@@ -1559,7 +1595,13 @@ impl<{2}> {0}<{2}>
       for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
       write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords,lexnames,shared_state}}\n  }}\n}}\n",&lexername)?;
+
+      if self.bumpast {
+        write!(fd,"    let bump:Option<&'lt bumpalo::Bump> = None;
+    {} {{stk,keywords,lexnames,shared_state,bump,}}\n  }}\n}}\n",&lexername)?;
+      } else {
+        write!(fd,"    {} {{stk,keywords,lexnames,shared_state,}}\n  }}\n}}\n",&lexername)?;
+      }
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{

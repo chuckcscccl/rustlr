@@ -3,6 +3,7 @@
 auto-bump
 lifetime 'lt
 nonterminals E ES
+nonterminals A1 B1 C1 A2
 terminals + - * / ( ) = ;
 terminals let in
 typedterminal int i64
@@ -30,6 +31,18 @@ E(600):Neg --> - E:[e]
 E:Let --> let var = E in E
 E --> ( E )
 ES --> E<;+> ;?
+
+A1 --> B1 int
+B1 --> var var A1
+flatten B1
+flatten A2
+C1 --> A2 A1 B1 ; E
+A2 --> var int
+
+$static A1DEFAULT:A1<'static> = A1("","",&A1DEFAULT,0);
+$static B1DEFAULT:B1<'static> = B1("","",&A1DEFAULT);
+$impl<'t> Default for &'t A1<'t> { fn default() -> Self { &A1DEFAULT } }
+$impl<'t> Default for &'t B1<'t> { fn default() -> Self { &B1DEFAULT } }
 
 EOF
 

@@ -61,6 +61,7 @@ impl Grammar
            for ti in self.haslt_base.iter() {
              if reach.contains(ti) {needlt = true; break;}
            }
+           if reach.contains(nt) {needlt=true;} // for bump only
          }//if lifetime check needed
          if needlt {
            self.Symbols[*nt].rusttype = format!("{}<{}>",&self.Symbols[*nt].sym,&self.lifetime);
@@ -183,22 +184,27 @@ impl Grammar
          if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
          let rsymtype = &self.Symbols[rsym.index].rusttype;
          // check if rsym is non-terminal and reaches lsym
+         /*
          let lhsreachable = match self.Reachable.get(&rsym.index) {
                None => false,
                Some(rset) => rset.contains(nt),
               };
-         let needref = lhsreachable && !nonlctype(rsymtype);
+         let needref = lhsreachable && !nonlctype(rsymtype) && !self.basictypes.contains(rsymtype) && ltref.len()>0;
+         */
          if alreadyislc {
                if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
                else {passthru = -2;}
                vfields.push((rhsi,itemlabel.clone(),alreadyislc,format!("LC<{}>",rsymtype)));
                //vfields.push((rhsi,itemlabel.clone(),alreadyislc,format!("LBox<{}>",rsymtype)));
          }// lbox
+
+         /*
          else if needref && (rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item"))) {  //no Lbox, but need reference
            vfields.push((rhsi,itemlabel.clone(),alreadyislc,format!("{}{}",&ltref,rsymtype)));
            if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
               else {passthru = -2;}
-         } //no Lbox, and not unit type without label         
+         } //no Lbox, and not unit type without label
+         */
          else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox, and not unit type without label
            vfields.push((rhsi,itemlabel.clone(),alreadyislc,rsymtype.to_owned()));
            if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
@@ -225,11 +231,22 @@ impl Grammar
        let mut SACTION = if *simplestruct {format!("{}(",NT)}
                else {format!("{} {{",NT)};
        let mut viadjust:i32 = 0; //not used (not inc'ed)
+         
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields { //original field
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
          if rhssymi==*nt {
             eprintln!("WARNING: TYPE {} CANNOT FLATTEN INTO ITSELF\n",&self.Rules[sri].rhs[*rhsi].sym);
          }
+
+         let lhsreachable = match self.Reachable.get(&rhssymi) {
+               None => false,
+               Some(rset) => rset.contains(nt),
+              };
+         let needref = lhsreachable && !nonlctype(&rsymtype) && !self.basictypes.contains(&rsymtype[..]) &&ltref.len()>0;
+         if needref {
+           eprintln!("WARNING: Recursive structs may require the manual implementation of the Default trait for reference types, as in\n  impl<{0}> Default for &{0} {1} ...",&self.lifetime,&lhsymtype);
+         }
+
          let mut flattened = false;
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) { // maybe able to flatten in
            match structasts.get(&rhssymi) {
@@ -242,24 +259,37 @@ impl Grammar
                    let newactionlab = if *simp {format!("{}.{}",itemlabel,fi)}
                        else {format!("{}.{}",itemlabel,flab)};
                    let newindex = rhsi+(viadjust as usize)+fi;
+                   /*
+                   let frhsreachable = match self.Reachable.get(frhsi) {
+                       None => false,
+                       Some(rset) => rset.contains(&rhssymi),
+                     };//match
+                   */
+                   let fltref = if nonlctype(ftype) || self.basictypes.contains(&ftype[..])  || ltref.len()==0 {""} else {&ltref};
                    if *simplestruct {
+                     /*
                      fields.push_str("pub ");
+                     // not correct to use needref
+                     if needref && !nonlctype(ftype) {fields.push_str(&ltref);}
                      fields.push_str(ftype); fields.push(',');
+                     */
+                     fields.push_str(&format!("pub {}{},",fltref,ftype));
                    } else {
-                     fields.push_str(&format!("  pub {}:{},\n",&newlab,ftype));
+                     fields.push_str(&format!("  pub {}:{}{},\n",&newlab,fltref,ftype));
                    }
                    let islctype = ftype.starts_with("LC<");
-                   let isreftype = ftype.starts_with(&ltref);
-                   if *simplestruct && !isreftype {
+                   let isreftype = ltref.len()>0 && ftype.starts_with(&ltref);
+                   if *simplestruct  && !isreftype {
                      SACTION.push_str(&newactionlab); SACTION.push(',');
                    }
-                   else if *simplestruct && isreftype {
-                     SACTION.push_str(&format!("{}{},",&ltref,&newactionlab));
+                   else
+                   if *simplestruct  && isreftype  {
+                     SACTION.push_str(&format!("{}{},",fltref,&newactionlab));
                    }
                    else if !isreftype {
                     SACTION.push_str(&format!("{}:{}, ",&newlab,&newactionlab));                   }
                    else {
-                    SACTION.push_str(&format!("{}:{}{}, ",&newlab,&ltref,&newactionlab));
+                    SACTION.push_str(&format!("{}:{}{}, ",&newlab,fltref,&newactionlab));
                    }                   
                    vfields.push((newindex,newlab,*albx,ftype.to_owned()));
                    fi+=1;
@@ -273,7 +303,7 @@ impl Grammar
          }//if in flattentypes list
          if !flattened {
            let islctype = rsymtype.starts_with("LC<");
-           let withref = if rsymtype.starts_with(&ltref) || islctype {&ltref} else {""}; 
+           let withref = if  needref  ||  islctype {&ltref} else {""}; 
            if  *simplestruct {
              fields.push_str(&format!("pub {}{},",withref,rsymtype));
              //fields.push_str("pub ");
@@ -432,6 +462,7 @@ impl Grammar
                Some(rset) => rset.contains(&lhsi),
               };
             let needref = lhsreachable && !nonlctype(rsymtype);
+            let localref = if needref {&ltref} else {""};
             if alreadyislc /* || (lhsreachable && !nonlctype(rsymtype))*/ {
               let semact;
               if tuplevariant {
@@ -762,8 +793,8 @@ fn augment_action(act0:&str) -> String
 }
 
   // non-LC types
-fn nonlctype(ty:&str) -> bool
-  {
-     ty=="String" || ty.starts_with('&') || ty.starts_with("Vec<") || ty.starts_with("LBox") || ty.starts_with("Option<LBox") || ty.starts_with("LC<") || ty.starts_with("Option<LC<")
+pub fn nonlctype(ty:&str) -> bool
+  {  
+     ty=="String" || ty.starts_with('&') || ty.starts_with("Vec<") || ty.starts_with("LBox") || ty.starts_with("Option<LBox") || ty.starts_with("LC<") || ty.starts_with("Option<LC<") || ty.starts_with("Option<&")
   }//nonlbxtype
 
