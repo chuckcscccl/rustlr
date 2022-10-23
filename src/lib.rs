@@ -3,14 +3,16 @@
 //!  1. Option to automatically generate the AST datatypes and semantic actions, with manual overrides possible.  Rustlr's grammar format contains a sublanguage
 //!   that controls how ASTS are created, so that the generated types do
 //!   not necessarily reflect the format of the grammar.
-//!  2. Recognizes regex-style operators `*`, `+` and `?`, which simplify
+//!  2. Option to use [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create
+//!  ASTS types that enable *nested* pattern matching against recursive types.
+//! 
+//!  3. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
-//!  3. An experimental feature that recognizes *Selective Marcus-Leermakers*
+//!  4. An experimental feature that recognizes *Selective Marcus-Leermakers*
 //!  grammars.  This is a class of unambiguous grammars that's 
 //!  larger than traditional LR grammars.  They are especially helpful
 //!  in avoiding conflicts when new production rules are added to a grammar.
-//!  4. The ability to train the parser interactively for better error reporting
-//!  5. External state access allows parsers go to beyond CFGs
+//!  5. The ability to train the parser interactively for better error reporting
 //!  6. Also generates parsers for F# and other .Net languages
 //!
 //! A [**tutorial**](<https://cs.hofstra.edu/~cscccl/rustlr_project/>)

@@ -1,91 +1,103 @@
-## Advance Tutorial: Generating a Parser for C
+##  Generating [Bump][bumpalo]-Allocated ASTs
 
-As a larger example, we applied the `-genabsyn` feature of rustlr to the ANSI C Yacc grammar published in 1985 by Jeff Lee, which was converted to rustlr syntax and found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar).  The raw grammar could not be used as-is.  The following problems
-had to be resolved:
+Abstract syntax trees are usually defined recursively.  This normally means
+some form of smart pointer is requried to implement them.  The problem with
+this aspect of Rust is that the smart pointers block *nested* patterns from
+matching against AST expressions.  It is possible to define recursive structures
+using references (borrows) but all references in an AST structure must have
+compatible lifetimes.  An "arena" structure is required to hold the values that
+they reference.  While it's possible to define such an arena manually, rustlr
+provides support for using the [bumpalo][bumpalo] crate.
 
- 1.  A shift-reduce conflict caused by the "dangling else" problem.
- 2.  The need to distinguish an alphanumeric identifier as a "TYPE_NAME".
-
-The first problem was easily fixed by giving  'else' a higher precedence than 'if'.  The second problem presented a challenge for Rustlr.  The grammar
-contained two terminal symbols, "IDENTIFIER" and "TYPE_NAME", each should 
-carry as value alphanumeric strings.
-In the following C code
+A grammar can begin with the declaration
 ```
-typedef unsigned int uint;
-...
-unit x = 1;
+auto-bump
 ```
-The first occurrence of "uint", in the typedef line, should be recognized as
-an IDENTIFIER while the second, in the declaration of x, should be
-recognized as TYPE_NAME.  This suggests that the lexical scanner must be aware of information that exists "several levels of abstraction above".  That
-is, the token returned depends on the symbol table, or at least on
-previously parsed "typedef" statements.  This sharing of information
-between parser and lexer is relative easy in Lex/Yacc given that global,
-mutable and shared structures are "simple" to do in C.  In Rust we have
-to find another solution.
+in place of `auto`, which enables the generation of bump-allocated ASTs.
 
-A Rustlr .grammar file (since versin 0.2.96) can contain a decarative such
-as
+The disadvantage of bumpalo is that it bipasses some of the memory
+safety checks of Rust. Bump-allocation is not recommended if frequent
+changes are made to the allocated structures.  They are appropriate if
+the ASTs remain relatively stable once created, with few changes if
+any, until the entire structure can be dropped.
+
+The advantage of bump-allocation, besides an increase in speed, is
+that it enables the matching of nested patterns against recursive
+types.  Consider the following recursive type that tries to avoid
+smart pointers:
 ```
-transform |parser,token|{if token.sym=="IDENTIFIER" {let v=extract_value_IDENTIFIER(&token.value); if parser.exstate.contains(v)  {token.sym="TYPE_NAME";}} }
+enum Expr<'t> {
+  Var(&'t str),
+  Negative(&'t Expr<'t>),
+  Plus(&'t Expr<'t>, &'t Expr<'t>),
+  Minus(&'t Expr<'t>, &'t Expr<'t>),
+}
 ```
-The transform directive should be followed by a function of type
+and a function that "pretty-prints" such expressions. The function will print
+`x` instead of `--x`, `x-y` instead of `x+-y`, and `x+y` instead of `x--y`.
+It also pushes negation inside plus/minus, and only prints parentheses as
+required by the non-associative minus symbol.
 ```
-for <'t> fn(&ZCParser<AT,ET>, &mut TerminalToken<'t,AT>)
+fn pprint<'t>(expr:&'t Expr<'t>,) {
+  use crate::Expr::*;
+  match expr {
+    Negative(Negative(n)) => pprint(n),
+    Negative(Plus(a,b)) => pprint(&Minus(&Negative(a),b)),
+    Negative(Minus(a,b)) => pprint(&Plus(&Negative(a),b)),
+    Negative(n) => {print!("-"); pprint(n)},
+    Plus(a,Negative(b)) => pprint(&Minus(a,b)),
+    Minus(a,Negative(b)) => pprint(&Plus(a,b)),
+    Minus(a,p@Minus(_,_)) => { pprint(a); print!("-("); pprint(p); print!(")")},
+    Minus(a,p@Plus(_,_)) => { pprint(a); print!("+("); pprint(p); print!(")")},
+    Plus(a,b) => {pprint(a); print!("+"); pprint(b);},
+    Minus(a,b) => {pprint(a); print!("-"); pprint(b)},    
+    Var(x) => print!("{}",x),
+  }//match expr
+}//pprint
 ```
-that allows a lexical token to be modified before being passed to the parser.
-The **`transform`** directive also enables a flag that calls this function
-each time a new token is returned by the lexical analyzer. The function must
-be on a single line and is injected verbatim into the generated parser.
-The `transform` directive
-also enables the generation of `extract_value_{terminal symbol}`
-and `encode_value_{terminal symbol}` function for each terminal symbol.  These
-function enables the extraction/encoding of the semantic value attached to
-a terminal symbol relative to the internally generated enum that allows
-grammar symbols to carry values of different types.
-
-We are also making use of the `external state` that every rustlr parser
-carries to maintain a set of strings that should be parsed as TYPE_NAME.
-
-
-The AST types are found [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cauto_ast.rs) and the generated parser [here](https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/src/cautoparser.rs).
-
-The most important modificiations to the grammar, in addition to the `transform` directive above, are as follows:
+Then given
 ```
-lifetime 'lt
-externtype HashSet<&'lt str>
-
-!/*the following exposes the names of the generated enum variants*/
-!use crate::cauto_ast::declaration_specifiers::*;
-!use crate::cauto_ast::storage_class_specifier::*;
-!use crate::cauto_ast::init_declarator::*;
-!use crate::cauto_ast::init_declarator_list::*;
-!use crate::cauto_ast::declarator::*;
-!use crate::cauto_ast::declaration::*;
-!use crate::cauto_ast::direct_declarator::*;
-
-declaration_specifiers:DSCDS -->  storage_class_specifier declaration_specifiers
-
-type_specifier:Typename --> TYPE_NAME
-
-declaration:DecSpecList ==> declaration_specifiers:ds init_declarator_list:il ;
- { if let (DSCDS(td,_),init_declarator_list_84(x)) = (&ds,&il) {
-    if let Typedef = &**td {
-      if let init_declarator_86(y) = &**x {
-        if let declarator_130(z) = &**y {
-          if let IDENTIFIER_131(id)= &**z {
-            parser.exstate.insert(id.to_string());
-          }}}}} ...
- } <==
- 
+    let q = Plus(&Negative(&Negative(&Var("x"))),&Negative(&Var("y")));
+    pprint(&q);
 ```
-The nested ifs were needed in the rule for `declaration` to look into LBoxes.
-Rust does not allow pattern matching inside Box, and so nested pattern matching
-with recursively defined trees is difficult.
+will print `x-y`. Such a "declarative" style of programming is not
+possible if the type is defined using Box (or [LBox][2]).
 
-   ----------------
+However, allocating such structures temporarily on the stack is impractical.
+We would not be able to return references to them.
+You may also get the dreaded compiler error *"creates a temporary which is freed while still in use"* when writing expressions such as `Plus(&q,&Negative(&q))`.
 
+The [bumpalo][bumpalo] crate offers an "arena", a kind of *simulated heap*,
+that allow us to access these structures within the lifetime of the arena:
+```
+ let bump = bumpalo::Bump::new(); // creates new bump arena
+ let p = bump.alloc(Negative(bump.alloc(Negative(bump.alloc(Var("z"))))));
+```
+The [Bump::alloc](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html#method.alloc) function returns a reference to the allocated memory within
+the arena.  We can pass a reference to the "bump" to a function, which would
+then be able to construct and return bump-allocated structures using references
+of the same lifetime.
 
+Rustlr (since version 0.3.93) can now generate such structures automatically.
+To use this feature, it is necessary to include `bumpalo = "3"` in a crate's
+dependencies.  The easiest way to enable bumpalo is through enhancements to
+the [Lexsource][lexsource] structure.  The following code fragment
+demonstrates how to envoke a parser generated from an `auto-bump` grammar,
+[bautocalc.grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/bumpcalc/bautocalc.grammar),
+```
+   let srcfile = "test1.txt"; // srcfile names file to parse
+   let source=LexSource::with_bump(srcfile).unwrap();
+   let mut scanner = bautocalcparser::bautocalclexer::from_source(&source);   
+   let mut parser = bautocalcparser::make_parser();
+   let result = bautocalcparser::parse_with(&mut parser, &mut scanner);
+```
+A Rustlr Lexsource object containing a [Bump](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html) is created with [Lexsource::with_bump][withbump].
+The `parse_with` function, which is generated for individual parsers, will place
+a reference to the bump arena inside the parser.  The automatically
+generated semantic actions will call [Bump::alloc](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html#method.alloc) to create ASTS that will have the
+same lifetime as the Lexsource structure.
+
+The link to the entire sample crate is [here](https://cs.hofstra.edu/~cscccl/rustlr_project/bumpcalc/).
 
    ----------------
 
@@ -99,6 +111,7 @@ with recursively defined trees is difficult.
 [chap1]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter1.html
 [chap2]:https://cs.hofstra.edu/~cscccl/rustlr_project/chapter2.html
 [chap3]:  https://cs.hofstra.edu/~cscccl/rustlr_project/chapter3.html
+[chap4]:  https://cs.hofstra.edu/~cscccl/rustlr_project/chapter4.html
 [lexsource]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html
 [drs]:https://docs.rs/rustlr/latest/rustlr/index.html
 [tktrait]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html
@@ -108,3 +121,8 @@ with recursively defined trees is difficult.
 [nextsymfun]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/trait.Tokenizer.html#tymethod.nextsym
 [zcp]:https://docs.rs/rustlr/latest/rustlr/zc_parser/struct.ZCParser.html
 [ttnew]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.TerminalToken.html#method.new
+[take]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html#method.take
+[c11]:https://cs.hofstra.edu/~cscccl/rustlr_project/cparser/cauto.grammar
+[apnd]:  https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html
+[bumpalo]: https://docs.rs/bumpalo/latest/bumpalo/index.html
+[withbump]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html#method.with_bump

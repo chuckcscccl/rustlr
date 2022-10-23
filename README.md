@@ -11,19 +11,22 @@ creating conflicts (see the [Appendix](https://cs.hofstra.edu/~cscccl/rustlr_pro
 2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
 to be generated.  For example, in a grammar with `E --> E + T` a dependency
 between `T` and `E` can be declared so that only one AST type is generated for both.
-3. Recognizes regex-style operators `*`, `+` and `?`, which simplify
+3. Support for choosing [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create recursive ASTs that use references instead of smart pointers: this
+enables *deep pattern matching* on recursive structures.
+4. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
-4. Generates a lexical scanner automatically from the grammar.
-5. Operator precedence and associativity declarations further allow grammars
+5. Generates a lexical scanner automatically from the grammar.
+6. Operator precedence and associativity declarations further allow grammars
 to be written that's closer to EBNF syntax.
-6. The ability to train the parser, interactively or from script, for better error reporting.
-7. Generates parsers for Rust and for F\#.  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
+7. The ability to train the parser, interactively or from script, for better error reporting.
+8. Generates parsers for Rust and for F\#.  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
 language-analysis tools.  Parser generation for other such languages will
 gradually become available.
 
 <p>
 
-**Version 0.3.92** adds enhancements to the AST generator and built-in lexical scanner
+**Version 0.3.93** adds the ability to generate Bump-allocated ASTS that
+allows nested pattern matching against recursive types.
 
 ### Major Features and the Versions that Introduced Them
 

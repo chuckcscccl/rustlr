@@ -958,7 +958,7 @@ impl<'t> LexSource<'t>
      }//match
   }//new
 
-  /// retrieves reference to bump allocator, if created iwth with_bump
+  /// retrieves reference to bump allocator, if created with with_bump
   pub fn get_bump(&self) -> Option<&Bump> {
     self.bump.as_ref()
   }
