@@ -58,10 +58,23 @@ impl Grammar
 /////
          let mut needlt = false;
          if self.lifetime.len()>0 {
-           for ti in self.haslt_base.iter() {
-             if reach.contains(ti) {needlt = true; break;}
-           }
-           if reach.contains(nt) {needlt=true;} // for bump only
+           //for ti in self.haslt_base.iter() {
+           //  if reach.contains(ti) {needlt = true; break;}
+           //}
+           //if reach.contains(nt) {needlt=true;} // for bump only
+           // all recursive types must contain references,
+           // also, if any type that it reaches are recursive, then it
+           // must also have a lifetime argument!
+           for rch in reach {
+              if self.Symbols[*rch].terminal && self.haslt_base.contains(rch) {
+                needlt=true; break;
+              } else if !self.Symbols[*rch].terminal { // non-terminal
+                if let Some(rch_reach) = self.Reachable.get(rch) {
+                  if rch_reach.contains(rch) {needlt=true; break; }
+                }// reachable set exists for nonterminal rch
+              } // non-terminal
+           }// for each symbol reachable from nt
+           
          }//if lifetime check needed
          if needlt {
            self.Symbols[*nt].rusttype = format!("{}<{}>",&self.Symbols[*nt].sym,&self.lifetime);

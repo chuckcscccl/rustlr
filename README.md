@@ -25,7 +25,7 @@ gradually become available.
 
 <p>
 
-**Version 0.3.93** adds the ability to generate Bump-allocated ASTS that
+**Version 0.3.94** adds the ability to generate Bump-allocated ASTS that
 allows nested pattern matching against recursive types.
 
 ### Major Features and the Versions that Introduced Them

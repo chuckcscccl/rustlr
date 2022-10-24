@@ -6,8 +6,8 @@ nonterminals E ES
 nonterminals A1 B1 C1 A2
 terminals + - * / ( ) = ;
 terminals let in
-typedterminal int i64
-typedterminal var &'lt str
+valueterminal int ~ i64 ~ Num(n) ~ n
+valueterminal var ~ &'lt str ~ Alphanum(x) ~ x
 topsym ES
 resync ;
 
@@ -17,8 +17,6 @@ left + 400
 left - 400
 nonassoc = 300
 
-lexvalue int Num(n) n
-lexvalue var Alphanum(x) x
 lexattribute set_line_comment("#")
 
 E:Val --> int
@@ -26,7 +24,7 @@ E:Var --> var
 E:Plus --> E + E
 E:Minus --> E - E
 E:Times --> E * E
-E:Div --> E:e1 / E:[e2]
+E:Div --> E:[e1] / E:[e2]
 E(600):Neg --> - E:[e]
 E:Let --> let var = E in E
 E --> ( E )

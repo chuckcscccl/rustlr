@@ -99,6 +99,32 @@ same lifetime as the Lexsource structure.
 
 The link to the entire sample crate is [here](https://cs.hofstra.edu/~cscccl/rustlr_project/bumpcalc/).
 
+
+#### Replace the LBox
+
+Although the [LBox][2] is no longer needed, a device to capture the
+lexical position (line/column) information in the AST in a
+non-intrusive manner is still re required.  Along with the `auto-bump`
+option is the struct [LC][lc].  This is just a tuple with open fields
+for the value, and an inner tuple with line and column numbers. We've
+implemented The Deref/DerefMut traits so the value can be exposed in
+the manner of a smart pointer, but there's in fact no pointer
+underneath.  Inside a grammar, right-hand side labels such as `[a]`
+will automatically bind `a` to an LC struct and generate AST types
+using LC.  For example,
+```
+Expr:Div --> Expr:[e1] / Expr:[e2]
+```
+will generate an `Expr<'lt>` enum with a variant
+```
+Div{e1:&'lt LC<Expr<'lt>>,e2:&'lt LC<Expr<'lt>>},
+```
+as well as semantic actions that inserts line/column information into the
+AST as LC enclosures.
+
+Note that a lifetime argument is required for all recursive types.
+
+
    ----------------
 
 
@@ -126,3 +152,4 @@ The link to the entire sample crate is [here](https://cs.hofstra.edu/~cscccl/rus
 [apnd]:  https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html
 [bumpalo]: https://docs.rs/bumpalo/latest/bumpalo/index.html
 [withbump]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.LexSource.html#method.with_bump
+[lc]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LC.html

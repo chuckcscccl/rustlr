@@ -1597,8 +1597,8 @@ impl<{2}> {0}<{2}>
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
 
       if self.bumpast {
-        write!(fd,"    let bump:Option<&'lt bumpalo::Bump> = None;
-    {} {{stk,keywords,lexnames,shared_state,bump,}}\n  }}\n}}\n",&lexername)?;
+        write!(fd,"    let bump:Option<&{} bumpalo::Bump> = None;
+    {} {{stk,keywords,lexnames,shared_state,bump,}}\n  }}\n}}\n",&self.lifetime,&lexername)?;
       } else {
         write!(fd,"    {} {{stk,keywords,lexnames,shared_state,}}\n  }}\n}}\n",&lexername)?;
       }
