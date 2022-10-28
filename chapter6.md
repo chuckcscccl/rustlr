@@ -14,6 +14,9 @@ A grammar can begin with the declaration
 auto-bump
 ```
 in place of `auto`, which enables the generation of bump-allocated ASTs.
+**It is also necessary to place `bumpalo = "3"` in your crate dependencies**
+(in Cargo.toml). Although user code need to reference the crate directly,
+the generated parser code does.
 
 The disadvantage of bumpalo is that it bipasses some of the memory
 safety checks of Rust. Bump-allocation is not recommended if frequent
@@ -78,8 +81,9 @@ the arena.  We can pass a reference to the "bump" to a function, which would
 then be able to construct and return bump-allocated structures using references
 of the same lifetime.
 
-Rustlr (since version 0.3.93) can now generate such structures automatically.
-To use this feature, it is necessary to include `bumpalo = "3"` in a crate's
+Rustlr (since version 0.3.93) can generate such structures automatically.
+Most of bumpalo's usage is well-encapsulated, although
+`bumpalo = "3"` does need to be adde to the crate's
 dependencies.  The easiest way to enable bumpalo is through enhancements to
 the [Lexsource][lexsource] structure.  The following code fragment
 demonstrates how to envoke a parser generated from an `auto-bump` grammar,
@@ -124,6 +128,48 @@ AST as LC enclosures.
 
 Note that a lifetime argument is required for all recursive types.
 
+#### Dealing with Recursive Structs.
+
+There is currently one minor limitation with the `auto-bump` option.  When
+a struct is recursive, it may not be possible to generate code that
+`#[derive(Default)]`, which is required for all types in Rustlr, without some
+help from the user.  A reference type `&A` does not have a default and so
+a type `A` that contains a reference to itself also does not have a default. In
+such cases, help from the user is required to implement the trait for
+these reference types.  For example, 
+```
+A1 --> B1 int
+B1 --> var var A1
+flatten B1
+```
+would generate the types
+```
+#[derive(Default,Debug)]
+pub struct A1<'lt>(pub &'lt str,pub &'lt str,pub &'lt A1<'lt>,pub i64,);
+
+#[derive(Default,Debug)]
+pub struct B1<'lt>(pub &'lt str,pub &'lt str,pub &'lt A1<'lt>,);
+```
+but will fail to compile. The following warning will be given by rustlr:
+```
+WARNING: Recursive structs may require the manual implementation of the Default trait for reference types, as in
+  impl<'lt> Default for &'lt A1<'lt> ...
+```
+The warning should be heeded by including the following in the grammar:
+```
+$static A1DEFAULT:A1<'static> = A1("","",&A1DEFAULT,0);
+$impl<'t> Default for &'t A1<'t> { fn default() -> Self { &A1DEFAULT } }
+```
+Lines that begin with `$` are injected into the `_ast.rs` file created from the
+grammar.  These definitions will allow the `#[derive(Default)]` tags for the
+`A1` and `B1` types to be effective.  Currently, such lines are not generated
+automatically because of Rust's restrictions to what static definitions can
+reference.
+
+This problem can also be avoided by just using enums instead of
+structs in such cases: just assign a left-side label to the sole
+production rules for `A1` and `B1`.  Enums always include a `_Nothing` variant
+so that a default can always be defined.
 
    ----------------
 
