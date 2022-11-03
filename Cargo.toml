@@ -1,10 +1,10 @@
 [package]
 name = "rustlr"
-version = "0.3.94"
+version = "0.3.95"
 authors = ["Chuck Liang"]
 edition = "2021"
 license = "MIT"
-description = "Bottom-Up Parser Generator with Advanced Options"
+description = "LR Parser Generator with Advanced Options"
 repository = "https://github.com/chuckcscccl/rustlr/"
 keywords = ["parser", "parsing", "parser-generator", "lr", "yacc"]
 categories = ["parsing", "compilers"]

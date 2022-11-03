@@ -34,7 +34,7 @@ pub struct LALRState
 {
   index: usize, // index into FSM vector
   items: HashSet<LALRitem>,
-  kernel: HashSet<LALRitem>, //HashSet<LALRitem>,
+  kernel: HashSet<LALRitem>,
   lookaheads: HashMap<LALRitem,RefCell<HashSet<usize>>>, //las for each item
   propagation: HashMap<LALRitem,HashSet<(usize,LALRitem)>>,
   lhss: BTreeSet<usize>, // set of lhs of rules in the state
@@ -199,18 +199,6 @@ impl LALRMachine
           // add new item to states associated with nextsymi
           let newitem = LALRitem(itemri,itempi+1); //kernel item in new state
           symstate.kernel.insert(newitem);
-/*  not if it's purely lr(0). no lookaheads exist yet
-          // handled during propagation phase?
-          if symstate.lookaheads.get(&newitem).is_none() {
-            symstate.lookaheads.insert(newitem,RefCell::new(HashSet::new()));
-          }
-          let las = state.lookaheads.get(&item).unwrap().borrow();
-          let mut slas = symstate.lookaheads.get(&newitem).unwrap().borrow_mut();
-          for la in las.iter() {
-            if *la<self.Gmr.Symbols.len() { slas.insert(*la); }
-          }
-          // lookahead propagation
-*/
           // SHIFT/GOTONEXT actions added by addstate function
        }//can goto
        /*  NO REDUCE/ACCEPT UNTIL LATER */
@@ -256,11 +244,76 @@ impl LALRMachine
   }  //addstate
 
 
+fn set_propagations(&mut self)  // Algorithm 4.12 in old dragon book (4.63 new)
+{
+  // add inital EOF lookahead to state 0.
+  let dummy = self.Gmr.Symbols.len()+1; // distinguish from real symbols (#)
+  for si in 0..self.States.len()  {
+    // only do for kernel items - but must regenerate the closure
+    for kitem in self.States[si].kernel.clone()  {
+      // calculate LR(1) closure of this item with dummy lookahead
+      let mut open = vec![(kitem,dummy)];
+      let mut closure = HashSet::new();
+      let mut closed = 0;
+      while closed < open.len()
+      {
+         let (item,itemla) = open[closed];
+         closed+=1;
+         closure.insert((item,itemla));
+         let (ri,pi) = (item.0,item.1);
+         let ruleri = &self.Gmr.Rules[ri];
+         let lhsi = ruleri.lhs.index;
+         if pi<ruleri.rhs.len() {// just generate LR(1) closure
+           let Bsym = &ruleri.rhs[pi];
+           if !self.Gmr.Symbols[Bsym.index].terminal { //nonterminal
+             for rulent in self.Gmr.Rulesfor.get(&Bsym.index).unwrap() {
+               let baseitem = LALRitem(*rulent,0);
+               let rulelas = self.Gmr.Firstseq(&ruleri.rhs[pi+1..],itemla);
+               let mut sponlas = self.States[si].lookaheads.get(&baseitem).unwrap().borrow_mut();
+               for la in rulelas.iter() {
+                  let newitem = (baseitem,*la);
+                  if !closure.contains(&newitem) {open.push(newitem);}
+
+                  if *la<self.Gmr.Symbols.len() {sponlas.insert(*la);}
+                  
+               } // add new item to closure for each spontaneous la
+             }//for each rule for Bsym
+           }//Bsym is non-terminal
+         }//if pi<rhs.len()
+      }//while !closed  // closure for one kernel item (kitem)
+
+      // decide if propagate or spontaneous
+      for (item,itemla) in closure.iter() {
+         let (ri,pi) = (item.0,item.1);
+         let ruleri = &self.Gmr.Rules[ri];
+         if pi >= ruleri.rhs.len() {continue;}
+         let Xsym = &ruleri.rhs[pi];
+         let mut nsi = self.FSM.len();//invalid default
+         match self.FSM[self.States[si].index].get(&Xsym.index) {
+           Some(Shift(nexts)) | Some(Gotonext(nexts)) => {nsi=*nexts;},
+           _ => {panic!("THIS SHOULD NOT HAPPEN!");},
+         }//match, nsi is the state number from transition on Xsym
+         let nextitem = LALRitem(ri,pi+1);
+         if *itemla!=dummy { // spontaneous item
+           let mut nextitemlas = self.States[nsi].lookaheads.get(&nextitem).unwrap().borrow_mut();
+           nextitemlas.insert(*itemla);
+         } // insert spontaneous directly to nextitem in nsi=GOTO(I,Xsym)
+         else {
+           let kpropagation = self.States[si].propagation.get_mut(&kitem).unwrap();
+           kpropagation.insert((nsi,nextitem));
+         } // propagate
+      }// for each item in closure of (kitem,dummy)
+    } // for kernel item in state si
+  } // for each state si
+    
+}//set_propagations (new version)
+
+
+// faster but has a problem with non-determinism, too many lookaheads
 // the "interior" must consists of LR(1) items, not just LR(0) items,
 // each lookahead of the LR(0) item must be stored separately so it
 // can be re-examined by the while closed...loop.
-
-fn set_propagations(&mut self)  // and spontaneous lookaheads
+fn set_propagations0(&mut self)  // and spontaneous lookaheads
 {
  let dummy = self.Gmr.Symbols.len()+1; // distinguish from real symbols (#)
  for si in 0..self.States.len()
@@ -268,7 +321,11 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
   // only do for kernel items - but must regenerate the closure
   for kitem in self.States[si].kernel.clone()
   {
-   self.States[si].lookaheads.get(&kitem).unwrap().borrow_mut().insert(dummy);
+  
+   //if kitem.1<self.Gmr.Rules[kitem.0].rhs.len() {
+     self.States[si].lookaheads.get(&kitem).unwrap().borrow_mut().insert(dummy);
+   //}
+
    let mut interior = HashSet::new(); //HashSet::new();
    let mut closure = vec![kitem];
    let mut closed = 0;
@@ -301,25 +358,58 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
           //let itemlas= self.States[si].lookaheads.get(&item).unwrap().borrow();
           let mut nextlas = self.States[nsi].lookaheads.get(&nextitem).unwrap().borrow_mut();
           for la in itemlas.iter() {
-            if *la<self.Gmr.Symbols.len() {nextlas.insert(*la);}
-          }
+            if *la<self.Gmr.Symbols.len() {
+
+               nextlas.insert(*la);
+               /*
+               let inserted2 =                nextlas.insert(*la);
+               
+               if inserted2 { //debug
+                 let symname = &self.Gmr.Symbols[*la].sym;
+                 let lhsindex = self.Gmr.Rules[nextitem.0].lhs.index;
+                 let lhsname = &self.Gmr.Symbols[lhsindex].sym;
+                 if lhsname=="UnaryExpr" && nextitem.0==40 && symname=="LSQUAREB" {
+              println!("{} ADDED TO LAS FOR UnaryExpr, rule {}",symname,nextitem.0);
+                 }
+               }//debug
+               */
+            }
+          }// for la in itemlas
        }// if not propagate, then spontaneous
        
        if !Xsym.terminal {  // X is non-terminal, add closure items
          // adds spontaneous lookaheads, plus #.
+         //let dummy2 = dummy+1;
          let mut Xlookaheads = self.Gmr.Firstseq(&rulei.rhs[pi+1..],dummy);
-         //let itemlas= self.States[si].lookaheads.get(&item).unwrap().borrow();
          if Xlookaheads.remove(&dummy) {  // local use of dummy
-           // this could be the kernel item with dummy
-           for ila in itemlas.iter() {Xlookaheads.insert(*ila);}
+           // this could be the kernel item with dummy ... ?
+           //Xlookaheads.remove(&dummy);           
+           for ila in itemlas.iter() {Xlookaheads.insert(*ila);}//dummy inserted
+           //Xlookaheads.remove(&dummy);
          }
          for rulent in self.Gmr.Rulesfor.get(&Xsym.index).unwrap() {
-           let newitem = LALRitem(*rulent,0);
+           let newitem = LALRitem(*rulent,0);   //non-kernel item
            // if newitem!=item for borrow checks?
            let mut slas = self.States[si].lookaheads.get(&newitem).unwrap().borrow_mut();
            let mut reinsert = false;
            for xla in Xlookaheads.iter() {
+
+             // don't propagate the dummy: possible fix 11/3/2022
+             //if *xla < self.Gmr.Symbols.len() {slas.insert(*xla);}
              slas.insert(*xla);
+
+             /*
+             let rinsert1 = slas.insert(*xla);
+             if rinsert1 && *xla<self.Gmr.Symbols.len() { //debug
+               let symname = &self.Gmr.Symbols[*xla].sym;
+               let lhsindex = self.Gmr.Rules[newitem.0].lhs.index;
+               let lhsname = &self.Gmr.Symbols[lhsindex].sym;
+               if lhsname=="UnaryExpr" && newitem.0==40 && symname=="LSQUAREB" {
+              println!("{} ADDED TO LAS FOR UnaryExpr, rule {}",symname,newitem.0);
+               }
+             }//debug
+             */
+
              if !interior.contains(&(newitem,*xla)) {reinsert =true; }
            }
            // these lookaheads should be sent over to nextstate next loop
@@ -333,21 +423,19 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
    }//while !closed
   }//for each kernel item
  }//for each state
-}//set_propagations
+}//set_propagations0
 
  // called after all states created, propagations marked.
  fn propagate_lookaheads(&mut self)
  {
    let mut changed = true;
+   //let mut round = 0;
    while changed
    {
+      //round +=1;
       changed = false;
       for si in 0..self.States.len()
       {
-         /*let mut items = Vec::with_capacity(self.States[si].items.len());
-         for item in &self.States[si].items {
-           items.push(*item);
-         }*/
          for item in &self.States[si].kernel { //-borrow checker!
            let (ri,pi) = (item.0, item.1);
            //println!("propagate_lookahead looking at kernel item {:?}, state {}",&item,si);
@@ -363,7 +451,6 @@ fn set_propagations(&mut self)  // and spontaneous lookaheads
                     let mut nextlas = rfcell.borrow_mut();
                     for la in itemlas.iter() {
                       if *la>=self.Gmr.Symbols.len() {continue;}
-//println!("propagating lookahead {} to state {}, item {:?} from state {}, item {:?}",&self.Gmr.Symbols[*la].sym, nextstate,&nextitem, si,&item);
                       changed =nextlas.insert(*la)||changed;
                     }
                   }
@@ -425,9 +512,11 @@ fn reclose(&mut self) // set remaining lookaheads
          let propagate = self.Gmr.Nullableseq(&rulei.rhs[pi+1..]);
          if propagate {
          let Xsym = &rulei.rhs[pi]; // symbol X of dragon book
+         
          // adds remaining lookaheads, plus #.
          // spontaneously generated lookaheads already there .. only need
          // to add from kernels.
+         
          let mut Xlookaheads = HashSet::new();
          let itemlas = state.lookaheads.get(&item).unwrap().borrow();
          for ila in itemlas.iter() {Xlookaheads.insert(*ila);}
