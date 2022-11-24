@@ -307,8 +307,10 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
        let symi = *self.Gmr.Symhash.get(terminalname).unwrap();
        let sym = &self.Gmr.Symbols[symi];
        let eindex = self.Gmr.enumhash.get(&sym.rusttype).expect("F- Sharp!");
+       let valconvfun = if valfun.trim().starts_with("fun") {
+           format!("({})",valfun.trim()) } else {valfun.trim().to_owned()};
        if /* stype!=UNITTYPE && */ &sym.sym!="EOF" {
-         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,valfun.trim(),terminalname)?;
+         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,&valconvfun,terminalname)?;
        }  // has been declared like valueterminal~ num~ int~ n int(n)
      } //for (name,form,val) entry in Lexvals
      // for lexterminals:

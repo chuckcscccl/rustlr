@@ -10,12 +10,17 @@ use yacc_ast::*;
 mod yaccparser;
 use yaccparser::*;
 use std::collections::HashMap;
-
+use std::io::{self,Read,Write,BufReader,BufRead};
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
 fn main()
 {
   let args:Vec<String> = std::env::args().collect();
   let mut srcfile = "test1.y";
   if args.len()>1 {srcfile = &args[1];}
+  convert_from_yacc(srcfile);
+  /*
   let sourceopt = LexSource::new(srcfile);
   if sourceopt.is_err() {return;}
   let source = sourceopt.unwrap();
@@ -30,9 +35,49 @@ fn main()
 
    let symboltable = parser4.shared_state.take();
    let rrgmr = build_rr(&result4,&symboltable);
-   println!("{}",&rrgmr);
-   
+
+   // derive grammar name
+   let mut outgrammar = String::new();
+   if let Some(pos) = srcfile.rfind(".y") {
+     outgrammar = format!("{}.grammar",&srcfile[..pos]);
+   }
+   if outgrammar.len()==0 {   println!("{}",&rrgmr);  } //print to stdout
+   else {
+     let mut fd = File::create(&outgrammar).expect("Unable to open outfile file");
+     let resultw = write!(fd,"{}",&rrgmr);
+     if resultw.is_err() {eprintln!("Failed to write to output file");}
+   }// write to file
+   */
 }//main
+
+fn convert_from_yacc(srcfile:&str)
+{
+  let sourceopt = LexSource::new(srcfile);
+  if sourceopt.is_err() {return;}
+  let source = sourceopt.unwrap();
+
+   let mut scanner4 = yaccparser::yacclexer::from_source(&source);
+   let mut parser4 = yaccparser::make_parser();
+   let tree4= yaccparser::parse_with(&mut parser4, &mut scanner4);
+   let result4 = tree4.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
+   if parser4.error_occurred() {println!("\n Parser Errors Encountered.. check above");}
+
+   let symboltable = parser4.shared_state.take();
+   let rrgmr = build_rr(&result4,&symboltable);
+
+   // derive grammar name
+   let mut outgrammar = String::new();
+   if let Some(pos) = srcfile.rfind(".y") {
+     outgrammar = format!("{}.grammar",&srcfile[..pos]);
+   }
+   if outgrammar.len()==0 {   println!("{}",&rrgmr);  } //print to stdout
+   else {
+     let mut fd = File::create(&outgrammar).expect("Unable to open outfile file");
+     let resultw = write!(fd,"{}",&rrgmr);
+     if resultw.is_err() {eprintln!("Failed to write to output file");}
+     else {println!("Converted grammar saved in {}",&outgrammar);}
+   }// write to file
+}//convert_from_yacc
 
 ///// building rustlr grammar
 use yacc_ast::yacc_decl::*;

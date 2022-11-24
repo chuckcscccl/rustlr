@@ -7,13 +7,6 @@
 use std::fmt::Display;
 use std::default::Default;
 use std::collections::{HashMap,HashSet,BTreeSet};
-//mod lib;
-//use lib::*;
-//use crate::grammar_processor::{TRACE}
-//mod bunch;
-//use crate::bunch::*;
-//mod runtime_parser;
-//use crate::runtime_parser::*;
 
 mod grammar_processor;
 use grammar_processor::*;
@@ -60,8 +53,7 @@ fn rustle(args:&Vec<String>) // called from main
   let argc = args.len();
   if argc<2 {eprintln!("Must give path of .grammar file"); return;}
   let filepath = &args[1];
-  let mut parserfile = String::from("");
-  let mut argi = 2; // next argument position
+  let mut parserfile = String::from("");  // -o target
   let mut lalr = false;  // changed from false in version 0.2.0
   let mut newlalr = true;
   let mut tracelev:usize = 1; // trace-level
@@ -73,9 +65,11 @@ fn rustle(args:&Vec<String>) // called from main
   let mut lrsdmaxk:usize = selmlk::MAXK;
   let mut regenerate = false;
   let mut mode = 0;
+  let mut argi = 2; // next argument position
   while argi<argc
   {
      match &args[argi][..] {
+       //filen if filen.ends_with(".grammar") => {filepath = &args[argi];},
        "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
