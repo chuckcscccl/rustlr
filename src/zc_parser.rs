@@ -337,7 +337,7 @@ This is correct because linenum/column will again reflect start of tos item
          let lc = self.popped[index];
          ln = lc.0; cl=lc.1;
        }
-       LC::new(e,ln,cl)
+       LC::make(e,ln,cl,i as u32)
     }//lbx
 
     /// Like lbx but creates an LRc

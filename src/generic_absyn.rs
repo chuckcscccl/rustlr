@@ -294,13 +294,15 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
 }
 
 /// Version of LBox that does not use a Box. This tuple struct contains
-/// a value of type T in the first position and a pair consisting of
-/// (line, column) numbers in the second position.
+/// a value of type T in the first position and a tuple consisting of
+/// (line, column, offset) numbers in the second position.  The offset
+/// represents the position on the right-hand side of the production rule
+/// that the LC corresponds to.
 /// This feature was added to Rustlr to support bumpalo-allocated ASTs.
-pub struct LC<T>(pub T,pub (u32,u32));
+pub struct LC<T>(pub T,pub (u32,u32,u32));
 
 impl<T:Default> Default for LC<T> {
-  fn default() -> Self {LC(T::default(),(0,0))}
+  fn default() -> Self {LC(T::default(),(0,0,0))}
 }
 impl<T> Deref for LC<T>
 {
@@ -330,40 +332,30 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LC<T> {
 }
 impl<T> LC<T>
 {
+  /// creates a new LC tuple struct in the form (value, (line,column,unique_id))
+  pub fn make(x:T,ln:usize,cl:usize,uid:u32) -> Self {
+    LC(x,(ln as u32,cl as u32,uid))
+  }
   /// creates a new LC tuple struct in the form (value, (line,column))
+  /// with the unique_id field set to zero (for backwards compatibility)
   pub fn new(x:T,ln:usize,cl:usize) -> Self {
-    LC(x,(ln as u32,cl as u32))
+    LC(x,(ln as u32,cl as u32,0))
   }
   /// returns encapsulated line
   pub fn line(&self) -> usize { (self.1.0) as usize }
   /// returns encapsulated column
   pub fn column(&self) -> usize { (self.1.1) as usize }
+  /// returns (line,column) as a pair of 32 values
+  pub fn lncl(&self) -> (u32,u32) { (self.1.0,self.1.1) }
+  /// returns production-rule offset
+  pub fn offset(&self) -> u32 { self.1.2 }
   /// returns value reference
   pub fn value(&self) -> &T { &self.0 }
   /// transfers line/column information to another LC
   pub fn transfer<U>(&self,x:U) -> LC<U> {
-   LC::new(x,self.line(),self.column()) 
+   LC::make(x,self.line(),self.column(),self.1.2) 
   }
 }
-/*
-/// Version of LC that encapsulates an immutable reference
-pub struct LCR<'t,T>
-{
-  pub exp:&'t T,
-  pub line:u32,
-  pub column:u32,
-}//LC
-//impl<T:Default> Default for LCR<'_,T> {
-//  fn default() -> Self {LCR{exp:None,line:0,column:0,}}
-//}
-impl<'t,T> Deref for LCR<'t,T>
-{
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        &self.exp
-    }
-}
-*/
 
 
 /// Structure intended to support [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) AST generations,
