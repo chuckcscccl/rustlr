@@ -295,9 +295,12 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
 
 /// Version of LBox that does not use a Box. This tuple struct contains
 /// a value of type T in the first position and a tuple consisting of
-/// (line, column, offset) numbers in the second position.  The offset
-/// represents the position on the right-hand side of the production rule
-/// that the LC corresponds to.
+/// (line, column, uid) numbers in the second position.  The uid or
+/// *unique identifier* is a unique number placed in each LC structure
+/// created by the parser.  It is useful for hashing information (such as
+/// inferred types) based on their source location.  Multiple AST constructs
+/// may begin with the same line/column position, but the unique id will
+/// disambiguate them.
 /// This feature was added to Rustlr to support bumpalo-allocated ASTs.
 pub struct LC<T>(pub T,pub (u32,u32,u32));
 
@@ -347,8 +350,8 @@ impl<T> LC<T>
   pub fn column(&self) -> usize { (self.1.1) as usize }
   /// returns (line,column) as a pair of 32 values
   pub fn lncl(&self) -> (u32,u32) { (self.1.0,self.1.1) }
-  /// returns production-rule offset
-  pub fn offset(&self) -> u32 { self.1.2 }
+  /// returns unique id
+  pub fn uid(&self) -> u32 { self.1.2 }
   /// returns value reference
   pub fn value(&self) -> &T { &self.0 }
   /// transfers line/column information to another LC

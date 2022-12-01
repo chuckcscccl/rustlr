@@ -132,6 +132,7 @@ pub struct ZCParser<AT:Default,ET:Default>
   pub Symset : HashSet<&'static str>,
   //pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
   popped : Vec<(usize,usize)>,
+  gindex : RefCell<u32>,
 }//struct ZCParser
 
 
@@ -165,6 +166,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          Symset : HashSet::with_capacity(64),
          //tokenizer:tk,
          popped: Vec::with_capacity(8),
+         gindex: RefCell::new(0),
        };
        for _ in 0..slen {
          p.RSM.push(HashMap::with_capacity(16));
@@ -337,7 +339,9 @@ This is correct because linenum/column will again reflect start of tos item
          let lc = self.popped[index];
          ln = lc.0; cl=lc.1;
        }
-       LC::make(e,ln,cl,i as u32)
+       let uid = *self.gindex.borrow();
+       *self.gindex.borrow_mut() += 1;
+       LC::make(e,ln,cl,uid)
     }//lbx
 
     /// Like lbx but creates an LRc
@@ -351,8 +355,6 @@ This is correct because linenum/column will again reflect start of tos item
        }
        LRc::new(e,ln,cl)
     }//lbx
-
-
 }// impl ZCParser
 
 
