@@ -71,23 +71,35 @@ use bumpalo::Bump;
 /// expression can be accessed as in a standard Box.  This is intended to
 /// to be used in the formation of abstract syntax trees so that the lexical
 /// information is available for each construct after the parsing stage.
+/// Also included in each LBox created by the runtime parser ([ZCParser])
+/// is a 32 bit (u32) *unique identifier* **uid** that uniquely identifies
+/// each LBox.  An expression and a subexpression can both begin at the same
+/// line and column numbers and the unique id would be required to
+/// distinguish them.  This device is useful for hashing information, such
+/// as inferred types, based on the location of an expression in the source.
 pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
   pub line:u32,
   pub column:u32,
+  pub uid:u32, // unique id
   // must refer to information kept externally  
   //pub src_id:usize,   
 }
 impl<T> LBox<T>
 {
+  /// creates a new LBox with line ln, column col and uid set to zero;
+  /// this function is deprecated by [LBox::make].
   pub fn new(e:T,ln:usize,col:usize /*,src:usize*/) -> LBox<T>
-  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32 } }
+  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32,uid:0, } }
+  /// creates a new LBox enclosing e, with line ln, column col and uid u
+  pub fn make(e:T,ln:usize,col:usize, u:u32) -> LBox<T>
+  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32,uid:u, } }  
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
   pub fn transfer<U>(&self,e:U) -> LBox<U>
   {
-     LBox::new(e,self.line(),self.column() /*,self.src_id*/)
+     LBox::make(e,self.line(),self.column(),self.uid)
   }
   /// Since version 0.2.4, Rustlr now stores the line and column
   /// information internally as u32 values instead of usize, and
@@ -121,6 +133,7 @@ impl<T:Clone> Clone for LBox<T>
         exp : self.exp.clone(),
         line: self.line,
         column: self.column,
+        uid:self.uid,
         //src_id: self.src_id,
       }
    }//clone
@@ -155,6 +168,7 @@ impl<'t> LBox<dyn Any+'t>
        exp : boxdown.unwrap(),
        line: self.line,
        column: self.column,
+       uid:self.uid,
        //src_id: self.src_id,
      })
   }
@@ -171,7 +185,7 @@ impl<'t> LBox<dyn Any+'t>
   pub fn upcast<T:'t>(lb:LBox<T>) -> Self
   {
      let bx:Box<dyn Any+'t> = lb.exp; // this requires Any+'static ??
-     LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
+     LBox { exp:bx, line:lb.line, column:lb.column, uid:lb.uid, }
   }
 }// downcast/upcast for LBox
 

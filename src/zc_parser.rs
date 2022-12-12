@@ -81,7 +81,7 @@ impl<AT:Default> StackedItem<AT>
   { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
   /// the abstract syntax value along with starting line and column numbers
-  pub fn lbox(self) -> LBox<AT>
+  pub fn lbox(self) -> LBox<AT>  // no longer used
   {  LBox::new(self.value,self.line,self.column) }
 }
 
@@ -268,7 +268,16 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
        self.popped.push((item.line,item.column));
        item
     }//popstack
-    
+
+    pub fn popstack_as_lbox(&mut self) -> LBox<AT>
+    {
+       let item = self.stack.pop().expect("PARSER STATE MACHINE/STACK CORRUPTED");
+       self.linenum = item.line; self.column=item.column;
+       self.popped.push((item.line,item.column));
+       let newuid = *self.gindex.borrow();
+       *self.gindex.borrow_mut() += 1;           
+       LBox::make(item.value,item.line,item.column,newuid)
+    }//popstack_as_lbox
 
     fn reduce(&mut self, ri:&usize)
     {
@@ -307,10 +316,18 @@ This is correct because linenum/column will again reflect start of tos item
     ///```ignore
     ///   E --> E:a + E:b {PlusExpr(parser.lb(a),parser.lb(b))}
     ///```
-    pub fn lb<T>(&self,e:T) -> LBox<T> { LBox::new(e,self.linenum,self.column /*,self.src_id*/) }
+    pub fn lb<T>(&self,e:T) -> LBox<T> {
+      let newuid = *self.gindex.borrow();
+      *self.gindex.borrow_mut() += 1;    
+      LBox::make(e,self.linenum,self.column,newuid)
+    }
     /// creates a `LBox<dyn Any>`, which allows attributes of different types to
     /// be associated with grammar symbols.  Use in conjuction with [LBox::downcast], [LBox::upcast] and the [lbdown], [lbup] macros.
-    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> { LBox::upcast(LBox::new(e,self.linenum,self.column /*,self.src_id*/)) }
+    pub fn lba<T:'static>(&self,e:T) -> LBox<dyn Any> {
+      let newuid = *self.gindex.borrow();
+      *self.gindex.borrow_mut() += 1;        
+      LBox::upcast(LBox::make(e,self.linenum,self.column,newuid))
+    }
     /// similar to [ZCParser::lb], but creates a [LRc] instead of [LBox]
     pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// similar to [ZCParser::lba] but creates a [LRc]
@@ -326,7 +343,9 @@ This is correct because linenum/column will again reflect start of tos item
          let lc = self.popped[index];
          ln = lc.0; cl=lc.1;
        }
-       LBox::new(e,ln,cl)
+       let newuid = *self.gindex.borrow();
+       *self.gindex.borrow_mut() += 1;
+       LBox::make(e,ln,cl,newuid)
     }//lbx
 
     /// creates [LC] enclosing e using line/column information associated
@@ -472,7 +491,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
         if !boxedlabel {
            write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
         } else {
-           write!(fd,"let mut {} = parser.popstack().lbox(); ",poppedlab)?;     
+           write!(fd,"let mut {} = parser.popstack_as_lbox(); ",poppedlab)?;     
         }
         
 	if gsym.label.len()>1 && findat.is_some() { // if-let pattern
