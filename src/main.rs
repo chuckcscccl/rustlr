@@ -106,7 +106,7 @@ fn rustle(args:&Vec<String>) // called from main
      argi+=1;
   }//while there are command-line args
   if zc && verbose {
-     println!("verbose mode not compatible with -zc option");
+     eprintln!("verbose mode not compatible with -zc option");
      return;
   }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
@@ -118,7 +118,7 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.mode = mode; // 0 for rust, 1 for fsharp
   let parsedok = grammar1.parse_grammar(filepath);  //  ***
   if !parsedok {
-    println!("\nFailed to process grammar");
+    eprintln!("\nFailed to process grammar");
     return;
   }
   // Check grammar integrity: now done inside parse
@@ -162,7 +162,7 @@ fn rustle(args:&Vec<String>) // called from main
     println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
     //fsm0 = lrsdfsm.to_statemachine();
-    if lrsdfsm.failed {println!("NO PARSER GENERATED"); return;}
+    if lrsdfsm.failed {eprintln!("NO PARSER GENERATED"); return;}
     if !lrsdfsm.failed && lrsdfsm.regenerate { 
       println!("Re-Generating LR(1) machine for transformed grammar...");
       lrsd = false;
@@ -192,7 +192,7 @@ fn rustle(args:&Vec<String>) // called from main
   else if tracelev>1 && !newlalr && !lrsd {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.{}",&gramname,pfsuffix));}
   if fsm0.States.len()>65536  {
-    println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
+    eprintln!("too many states: {} execeeds limit of 65536",fsm0.States.len());
     return;
   }
   let write_result =
@@ -213,6 +213,6 @@ fn rustle(args:&Vec<String>) // called from main
      if tracelev>0 {println!("Parser saved in {}",&parserfile);}
   }
   else if let Err(err) = write_result {
-     println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
+     eprintln!("failed to write parser, likely due to invalid -o destination: {:?}",err);
   }
 }//rustle
