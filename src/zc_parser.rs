@@ -1061,7 +1061,6 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     let mut lookahead = TerminalToken::new("EOF",AT::default(),0,0); //just init
     // nextsym() should only be called here
     if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
-    else {self.stopparsing=true;}
 
     while !self.stopparsing
     {
