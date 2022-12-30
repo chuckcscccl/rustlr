@@ -1,0 +1,123 @@
+# Grammar for lambda7c, infix
+
+auto-bump
+lifetime 'lt
+valueterminal integer ~ i32 ~ Num(n) ~ (n as i32)
+valueterminal floatpt ~ f64 ~ Float(n) ~ n
+valueterminal strlit ~ &'lt str ~ Strlit(s) ~ s
+valueterminal var ~ &'lt str ~ Alphanum(n) ~ n
+lexterminal NEG ~
+#lexterminal QUOTE '
+lexterminal DOT .
+lexterminal COMMA ,
+lexterminal COLON :
+lexterminal ARROW ->
+lexterminal LBRACE {
+lexterminal RBRACE }
+lexterminal LBRACK [
+lexterminal RBRACK ]
+lexterminal SETQ =
+lexterminal AND &&
+lexterminal OR ||
+lexterminal NOT !
+lexterminal NEQ !=
+lexterminal MOD %
+terminals int string float unit if else define cons car cdr nil lambda let while
+terminals print display in then export
+terminals + - * / ( ) ^ < > <= >= == ;
+nonterminals Expr Txpr Sequence Varopt
+nonterminal Pxpr : Expr
+nonterminal Uxpr : Expr
+nonterminal Axpr : Expr
+nonterminal Bxpr : Expr
+nonterminal Expr2 : Expr
+nonterminal Expr3 : Expr
+nonterminal Expr4 : Expr
+nonterminal ExprStat : Expr
+nonterminal Lxpr : Expr
+
+
+topsym Sequence
+resync ;
+
+# L-values
+Lxpr --> var
+Lxpr:Index --> Lxpr:[ae] LBRACK Expr:ai RBRACK
+#Lxpr:Index --> Lxpr LBRACK Expr RBRACK
+
+#primary expressions
+Pxpr --> Lxpr
+Pxpr --> integer | floatpt | strlit | nil
+Pxpr --> ( Expr )
+# function application as Uxpr?
+Pxpr:App --> Pxpr ( Expr<COMMA*> )
+
+# unary operators, LC boxes so types can be hashed
+Uxpr --> Pxpr
+Uxpr:Not --> NOT Uxpr
+Uxpr:Neg --> - Uxpr:[a]
+Uxpr:Car --> car Uxpr
+Uxpr:Cdr --> cdr Uxpr
+Uxpr:Display --> print Uxpr:[e]
+
+Expr4 --> Uxpr
+Expr4:Mult --> Expr4:a * Uxpr:[b]
+Expr4:Div --> Expr4:a / Uxpr:[b]
+Expr4:Mod --> Expr4:a MOD Uxpr:[b]
+
+Expr3 --> Expr4
+Expr3:Plus --> Expr3:a + Expr4:[b]
+Expr3:Minus --> Expr3:a - Expr4:[b]
+
+Expr2 --> Expr3
+Expr2:Eq --> Expr2:a == Expr3:[b]
+Expr2:Neq --> Expr2:a NEQ Expr3:[b]
+Expr2:Leq --> Expr2:a <= Expr3:[b]
+Expr2:Geq --> Expr2:a >= Expr3:[b]
+Expr2:Gt --> Expr2:a > Expr3:[b]
+Expr2:Lt --> Expr2:a < Expr3:[b]
+
+# booleans
+Bxpr --> Expr2
+Bxpr:And --> Bxpr AND Expr2
+Bxpr:Or --> Bxpr OR Expr2
+
+# assignment
+Axpr --> Bxpr
+Axpr:Setq --> Lxpr:[lvalue] SETQ Axpr:[rvalue]
+# right-associative =
+
+Expr --> Axpr
+Expr:Vector --> LBRACK Expr<COMMA*> RBRACK
+Expr:Vector_make --> LBRACK Expr:[ve] ; Pxpr:vi RBRACK
+ExprStat:Ifelse --> if Bxpr:[condition] then ExprStat:[truecase] else ExprStat:[falsecase]
+Expr:notused ==> if Bxpr:[condition] then Expr:[truecase] else Expr:[falsecase]
+ {
+   Expr::Ifelse{condition,truecase,falsecase}
+ } <==
+
+
+
+ExprStat --> Expr ;
+ExprStat:Beginseq --> LBRACE ExprStat* RBRACE
+ExprStat:Whileloop --> while ( Bxpr:[condition] ) ExprStat:[body]
+ExprStat:Let --> let var:[id] (COLON Txpr)?:typeopt SETQ Pxpr:[init_val] in ExprStat:[body]
+ExprStat:TypedLambda --> Txpr:return_type lambda Varopt<COMMA*>:formal_args DOT ExprStat:[body]
+ExprStat:unused --> lambda Varopt<COMMA*>:a DOT ExprStat:[e] { Expr::TypedLambda{return_type:Txpr::Txpr_Nothing,formal_args:a,body:e} }
+ExprStat:Define --> define var:[id] (COLON Txpr)?:typeopt SETQ ExprStat:[init_val]
+
+ExprStat:Export --> export var ;
+
+Varopt --> var (COLON Txpr)?
+#flatten Varopt
+
+Sequence --> ExprStat+
+
+Txpr:int_t --> int
+Txpr:string_t --> string
+Txpr:float_t --> float
+Txpr:unit_t --> unit
+Txpr:vec_t --> Txpr LBRACK integer? RBRACK
+Txpr:closure_t --> < var >
+
+EOF

@@ -1,0 +1,25 @@
+define a:int[] = [1,2,3];
+define b:int[] = [0;4]; // equivalent to [0,0,0,0] 
+a[0] = 9;
+print(a[2]);
+b[2] = 7;
+print(b[a[1]]);  print "\n";
+
+define f = lambda c:int[3] . {
+  c[0] = 100;
+  c[0] + c[1] + a[2] + b[2];
+}
+print(f(a));
+
+
+print(b[8]); // should be runtime error
+
+/* Prefix (LL(1) grammar) syntax:
+ 
+(define a:[int] [1 2 3])
+
+(vec_setq a 0 8)  // a[0] = 8
+(vec_get a 1)     // a[1]
+(vec_make 0 4)    // [0;4]
+*/
+

@@ -1,0 +1,15 @@
+define x = 1;
+define f = int lambda y:int. y+x;
+let x = 2 in {
+  define g = int lambda y:int. f(y)+x;
+  print(f(0) + g(0)); // should print 4
+}
+
+/*
+(define x 1)
+(define f (lambda (y:int):int (+ y x)))
+(let (x 2) (begin
+  (define g (lambda (y:int):int (+ (f y) x)))
+  (display (+ (f 0) (g 0)))
+  ))
+*/

@@ -1,0 +1,42 @@
+// Bank accounts in lambda7c
+
+define make_account = lambda init:float . {
+  define balance = init;
+  define transaction = lambda amt:float . {
+    balance = balance + amt;  // also return new balance
+  }
+  transaction;  // returns closure
+}
+
+define myaccount = make_account(100.0);
+define youraccount = make_account(200.0);
+print(myaccount(150.0));  print("\n");
+print(youraccount(-25.0)); print("\n");
+
+/* won't work until we can define a type at the lambda7c language level,
+inferring types won't work either because there's not enough information
+for it to infer that it's a "transaction" closure.
+
+Even if we have a syntax for functional types: lambda a:float->float, it
+won't be enough. we'd have to say: lambda a:(float,transaction)->float.
+
+transaction doesn't just define a function, it defines a type.
+But the type is hidden inside makeaccount.
+
+possible syntax:
+define_struct account = { balance:float }; //oh no! we're making java!
+this would expose the closures to the top-level language.  not what we want.
+But maybe this is what a typed oop language requires.
+
+// move balance of account b into account a:
+define join_accounts = lambda a, b . {
+  define abalance = a(0.0);
+  define bbalance = b(0.0);
+  a(bbalance);
+  b(-1.0*bbalance);
+}
+join_accounts(myaccount,youraccount);
+*/
+
+free(myaccount);
+free(youraccount);

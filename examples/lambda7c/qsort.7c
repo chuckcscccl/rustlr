@@ -1,0 +1,110 @@
+// quicksort routines
+
+// find pivot, returns index in [start,end) or -1
+define findpivot = int lambda A:int[128], start:int, end:int . {
+  define ax = -1;
+  define i = start;  // start index
+  while (i<end-1) {
+    if (A[i]>A[i+1]) then { ax=i+1;  i=end; } else { i=i+1; }
+  }//while
+  ax;
+}//findpivot
+
+define partition = int lambda A:int[128],start:int,end:int, pivot:int.{
+   define i = start;
+   define k = start;
+   define tmp = 0;
+   while (i< end) {
+     if (A[i] <= pivot) then {  // swap A[i] with A[k]
+       tmp = A[i];
+       A[i] = A[k];
+       A[k] = tmp;
+       k = k+1;
+       i = i+1;
+     } else { i=i+1; }
+   }//while
+   k;  // k will point to start of second partition
+}//partition
+
+define quicksort = int lambda A:int[128], start:int, end:int . {
+  define piv = findpivot(A,start,end);
+  if (piv != -1 ) then {
+    define mid = partition(A,start,end,A[piv]);
+    quicksort(A,start,mid);
+    quicksort(A,mid,end);
+  }
+  else {0;} // do useless operation
+  0;  // return dummy 0
+}//quicksort
+
+define A:int[] = [0;128];  // initialize array
+// = [5,4,6,1,2,9,7,3,10,8];
+A[0] = 5;  A[1] = 4;  A[2] = 6;  A[3] = 1;  A[4] = 2;
+A[5] = 9;  A[6] = 7;  A[7] = 3;  A[8] = 10; A[9] = 8;
+quicksort(A,0,10);
+define i = 0;  // print array after sorting
+while (i<10) {
+  print(A[i]);  print(" ");
+  i = i+1;
+}
+
+/*
+(define findpivot (lambda (A:[int 128]] start:int end:int):int (begin
+  (define ax ~1) // or (define ax (- 0 1))
+  (define i start)
+  (while (< i (- end 1))
+     (if (> (vec_get A i) (vec_get A (+ i 1)))
+        (begin (setq ax (+ i 1)) (setq i end))
+        (setq i (+ i 1)) //else
+     )
+  )
+  ax))) // findpivot
+
+(define partition (lambda (A:[int 128]] start:int end:int pivot:int):int
+  (begin
+    (define i start)
+    (define k start)
+    (define tmp 0)
+    (while (< i end) ( begin
+      (if (<= (vec_get A i) pivot)
+        (begin
+          (setq tmp (vec_get A i))
+          (vec_setq A i (vec_get A k))
+          (vec_setq A k tmp)
+          (setq k (+ k 1))         
+          (setq i (+ i 1))
+        )
+        (setq i (+ i 1)) //else
+      ) //if-else
+    ))//while
+    k)))//partition
+    
+(define quicksort (lambda (A:[int 128]] start:int end:int) (begin
+  (define piv (findpivot A start end))
+  (if (>= piv 0) (begin
+      (define mid (partition A start end (vec_get A piv)))
+      (quicksort A start mid)
+      (quicksort A mid end)
+    )
+    0 //else
+  )
+  0))) //quicksort
+
+(define A:[int] (vec_make 0 128))
+(vec_set A 0 5)
+(vec_set A 1 4)
+(vec_set A 2 6)
+(vec_set A 3 1)
+(vec_set A 4 2)
+(vec_set A 5 9)
+(vec_set A 6 7)
+(vec_set A 7 3)
+(vec_set A 8 10)
+(vec_set A 9 8)
+(quicksort A 0 10)
+(while (< i 10) (begin
+  (display (vec_get A i))
+  (dispaly " ")
+  (setq i (+ i 1))
+))
+*/

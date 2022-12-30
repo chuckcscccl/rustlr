@@ -1,0 +1,28 @@
+// Bank accounts in lambda7c
+
+// must have ability to at least inferr the return type of a function:
+define make_account = lambda init:float . {
+  define balance = init;
+  define transaction = lambda amt:float . {
+    balance = balance + amt;  // also return new balance
+  }
+  export transaction;   // transaction type now visible at top level
+  transaction;  // returns closure
+}
+
+define myaccount = make_account(100.0);
+define youraccount = make_account(200.0);
+print(myaccount(150.0));  print("\n");
+print(youraccount(-25.0)); print("\n");
+
+// transfer funds from account a to account b
+define transfer = lambda a:<transaction>, b:<transaction>, amt:float . {
+  a(-amt);
+  b(amt);
+}
+transfer(myaccount,youraccount,100.0);
+print(myaccount(0.0));  print(" (final)\n");
+print(youraccount(0.0)); print(" (final)\n");
+
+free(myaccount);
+free(youraccount);

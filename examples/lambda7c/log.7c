@@ -1,0 +1,6 @@
+// recursion
+
+//define log2 = int lambda n:int.0; // stub for recursion
+define log2 = int lambda n:int.if n<2 then 0 else 1+log2(n/2);
+
+print log2(512);

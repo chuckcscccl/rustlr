@@ -1,0 +1,4 @@
+  define y = 1;
+  define f = lambda x:int . x+y;
+  print(f(2));
+  

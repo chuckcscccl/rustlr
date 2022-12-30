@@ -1,0 +1,10 @@
+define cons = lambda x:int, n:<node> . {
+  define node = lambda c:int . {
+    if (c==0) then x else n  // c chooses between car, cdr
+  }
+  export node;
+}
+
+define car = lambda n:<node> . n(0);
+define cdr = lambda n:<node> . n(1);
+

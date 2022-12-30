@@ -15,13 +15,13 @@ auto-bump
 ```
 in place of `auto`, which enables the generation of bump-allocated ASTs.
 **It is also necessary to place `bumpalo = "3"` in your crate dependencies**
-(in Cargo.toml). Although user code need to reference the crate directly,
-the generated parser code does.
+(in Cargo.toml). Although user code do not need to reference the crate
+directly, the generated parser code does.
 
 The disadvantage of bumpalo is that it bipasses some of the memory
 safety checks of Rust. Bump-allocation is not recommended if frequent
 changes are made to the allocated structures.  They are appropriate if
-the ASTs remain relatively stable once created, with few changes if
+the AST remains relatively stable once created, with few changes if
 any, until the entire structure can be dropped.
 
 The advantage of bump-allocation, besides an increase in speed, is
@@ -66,6 +66,8 @@ Then given
 will print `x-y`. Such a "declarative" style of programming is not
 possible if the type is defined using Box (or [LBox][2]).
 
+Notice that the references to new structures created by the function are
+passed recursively "up-stack", and so are safe.
 However, allocating such structures temporarily on the stack is impractical.
 We would not be able to return references to them.
 You may also get the dreaded compiler error *"creates a temporary which is freed while still in use"* when writing expressions such as `Plus(&q,&Negative(&q))`.
@@ -83,7 +85,7 @@ of the same lifetime.
 
 Rustlr (since version 0.3.93) can generate such structures automatically.
 Most of bumpalo's usage is well-encapsulated, although
-`bumpalo = "3"` does need to be adde to the crate's
+`bumpalo = "3"` does need to be added to the crate's
 dependencies.  The easiest way to enable bumpalo is through enhancements to
 the [Lexsource][lexsource] structure.  The following code fragment
 demonstrates how to envoke a parser generated from an `auto-bump` grammar,
@@ -98,13 +100,13 @@ demonstrates how to envoke a parser generated from an `auto-bump` grammar,
 A Rustlr Lexsource object containing a [Bump](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html) is created with [Lexsource::with_bump][withbump].
 The `parse_with` function, which is generated for individual parsers, will place
 a reference to the bump arena inside the parser.  The automatically
-generated semantic actions will call [Bump::alloc](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html#method.alloc) to create ASTS that will have the
-same lifetime as the Lexsource structure.
+generated semantic actions will call [Bump::alloc](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html#method.alloc) to create ASTS that will have **the
+same lifetime as the Lexsource structure.**
 
 The link to the entire sample crate is [here](https://cs.hofstra.edu/~cscccl/rustlr_project/bumpcalc/).
 
 
-#### Replace the LBox
+#### **Replace the LBox**
 
 Although the [LBox][2] is no longer needed, a device to capture the
 lexical position (line/column) information in the AST in a
@@ -128,7 +130,7 @@ AST as LC enclosures.
 
 Note that a lifetime argument is required for all recursive types.
 
-#### Dealing with Recursive Structs.
+#### **Dealing with Recursive Structs**
 
 There is currently one minor limitation with the `auto-bump` option.  When
 a struct is recursive, it may not be possible to generate code that
@@ -171,7 +173,97 @@ structs in such cases: just assign a left-side label to the sole
 production rules for `A1` and `B1`.  Enums always include a `_Nothing` variant
 so that a default can always be defined.
 
-   ----------------
+
+#### **Requisitioning the 'External State'**
+
+There is another implemention-related detail that may be of occassional
+concern.
+
+To integrate the bumpalo option into Rustlr with minimal disturbance to its
+other components, the [Bumper](https://docs.rs/rustlr/0.3.97/rustlr/generic_absyn/struct.Bumper.html) struct was introduced.  A grammar with the `auto-bump`
+option will generate a parser with a Bumper struct as its `exstate` field.
+This struct contains procedures to access the encapsulated bump arena.  One
+can still declare and use an arbitrary `externtype`
+for a *Bumper* will also include
+a field of this type, which is accessible as a ref mut via the
+[Bumper::state](https://docs.rs/rustlr/0.3.97/rustlr/generic_absyn/struct.Bumper.html#method.state) procedure.
+
+In most cases, this detail is only required to be understood if the
+`exstate` is to be used for another purpose, in which case all references
+to `parser.exstate` should be replaced by `parser.exstate.state()`.
+In addition to `exstate` each parser also contains a separate,
+reference-counted `shared_state` field of the same type.  
+The only other situation that requires understanding of this implementation
+detail is when writing semantic actions manually that creates
+bump-allocated structures.  They should be created by calling
+`parser.exstate.make(...)`.
+
+#### **Yet another calculator...**
+
+We conclude this Chapter with a full grammar with the `auto-bump` option.
+Two sample productions with manually written semantic actions are included
+after `EOF` to illustrate accessing the `parser.exstate` as a "Bumper".
+```
+# auto-generate bump-allocated ASTs with refs instead of smart pointers
+auto-bump
+lifetime 'lt
+nonterminals E ES
+nonterminals A1 B1 C1 A2
+terminals + - * / ( ) = ;
+terminals let in
+valueterminal int ~ i64 ~ Num(n) ~ n
+valueterminal var ~ &'lt str ~ Alphanum(x) ~ x
+topsym ES
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+nonassoc = 300
+
+lexattribute set_line_comment("#")
+
+E:Val --> int
+E:Var --> var
+E:Plus --> E + E
+E:Minus --> E - E
+E:Times --> E * E
+E:Div --> E:[e1] / E:[e2]
+E(600):Neg --> - E:[e]
+E:Let --> let var = E in E
+E --> ( E )
+ES --> E<;+> ;?
+
+A1 --> B1 int
+B1 --> var var A1
+flatten B1
+flatten A2
+C1 --> A2 A1 B1 ; E
+A2 --> var int
+
+$static A1DEFAULT:A1<'static> = A1("","",&A1DEFAULT,0);
+$static B1DEFAULT:B1<'static> = B1("","",&A1DEFAULT);
+$impl<'t> Default for &'t A1<'t> { fn default() -> Self { &A1DEFAULT } }
+$impl<'t> Default for &'t B1<'t> { fn default() -> Self { &B1DEFAULT } }
+
+EOF
+
+#Unused productions for example:
+ES ==> E:n ; {
+  let bump = &parser.exstate;
+  let mut v1 = Vec::new(); /* not bump-allocated */
+  v1.push(bump.make(parser.lc(0,n)));
+  Seq(v1)
+  } <==
+  
+ES ==> ES:@Seq(mut v)@  E:e ;  {
+   v.push(parser.exstate.make(parser.lc(1,e)));
+   Seq(v)
+   } <==
+```
+
+----------------
 
 
 [1]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.StrTokenizer.html

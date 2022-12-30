@@ -1,0 +1,60 @@
+// swapsort
+
+define swapsort = lambda A:int[8], n:int . {
+  define i = 0;
+  define k = 1;
+  define mi = 0;
+  define tmp = 0;
+  while (i<n-1) {
+    mi = i; // index of smallest value
+    k = i+1;
+    while (k<n) {
+      if (A[k]<A[mi]) then  mi = k else 0;
+      k = k+1;
+    }//while k
+    // swap A[i] with A[mi]
+    tmp = A[i];  A[i] = A[mi];  A[mi]=tmp;
+    i=i+1;
+  }//while i
+}//swapsort
+
+define n = 8; //size of array (not known at compile time)
+define A:int[] = [5,4,6,1,2,9,7,3];
+
+swapsort(A,n); // call function
+
+// print array after sorting
+define i = 0;
+while (i<8) {
+  print(A[i]);  print(" ");
+  i = i+1;
+}
+
+/*   prefix version
+(define swapsort (lambda (A:[int 8] n:int) (begin
+  (define i 0)
+  (define k 0)
+  (define mi 0)
+  (define tmp 0)
+  (while (< i (- n 1)) (begin 
+    (setq mi i)
+    (setq k (+ i 1))
+    (while (< k n) (begin
+      (if (< (vec_get A k) (vec_get A mi)) (setq mi k) 0)
+      (setq k (+ k 1))
+    )) // while k
+    (setq tmp (vec_get A i))  // swap
+    (vec_setq A i (vec_get A mi))
+    (vec_setq A mi tmp)
+    (setq i (+ i 1))
+  ))// while i
+))//swapsort
+
+(define A:[int 8] [5 4 6 1 2 9 7 3])
+(swapsort A 8)
+(define i 0)
+(while (< i 8) (begin
+  (display (vec_get A i)) (display (" "))
+  (seq i (+ i 1))
+)) // prints array after sorting
+*/

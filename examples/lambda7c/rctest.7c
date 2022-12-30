@@ -1,0 +1,36 @@
+// testing structures with pointers to other structures.
+
+define make_accumulator = lambda x:int . {
+  define a = x;
+  define f = int lambda y:int . { a=a+y; a; }
+  f;
+}
+
+define mymain = lambda . {
+  define ac1 = make_accumulator(1);
+  define ac2 = make_accumulator(2);
+  define meta_accum = lambda x:int . {
+    ac1(x*100) + ac2(x);
+  }
+  export meta_accum;
+  meta_accum;
+}
+define ma = mymain();
+print(ma(10));
+
+/*
+(define make_accumulator (lambda (x:int) (begin
+  (define a x)
+  (define f (lambda y:int):int (begin (setq a (+ a y)) a))
+  f)))
+
+(define mymain = (lambda () (begin
+  (define ac1 (make_accumulator 1))
+  (define ac2 (make_accumulator 2))
+  (define meta_accum (lambda (x:int) (+ (ac1 (* x 100)) (ac2 x))))
+  (export meta_accum)
+  meta_accum)))
+(define ma = (mymain))
+(display (ma 10))
+*/
+

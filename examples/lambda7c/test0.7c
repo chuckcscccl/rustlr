@@ -1,0 +1,13 @@
+define x = 10;
+while (x>0) {
+  print(x);
+  x = x-1;
+}
+
+/*
+(define x 10)
+(while (< x 1) (begin
+  (display x)
+  (setq x (- x 1))
+  ))
+*/

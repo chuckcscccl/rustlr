@@ -1,0 +1,19 @@
+define x = 1;
+define y = x+1;
+x = x+1;
+print y;
+
+define mymain = lambda z. {
+  define pi = 3.1415927;
+  define area = lambda radius:float. radius*radius*pi;
+  define intelligence_test = lambda x:float. {
+    define pi = 0.0;
+    print area(x);  print "\n";
+    print pi; print "\n";
+  } // intelligence_test
+  intelligence_test(51.0);
+}//mymain
+
+mymain(y);
+
+

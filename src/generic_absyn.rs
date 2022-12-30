@@ -26,7 +26,7 @@
 //!```
 //! The [ZCParser::lbx] function can be called from the semantic actions
 //! of a grammar
-//! to create LBoxed-values that include line/column information.  LBox<T>
+//! to create LBoxed-values that include line/column information.  `LBox<T>`
 //! implements the Default trait if T does, so an LBox type can also serve
 //! as the absyntract syntax type for a grammar.
 //! It is also possible to use `LBox<dyn Any>` as the abstract syntax type
