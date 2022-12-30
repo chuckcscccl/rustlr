@@ -570,7 +570,7 @@ use rustlr::LBox;\n")?;
      println!("Abstract syntax structures created in {}",filename);
      // add the grammar .extras - these will only be placed in parser file
      self.Extras.push_str("use rustlr::LBox;\n");
-     self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
+     //self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
      self.Extras.push_str(&format!("use crate::{}_ast::*;\n",&self.name));     
      Ok(())
    }//writeabsyn

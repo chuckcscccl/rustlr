@@ -811,7 +811,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     ///// prefer to ue Errsym method
     if self.Errsym.len()>0 {
       let errsym = self.Errsym;
-      // lookdown stack for state with trainsiton on Errsym
+      // lookdown stack for state with transition on Errsym
       // but that could be current state too (start at top)
       let mut k = self.stack.len(); // offset by 1 because of usize
       let mut spos = k+1;
@@ -847,11 +847,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
       } // while let erraction is reduce
       // remaining defined action on Errsym must be shift
       if let Some(Shift(i)) = erraction { // simulate shift errsym 
-          //self.stack.push(Stackelement{si:*i,value:AT::default()});
           self.stack.push(StackedItem::new(*i,AT::default(),lookahead.line,lookahead.column));
           // keep lookahead until action is found that transitions from
           // current state (i). but skipping ahead without reducing
-          // the error production is not a good idea
+          // the error production is not a good idea.  This implementation
+	  // does NOT assume that everything following the ERROR symbol is
+	  // terminal.
           while let None = self.RSM[*i].get(lookahead.sym) {
             if lookahead.sym=="EOF" {break;}
             *lookahead = tokenizer.next_tt();

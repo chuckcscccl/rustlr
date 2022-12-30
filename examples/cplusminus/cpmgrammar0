@@ -1,0 +1,103 @@
+# grammar for "C-plus-minus" - run rustlr with "-nozc" option.
+
+# Anything on a ! line will be inserted verbatim into the generated parser
+! // still need to put into a crate
+!use rustlr::{Lextoken,Lexer};
+!use std::io::{Write};
+!
+!fn readln()-> String {
+!  let mut s = String::new();
+!  let r = std::io::stdin().read_line(&mut s);
+!  s
+!}
+!
+!struct Slex<'t> {
+! split : std::str::SplitWhitespace<'t>,
+!}
+!impl<'t> Lexer<String> for Slex<'t> {
+!  fn nextsym(&mut self) -> Option<Lextoken<String>> {
+!    match self.split.next() {
+!     None => None,
+!     Some(sym) => Some(Lextoken::new(sym.trim().to_string(), sym.to_string())),
+!    }//match
+!  }//nextsym
+!  fn current_line(&self) -> &str
+!  {
+!    "current_line function not re-implemented for tokenizer"
+!  }
+!  fn linenum(&self) -> usize {1}
+!}
+!
+!fn main() {
+!   print!("Write something in C+- : ");
+!   std::io::stdout().flush().unwrap();
+!   let input = readln();
+!   let mut lexer1 =  Slex{split:input.split_whitespace()};
+!   let mut parser1 = make_parser();
+!   parser1.train_from_script( &mut lexer1,"cpmparser.rs","cpmparser.rs_script.txt" );
+!   println!("parsing success: {}",!parser1.error_occurred());
+!}//main
+
+grammarname cpm
+absyntype String
+nonterminals STAT STATLIST EXPR EXPRLIST
+terminals x y z cin cout ; ( ) << >> ERROR
+topsym STATLIST
+#errsym ERROR
+resync ;
+
+STATLIST --> STAT  |  STATLIST STAT 
+STAT --> cin >> EXPR ; {readln()}
+STAT --> cout << EXPRLIST:s ; {println!(": {}",&s); String::new()}
+
+EXPR --> x {"x".to_string()} | y {"y".to_string()}  | z {"z".to_string()}
+EXPR --> ( EXPR:s ) {s}
+EXPRLIST --> EXPR:s {s}
+EXPRLIST --> EXPRLIST:sl << EXPR:s { format!("{} {}",sl,s) }
+
+STAT --> ERROR ; { parser.report("invalid statement, skipping to ;"); String::new()}
+EXPR --> ( EXPR ERROR { parser.report("unmatched (");  String::new() }
+EXPR --> EXPR ERROR ) { parser.report("unmatched )"); String::new() }
+
+EOF
+
+
+Everything after 'EOF' is ignored and can be used for comments.
+
+Rustlr uses two methods of error recovery, which this toy language
+experiments with.  The first method requires the designation of a
+special terminal symbol as an error recovery symbol, using the
+directive "errsym" or "errorsymbol".  This symbol is assumed to not
+conflict with actual input tokens.  The error symbol can appear at
+most once on the right-hand side of a production rule, followed by
+zero or more terminal symbols.  When an error is encountered (a
+lookahead symbol with no defined transition in the LR/LALR
+finite-state machine), the parser looks down the parse stack for a
+state that has a transition defined on the symbol.  It truncates the
+stack and performs all possible reductions until a state that can
+"shift" the error symbol (ERROR in this example) is found, and
+simuluates a shift of the next state associated with the error symbol
+onto the stack.  It then skips lookheads until a valid transition is
+found for the new state.  Since only terminal symbols may follow the
+error symbol, eventually one of the error productions will be reduced.
+These productions can have semantic actions that report specific
+errors.
+
+The second method of error recovery is rather straightforward: the
+grammar can define one or more "resynchronization" terminal symbols
+using the "resynch" directive.  When an error is encountered, the
+parser skips ahead past the first resynchronization symbol.  Then it
+looks down the parse stack for a state that has a valid transition on
+the next symbol.  For languages that ends statements with a ;
+(semicolon), the ; is the natural choice as the resynch symbol.  The
+parser will report an error message for the current statement, then
+skip over to the next statement.
+
+The second (resynch) method of error recovery is attempted if the
+first method fails or if no error symbol is defined.
+
+If both methods of error-recovery fail, the parser simply skips input
+tokens until a suitable action is found.
+
+One can experiment with this grammar with "C+-" input such as
+cout << x ; cout y ; cin >> ; cout << y << z ;

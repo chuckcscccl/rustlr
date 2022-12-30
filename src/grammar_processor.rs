@@ -123,7 +123,7 @@ pub struct Grammar
   pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
-  pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
+  pub Resynch : HashSet<String>, // resynchronization terminal symbols
   pub Errsym : String,        // error recovery terminal symbol
   pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
@@ -1212,9 +1212,12 @@ strtok is bstokens[i], but will change
                        if !seenerrsym { seenerrsym = true; }
                        else { eprintln!("Error symbol {} can only appear once in a production, line {}",&self.Errsym,linenum); return false; }
                      }
+		     // may take out following?
+		     /*
                      if !sym.terminal && seenerrsym {
                        eprintln!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum); return false;
                      }
+		     */
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<1 && !self.genabsyn {newsym.rusttype = self.Absyntype.clone();}
 
