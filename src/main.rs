@@ -44,14 +44,16 @@ use selmlk::{MLStatemachine};
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
-  rustle(&args);
+  if !rustle(&args) {
+      std::process::exit(1);
+  }
 }//main
 
 
-fn rustle(args:&Vec<String>) // called from main
+fn rustle(args:&Vec<String>) -> bool // called from main, true on success
 {
   let argc = args.len();
-  if argc<2 {eprintln!("Must give path of .grammar file"); return;}
+  if argc<2 {eprintln!("Must give path of .grammar file"); return false;}
   let filepath = &args[1];
   let mut parserfile = String::from("");  // -o target
   let mut lalr = false;  // changed from false in version 0.2.0
@@ -106,8 +108,8 @@ fn rustle(args:&Vec<String>) // called from main
      argi+=1;
   }//while there are command-line args
   if zc && verbose {
-     println!("verbose mode not compatible with -zc option");
-     return;
+     eprintln!("verbose mode not compatible with -zc option");
+     return false;
   }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
@@ -118,8 +120,8 @@ fn rustle(args:&Vec<String>) // called from main
   grammar1.mode = mode; // 0 for rust, 1 for fsharp
   let parsedok = grammar1.parse_grammar(filepath);  //  ***
   if !parsedok {
-    println!("\nFailed to process grammar");
-    return;
+    eprintln!("\nFailed to process grammar");
+    return false;
   }
   // Check grammar integrity: now done inside parse
 //  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
@@ -144,7 +146,7 @@ fn rustle(args:&Vec<String>) // called from main
      let wres;
      if !grammar1.bumpast { wres = grammar1.writeabsyn(&astpath); }
      else {wres = grammar1.write_bumpast(&astpath); }
-     if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
+     if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return false;}
   }
 
  grammar1.delay_transform(); // hope this works!
@@ -162,7 +164,7 @@ fn rustle(args:&Vec<String>) // called from main
     println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
     //fsm0 = lrsdfsm.to_statemachine();
-    if lrsdfsm.failed {println!("NO PARSER GENERATED"); return;}
+    if lrsdfsm.failed {eprintln!("NO PARSER GENERATED"); return false;}
     if !lrsdfsm.failed && lrsdfsm.regenerate { 
       println!("Re-Generating LR(1) machine for transformed grammar...");
       lrsd = false;
@@ -192,8 +194,8 @@ fn rustle(args:&Vec<String>) // called from main
   else if tracelev>1 && !newlalr && !lrsd {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.{}",&gramname,pfsuffix));}
   if fsm0.States.len()>65536  {
-    println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
-    return;
+    eprintln!("too many states: {} execeeds limit of 65536",fsm0.States.len());
+    return false;
   }
   let write_result =
     if mode==1 { fsm0.writefsparser(&parserfile) }
@@ -213,6 +215,8 @@ fn rustle(args:&Vec<String>) // called from main
      if tracelev>0 {println!("Parser saved in {}",&parserfile);}
   }
   else if let Err(err) = write_result {
-     println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
+     eprintln!("failed to write parser, likely due to invalid -o destination: {:?}",err);
   }
+
+    true
 }//rustle
