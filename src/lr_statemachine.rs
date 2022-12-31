@@ -608,8 +608,10 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
      else {
        clearly_resolved=false;
        // report unclear case
-       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
-       printrulela(*ri,Gmr,la);
+         if conflicts.len() >= Gmr.expect {
+             println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift", &Gmr.Symbols[la].sym, ri, si);
+             printrulela(*ri, Gmr, la);
+         }
      }
      conflicts.insert((*ri,la),(clearly_resolved,resolution));
      resolution
