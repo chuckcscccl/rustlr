@@ -150,6 +150,7 @@ pub struct Grammar
   pub startrulei: usize,
   pub mode: i32, // generic mode information
   pub bumpast: bool,
+  pub expect: usize,
 }
 
 impl Default for Grammar {
@@ -201,6 +202,7 @@ impl Grammar
        startrulei : 0,
        mode : 0,
        bumpast: false,
+       expect : 0,
      }
   }//new grammar
 
@@ -701,6 +703,15 @@ impl Grammar
               */
               eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
             },
+
+             "expect" if stage<2 => {
+                 if let Ok(num) = stokens[1].parse::<usize>() {
+                    self.expect = num;
+                 } else {
+                     eprintln!("MALFORMED expect declaration skipped, line {}",linenum);
+                     continue;
+                 }
+             },
 //////////// case for grammar production:
 
 	    LHS0 if stokens.len()>1 => {

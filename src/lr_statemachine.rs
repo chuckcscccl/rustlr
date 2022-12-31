@@ -601,15 +601,19 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
        resolution = true;
        if lapred==0 {
           clearly_resolved = false;
-          println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
-          printrulela(*ri,Gmr,la);
+           if conflicts.len() >= Gmr.expect {
+               println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
+               printrulela(*ri,Gmr,la);
+           }
        }
      } // reduce
      else {
        clearly_resolved=false;
        // report unclear case
-       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
-       printrulela(*ri,Gmr,la);
+         if conflicts.len() >= Gmr.expect {
+             println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift", &Gmr.Symbols[la].sym, ri, si);
+             printrulela(*ri, Gmr, la);
+         }
      }
      conflicts.insert((*ri,la),(clearly_resolved,resolution));
      resolution
