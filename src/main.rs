@@ -20,8 +20,6 @@ mod augmenter;
 use augmenter::*;
 pub mod generic_absyn;
 pub use generic_absyn::*;
-//mod enhancements;
-//pub use enhancements::*;
 pub mod zc_parser;
 use zc_parser::*;
 
@@ -33,6 +31,8 @@ mod fs_parserwriter;
 
 mod ast_writer;
 use ast_writer::*;
+
+mod fs_astwriter;
 
 mod bumpast_writer;
 
@@ -142,12 +142,13 @@ fn rustle(args:&Vec<String>) // called from main
      let mut astpath = format!("{}_ast.{}",&gramname,pfsuffix);
      if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
      let wres;
-     if !grammar1.bumpast { wres = grammar1.writeabsyn(&astpath); }
+     if mode==1 {wres = grammar1.write_fsast(&astpath); }
+     else if !grammar1.bumpast { wres = grammar1.writeabsyn(&astpath); }
      else {wres = grammar1.write_bumpast(&astpath); }
      if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
   }
 
- grammar1.delay_transform(); // hope this works!
+ grammar1.delay_transform(); // static delayed reduction markers
 
 
   if tracelev>2 {println!("computing Nullable set");}

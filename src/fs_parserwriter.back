@@ -164,6 +164,8 @@ impl Statemachine
       // ALL SEMANTIC ACTIONS WILL RETURN OPTION TYPES? NO.
       let defaultaction = format!("  Unchecked.defaultof<{}>",rettype);
       let mut semaction = self.Gmr.Rules[ri].action.as_str(); // ends w/ rbr
+
+      // replace '}' with (* s_end *)?
       if let Some(rbrpos) = semaction.rfind('}') { // REMOVING } from action
         semaction = &self.Gmr.Rules[ri].action[..rbrpos];
       }
@@ -307,8 +309,10 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
        let symi = *self.Gmr.Symhash.get(terminalname).unwrap();
        let sym = &self.Gmr.Symbols[symi];
        let eindex = self.Gmr.enumhash.get(&sym.rusttype).expect("F- Sharp!");
+       let valconvfun = if valfun.trim().starts_with("fun") {
+           format!("({})",valfun.trim()) } else {valfun.trim().to_owned()};
        if /* stype!=UNITTYPE && */ &sym.sym!="EOF" {
-         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,valfun.trim(),terminalname)?;
+         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,&valconvfun,terminalname)?;
        }  // has been declared like valueterminal~ num~ int~ n int(n)
      } //for (name,form,val) entry in Lexvals
      // for lexterminals:
@@ -339,7 +343,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
       ////// WRITE parse_with
       let abindex = *self.Gmr.enumhash.get(&self.Gmr.Absyntype).unwrap();
       write!(fd,"\nlet parse_with(parser:RTParser<FLTypeDUnion,{1}>, lexer:AbstractLexer<{1}>) : {0} option  =\n",absyn,extype)?;
-      write!(fd,"  lexer.set_shared(parser.exstate)\n")?;
+      //write!(fd,"  lexer.set_shared(parser.exstate)\n")?;
       write!(fd,"  parser.NextToken <- fun () -> convert_token(lexer.next_lt())\n")?;
       write!(fd,"  match parser.parse_core() with\n")?;
       write!(fd,"    | Some(FLTypeDUnion.Enumvariant_{}(_yyxres_)) -> Some(_yyxres_)\n",abindex)?;
@@ -406,10 +410,10 @@ pub fn gencslex(&self,fd:&mut File) -> Result<(),std::io::Error>
 using System;
 using System.Text;\n\n")?;
    write!(fd,"public class {}lexer<ET> : AbstractLexer<ET>  {{\n",&self.Gmr.name)?;
-   write!(fd,"  Yylex lexer;\n  ET shared_state;\n")?;
+   write!(fd,"  Yylex lexer;\n")?;
    write!(fd,"  public {}lexer(string n) {{ lexer = new Yylex(new System.IO.StringReader(n)); }}\n",&self.Gmr.name)?;
    write!(fd,"  public {}lexer(System.IO.FileStream f) {{ lexer=new Yylex(f); }}\n",&self.Gmr.name)?;
-   write!(fd,"  public RawToken next_lt() => lexer.yylex();\n  public void set_shared(ET shared) {{shared_state=shared;}}\n}}//lexer class\n\n")?;
+   write!(fd,"  public RawToken next_lt() => lexer.yylex();\n}}//lexer class\n\n")?;
    write!(fd,"{}\n",r#"%%
 %namespace Fussless
 %type RawToken

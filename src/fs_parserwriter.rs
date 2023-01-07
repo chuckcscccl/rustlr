@@ -33,7 +33,7 @@ impl Statemachine
      let Gmr = &mut self.Gmr;
      let mut ntcx = Gmr.ntcxmax + 1;
 // must set passthru type for newseqnt's first, otherwise other actions
-// won't konw their type
+// won't know their type - always put these in LBox if possible
      for (nti,ntrules) in Gmr.Rulesfor.iter() {
        if Gmr.Symbols[*nti].sym.starts_with("NEWSEQNT_") {   // (E ;)
          let mut newtype = String::from("unit");
@@ -79,11 +79,38 @@ impl Statemachine
                } // register type
              } //rhs.len is 1
            } //is of option type
-           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<") && Gmr.Rules[*nri].rhs.len()>=2 { // sets type first
+
+           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<") && Gmr.Rules[*nri].rhs.len()==1 { // sets type first
              let lasti = Gmr.Rules[*nri].rhs.len()-1;
+	     if Gmr.Rules[*nri].rhs[lasti].label.len()<1 {
+	       Gmr.Rules[*nri].rhs[lasti].label=format!("[_item{}_]",lasti);
+	     }
+	     else {
+	       Gmr.Rules[*nri].rhs[lasti].label = format!("[{}]",&Gmr.Rules[*nri].rhs[lasti].label);
+	     }
              let targetindex = Gmr.Rules[*nri].rhs[lasti].index;
              let targettype = Gmr.Symbols[targetindex].rusttype.clone();
-             Gmr.Symbols[*nti].rusttype = format!("Vec<{}>",&targettype);
+             Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
+             if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
+               Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
+               ntcx+=1;
+             } // register type             
+             newretypes.insert(*nti,targettype);	   
+	   }// just one on rhs
+	   
+           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<") && Gmr.Rules[*nri].rhs.len()>=2 { // sets type first
+println!("PROC {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   
+             let lasti = Gmr.Rules[*nri].rhs.len()-1;
+	     if Gmr.Rules[*nri].rhs[lasti].label.len()<1 {
+	       Gmr.Rules[*nri].rhs[lasti].label=format!("[_item{}_]",lasti);
+	     }
+	     else {
+	       Gmr.Rules[*nri].rhs[lasti].label = format!("[{}]",&Gmr.Rules[*nri].rhs[lasti].label);
+	     }
+             let targetindex = Gmr.Rules[*nri].rhs[lasti].index;
+             let targettype = Gmr.Symbols[targetindex].rusttype.clone();
+println!("label {}, targettype: {}",&Gmr.Rules[*nri].rhs[lasti].label,&targettype);
+             Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
              if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
                Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
                ntcx+=1;
@@ -92,14 +119,15 @@ impl Statemachine
              newretypes.insert(*nti,targettype);
            } // if for +, *?
            else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<@") {
+//println!("PROC22 {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   	   
              let pos1 = Gmr.Symbols[*nti].rusttype.find("Vec<LBox<@").unwrap();
              let pos2 = Gmr.Symbols[*nti].rusttype[pos1+10..].find('>').unwrap();
              let rtargettype = &Gmr.Symbols[*nti].rusttype[pos1+10..pos1+10+pos2];
              let targeti = *Gmr.Symhash.get(rtargettype).expect(&format!("Cannot find {} in grammar",rtargettype));
              let targettype = Gmr.Symbols[targeti].rusttype.clone();
-             Gmr.Symbols[*nti].rusttype = format!("Vec<{}>",&targettype);
+             Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
              newretypes.insert(*nti,targettype);
-           } // for *
+           } // for * only:  PS --> PP | null, PP-->A | PP ; A
          }// for each rule of this NEWRENT
        }// is NEWRENT
      }// for each (nt,ntrules) in Rulesfor
@@ -107,10 +135,10 @@ impl Statemachine
      for (nti,targettype) in newretypes.iter() {
        for nri in Gmr.Rulesfor.get(nti).unwrap() {
          if Gmr.Rules[*nri].rhs.len()==0 {
-           Gmr.Rules[*nri].action = format!(" Vec<{}>() }}",targettype);
+           Gmr.Rules[*nri].action = format!(" Vec<LBox<{}>>() }}",targettype);
          } // rhs len 0
          else if Gmr.Rules[*nri].rhs.len()==1 && !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") {
-           Gmr.Rules[*nri].action = format!(" let _yyv = Vec<{}>() in (_yyv.Add(_item0_); _yyv) }}",targettype);
+           Gmr.Rules[*nri].action = format!(" let _yyv = Vec<LBox<{}>>() in (_yyv.Add(_item0_); _yyv) }}",targettype);
          } // else action is correct: _item0_
        } // for each rule for nti
      }//third pass
@@ -164,6 +192,8 @@ impl Statemachine
       // ALL SEMANTIC ACTIONS WILL RETURN OPTION TYPES? NO.
       let defaultaction = format!("  Unchecked.defaultof<{}>",rettype);
       let mut semaction = self.Gmr.Rules[ri].action.as_str(); // ends w/ rbr
+
+      // replace '}' with (* s_end *)?
       if let Some(rbrpos) = semaction.rfind('}') { // REMOVING } from action
         semaction = &self.Gmr.Rules[ri].action[..rbrpos];
       }
@@ -247,6 +277,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
       {
         let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
         let (lbtype,poppedlab) = decode_label(&gsym.label,k-1);
+println!("DEC LABEL: {:?}",(&lbtype,&poppedlab));
         let mut symtype=self.Gmr.Symbols[gsym.index].rusttype.as_str();
         if symtype=="()" {symtype=UNITTYPE;}
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
@@ -341,7 +372,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
       ////// WRITE parse_with
       let abindex = *self.Gmr.enumhash.get(&self.Gmr.Absyntype).unwrap();
       write!(fd,"\nlet parse_with(parser:RTParser<FLTypeDUnion,{1}>, lexer:AbstractLexer<{1}>) : {0} option  =\n",absyn,extype)?;
-      write!(fd,"  lexer.set_shared(parser.exstate)\n")?;
+      //write!(fd,"  lexer.set_shared(parser.exstate)\n")?;
       write!(fd,"  parser.NextToken <- fun () -> convert_token(lexer.next_lt())\n")?;
       write!(fd,"  match parser.parse_core() with\n")?;
       write!(fd,"    | Some(FLTypeDUnion.Enumvariant_{}(_yyxres_)) -> Some(_yyxres_)\n",abindex)?;
@@ -408,10 +439,10 @@ pub fn gencslex(&self,fd:&mut File) -> Result<(),std::io::Error>
 using System;
 using System.Text;\n\n")?;
    write!(fd,"public class {}lexer<ET> : AbstractLexer<ET>  {{\n",&self.Gmr.name)?;
-   write!(fd,"  Yylex lexer;\n  ET shared_state;\n")?;
+   write!(fd,"  Yylex lexer;\n")?;
    write!(fd,"  public {}lexer(string n) {{ lexer = new Yylex(new System.IO.StringReader(n)); }}\n",&self.Gmr.name)?;
    write!(fd,"  public {}lexer(System.IO.FileStream f) {{ lexer=new Yylex(f); }}\n",&self.Gmr.name)?;
-   write!(fd,"  public RawToken next_lt() => lexer.yylex();\n  public void set_shared(ET shared) {{shared_state=shared;}}\n}}//lexer class\n\n")?;
+   write!(fd,"  public RawToken next_lt() => lexer.yylex();\n}}//lexer class\n\n")?;
    write!(fd,"{}\n",r#"%%
 %namespace Fussless
 %type RawToken

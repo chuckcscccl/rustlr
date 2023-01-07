@@ -83,7 +83,7 @@ the arena.  We can pass a reference to the "bump" to a function, which would
 then be able to construct and return bump-allocated structures using references
 of the same lifetime.
 
-Rustlr (since version 0.3.93) can generate such structures automatically.
+Rustlr (since version 0.3.95) can generate such structures automatically.
 Most of bumpalo's usage is well-encapsulated, although
 `bumpalo = "3"` does need to be added to the crate's
 dependencies.  The easiest way to enable bumpalo is through enhancements to
@@ -97,7 +97,7 @@ demonstrates how to envoke a parser generated from an `auto-bump` grammar,
    let mut parser = bautocalcparser::make_parser();
    let result = bautocalcparser::parse_with(&mut parser, &mut scanner);
 ```
-A Rustlr Lexsource object containing a [Bump](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html) is created with [Lexsource::with_bump][withbump].
+A Rustlr [Lexsource][lexsource] object containing a [Bump](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html) is created with [Lexsource::with_bump][withbump].
 The `parse_with` function, which is generated for individual parsers, will place
 a reference to the bump arena inside the parser.  The automatically
 generated semantic actions will call [Bump::alloc](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html#method.alloc) to create ASTS that will have **the
@@ -180,13 +180,13 @@ There is another implemention-related detail that may be of occassional
 concern.
 
 To integrate the bumpalo option into Rustlr with minimal disturbance to its
-other components, the [Bumper](https://docs.rs/rustlr/0.3.97/rustlr/generic_absyn/struct.Bumper.html) struct was introduced.  A grammar with the `auto-bump`
+other components, the [Bumper](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.Bumper.html) struct was introduced.  A grammar with the `auto-bump`
 option will generate a parser with a Bumper struct as its `exstate` field.
 This struct contains procedures to access the encapsulated bump arena.  One
 can still declare and use an arbitrary `externtype`
 for a *Bumper* will also include
 a field of this type, which is accessible as a ref mut via the
-[Bumper::state](https://docs.rs/rustlr/0.3.97/rustlr/generic_absyn/struct.Bumper.html#method.state) procedure.
+[Bumper::state](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.Bumper.html#method.state) procedure.
 
 In most cases, this detail is only required to be understood if the
 `exstate` is to be used for another purpose, in which case all references
@@ -198,69 +198,110 @@ detail is when writing semantic actions manually that creates
 bump-allocated structures.  They should be created by calling
 `parser.exstate.make(...)`.
 
-#### **Yet another calculator...**
+#### **A Complete Example**
 
-We conclude this Chapter with a full grammar with the `auto-bump` option.
-Two sample productions with manually written semantic actions are included
-after `EOF` to illustrate accessing the `parser.exstate` as a "Bumper".
+We conclude this Chapter with a full example.  The following grammar
+defines the syntax of propositional (sentential) logic.  To be self-contained,
+a `main` function is injected directly into the parser with `!`.  This time,
+instead of using [Lexsource::with_bump][withbump] we have created a
+"Bump arena" manually and inserted it into the parser. All structures created
+will have the same lifetime as the bump allocator.
+
+A function can also be injected into the generated AST file (`logic_ast.rs`)
+using lines starting with `$`.
+The `NNF` function stands for *Negation Normal Form*: it pushes negations
+inward by applying the De Morgan laws and by eliminating double negations 
+until negations only appear before propositional variables.
 ```
-# auto-generate bump-allocated ASTs with refs instead of smart pointers
+# using + for OR and * for AND:
 auto-bump
 lifetime 'lt
-nonterminals E ES
-nonterminals A1 B1 C1 A2
-terminals + - * / ( ) = ;
-terminals let in
-valueterminal int ~ i64 ~ Num(n) ~ n
-valueterminal var ~ &'lt str ~ Alphanum(x) ~ x
-topsym ES
-resync ;
 
-left * 500
-left / 500
-left + 400
-left - 400
-nonassoc = 300
+lexterminal NOT ~
+lexterminal IMPLIES ->
+lexterminal SEMICOLON ;
+terminals ( ) + *
+valueterminal ID ~ &'lt str ~ Alphanum(n) ~ n
 
-lexattribute set_line_comment("#")
+nonterminal FormulaSeq
+nonterminal Formula
+nonterminal PrimaryFormula : Formula
 
-E:Val --> int
-E:Var --> var
-E:Plus --> E + E
-E:Minus --> E - E
-E:Times --> E * E
-E:Div --> E:[e1] / E:[e2]
-E(600):Neg --> - E:[e]
-E:Let --> let var = E in E
-E --> ( E )
-ES --> E<;+> ;?
+# error recovery point
+resynch SEMICOLON
 
-A1 --> B1 int
-B1 --> var var A1
-flatten B1
-flatten A2
-C1 --> A2 A1 B1 ; E
-A2 --> var int
+topsym FormulaSeq
 
-$static A1DEFAULT:A1<'static> = A1("","",&A1DEFAULT,0);
-$static B1DEFAULT:B1<'static> = B1("","",&A1DEFAULT);
-$impl<'t> Default for &'t A1<'t> { fn default() -> Self { &A1DEFAULT } }
-$impl<'t> Default for &'t B1<'t> { fn default() -> Self { &B1DEFAULT } }
+left * 80
+left + 50
+right IMPLIES 30
 
-EOF
+PrimaryFormula --> ( Formula )
+PrimaryFormula:Prop --> ID
+PrimaryFormula:Neg --> NOT PrimaryFormula
 
-#Unused productions for example:
-ES ==> E:n ; {
-  let bump = &parser.exstate;
-  let mut v1 = Vec::new(); /* not bump-allocated */
-  v1.push(bump.make(parser.lc(0,n)));
-  Seq(v1)
-  } <==
-  
-ES ==> ES:@Seq(mut v)@  E:e ;  {
-   v.push(parser.exstate.make(parser.lc(1,e)));
-   Seq(v)
-   } <==
+Formula --> PrimaryFormula
+Formula:And --> Formula * Formula
+Formula:Or --> Formula + Formula
+Formula:Implies --> Formula IMPLIES Formula
+
+FormulaSeq --> Formula<SEMICOLON+>
+
+# function to return negation normal form, injected into logic_ast.rs:
+$
+$pub fn NNF<'t>(form:&'t Formula<'t>, bump:&'t bumpalo::Bump) -> &'t Formula<'t> {
+$ use Formula::*;
+$ let REF = |x|{bump.alloc(x)}; // for simplified syntax
+$ let nnf = |x|{NNF(x,bump)};
+$ match form {
+$   Neg(Neg(A)) => nnf(A), // the nnf of ~~A is the nnf of A
+$   Neg(And(A,B)) => REF(Or(nnf(REF(Neg(A))),nnf(REF(Neg(B))))),
+$   Neg(Or(A,B)) => REF(And(nnf(REF(Neg(A))),nnf(REF(Neg(B))))),
+$   Neg(Implies(A,B)) => REF(And(nnf(A),nnf(REF(Neg(B))))),
+$   And(A,B) => REF(And(nnf(A),nnf(B))),
+$   Or(A,B) => REF(Or(nnf(A),nnf(B))),
+$   Implies(A,B) => nnf(REF(Or(REF(Neg(A)),B))), // ~A+B
+$   _ => form, //default no change to literals
+$ }//match
+$}
+
+# function injected into logicparser.rs:
+!mod logic_ast;
+!use std::io::{Write};
+!fn main() {
+! let bump = bumpalo::Bump::new();
+! print!("Enter proposition: ");  let r=std::io::stdout().flush();
+! let mut input = String::new();
+! let res = std::io::stdin().read_line(&mut input);
+! let mut lexer1 = logiclexer::from_str(&input);
+! let mut parser1 = make_parser();
+! parser1.exstate.set(&bump);  //the exstate is a "Bumper"
+! let fseq = parse_with(&mut parser1, &mut lexer1)
+!     .unwrap_or_else(|x|{println!("Parsing Errors Encountered"); x});
+! if let FormulaSeq(formulas) = fseq {
+!   for f in &formulas {
+!     let nnf = NNF(f,parser1.exstate.get());
+!     println!("NNF for line {}: {:?}",f.line(),nnf);
+!   }
+! }
+!}//main
+```
+
+Where the AST structures generated for this grammar are
+```
+#[derive(Debug)]
+pub enum Formula<'lt> {
+  And(&'lt Formula<'lt>,&'lt Formula<'lt>),
+  Or(&'lt Formula<'lt>,&'lt Formula<'lt>),
+  Implies(&'lt Formula<'lt>,&'lt Formula<'lt>),
+  Neg(&'lt Formula<'lt>),
+  Prop(&'lt str),
+  Formula_Nothing,
+}
+impl<'lt> Default for Formula<'lt> { fn default()->Self { Formula::Formula_Nothing } }
+
+#[derive(Default,Debug)]
+pub struct FormulaSeq<'lt>(pub Vec<&'lt LC<Formula<'lt>>>,);
 ```
 
 ----------------
