@@ -63,6 +63,8 @@ impl Statemachine
      let mut newretypes = HashMap::new();
      for (nti,ntrules) in Gmr.Rulesfor.iter() {
        if Gmr.Symbols[*nti].sym.starts_with("NEWRENT_") || Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT") { //is for *, + or ?
+
+//println!("PROCESSING symbol {}, type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);       
          for nri in ntrules.iter() {
            if Gmr.Symbols[*nti].rusttype.starts_with("Option<") {
              if Gmr.Rules[*nri].rhs.len()==0 {
@@ -79,7 +81,7 @@ impl Statemachine
                } // register type
              } //rhs.len is 1
            } //is of option type
-
+/*
            else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<") && Gmr.Rules[*nri].rhs.len()==1 { // sets type first
              let lasti = Gmr.Rules[*nri].rhs.len()-1;
 	     if Gmr.Rules[*nri].rhs[lasti].label.len()<1 {
@@ -97,49 +99,81 @@ impl Statemachine
              } // register type             
              newretypes.insert(*nti,targettype);	   
 	   }// just one on rhs
-	   
-           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<") && Gmr.Rules[*nri].rhs.len()>=2 { // sets type first
-println!("PROC {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   
-             let lasti = Gmr.Rules[*nri].rhs.len()-1;
-	     if Gmr.Rules[*nri].rhs[lasti].label.len()<1 {
-	       Gmr.Rules[*nri].rhs[lasti].label=format!("[_item{}_]",lasti);
-	     }
-	     else {
-	       Gmr.Rules[*nri].rhs[lasti].label = format!("[{}]",&Gmr.Rules[*nri].rhs[lasti].label);
-	     }
-             let targetindex = Gmr.Rules[*nri].rhs[lasti].index;
-             let targettype = Gmr.Symbols[targetindex].rusttype.clone();
-println!("label {}, targettype: {}",&Gmr.Rules[*nri].rhs[lasti].label,&targettype);
-             Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
-             if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
-               Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
-               ntcx+=1;
-             } // register type             
-             Gmr.Rules[*nri].action = format!(" (_item0_.Add(_item{}_); _item0_) }}",lasti);
-             newretypes.insert(*nti,targettype);
-           } // if for +, *?
-           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<@") {
+*/
+            if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<@") && Gmr.Rules[*nri].rhs.len()<2 {
 //println!("PROC22 {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   	   
              let pos1 = Gmr.Symbols[*nti].rusttype.find("Vec<LBox<@").unwrap();
              let pos2 = Gmr.Symbols[*nti].rusttype[pos1+10..].find('>').unwrap();
              let rtargettype = &Gmr.Symbols[*nti].rusttype[pos1+10..pos1+10+pos2];
              let targeti = *Gmr.Symhash.get(rtargettype).expect(&format!("Cannot find {} in grammar",rtargettype));
              let targettype = Gmr.Symbols[targeti].rusttype.clone();
-             Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
+	     if targettype.starts_with("Vec<LBox<") {
+               Gmr.Symbols[*nti].rusttype = targettype.clone();
+	     }
+	     else {
+	       Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
+	     }
              newretypes.insert(*nti,targettype);
            } // for * only:  PS --> PP | null, PP-->A | PP ; A
+
+            if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<") && Gmr.Rules[*nri].rhs.len()>=1 { // sets type first
+//println!("PROC111 {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   
+             let lasti = Gmr.Rules[*nri].rhs.len()-1;
+
+             if !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") && !Gmr.Rules[*nri].rhs[lasti].rusttype.starts_with("Vec<") {
+  	       if Gmr.Rules[*nri].rhs[lasti].label.len()<1 {
+	         Gmr.Rules[*nri].rhs[lasti].label=format!("[_item{}_]",lasti);
+	       }
+	       else if !Gmr.Rules[*nri].rhs[lasti].label.starts_with('[') {
+	         Gmr.Rules[*nri].rhs[lasti].label = format!("[{}]",&Gmr.Rules[*nri].rhs[lasti].label);
+	       }
+	     } //change to boxed label except for P*: PS -> null | P+
+
+
+             let targetindex = Gmr.Rules[*nri].rhs[lasti].index;
+             let targettype = Gmr.Symbols[targetindex].rusttype.clone();
+
+	     if !targettype.starts_with("Vec<LBox<") {
+               Gmr.Symbols[*nti].rusttype = format!("Vec<LBox<{}>>",&targettype);
+	     } else {
+	       Gmr.Symbols[*nti].rusttype = targettype.clone();
+	     }
+             if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
+               Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
+               ntcx+=1;
+             } // register type
+             if Gmr.Rules[*nri].rhs.len()>=2 {
+               Gmr.Rules[*nri].action = format!(" (_item0_.Add(_item{}_); _item0_) }}",lasti);
+	     }
+	     //if !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") {
+               newretypes.insert(*nti,targettype);
+	     //}
+           } // if for +, *?
+	   
          }// for each rule of this NEWRENT
        }// is NEWRENT
      }// for each (nt,ntrules) in Rulesfor
+     
      // third pass sets actions for NEWRENT's
      for (nti,targettype) in newretypes.iter() {
+//println!("TTTTTTtargettype {}",targettype);     
        for nri in Gmr.Rulesfor.get(nti).unwrap() {
-         if Gmr.Rules[*nri].rhs.len()==0 {
+         if Gmr.Rules[*nri].rhs.len()==0 && !targettype.starts_with("Vec<LBox<") {
            Gmr.Rules[*nri].action = format!(" Vec<LBox<{}>>() }}",targettype);
          } // rhs len 0
-         else if Gmr.Rules[*nri].rhs.len()==1 && !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") {
+         else if Gmr.Rules[*nri].rhs.len()==0 && targettype.starts_with("Vec<LBox<") {
+	   Gmr.Rules[*nri].action = format!(" {}() }}",targettype)
+         }
+
+         else if Gmr.Rules[*nri].rhs.len()==1 && !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_")  && !targettype.starts_with("Vec<LBox<")  {
+//println!("PROC333 symbol {}, targettype {}",&Gmr.Symbols[*nti].sym,targettype);
            Gmr.Rules[*nri].action = format!(" let _yyv = Vec<LBox<{}>>() in (_yyv.Add(_item0_); _yyv) }}",targettype);
          } // else action is correct: _item0_
+
+	 else if Gmr.Rules[*nri].rhs.len()==1 {
+//println!("PROC444 symbol {}, targettype {}",&Gmr.Symbols[*nti].sym,targettype);
+           Gmr.Rules[*nri].action = String::from(" _item0_ }");
+	 }
        } // for each rule for nti
      }//third pass
      Gmr.ntcxmax = ntcx;
@@ -277,7 +311,7 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
       {
         let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
         let (lbtype,poppedlab) = decode_label(&gsym.label,k-1);
-println!("DEC LABEL: {:?}",(&lbtype,&poppedlab));
+//println!("DEC LABEL: {:?}",(&lbtype,&poppedlab));
         let mut symtype=self.Gmr.Symbols[gsym.index].rusttype.as_str();
         if symtype=="()" {symtype=UNITTYPE;}
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
