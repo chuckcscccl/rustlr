@@ -19,7 +19,7 @@ the writing of grammars and allow better ASTs to be created.
 6. Operator precedence and associativity declarations further allow grammars
 to be written that's closer to EBNF syntax.
 7. The ability to train the parser, interactively or from script, for better error reporting.
-8. Generates parsers for Rust and for F\#.  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
+8. Generates parsers for Rust [and for F\#](https://github.com/chuckcscccl/Fussless).  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
 language-analysis tools.  Parser generation for other such languages will
 gradually become available.
 

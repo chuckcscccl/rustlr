@@ -331,6 +331,7 @@ impl Grammar
   	    }  // determine enum variant name based on 1st rhs symbol
 	    self.Rules[*ri].lhs.label = lhslab;
           } //nolhslabel
+	  firstcap(&mut self.Rules[*ri].lhs.label);
           let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
 	  let lhsymtype = self.Symbols[lhsi].rusttype.clone();
           let enumname = &self.Symbols[*toextend.get(nt).unwrap_or(nt)].sym;
@@ -430,7 +431,7 @@ impl Grammar
                 ACTION.push_str(&format!("{},",&itemlabel));
               } else {
                 enumvar.push_str(&format!(" {}:{} *",&itemlabel,rsymtype));
-                ACTION.push_str(&format!("{0}={0};",&itemlabel));          
+                ACTION.push_str(&format!("{0}={0},",&itemlabel));          
               }// non-tuple variant
               
               if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
@@ -455,6 +456,10 @@ impl Grammar
 	    enumvar.pop();
 	    ACTION.pop();
 	  }
+	  if enumvar.ends_with("of") {
+	    enumvar.pop(); enumvar.pop();
+	  }
+	  if ACTION.ends_with('(')||ACTION.ends_with(',') {ACTION.pop();}
     	  //ACTION.push_str(" }");  // action already has last rbrack
 	  // determine if action and ast enum should be generated:
 //          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
@@ -535,7 +540,7 @@ open Fussless.RuntimeParser;\n")?;
      if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}
      write!(fd,"\ntype LC<'T> = LBox<'T> // dummy\n")?;
      write!(fd,"{}",&ASTS)?;
-     println!("Bump AST types created in {}",filename);
+     println!("F# AST types created in {}",filename);
      // add the grammar .extras - these will only be placed in parser file
      self.Extras.push_str(&format!("open {}{}.AST\n",firstchar,&self.name[1..]));
      Ok(())
@@ -568,3 +573,8 @@ pub fn nonlctype(ty:&str) -> bool
   //  true
   }//nonlbxtype
 
+fn firstcap(s:&mut String) {
+  let mut fc = s.chars().next().unwrap();
+  fc.make_ascii_uppercase();
+  s.replace_range(0..1,&fc.to_string());
+}

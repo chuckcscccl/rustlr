@@ -64,14 +64,35 @@ impl Statemachine
      for (nti,ntrules) in Gmr.Rulesfor.iter() {
        if Gmr.Symbols[*nti].sym.starts_with("NEWRENT_") || Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT") { //is for *, + or ?
 
-//println!("PROCESSING symbol {}, type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);       
+//println!("PROCESSING symbol {}, type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);
+
+       if Gmr.Symbols[*nti].rusttype.starts_with("Option<") {
+	     Gmr.Symbols[*nti].rusttype.replace_range(0..1,"o");
+             if !Gmr.enumhash.contains_key(&Gmr.Symbols[*nti].rusttype) {
+               Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
+                 ntcx+=1;
+             } // register type
+       }
+
          for nri in ntrules.iter() {
-           if Gmr.Symbols[*nti].rusttype.starts_with("Option<") {
+           if Gmr.Symbols[*nti].rusttype.starts_with("option<") {
              if Gmr.Rules[*nri].rhs.len()==0 {
                Gmr.Rules[*nri].action = " None }".to_owned();
              } // change action for Option NT
              else if Gmr.Rules[*nri].rhs.len()==1 {
+	      // change label
+
+	       if Gmr.Symbols[*nti].rusttype.starts_with("option<LBox<") {
+ 	         if Gmr.Rules[*nri].rhs[0].label.len()<1 {
+  	             Gmr.Rules[*nri].rhs[0].label=String::from("[_item0_]");
+	         } else if !Gmr.Rules[*nri].rhs[0].label.starts_with('[') {
+	           Gmr.Rules[*nri].rhs[0].label = format!("[{}]",&Gmr.Rules[*nri].rhs[0].label);
+		}
+//println!("LLLLLLLlabel change for {}: {}",&Gmr.Rules[*nri].rhs[0].sym,&Gmr.Rules[*nri].rhs[0].label);		
+              }// LBox label
+
                Gmr.Rules[*nri].action = " Some(_item0_) }".to_owned();
+	       /*
                let targetindex = Gmr.Rules[*nri].rhs[0].index;
                let targettype = &Gmr.Symbols[targetindex].rusttype;
                Gmr.Symbols[*nti].rusttype = format!("{} option",targettype);
@@ -79,6 +100,7 @@ impl Statemachine
                  Gmr.enumhash.insert(Gmr.Symbols[*nti].rusttype.clone(),ntcx);
                  ntcx+=1;
                } // register type
+	       */
              } //rhs.len is 1
            } //is of option type
 /*
@@ -100,7 +122,7 @@ impl Statemachine
              newretypes.insert(*nti,targettype);	   
 	   }// just one on rhs
 */
-            if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<@") && Gmr.Rules[*nri].rhs.len()<2 {
+           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<@") && Gmr.Rules[*nri].rhs.len()<2 {
 //println!("PROC22 {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   	   
              let pos1 = Gmr.Symbols[*nti].rusttype.find("Vec<LBox<@").unwrap();
              let pos2 = Gmr.Symbols[*nti].rusttype[pos1+10..].find('>').unwrap();
@@ -116,15 +138,15 @@ impl Statemachine
              newretypes.insert(*nti,targettype);
            } // for * only:  PS --> PP | null, PP-->A | PP ; A
 
-            if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<") && Gmr.Rules[*nri].rhs.len()>=1 { // sets type first
+           else if Gmr.Symbols[*nti].rusttype.starts_with("Vec<LBox<") && Gmr.Rules[*nri].rhs.len()>=1 { // sets type first
 //println!("PROC111 {} with type {}",&Gmr.Symbols[*nti].sym,&Gmr.Symbols[*nti].rusttype);	   
              let lasti = Gmr.Rules[*nri].rhs.len()-1;
 
-             if !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") && !Gmr.Rules[*nri].rhs[lasti].rusttype.starts_with("Vec<") {
+             if !Gmr.Symbols[*nti].sym.starts_with("NEWSEPNT2_") {
   	       if Gmr.Rules[*nri].rhs[lasti].label.len()<1 {
 	         Gmr.Rules[*nri].rhs[lasti].label=format!("[_item{}_]",lasti);
 	       }
-	       else if !Gmr.Rules[*nri].rhs[lasti].label.starts_with('[') {
+	       else {
 	         Gmr.Rules[*nri].rhs[lasti].label = format!("[{}]",&Gmr.Rules[*nri].rhs[lasti].label);
 	       }
 	     } //change to boxed label except for P*: PS -> null | P+
