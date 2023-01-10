@@ -389,9 +389,7 @@ impl Grammar
                      ACTION.push_str(&newactionlab); ACTION.push(',');
                    } else {
                      enumvar.push_str(&format!(" {}:{} *",&newlab,ftype));
-                     //ACTION.push_str(&format!("{}={},",&newlab,&newactionlab));
-		     ACTION.push_str(&format!("{},",&newactionlab));
-
+                     ACTION.push_str(&format!("{}={};",&newlab,&newactionlab));
                    }// named/non-named field
                    
                    fi+=1;
@@ -420,8 +418,7 @@ impl Grammar
                 semact = format!("{},",&itemlabel);
               } else {
                 enumvar.push_str(&format!(" {}:LBox<{}> *",itemlabel,rsymtype));
-                //semact = format!("{}={},",&itemlabel,&itemlabel);
-		semact = format!("{},",&itemlabel);
+                semact = format!("{}={},",&itemlabel,&itemlabel);
               } // non-tuple variant
               ACTION.push_str(&semact);
               
@@ -434,7 +431,7 @@ impl Grammar
                 ACTION.push_str(&format!("{},",&itemlabel));
               } else {
                 enumvar.push_str(&format!(" {}:{} *",&itemlabel,rsymtype));
-                ACTION.push_str(&format!("{},",&itemlabel));          
+                ACTION.push_str(&format!("{0}={0},",&itemlabel));          
               }// non-tuple variant
               
               if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
