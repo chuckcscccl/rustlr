@@ -12,11 +12,19 @@ to install the system.  If you're not using the latest Mono, you may have
 to re-compile absLexer.cs into a .dll, and then, using that
 .dll, compile RuntimeParser.fs to a .dll.
 
-At the time of this writing, there are certain limitations to the
-Fussless system compared to the native Rust parser generator. There is
-no automatic creation of ASTs and the experimental -lrsd option is not
-available.  The wildcard symbol cannot be used and the interactive training feature is also not available.
+At the time of this writing, there are still some features missing from
+Fussless compared to the native Rust parser generator. There is
+only one, simple error-recovery mechanism (`resynch`). The experimental -lrsd
+option and the wildcard symbol are not currently supported 
+and the interactive training feature is also not available.
 These limitations will gradually be resolved with future releases.
+
+As of Rustlr release 4.0, the Fussless system can now automatically
+generate the abstract syntax types and semantic actions from a grammar with
+the `auto` option.  However, the first part of this chapter will show how
+to write grammars with manually defined types and actions.
+
+### Invoking the Parser Generator
 
 To create a parser, you will first need a .grammar file.  Rustlr/Fussless
 has its own format for specifying grammars:
@@ -42,7 +50,7 @@ EOF
 ```
 These are the contents of a Fussless grammar file, called [test1.grammar](https://cs.hofstra.edu/~cscccl/rustlr_project/fstarget/test1.grammar).
 This classic example of LR parsing is found in virtually all compiler
-textbooks.  It is an unambiguous grammar.  After you **`cargo install rustlr`**
+textbooks.  After you **`cargo install rustlr`**
 you can produce a LALR(1) parser from this grammar file with:
 
 >  rustlr test1.grammar -fsharp
@@ -587,15 +595,50 @@ encountered, which means that it will be associated with the nearest "if".
 
 #### Using C\#
 
-F\# has no difficulty importing any library compiled from C\#.  However, 
-depending on the development platform, you may face some difficulty importing
-a .dll compiled with F\# into a C\# project.  In particular, the "main" of
-the project that invokes the parser may have to be written in F\#, 
-although it can then call C\# for further processing.  The abstract syntax
-structures can be defined in C\#.
+Using C\# is possible by virtue of .Net interoperability.  The abstract syntax
+structures can be defined in C\# and the semantic actions to construct such
+structures should generally not be difficult to call from F\#.  The 
+integration of the .dlls from the different languages may face some challenges
+depending on your development platform. On Mono there where some problems
+importing a .dll compiled with F\# into a C\# project.  But these problems
+can be mostly avoided by writing some minimal components of the parser in 
+F#.  
+
+<br>
+
+### **Automatically Generating the Abstract Syntax**
+
+With Rustlr 0.4 and the latest Fussless the grammar can now generate the
+abstract syntax types and semantic actions automatically.  Manual overrides
+are also possible.  Essentially, non-terminal symbols that are on the
+left-hand side of multiple productions generate discriminated unions while
+those with a single production generate records.  However, the AST types do 
+not necessarily just mirror the grammar. For
+example, non-terminal symbols such as E, T and F (of the calculator grammar)
+can be specified to define a single union type as opposed to individual
+types.  Records can be absorbed or "flattened" into other types.
+Rustlr/Fussless grammars contain a sub-language that defines 
+how ASTs are to be created that can also be stable across small changes to 
+the grammar. The system has the same capabilities as described for
+Rust parsers in **[Chapter 4][chap4]**.  In fact it is simpler since there
+is no need for lifetimes and smart pointers.  Fussless *LBox* structures
+are created in the same way as their counterparts in Rust, without the
+pointer aspect.
+
+Two sample grammars are available that demonstrate these abilities:
+  1. [calcautofs.grammar](https://github.com/chuckcscccl/Fussless/blob/main/calcautofs.grammar).  This grammar describes another version of the calculator
+grammar with `auto` types and actions and some overrides.  It also demonstrates the injection of code that precedes the automatically generated actions, and
+the 'flattening' feature for structs.
+  2. [fs7c.grammar].  This grammar defines a simplified, typed functional
+programming language that was used in a compilers class taught at Hofstra
+University. 
+
+To invoke the feature, replace the "valuetype" declaration with "auto"
+at the top of the grammar.  In addition to the parser file, an `_ast.fs`
+file will be created.  The parser is called to automatically 
 
 
------------
+--------------
 
 [1]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.StrTokenizer.html
 [2]:https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html

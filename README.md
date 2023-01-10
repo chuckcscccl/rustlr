@@ -28,6 +28,8 @@ gradually become available.
 
 ### Major Features and the Versions that Introduced Them
 
+#### Version 0.4.0: AST generation for F\#
+
 #### Version 0.3.95:
 
 Adds the ability to generate Bump-allocated ASTS that

@@ -44,10 +44,10 @@ use selmlk::{MLStatemachine};
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
-  rustle(&args);
+  rustlr::rustle(&args);
 }//main
 
-
+/* function moved to lib.rs
 fn rustle(args:&Vec<String>) // called from main
 {
   let argc = args.len();
@@ -217,3 +217,4 @@ fn rustle(args:&Vec<String>) // called from main
      println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
   }
 }//rustle
+*/
