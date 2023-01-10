@@ -626,10 +626,12 @@ are created in the same way as their counterparts in Rust, without the
 pointer aspect.
 
 Two sample grammars are available that demonstrate these abilities:
+
   1. [calcautofs.grammar](https://github.com/chuckcscccl/Fussless/blob/main/calcautofs.grammar).  This grammar describes another version of the calculator
 grammar with `auto` types and actions and some overrides.  It also demonstrates the injection of code that precedes the automatically generated actions, and
 the 'flattening' feature for structs.
-  2. [fs7c.grammar].  This grammar defines a simplified, typed functional
+
+  2. [fs7c.grammar](https://github.com/chuckcscccl/Fussless/blob/main/fs7c.grammar).  This grammar defines a simplified, typed functional
 programming language that was used in a compilers class taught at Hofstra
 University. 
 
