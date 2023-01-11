@@ -637,7 +637,8 @@ University.
 
 To invoke the feature, replace the "valuetype" declaration with "auto"
 at the top of the grammar.  In addition to the parser file, an `_ast.fs`
-file will be created.  The parser is called to automatically 
+file will be created.  Code can be injected into the AST file with lines
+beginning with `$`.
 
 
 --------------

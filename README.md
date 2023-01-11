@@ -26,152 +26,107 @@ gradually become available.
 <p>
 
 
-### Major Features and the Versions that Introduced Them
+### Quick Example: JSON Parser
 
-#### Version 0.4.0: AST generation for F\#
-
-#### Version 0.3.95:
-
-Adds the ability to generate Bump-allocated ASTS that
-allows nested pattern matching against recursive types.
-
-#### Version 0.3.8:
-
-Adds the ability to generate a  parser for the
-F\# language (Microsoft's version of Ocaml).  The system is called "Fussless"
-and the F\# end is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
-
-
-#### Version 0.3.5:
-
-The -lrsd option for *selective Marcus-Leermakers* grammars added as an experimental feature.  See the [Appendix](https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html) of the tutorial.
-
-#### Version 0.3.0:
-
-Experimental feature: markers that allow delayed-reduction
-grammar transformations.  Improved ability to generate reasonable abstract
-syntax.
-
-
-#### Version 0.2.95:
-
-Adds the ability to define custom regular expressions and custom token
-types to the built-in lexical analyzer; the lexterminal and
-valueterminal directives further simplify the creation of the lexical
-analyzer.
-
-
-
-#### Version 0.2.9:
-
-Experimental support for a **wildcard token** in writing grammars.  Grammar
-production rules can use the now-reserved `_` (underscore) symbol to mean
-*unexpected token*.  
+The following is a Rustlr grammar:
 ```
-E -->  a _* b
+# Rustlr Grammar for JSON: generates lexical scanner, parser and AST types
+auto
+lifetime 'lt
+lexterminal LBRACE {
+lexterminal RBRACE }
+lexterminal LBRACK [
+lexterminal RBRACK ]
+lexterminal LPAREN (
+lexterminal RPAREN )
+lexterminal COLON :
+lexterminal COMMA ,
+lexterminal NULL null
+lexterminal MINUS -
+valueterminal TRUE~ bool~ Alphanum("true")~ true
+valueterminal FALSE~ bool~ Alphanum("false")~ false
+valueterminal STRING~ &'lt str~ Strlit(n)~ &n[1..n.len()-1]
+valueterminal NUM~ i64~ Num(n)~ n
+valueterminal FLOAT~ f64~ Float(n)~ n
+valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
+
+nonterminal Integer i64
+nonterminal Floatpt f64
+nonterminal Boolean bool
+nonterminals Value KeyValuePair Number
+nonterminal List : Value
+nonterminal Object HashMap<&'lt str, LBox<@Value>>
+
+topsym Value
+resync COMMA RBRACK RBRACE
+
+Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
+Floatpt --> MINUS?:m FLOAT:n {if m.is_some() {-1.0*n} else {n}}
+# ? generates an Option type in the AST
+Number:Bignum --> MINUS?:m BIGNUM
+Number:Int --> Integer
+Number:Float --> Floatpt
+Boolean --> TRUE | FALSE
+
+Value:Number --> Number
+Value:Boolean --> Boolean
+Value:Str --> STRING
+Value:Objectmap --> Object
+Value --> List
+Value --> NULL
+Value --> LPAREN Value RPAREN
+KeyValuePair --> STRING COLON Value
+List:List --> LBRACK Value<COMMA*> RBRACK
+# <COMMA*> specifies a comma-separated list
+Object ==> LBRACE KeyValuePair<COMMA*>:entries RBRACE {
+  let mut kvmap = HashMap::new();
+  for (mut lbx) in entries {
+    if let KeyValuePair(k,v) = lbx.take() { kvmap.insert(k,v); }
+  }
+  kvmap
+} <==
+
+# The following line is injected into json_ast.rs
+$use std::collections::HashMap;
+
+# The following lines are injected into the parser
+!mod json_ast;
+!fn main()  {
+!  let srcfile = std::env::args().nth(1).unwrap(); // command-line arg  
+!  let source = LexSource::new(&srcfile).unwrap();
+!  let mut scanner1 = jsonlexer::from_source(&source);
+!  let mut parser1 = make_parser();
+!  let parseresult = parse_with(&mut parser1, &mut scanner1);
+!  let ast = parseresult.unwrap_or_else(|x|{println!("Parsing errors encountered; results not guaranteed.."); x});
+!   println!("\nAST: {:?}\n",&ast);
+!}//main
 ```
-The _ is regarded as a regular terminal symbol during the creation of the
-deterministic LR statemachine. But a state table entry for the special wildcard
-will apply to any unexpected input symbol.  Please see the tutorial for its
-subtleties and usage.
+In addition to a parser, the grammar generates a lexical scanner from the `lexterminal` and `valueterminal` declarations.  It also created much of the
+abstract syntax types and semantic actions required by the parser, alongside
+some manual overrides. As this is a quick example, we've also injected a main
+function, which expects the name of a json source as argument, directly into
+the parser.  To run rustlr on this example,
 
-#### Version 0.2.8:
+  1. Install rustlr as a command-line application: **`cargo install rustlr`**
+  2. Create a Cargo crate with **`rustlr = "0.4"`** in its dependencies
+  3. save the grammar in the crate as `json.grammar` (must have `.grammar`
+     suffix).
+  4. Run rustlr with **`rustlr json.grammar -o src/main.rs`**
+  5. call `cargo run [some json file]`
 
-The ability to automatically generate the abstract syntax tree data structures as well as the semantic actions required to create instances of them.  Automatically generated actions can be combined with manually written overrides.
+Note that `<COMMA*>` specifies a comma-separated list and normally generates
+semantic actions to create
+a vector.  However, for JSON "objects" we've decided to create a hashmap
+by manually writing the semantic action.  Normally, Rustlr in `auto` mode
+generates an enum for each non-terminal symbol that's on the left-hand side
+of multiple productions, and a struct for non-terminals with a single
+production.  However, declarations such as `nonterminal List : Value` allow
+a type to be absorbed into another: there is no separate type for
+`List`.  There are other ways that a grammar can specify how ASTs are to be
+created, distinguishing the *abstract syntax tree* from the *parse tree*.
+Please consult the [tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/)
+for further documentation.
 
-Limited support for *, + and ? expressions introduced.
-
-
-#### Version 0.2.5:
-
-The ability to write semantic actions returning
-values of different types has been added, without the need to use the Any
-trait (and can thus accomodate non-static references).  Chapter 3 of
-the tutorial was rewritten to reflect this important new option.
-Backwards compatibility is retained.
-
-A simplified syntax for forming LBox has been added: Grammar rules can
-now contain labeled symbols on the right hand side in the form `E:[x]`, which
-means that the semantic value associated with grammar symbol E is automatically placed in an LBox and assigned
-to x.
-
-#### Version 0.2.3:
-
-The ability to **automatically generate a lexical
-scanner** from a minimal set of grammar declarations has been added, using
-the built-in RawToken and StrTokenizer.  This vastly simplifies the process
-of producing a working parser.  Other tokenizers can still be used
-in the previous way, by adopting them to the Tokenizer trait.
-
-
-#### Version 0.2.0:
-
-Significant improvements required that several components
-are now renamed, while the older ones are retained for compatibility with
-parsers already created.  
-
-  -  A new, "zero-copy" lexer interface has been created
-  -  A general purpose lexical analyzer is now included, although it is still
-     possible to use any lexer due to the use of trait objects.
-  -  Improved support for using **`LBox<dyn Any>`** as abstract syntax type by
-     automatically generating runtime type casting.  This means that
-     semantic actions for grammar productions no longer need to return values of the same
-     type. However, this also means that abstract syntax representations
-     cannot contain non-static references due to the Rust restriction that
-     such types cannot impl Any.  An alternative approach would be to generate
-     a enum type that includes all possible return types, but this approach is
-     not compatible with allowing the lexical analyzer to be decoupled from
-     the parser.
-
-#### Version 0.1.4:
-
- This version's main enhancements are pattern labels.  In a grammar production,
- the value attached to nonterminal and terminal symbols can be extracted by
- specifying a pattern, which will cause an if-let statement to be automatically
- generated.  For abstract syntax with many layers of enums and structs, but
- which shares a single "absyntype" for the grammar.  For example, if *Exp* and
- *Expl* are variants of a common enum, one can now write rules such as 
-
- ```
-  Exprlist -->  { Expl(Vec::new()) }
-  Exprlist --> Exprlist:@Expl(mut ev)@ , Expr:@Exp(e)@  {ev.push(e); Expl(ev)}
- ```
- This capability was used to construct a parser for a scaled-down version of
- Java and is included in the examples directory of the repository.
-
- Abilities for using LBox were also extended, which allows *`LBox<dyn Any>`* to
- be used as the abstract syntax type, with functions and macros for
- up/downcasting.
-
-
-#### Version 0.1.2:
-
-  Added the [LBox][2] smartpointer for encapsulating lexical information
-  (line and column) into abstract syntax.
-
-  The parse function has been decomposed into a parse_core, which takes a
-  functional argument that handles error reporting.  This allows a custom
-  parser interface to be created if one does not wish to be restricted to
-  the supplied one, which uses stdio.
-
-
-#### Version 0.1.1:
-
-  The ability to train the parser has been added. The `parse_train`
-  function will ask for user input to improve error reporting by augmenting
-  the basic generated LR state machine with Error entries.
-
-  Constructing a parser that gives helpful error messages can be tricky,
-  especially after a grammar has been modified and the parser is re-generated,
-  which changes the state transition table.  Interactive training with
-  the parse_train function now produces, in addition to an augmented parser,
-  a training-script that records each error encountered along with the line,
-  column numbers and the unexpected token.  It's the user's responsibility to
-  keep track of the sample input used during interactive training and
-  the script that was created from it.  A parser can be retrained from the
-  script, given the identical input (and tokenizer).
-
-    --------------------
 
 
 [1]:https://docs.rs/rustlr/latest/rustlr/lexer_interface/struct.StrTokenizer.html

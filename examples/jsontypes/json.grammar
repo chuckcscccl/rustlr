@@ -1,4 +1,5 @@
-# Rustlr grammar use with -auto
+# Rustlr Grammar for JSON
+auto
 lifetime 'lt
 lexterminal LBRACE {
 lexterminal RBRACE }
@@ -20,10 +21,10 @@ valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
 nonterminal Integer i64
 nonterminal Floatpt f64
 nonterminal Boolean bool
-nonterminals Number Value KeyValPair
-nonterminal Object Vec<LBox<KeyValPair<'lt>>>
-nonterminal List Vec<LBox<Value<'lt>>>
-
+nonterminals Value KeyValuePair Number
+nonterminal Object : Value
+nonterminal List : Value
+nonterminal Boolean : Value
 topsym Value
 resync COMMA RBRACK RBRACE
 
@@ -37,15 +38,10 @@ Boolean --> TRUE | FALSE
 Value:Number --> Number
 Value:Boolean --> Boolean
 Value:Str --> STRING
-Value:Object --> Object
-Value:List --> List
+Value --> Object
+Value --> List
 Value --> NULL
 Value --> LPAREN Value RPAREN
-KeyValPair --> STRING COLON Value
-List --> LBRACK Value<COMMA*> RBRACK
-Object --> LBRACE KeyValPair<COMMA*> RBRACE
-
-EOF
-
-declaring the type of Object explicitly was important otherwise passthru
-is not recognized.
+KeyValuePair --> STRING COLON Value
+List:List --> LBRACK Value<COMMA*> RBRACK
+Object:Object --> LBRACE KeyValuePair<COMMA*> RBRACE
