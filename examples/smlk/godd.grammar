@@ -6,9 +6,10 @@ topsym S
 
 S --> A | B
 A --> d* a b c+ d e f x
-B --> d* M c+ d e f y
+#A --> d* c+ d e f x
+B --> d* M c+ d !# e f y
 M --> a b
-M -->
+M --> 
 C --> c | C c
 D --> d | D d
 N --> | D

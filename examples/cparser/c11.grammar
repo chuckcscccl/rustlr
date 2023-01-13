@@ -296,7 +296,7 @@ expression:expr_list --> expressions
 expressions --> assignment_expression<Comma+>
 
 # intentionally ambiguous
-expression --> assignment_expression<Comma+>
+#expression --> assignment_expression<Comma+>
 
 # the following rule was marked "with constraints"
 constant_expression:const_expr --> conditional_expression

@@ -8,8 +8,6 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 #![allow(non_upper_case_globals)]
-//use std::fmt::Display;
-//use std::default::Default;
 use std::collections::{HashMap,HashSet,BTreeSet};
 use std::cell::{RefCell,Ref,RefMut};
 use std::hash::{Hash,Hasher};
@@ -171,6 +169,9 @@ impl MLState
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
                newconflicts.insert(item);
               // PROPAGATION  A --> alpha .B, can't extend further
+              // But what if the rule is A -> alpha . B !#?
+              // Propagation of conflict should take place, but no extension
+              // should take place?
             }
             else if *cpi==0 && pi+1<Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && clas.contains(cla) {
               //assert!(!Gmr.Rules[*ri].rhs[*pi].terminal);
@@ -186,8 +187,37 @@ impl MLState
               //let defaultcomb = vec![nti];
               //let comb = combing.get(&nti).unwrap_or(&defaultcomb);
 
+              // new January 2023: must add check against !# marks that
+              // forces extension to stop (stateful semantic actions).
+
                let comblen = comblength(&nti,combing);
-               if comblen>maxk {
+
+               //if Gmr.sdcuts.contains(&(*cri,Gmr.Rules[*cri].rhs.len())) {
+               match Gmr.sdcuts.get(cri) {
+                 Some(cutpi) if *cutpi==Gmr.Rules[*cri].rhs.len() => {
+                   if !failed {
+                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !# at end of rule {}",cri);
+                     printrule2(*cri,Gmr,combing);
+                   }
+                   answer = false;               
+                 },
+                 _ => {},
+               }//match
+               //else if Gmr.sdcuts.contains(&(*ri,*pi+1))
+               if answer {
+                match Gmr.sdcuts.get(ri) {
+                 Some(cutpi) if *cutpi==pi+1 => {
+                   if !failed {
+                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !# marker at rule {}, position {}, which may have been inherited from an original rule",ri,pi+1);
+                     printrule2(*ri,Gmr,combing);
+                   }
+                   answer = false;
+                 },
+                 _ => {},
+                }//match
+               }//if answer
+               
+               if answer && comblen>maxk {
                  if !failed {
                     let comb = uncombing(&rilhs,combing);               
                     print!("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[ ");
@@ -1239,6 +1269,11 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
          self.Rules.push(newrulei);
          rulehash.insert(hashr,self.Rules.len()-1);
          self.ntcxmax = ntcx;
+
+         if let Some(cutpi) = self.sdcuts.get(&ri) {
+           if *cutpi>0 {self.sdcuts.insert(self.Rules.len()-1, cutpi-1);}
+         }
+         
          return self.Rules.len()-1;
        }// new rule added (not start rule, which is replaced).
   }// delay_extend

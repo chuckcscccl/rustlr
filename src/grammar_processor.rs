@@ -150,6 +150,7 @@ pub struct Grammar
   pub startrulei: usize,
   pub mode: i32, // generic mode information
   pub bumpast: bool,
+  pub sdcuts: HashMap<usize,usize>, // !# marker positions: rulenum to position
 }
 
 impl Default for Grammar {
@@ -201,6 +202,7 @@ impl Grammar
        startrulei : 0,
        mode : 0,
        bumpast: false,
+       sdcuts: HashMap::new(),
      }
   }//new grammar
 
@@ -792,6 +794,10 @@ impl Grammar
               let mut seenerrsym = false;
               let mut iadjust = 0;
               let mut markers = Vec::new(); // record delay markers
+
+              let reserved_rindex = self.Rules.len(); // fix index for this rule
+              self.Rules.push(Grule::new_skeleton(LHS));
+              
               while i<bstokens.len() {
 	        let mut strtok = bstokens[i];
 		i+=1;
@@ -804,7 +810,16 @@ impl Grammar
 		   break;
                 }
 // look for delay marker and record
-                if strtok=="#" {markers.push(i-1-iadjust); iadjust+=1; markersexist=true; continue; }
+                if strtok=="#" {
+                  markers.push(i-1-iadjust); iadjust+=1;
+                  markersexist=true; continue;
+                }
+                else if strtok=="!#" && !self.sdcuts.contains_key(&reserved_rindex) {
+                  self.sdcuts.insert(reserved_rindex,i-1-iadjust);
+//println!("sdcut rule {}, adjusted position {}",reserved_rindex, i-1-iadjust);
+                  iadjust+=1;
+                  continue;
+                }
 
 /*
 Strategfy for parsing EBNF syntax:
@@ -1277,13 +1292,15 @@ strtok is bstokens[i], but will change
 		precedence : maxprec,
 	      };
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
-	      self.Rules.push(rule);
+	      //self.Rules.push(rule);
+              self.Rules[reserved_rindex] = rule;
               // Add rules to Rulesfor map
               if let None = self.Rulesfor.get(&symind2) { //symind2 is LHS
                  self.Rulesfor.insert(symind2,HashSet::new());
               }
               let rulesforset = self.Rulesfor.get_mut(&symind2).unwrap();
-              rulesforset.insert(self.Rules.len()-1);
+              //rulesforset.insert(self.Rules.len()-1);
+              rulesforset.insert(reserved_rindex);
             //} 
             } // for rul
             }, 
