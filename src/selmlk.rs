@@ -167,7 +167,16 @@ impl MLState
             // possibilities. can't deprecate til end of for citems loop
             //if self.deprecated.contains(citem) {continue;} //MUST NOT HAVE
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
-               newconflicts.insert(item);
+
+
+              // !# propagation
+              if let Some(cutpi)=Gmr.sdcuts.get(ri) {
+                if *cutpi == Gmr.Rules[*ri].rhs.len() {
+                   Gmr.sdcuts.insert(*cri,Gmr.Rules[*cri].rhs.len());
+                }
+              }
+
+              newconflicts.insert(item);
               // PROPAGATION  A --> alpha .B, can't extend further
               // But what if the rule is A -> alpha . B !#?
               // Propagation of conflict should take place, but no extension
@@ -203,7 +212,10 @@ impl MLState
                  },
                  _ => {},
                }//match
-               //else if Gmr.sdcuts.contains(&(*ri,*pi+1))
+               // but what if this is recursive, as in A --> B !#
+               // C --> A;  D --> C?  In these cases the as soon as a
+               // conflict item with !# at the end is detected, failure is
+               // reported.
                if answer {
                 match Gmr.sdcuts.get(ri) {
                  Some(cutpi) if *cutpi==pi+1 => {

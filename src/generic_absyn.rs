@@ -372,8 +372,18 @@ impl<T> LC<T>
   pub fn transfer<U>(&self,x:U) -> LC<U> {
    LC::make(x,self.line(),self.column(),self.1.2) 
   }
+  /// consumes the LC enclosure and returns the enclosed value
+  pub fn consume(self) -> T { self.0 }
+}//impl LC
+impl<T:Default+?Sized> LC<T>
+{
+   /// replaces the enclosed value with T::default() and returns the value
+   pub fn take(&mut self) -> T
+   {   let mut res = T::default();
+       std::mem::swap(&mut res, self.as_mut());
+       res
+   }
 }
-
 
 /// Structure intended to support [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) AST generations,
 ///which allows recursive AST types to be defined using references instead of

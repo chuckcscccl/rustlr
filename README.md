@@ -30,7 +30,7 @@ gradually become available.
 
 The following is a Rustlr grammar:
 ```
-# Rustlr Grammar for JSON: generates lexical scanner, parser and AST types
+# Rustlr Grammar for JSON
 auto
 lifetime 'lt
 lexterminal LBRACE {
@@ -49,7 +49,6 @@ valueterminal STRING~ &'lt str~ Strlit(n)~ &n[1..n.len()-1]
 valueterminal NUM~ i64~ Num(n)~ n
 valueterminal FLOAT~ f64~ Float(n)~ n
 valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
-
 nonterminal Integer i64
 nonterminal Floatpt f64
 nonterminal Boolean bool
@@ -57,17 +56,15 @@ nonterminals Value KeyValuePair Number
 nonterminal List : Value
 nonterminal Object HashMap<&'lt str, LBox<@Value>>
 
-topsym Value
+startsymbol Value
 resync COMMA RBRACK RBRACE
 
 Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
 Floatpt --> MINUS?:m FLOAT:n {if m.is_some() {-1.0*n} else {n}}
-# ? generates an Option type in the AST
 Number:Bignum --> MINUS?:m BIGNUM
 Number:Int --> Integer
 Number:Float --> Floatpt
 Boolean --> TRUE | FALSE
-
 Value:Number --> Number
 Value:Boolean --> Boolean
 Value:Str --> STRING
@@ -77,7 +74,6 @@ Value --> NULL
 Value --> LPAREN Value RPAREN
 KeyValuePair --> STRING COLON Value
 List:List --> LBRACK Value<COMMA*> RBRACK
-# <COMMA*> specifies a comma-separated list
 Object ==> LBRACE KeyValuePair<COMMA*>:entries RBRACE {
   let mut kvmap = HashMap::new();
   for (mut lbx) in entries {
@@ -92,16 +88,16 @@ $use std::collections::HashMap;
 # The following lines are injected into the parser
 !mod json_ast;
 !fn main()  {
-!  let srcfile = std::env::args().nth(1).unwrap(); // command-line arg  
+!  let srcfile = std::env::args().nth(1).unwrap();
 !  let source = LexSource::new(&srcfile).unwrap();
 !  let mut scanner1 = jsonlexer::from_source(&source);
 !  let mut parser1 = make_parser();
 !  let parseresult = parse_with(&mut parser1, &mut scanner1);
 !  let ast = parseresult.unwrap_or_else(|x|{println!("Parsing errors encountered; results not guaranteed.."); x});
-!   println!("\nAST: {:?}\n",&ast);
+!  println!("\nAST: {:?}\n",&ast);
 !}//main
 ```
-In addition to a parser, the grammar generates a lexical scanner from the `lexterminal` and `valueterminal` declarations.  It also created much of the
+In addition to a parser, the grammar generates a lexical scanner from the `lexterminal` and `valueterminal` declarations.  It also created most of the
 abstract syntax types and semantic actions required by the parser, alongside
 some manual overrides. As this is a quick example, we've also injected a main
 function, which expects the name of a json source as argument, directly into
@@ -116,7 +112,7 @@ the parser.  To run rustlr on this example,
 
 Note that `<COMMA*>` specifies a comma-separated list and normally generates
 semantic actions to create
-a vector.  However, for JSON "objects" we've decided to create a hashmap
+a vector.  However, for JSON "objects" we chose to create a hashmap
 by manually writing the semantic action.  Normally, Rustlr in `auto` mode
 generates an enum for each non-terminal symbol that's on the left-hand side
 of multiple productions, and a struct for non-terminals with a single
