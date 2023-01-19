@@ -1066,11 +1066,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
 
     while !self.stopparsing
     {
-      self.linenum = self.stack[self.stack.len()-1].line;
-      self.column=self.stack[self.stack.len()-1].column;
+      let tos = self.stack.len()-1;
+      self.linenum = self.stack[tos].line;
+      self.column=self.stack[tos].column;
       //self.prev_position = tokenizer.previous_position();
       //self.position = tokenizer.position();
-      let currentstate = self.stack[self.stack.len()-1].si;
+      let currentstate = self.stack[tos].si;
       let mut actionopt = self.RSM[currentstate].get(lookahead.sym);
 
       if actionopt.is_none() && lookahead.sym!="EOF" { // added in version 0.2.9

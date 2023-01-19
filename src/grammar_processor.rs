@@ -1629,7 +1629,7 @@ impl<{2}> {0}<{2}>
 ",lifetime,retype,&lexername)?;
 
       for (condition,action) in self.Lexconditionals.iter() {
-        write!(fd,"    if (self.{}) {{ self.stk.{} }}\n",condition,action)?;
+        write!(fd,"    if {} {{ self.stk.{} }}\n",condition,action)?;
       }
 
       write!(fd,"    let tokopt = self.stk.next_token();

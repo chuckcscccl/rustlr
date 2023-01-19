@@ -19,7 +19,7 @@
 #![allow(unused_imports)]
 use std::str::Chars;
 use regex::Regex;
-use std::collections::{HashSet,BTreeMap};
+use std::collections::{HashSet,BTreeMap,BTreeSet};
 use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
@@ -63,20 +63,6 @@ pub trait Lexer<AT:Default>
   /// returns the current line being tokenized.  The
   /// default implementation returns the empty string.
   fn current_line(&self) -> &str  { "" }
-/*  
-  /// function that modifies a Lextoken
-  /// For example, some symbols such as {, } and |
-  /// are reserved and cannot be used for terminal symbols.  Lextokens
-  /// containing them have to be modified.  The default implementation
-  /// returns the given token unmodified.  Note that this function is
-  /// **not** called automatically by [crate::RuntimeParser::parse], and it is
-  /// up to the implementor of [Lexer::nextsym] to call it.
-  fn modify(t:Lextoken<AT>)->Lextoken<AT> { t }
-
-  /// this function takes a functional argument intended to change the
-  /// [Lexer::modify] function.  The default implementation does nothing.
-  fn set_modify(&mut self,fn(Lextoken<AT>)->Lextoken<AT>) {}
-*/  
 }//trait Lexer
 
 
@@ -217,7 +203,6 @@ impl<'t,AT:Default+std::fmt::Debug> TerminalToken<'t,AT>
 /// The default implementations of functions such as [Tokenizer::linenum] do not return correct values
 /// and should be replaced: they're only given defaults for easy compatibility
 /// with prototypes that may not have their own implementations.
-/// This trait replaced LexToken used in earlier versions of Rustlr.
 pub trait Tokenizer<'t,AT:Default> 
 {
   /// retrieves the next [TerminalToken], or None at end-of-stream. 
@@ -245,7 +230,6 @@ pub trait Tokenizer<'t,AT:Default>
   /// This function should be called after the tokenizer has
   /// completed its task of scanning and tokenizing the entire input,
   /// when generating diagnostic messages when evaluating the AST post-parsing.
-
   /// The default implementation returns None.
   fn get_line(&self,i:usize) -> Option<&str> {None}
 
@@ -297,7 +281,7 @@ pub enum RawToken<'t>
 //  Hex(u64),
   /// floating point number
   Float(f64),
-  /// Number too large for i64 or f64 - hex numbers will include 0x prefix
+  /// Numbers too large for i64 or f64 are represented verbatim
   BigNumber(&'t str),
   /// single character inside single quotes.
   Char(char), 
@@ -416,6 +400,10 @@ pub struct StrTokenizer<'t>
    /// allows string literals to contain non-escaped newline characters:
    /// warning: changing the default (false) may reduce the accuracy of error reporting.
    pub allow_newline_in_string: bool,
+   /// **Multiset** of verbatim symbols that have priority over other 
+   /// categories; sorted by string order.  The multiset is implemented
+   /// as a map from strings to counts.
+   pub priority_symbols:BTreeMap<&'static str,u32>,
 }
 impl<'t> StrTokenizer<'t>
 {
@@ -456,8 +444,9 @@ impl<'t> StrTokenizer<'t>
     let tab_spaces = 6;
     let linetabs = 0;
     let allow_newline_in_string = false;
+    let priority_symbols=BTreeMap::new();
 //    let skipclosure = Box::new(||false);
-    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,skipcount,specialeof,tab_spaces,linetabs,allow_newline_in_string}
+    StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,skipcount,specialeof,tab_spaces,linetabs,allow_newline_in_string,priority_symbols}
   }// new
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
@@ -473,6 +462,27 @@ impl<'t> StrTokenizer<'t>
   /// add a 3-character symbol
   pub fn add_triple(&mut self, s:&'t str)
   { if s.len()==3 {self.triples.insert(s);} }
+
+  /// multiset-add a verbatim string as a priority symbol: will be returned 
+  /// as `Symbol(s)`
+  pub fn add_priority_symbol(&mut self, s:&'static str) {
+    if s.len()>0 {
+      let scget = self.priority_symbols.get_mut(s);
+      if let Some(scount) = scget {
+        let newcount = 1 + *scount;
+        self.priority_symbols.insert(s,newcount);
+      } else {
+        self.priority_symbols.insert(s,1);
+      }
+    }//.len>0
+  }
+  /// multiset-remove verbative string as a priority symbol
+  pub fn del_priority_symbol(&mut self, s:&'static str) {
+    if let Some(v) = self.priority_symbols.get_mut(s) {
+      if (*v>1) {*v -= 1; }
+      else { self.priority_symbols.remove(s); }
+    }
+  }
 
   /// Skips to last occurrence of target string, or to end of input.
   /// Returns [RawToken::Skipto] token.
@@ -649,7 +659,7 @@ impl<'t> StrTokenizer<'t>
     else if i>pi {continue;}
     //if pi>=self.input.len() {return None;}
 
-    // replace with code to skip-match, use skipbegin/end as brackets
+    // code to skip-match, use skipbegin/end as brackets
     // with initial offset
     
     if self.skipbegin.len()!=0  && self.skipend.len()!=0 {
@@ -713,6 +723,23 @@ impl<'t> StrTokenizer<'t>
        return Some((Skipto(&self.input[pi..self.position]),line0,(self.linetabs*tsps)+pi-lstart0+1));      
     }//skip to end
 
+
+    // look for priority symbols ...  (added for 0.4.1)
+    let mut psretval = None;
+    for (s,sc) in self.priority_symbols.iter() {  // s is &'static str
+      if (*sc>0) {
+        let slen = s.len();
+        if pi+slen<=self.input.len() && *s==&self.input[pi..pi+slen] {
+          self.position = pi+slen;
+          psretval = Some((Symbol(s),self.line,(self.linetabs*tsps)+self.column()-slen));
+          break;
+        }
+      } // sc>0
+    }// priority symbols loop
+    if let Some((Symbol(s),_,_)) = &psretval {
+      self.del_priority_symbol(*s);
+      return psretval;
+    }//priority symbols handling
 
     // look for custom-defined regular expressions
     for (ckey,cregex) in self.custom_defined.iter()
