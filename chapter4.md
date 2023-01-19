@@ -189,9 +189,12 @@ This would be required when you know that the type will be extended with
 other variants, as demonstrated above.
 
 The struct may be empty if all right-hand-side symbols of the single production
-rule are associated with the unit type and do not have labels. Rustlr will
-generate code to derive the Debug and Default traits for all structs (this
-works fine for recursive structs).
+rule are associated with the unit type and do not have labels.  In such
+cases, the *flatten* directive can eliminate the presence of these structs
+from ASTs (see below).
+
+Rustlr will generate code to derive the Debug and Default traits for
+all structs (this works fine for recursive structs).
 
 The name of the struct is the same as the non-terminal.  If any of the grammar symbols
 on the right-hand side of the rule is given a label, it would create a struct

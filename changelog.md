@@ -1,32 +1,14 @@
-# **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
-**LR-Style Parser Generator**
+## **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)** Changelog
 
-**A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
+**[Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) Link**
 
-Besides traditional LR and LALR parser generation, Rustlr supports the following
-options
+ Versions with only bug fixes and minor adjustments are not listed.  
 
-1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR and helps to allow new productions to be added to a grammar without
-creating conflicts (see the [Appendix](https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html) of the tutorial).
-2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
-to be generated.  For example, in a grammar with `E --> E + T` a dependency
-between `T` and `E` can be declared so that only one AST type is generated for both.
-3. Support for choosing [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create recursive ASTs that use references instead of smart pointers: this
-enables *deep pattern matching* on recursive structures.
-4. Recognizes regex-style operators `*`, `+` and `?`, which simplify
-the writing of grammars and allow better ASTs to be created.
-5. Generates a lexical scanner automatically from the grammar.
-6. Operator precedence and associativity declarations further allow grammars
-to be written that's closer to EBNF syntax.
-7. The ability to train the parser, interactively or from script, for better error reporting.
-8. Generates parsers for Rust [and for F\#](https://github.com/chuckcscccl/Fussless).  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
-language-analysis tools.  Parser generation for other such languages will
-gradually become available.
+#### Version 0.4.1:
 
-<p>
-
-
-### Major Features and the Versions that Introduced Them
+Added priority_symbols multiset to built-in tokenizer, with add/del functions.
+AST generator now assigns unit type to non-terminals with a single, empty
+	production
 
 #### Version 0.4.0: AST generation for F\#
 
@@ -39,7 +21,7 @@ allows nested pattern matching against recursive types.
 
 Adds the ability to generate a  parser for the
 F\# language (Microsoft's version of Ocaml).  The system is called "Fussless"
-and the F\# end is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless). 
+and the F\# end is found at [github.com/chuckcscccl/Fussless](https://github.com/chuckcscccl/Fussless).
 
 
 #### Version 0.3.5:
@@ -66,7 +48,7 @@ analyzer.
 
 Experimental support for a **wildcard token** in writing grammars.  Grammar
 production rules can use the now-reserved `_` (underscore) symbol to mean
-*unexpected token*.  
+*unexpected token*.
 ```
 E -->  a _* b
 ```

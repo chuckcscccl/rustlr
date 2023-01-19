@@ -217,8 +217,10 @@ impl Grammar
          else {format!("#[derive(Default,Debug)]\npub struct {}(",&ntsym.rusttype)};  // sets struct header
        let mut fields = String::new();  // like "enumvar in previous version"
        let mut vfields = Vec::new(); // (rhsi,label,type)
+
        let mut SACTION = if *simplestruct {format!("{}(",NT)}
                else {format!("{} {{",NT)};
+               
        let mut viadjust:i32 = 0; //not used (not inc'ed)
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields { //original field
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
@@ -229,7 +231,7 @@ impl Grammar
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) { // maybe able to flatten in
            match structasts.get(&rhssymi) {
              Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-               if *pthr<0 && flatfields.len()>0 && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
+               if *pthr<0 && /* flatfields.len()>0 && */ (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
