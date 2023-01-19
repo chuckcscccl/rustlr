@@ -224,7 +224,8 @@ impl Grammar
        // actual semantic action code to be generated
        let mut SACTION = format!(" {{{}.",NT); // { structtype. .. for F#
        let mut viadjust:i32 = 0; //not used (not inc'ed)
-       
+
+       let mut totalitems = 0;
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields {
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
          if rhssymi==*nt {
@@ -240,7 +241,7 @@ impl Grammar
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) {
            match structasts.get(&rhssymi) {
              Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-               if *pthr<0 && flatfields.len()>0 && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
+               if *pthr<0 /* && flatfields.len()>0 */ && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
@@ -250,6 +251,7 @@ impl Grammar
                    let newindex = rhsi+(viadjust as usize)+fi;
                    let fltref = ""; //if nonlctype(ftype) || self.basictypes.contains(&ftype[..])  || ltref.len()==0 {""} else {&ltref};
                    fields.push_str(&format!("    mutable {}:{}{};\n",&newlab,fltref,ftype));  // non-simpletype
+                   totalitems +=1;
                    let islctype = ftype.starts_with("LBox<");
                     SACTION.push_str(&format!("{}={}; ",&newlab,&newactionlab));
                    vfields.push((newindex,newlab,*albx,ftype.to_owned()));
@@ -261,11 +263,12 @@ impl Grammar
              aaa => { // println!("def {:?}",aaa); 
              }, //no flattening
            }//match
-         }//if in flattentypes list
+         }//if in flattentypes list (flatten this rhs symbol)
          if !flattened {
            let islctype = rsymtype.starts_with("LBox<");
            let withref = ""; //if  needref  ||  islctype {&ltref} else {""}; 
            // not simpletype
+           totalitems += 1;
            fields.push_str(&format!("    mutable {}:{};\n",itemlabel,rsymtype));
 //           if !islctype || *alreadylbx {
              SACTION.push_str(&format!("{}={}; ",itemlabel,itemlabel));      
@@ -283,12 +286,22 @@ impl Grammar
   	    self.Rules[sri].action = format!("{}{}",&actbase,&SACTION);
 	    SAST.push_str(&fields);
        }
-       else  {SAST.push_str(&fields);}            
+       else  {SAST.push_str(&fields);}
+       // no empty records allowed in F#
+       if totalitems==0 {
+         if let Some(pos) = SAST.rfind("\n  {\n  }") {
+           SAST.replace_range(pos..," unit  //empty record\n");
+           SACTION=String::from(" ()");
+           if !actbase.ends_with("}") {
+             self.Rules[sri].action = format!("{}{}",&actbase,&SACTION);
+           }
+         }
+       }//totalitems=0 (empty record to unit)
        newsa.insert(*nt,(*simplestruct,*canflatten,*passthru,SAST,vfields));
      }// REAL struct generation loop: apply flatten
      structasts = newsa;
 
-// MAKE FIRST LETTER UPPERCASE!
+
 
 /////////////////////////////////////// enums generation stage
 
@@ -375,7 +388,7 @@ impl Grammar
             if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
                Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-                if *pthr<0 && flatfields.len()>0 && !rsym.label.starts_with('['){
+                if *pthr<0 /* && flatfields.len()>0 */ && !rsym.label.starts_with('['){
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {

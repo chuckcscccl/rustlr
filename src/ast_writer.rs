@@ -269,7 +269,8 @@ impl Grammar
                  //viadjust += (flatfields.len() as i32)-1;
                }//if can flatten
              },
-             aaa => { // println!("def {:?}",aaa); 
+             aaa => { 
+               //println!("NOT FLATTENING {}",&self.Symbols[rhssymi].sym);
              }, //no flattening
            }//match
          }//if in flattentypes list
@@ -393,7 +394,7 @@ impl Grammar
             if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
                Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-                if *pthr<0 && flatfields.len()>0 && !rsym.label.starts_with('['){
+                if *pthr<0 && /* flatfields.len()>0 && */ !rsym.label.starts_with('['){
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {

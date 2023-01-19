@@ -264,7 +264,7 @@ impl Grammar
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) { // maybe able to flatten in
            match structasts.get(&rhssymi) {
              Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-               if *pthr<0 && flatfields.len()>0 && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
+               if *pthr<0 && /* flatfields.len()>0 && */ (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
@@ -440,7 +440,7 @@ impl Grammar
             if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
                Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-                if *pthr<0 && flatfields.len()>0 && !rsym.label.starts_with('['){
+                if *pthr<0 /* && flatfields.len()>0 */ && !rsym.label.starts_with('['){
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
