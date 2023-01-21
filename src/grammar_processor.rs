@@ -1360,7 +1360,7 @@ strtok is bstokens[i], but will change
      }
 
      // compute sametype value (default true)
-     if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
+     if &self.Absyntype!="()" && &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
         eprintln!("\nWARNING: THE TYPE FOR THE START SYMBOL ({}) IS NOT THE SAME AS THE VALUETYPE ({}",&topgsym.rusttype,&self.Absyntype);
         self.Absyntype = topgsym.rusttype.clone();
      }

@@ -59,7 +59,7 @@ fn rustle(args:&Vec<String>) // called from main
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
-  let mut genlex = false;
+  let mut genlex = true;
   let mut genabsyn = false;
   let mut lrsd = false;
   let mut lrsdmaxk:usize = selmlk::MAXK;
@@ -94,6 +94,7 @@ fn rustle(args:&Vec<String>) // called from main
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
        "genlex" | "-genlex" => {genlex=true; },
+       "nolex" | "-nolex" => {genlex=false; },
        "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
