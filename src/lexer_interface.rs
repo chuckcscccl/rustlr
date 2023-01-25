@@ -941,7 +941,7 @@ pub struct LexSource<'t>
 }
 impl<'t> LexSource<'t>
 {
-  /// creates a new LexSource struct with given source path,
+  /// creates a new LexSource struct with given source file path,
   /// reads contents into struct using [std::fs::read_to_string]
   pub fn new(path:&'t str) -> std::io::Result<LexSource<'t>>
   {
@@ -961,7 +961,14 @@ impl<'t> LexSource<'t>
      }//match
   }//new
 
-  /// creates a new LexSource struct with given source path,
+  /// creates a new LexSource struct with given source file path,
+  /// reads contents into struct using [std::fs::read_to_string].
+  /// Alias for [LexSource::new]
+  pub fn from_file(path:&'t str) -> std::io::Result<LexSource<'t>> {
+    LexSource::new(path)
+  }
+
+  /// creates a new LexSource struct with given file path,
   /// reads contents into struct using [std::fs::read_to_string],
   /// creates [bump](https://docs.rs/bumpalo/latest/bumpalo/index.html)
   /// allocator with same lifetime as the struct.  For use with `auto-bump`

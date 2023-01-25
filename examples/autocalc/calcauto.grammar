@@ -3,7 +3,7 @@
 
 auto
 lifetime 'lt
-terminals + - * / ( ) = ;
+terminals + - * / = ;
 terminals let in
 #typedterminal int i64
 valueterminal int ~ i64 ~ Num(n) ~ n
@@ -11,6 +11,8 @@ valueterminal var ~ &'lt str ~ Alphanum(n) ~ n
 #typedterminal var &'lt str
 #lexvalue int Num(n) n
 #lexvalue var Alphanum(x) x
+lexterminal LPAREN (
+lexterminal RPAREN )
 lexattribute set_line_comment("#")
 
 nonterminal Expr
@@ -25,9 +27,9 @@ nonterminal Sxpr
 nonterminal Aexpr
 nonterminal Bexpr : Aexpr
 nonterminals Yxpr Zxpr Xxpr
-nonterminals AA BB
+nonterminals AA BB CC
 flatten BB
-flatten Yxpr Zxpr Xxpr
+flatten Yxpr Zxpr Xxpr CC
 
 topsym ExprList
 resync ;
@@ -47,9 +49,10 @@ Yxpr --> var ; var
 Xxpr:X1 --> int:a int:[b] ; { /*BBBB*/ ... }
 Xxpr:X2 --> int ; Yxpr:u var { println!("see {:?}",u); ... }
 AA --> BB:p int:q BB:r
-AA --> var var
+AA --> var var CC var
 BB --> var:a AA:b AA:c
 #BB --> var AA AA
+CC --> ; ;
 
 Aexpr:ae --> int
 Bexpr:be --> var
@@ -58,17 +61,17 @@ Expr --> ; ; Aexpr
 UnaryExpr:Val --> int
 UnaryExpr:Var --> var
 UnaryExpr:Neg --> - UnaryExpr
-UnaryExpr --> ( LetExpr )
+UnaryExpr --> LPAREN LetExpr RPAREN
 
 Expr --> UnaryExpr
 Expr:Plus--> Expr + Expr
-Expr:Minus --> Expr:a - Expr:b
+Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
-Expr:Times --> Expr:leftexpr * Expr
+Expr:Times --> Expr * Expr
 #Expr:Times --> Expr:[a] * Expr:[b]@ee@ {println!("see {:?}",&ee); Expr::Times(a,b) }
 
 LetExpr --> Expr
-LetExpr:Let --> let var = Expr in LetExpr
+LetExpr:Let --> let var:let_var = Expr:init_value in LetExpr:let_body
 
 ExprList:nil -->
 ExprList:cons --> LetExpr:car ; ExprList:cdr
