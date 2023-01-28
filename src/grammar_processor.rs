@@ -1668,8 +1668,9 @@ impl<{2}> {0}<{2}>
       }},\n",fraw,retype)?;
       
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
-      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
-      write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
+      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
+      write!(fd,"      _ => {{ let _rrodb=token.0.to_staticstr(); Some(TerminalToken::{}(token,_rrodb,<{}>::default())) }},\n    }}\n  }}",fraw,retype)?;
+      //write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;      
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}

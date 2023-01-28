@@ -82,7 +82,7 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
      Minus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a-b})}).flatten(),
      Neg(x) => eval(env,x).map(|a|{-1*a}),
      Div(x,y) => eval(env,y).map(|yval|{if yval==0 {
-          eprint!("Division by zero line {}, column {} ... ",y.column(),y.line());
+          eprint!("Division by zero line {}, column {} ... ",y.line(),y.column());
 	  None
          } else {eval(env,x).map(|xval|xval/yval)}
        }).flatten(),

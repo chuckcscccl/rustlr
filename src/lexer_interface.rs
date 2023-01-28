@@ -318,6 +318,29 @@ pub enum RawToken<'t>
   LexError,
 }//RawToken
 
+impl<'t> RawToken<'t> {
+  pub fn to_staticstr(&self) -> &'static str {
+    match self {
+      Num(_) => "RawToken::Num",
+      Float(_) => "RawToken::Float",
+      BigNumber(_) => "RawToken::BigNumber",
+      Char(_) => "RawToken::Char",
+      Strlit(_) => "RawToken::Strlit",
+      Alphanum(_) => "RawToken::Alphanum",
+      Symbol(_) => "RawToken::Symbol",
+      Byte(_) => "RawToken::Byte",
+      Bytes(_) => "RawToken::Bytes",      
+      Newline => "RawToken::Newline",
+      Whitespace(_) => "RawToken::Whitespace",
+      Verbatim(_) => "RawToken::Verbatim",
+      Custom(s,_) => s,
+      Skipto(_) => "RawToken::Skipto",
+      Skipmatched(_) => "RawToken::Skipmatched",      
+      LexError => "RawToken:LexError",
+    }//match
+  }
+}//impl RawToken
+
 /// General-purpose, zero-copy lexical analyzer that produces [RawToken]s from an str.  This tokenizer uses
 /// [regex](https://docs.rs/regex/latest/regex), although not for everything.  For
 /// example, to allow for string literals that contain escaped quotations,

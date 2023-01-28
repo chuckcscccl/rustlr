@@ -26,7 +26,7 @@
 //!```
 //! The [ZCParser::lbx] function can be called from the semantic actions
 //! of a grammar
-//! to create LBoxed-values that include line/column information.  LBox<T>
+//! to create LBoxed-values that include line/column information.  `LBox<T>`
 //! implements the Default trait if T does, so an LBox type can also serve
 //! as the absyntract syntax type for a grammar.
 //! It is also possible to use `LBox<dyn Any>` as the abstract syntax type
@@ -64,29 +64,42 @@ use crate::zc_parser::ZCParser;
 //use crate::RuntimeParser;
 //use crate::GenAbsyn::*;
 use crate::{lbup,lbdown,lbget};
+use bumpalo::Bump;
 
 /// Custom smart pointer that encapsulates line and column numbers along with
 /// a regular [Box].  Implements [Deref] and [DerefMut] so the encapsulated
 /// expression can be accessed as in a standard Box.  This is intended to
 /// to be used in the formation of abstract syntax trees so that the lexical
 /// information is available for each construct after the parsing stage.
+/// Also included in each LBox created by the runtime parser ([ZCParser])
+/// is a 32 bit (u32) *unique identifier* **uid** that uniquely identifies
+/// each LBox.  An expression and a subexpression can both begin at the same
+/// line and column numbers and the unique id would be required to
+/// distinguish them.  This device is useful for hashing information, such
+/// as inferred types, based on the location of an expression in the source.
 pub struct LBox<T:?Sized>
 {
   pub exp:Box<T>,
   pub line:u32,
   pub column:u32,
+  pub uid:u32, // unique id
   // must refer to information kept externally  
   //pub src_id:usize,   
 }
 impl<T> LBox<T>
 {
+  /// creates a new LBox with line ln, column col and uid set to zero;
+  /// this function is deprecated by [LBox::make].
   pub fn new(e:T,ln:usize,col:usize /*,src:usize*/) -> LBox<T>
-  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32 } }
+  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32,uid:0, } }
+  /// creates a new LBox enclosing e, with line ln, column col and uid u
+  pub fn make(e:T,ln:usize,col:usize, u:u32) -> LBox<T>
+  { LBox { exp:Box::new(e), line:ln as u32, column:col as u32,uid:u, } }  
   ///should be used to create a new LBoxed expression that inherits
   /// lexical information from existing LBox
   pub fn transfer<U>(&self,e:U) -> LBox<U>
   {
-     LBox::new(e,self.line(),self.column() /*,self.src_id*/)
+     LBox::make(e,self.line(),self.column(),self.uid)
   }
   /// Since version 0.2.4, Rustlr now stores the line and column
   /// information internally as u32 values instead of usize, and
@@ -120,6 +133,7 @@ impl<T:Clone> Clone for LBox<T>
         exp : self.exp.clone(),
         line: self.line,
         column: self.column,
+        uid:self.uid,
         //src_id: self.src_id,
       }
    }//clone
@@ -154,6 +168,7 @@ impl<'t> LBox<dyn Any+'t>
        exp : boxdown.unwrap(),
        line: self.line,
        column: self.column,
+       uid:self.uid,
        //src_id: self.src_id,
      })
   }
@@ -170,7 +185,7 @@ impl<'t> LBox<dyn Any+'t>
   pub fn upcast<T:'t>(lb:LBox<T>) -> Self
   {
      let bx:Box<dyn Any+'t> = lb.exp; // this requires Any+'static ??
-     LBox { exp:bx, line:lb.line, column:lb.column, /*src_id:lb.src_id,*/ }
+     LBox { exp:bx, line:lb.line, column:lb.column, uid:lb.uid, }
   }
 }// downcast/upcast for LBox
 
@@ -291,6 +306,130 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
         std::fmt::Debug::fmt(&**self, f)    
     }
 }
+
+/// Version of LBox that does not use a Box. This tuple struct contains
+/// a value of type T in the first position and a tuple consisting of
+/// (line, column, uid) numbers in the second position.  The uid or
+/// *unique identifier* is a unique number placed in each LC structure
+/// created by the parser.  It is useful for hashing information (such as
+/// inferred types) based on their source location.  Multiple AST constructs
+/// may begin with the same line/column position, but the unique id will
+/// disambiguate them.
+/// This feature was added to Rustlr to support bumpalo-allocated ASTs.
+pub struct LC<T>(pub T,pub (u32,u32,u32));
+
+impl<T:Default> Default for LC<T> {
+  fn default() -> Self {LC(T::default(),(0,0,0))}
+}
+impl<T> Deref for LC<T>
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> DerefMut for LC<T>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<T> AsRef<T> for LC<T>
+{
+  fn as_ref(&self) -> &T  { &self.0 }
+}
+impl<T> AsMut<T> for LC<T>
+{
+  fn as_mut(&mut self) -> &mut T  { &mut self.0 }
+}
+impl<T:std::fmt::Debug> std::fmt::Debug for LC<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.0, f)    
+    }
+}
+impl<T> LC<T>
+{
+  /// creates a new LC tuple struct in the form (value, (line,column,unique_id))
+  pub fn make(x:T,ln:usize,cl:usize,uid:u32) -> Self {
+    LC(x,(ln as u32,cl as u32,uid))
+  }
+  /// creates a new LC tuple struct in the form (value, (line,column))
+  /// with the unique_id field set to zero (for backwards compatibility)
+  pub fn new(x:T,ln:usize,cl:usize) -> Self {
+    LC(x,(ln as u32,cl as u32,0))
+  }
+  /// returns encapsulated line
+  pub fn line(&self) -> usize { (self.1.0) as usize }
+  /// returns encapsulated column
+  pub fn column(&self) -> usize { (self.1.1) as usize }
+  /// returns (line,column) as a pair of 32 values
+  pub fn lncl(&self) -> (u32,u32) { (self.1.0,self.1.1) }
+  /// returns unique id
+  pub fn uid(&self) -> u32 { self.1.2 }
+  /// returns value reference
+  pub fn value(&self) -> &T { &self.0 }
+  /// transfers line/column information to another LC
+  pub fn transfer<U>(&self,x:U) -> LC<U> {
+   LC::make(x,self.line(),self.column(),self.1.2) 
+  }
+}
+
+
+/// Structure intended to support [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) AST generations,
+///which allows recursive AST types to be defined using references instead of
+///smart pointers (LBox).  The benefit of bump-allocated ASTs is the ability to
+///pattern match against nested, recursive structures, e.g.,
+///`Negative(Negative(x))`.  The lifetime `'t` of a Bumper should be the same
+///as the lifetime of the parser's input.
+/// This structure is intended to become the
+///'external state' that's carried by the runtime parser (parser.exstate),
+///and therefore wraps another value (exstate) of the declared `externtype`.
+pub struct Bumper<'t,ET:Default>
+{
+  bump:Option<&'t Bump>,
+  exstate: ET,
+}//bumper struct
+impl<T:Default> Default for Bumper<'_,T>  {
+  fn default() -> Self { Bumper{exstate:T::default(), bump:None} }
+}
+impl<'t,T:Default> Bumper<'t,T>
+{
+  /// sets the encapsulated [Bump](https://docs.rs/bumpalo/latest/bumpalo/struct.Bump.html) allocator
+  pub fn set(&mut self, b:&'t Bump) { self.bump = Some(b); }
+
+  /// tests if the allocator has been set
+  pub fn is_set(&self) -> bool { self.bump.is_some() }
+  
+  /// returns pointer to the bump allocator.  Warning: this function calls
+  /// unwrap and should only be called after [Bumper::set] has been called
+  pub fn get(&self)->&'t Bump { self.bump.expect("bump arena not set") }
+
+  /// bump-allocates x and returns a reference, which will live as long
+  /// as the bump allocator.  Warning: this function calls unwrap and
+  /// will panic if the Bumper is not set.
+  pub fn make<S>(&self,x:S) -> &'t S {
+     self.get().alloc(x)
+  }
+
+  /// version of make that returns Option, but will not panic
+  pub fn make_safe<S>(&self,x:S) -> Option<&'t S> {
+     if self.bump.is_some() {Some(self.get().alloc(x))}
+     else {None}
+  }
+
+  /// version of make_safe that returns a mutable reference to the allocated
+  /// value
+  pub fn alloc<S>(&self,x:S) -> Option<&'t mut S> {
+     self.bump.map(|b|b.alloc(x))
+  }
+
+  /// returns a mut reference to the encapsulated "state" of type ET
+  pub fn state(&mut self) -> &mut T { &mut self.exstate }
+}//impl Bumper
+
+
+
+
 
 // [LBox] specific to [GenAbsyn] type, implements [Debug] and [Clone],
 // unlike a generic LBox
