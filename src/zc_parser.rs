@@ -1056,13 +1056,12 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     let mut result = AT::default();
     //self.exstate = ET::default();
     self.stack.push(StackedItem::new(0,AT::default(),0,0));
-    //self.stack.push(Stackelement {si:0, value:AT::default()});
     self.stopparsing = false;
     let mut action = Stateaction::Error("");
     let mut lookahead = TerminalToken::new("EOF",AT::default(),0,0); //just init
     // nextsym() should only be called here
     if let Some(tok) = tokenizer.nextsym() {lookahead=tok;}
-    else {self.stopparsing=true;}
+    //else {self.stopparsing=true;}
 
     while !self.stopparsing
     {

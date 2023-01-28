@@ -38,9 +38,7 @@ let x = 1 in (x+ (let x=10 in x+x) + x);
    let result4 = tree4.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
 
    println!("\nABSYN: {:?}\n",&result4);
-   
-   let bindings4 = newenv();
-   println!("\nresult after eval: {:?}", eval_seq(&bindings4,&result4,1));
+   eval_seq(&newenv(),&result4,1);  // evaluate each expression in sequence
 //   println!("\nline 10: {}",scanner4.get_line(10).unwrap());
 }//main
 
@@ -95,6 +93,14 @@ pub fn eval<'t>(env:&Rc<Env<'t>>, exp:&Expr<'t>) -> Option<i64>
 
 fn eval_seq<'t>(env:&Rc<Env<'t>>, s:&ExprList, line:usize) -> Option<i64>
 {
+/*
+  for expr in seq.0.iter() {
+    if let Some(val) = eval(env,expr) {
+	   println!("result for line {}: {} ;",line,&val);
+    } else { println!("Error evaluating line {};",line);}
+  }
+*/  
+
   match s {
      cons{car,cdr} => {
        if let Some(val) = eval(env,car) {
@@ -105,4 +111,5 @@ fn eval_seq<'t>(env:&Rc<Env<'t>>, s:&ExprList, line:usize) -> Option<i64>
      },
      _ => None,
   }//match
+
 }//eval_seq

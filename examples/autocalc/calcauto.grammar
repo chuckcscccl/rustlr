@@ -68,13 +68,13 @@ Expr:Plus--> Expr + Expr
 Expr:Minus --> Expr - Expr
 Expr:Div --> Expr / Expr
 Expr:Times --> Expr * Expr
-#Expr:Times --> Expr:[a] * Expr:[b]@ee@ {println!("see {:?}",&ee); Expr::Times(a,b) }
 
 LetExpr --> Expr
 LetExpr:Let --> let var:let_var = Expr:init_value in LetExpr:let_body
 
 ExprList:nil -->
 ExprList:cons --> LetExpr:car ; ExprList:cdr
+#ExprList --> LetExpr<;+> ;? 
 
 #ExprList --> { vec![] }
 #ExprList --> ExprList:cdr LetExpr:car ; { cdr.push(car); cdr }
