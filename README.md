@@ -1,13 +1,13 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
 **LR-Style Parser Generator**
 
-**A [Tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/) with several examples is available.**
+**A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.**
 
 Besides traditional LR and LALR parser generation, Rustlr supports the following
 options
 
 1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR and helps to allow new productions to be added to a grammar without
-creating conflicts (see the [Appendix](https://cs.hofstra.edu/~cscccl/rustlr_project/appendix.html) of the tutorial).
+creating conflicts (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
 2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that defines how ASTs are
 to be generated.  For example, in a grammar with `E --> E + T` a dependency
 between `T` and `E` can be declared so that only one AST type is generated for both.

@@ -321,6 +321,7 @@ pub struct LC<T>(pub T,pub (u32,u32,u32));
 impl<T:Default> Default for LC<T> {
   fn default() -> Self {LC(T::default(),(0,0,0))}
 }
+
 impl<T> Deref for LC<T>
 {
     type Target = T;

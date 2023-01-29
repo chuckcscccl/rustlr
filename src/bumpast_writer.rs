@@ -13,8 +13,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use crate::{Grammar,is_alphanum,checkboxlabel};
-//use crate::parser_writer::checkboxlabel;
+use crate::{Grammar,is_alphanum,emptybox,checkboxexp};
 
 // metaast for asts
 // grammar_processor needs to keep set of nti's to have types flattened.
@@ -180,7 +179,7 @@ impl Grammar
        let mut canflatten = true;
        let mut simplestruct = true;
        for rs in &self.Rules[sri].rhs {
-         if rs.label.len()>0 && !rs.label.starts_with("_item") 
+         if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
            { simplestruct = false; break; }
        } //determine if simple struct
        let ntsym = &self.Symbols[*nt];
@@ -190,9 +189,9 @@ impl Grammar
        for rsym in self.Rules[sri].rhs.iter_mut() {
          let expectedlabel = format!("_item{}_",&rhsi);
          let alreadyislc = rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-         let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
+         let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
-            passthru=-2; checkboxlabel(&rsym.label).to_owned()
+            passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
             } else {expectedlabel};
          if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
          let rsymtype = &self.Symbols[rsym.index].rusttype;
@@ -208,8 +207,7 @@ impl Grammar
                if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
                else {passthru = -2;}
                vfields.push((rhsi,itemlabel.clone(),alreadyislc,format!("LC<{}>",rsymtype)));
-               //vfields.push((rhsi,itemlabel.clone(),alreadyislc,format!("LBox<{}>",rsymtype)));
-         }// lbox
+         }// lc
 
          /*
          else if needref && (rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item"))) {  //no Lbox, but need reference
@@ -319,15 +317,13 @@ impl Grammar
            let withref = if  needref  ||  islctype {&ltref} else {""}; 
            if  *simplestruct {
              fields.push_str(&format!("pub {}{},",withref,rsymtype));
-             //fields.push_str("pub ");
-             //fields.push_str(rsymtype); fields.push(',');
              if islctype {
                SACTION.push_str(&format!("parser.exstate.make(parser.lc({},{})),",rhsi+(viadjust as usize),itemlabel));             
              } else if withref.len()>0 {SACTION.push_str(&format!("parser.exstate.make({}),",itemlabel)); }
              else { SACTION.push_str(itemlabel); SACTION.push(','); }
-           } else { // not simpletype
+           } else { // not simplestruct
              fields.push_str(&format!("  pub {}:{}{},\n",itemlabel,withref,rsymtype));
-             if (!islctype || *alreadylbx) && withref.len()>0 {
+             if (!islctype  /* || *alreadylbx */ ) && withref.len()>0 {
                SACTION.push_str(&format!("{}:parser.exstate.make({}), ",itemlabel,itemlabel));
              }
              else if !islctype || *alreadylbx {
@@ -406,7 +402,7 @@ impl Grammar
           // determine if tuple variant or struct/named variant
           let mut tuplevariant = true;
           for rs in &self.Rules[*ri].rhs {
-            if rs.label.len()>0 && !rs.label.starts_with("_item") 
+            if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
               { tuplevariant = false; break; }
           } //determine if tuplevariant
 
@@ -427,9 +423,9 @@ impl Grammar
             // lbox
             let alreadyislc =
               rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-	    let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
+	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
-              passthru=-2; checkboxlabel(&rsym.label).to_owned()
+              passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
             } else {expectedlabel};
             
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
@@ -624,7 +620,6 @@ impl Grammar
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
-//extern crate rustlr;
 use rustlr::{{LC,Bumper}};\n")?;
 //     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
      if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}

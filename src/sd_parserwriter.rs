@@ -15,7 +15,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 //use std::mem;
-use crate::{Statemachine,checkboxlabel};
+use crate::{Statemachine,checkboxexp};
 use crate::Stateaction::*;
 
 /////////////////////LRSD VERSION//////////////////////////////////////
@@ -336,16 +336,16 @@ pub fn decode_label(label:&str,k:usize) -> (u8,String)
   let mut ltype = 0;
   match &findat {
      None if label.len()>0 /*&& !gsym.label.contains('(')*/ => {
-            let truelabel = checkboxlabel(label);
-            boxedlabel = truelabel != label; 
+            let truelabel = checkboxexp(label,&plab);
+            boxedlabel = label.starts_with('[') && (truelabel != label); 
             plab = String::from(truelabel);
             if boxedlabel {ltype=1;} /* else {ltype=0;} */
           },
     Some(ati) if *ati==0 => { ltype=4; },
     Some(ati) if *ati>0 => {
             let rawlabel = label[0..*ati].trim();
-            let truelabel = checkboxlabel(rawlabel);
-            boxedlabel = truelabel != rawlabel;
+            let truelabel = checkboxexp(rawlabel,&plab);
+            boxedlabel = rawlabel.starts_with('[') && (truelabel != rawlabel);
             if boxedlabel {ltype=3;} else {ltype=2;}
             plab = String::from(truelabel);
           },

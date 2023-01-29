@@ -15,7 +15,7 @@
 //!  5. The ability to train the parser interactively for better error reporting
 //!  6. Also generates parsers for F# and other .Net languages
 //!
-//! A [**tutorial**](<https://chuckcscccl.github.io/rustlr_project/>)
+//! A **[tutorial](<https://chuckcscccl.github.io/rustlr_project/>)**
 //! is separately available that will explain the
 //! format of grammars and how to generate and deploy parsers for several 
 //! examples.  The documentation found here should be used as a technical
@@ -74,7 +74,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.4.1";
+pub const VERSION:&'static str = "0.4.2";
 
 // main function, called from main with command-line args
 
