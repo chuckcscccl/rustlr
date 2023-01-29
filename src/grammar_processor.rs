@@ -1723,6 +1723,19 @@ pub fn checkboxlabel(s:&str) -> &str
     if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
 }// check if label is of form [x], returns x, or s if not of this form.
 
+pub fn emptybox(s:&str) -> bool {
+   s.starts_with('[') && s.ends_with(']') && s[1..s.len()-1].trim().len()==0
+}
+
+pub fn checkboxexp<'t>(s:&'t str, e:&'t str) -> &'t str //e is expected
+{
+  if s.starts_with('[') && s.ends_with(']') {
+    let t = s[1..s.len()-1].trim();
+    if t.len()==0 {e} else {t}
+  }
+  else {s}
+}
+
 // used by genlexer routines
 pub fn is_alphanum(x:&str) -> bool
 {

@@ -13,8 +13,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use crate::{Grammar,is_alphanum,checkboxlabel};
-//use crate::parser_writer::checkboxlabel;
+use crate::{Grammar,is_alphanum,emptybox,checkboxexp};
 
 // metaast for asts
 // grammar_processor needs to keep set of nti's to have types flattened.
@@ -169,7 +168,7 @@ impl Grammar
        */
        let mut simplestruct = true;
        for rs in &self.Rules[sri].rhs {
-         if rs.label.len()>0 && !rs.label.starts_with("_item") 
+         if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
            { simplestruct = false; break; }
        } //determine if simple struct
        let ntsym = &self.Symbols[*nt];
@@ -179,9 +178,9 @@ impl Grammar
        for rsym in self.Rules[sri].rhs.iter_mut() {
          let expectedlabel = format!("_item{}_",&rhsi);
          let alreadyislbx = rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-         let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
+         let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
-            passthru=-2; checkboxlabel(&rsym.label).to_owned()
+            passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
             } else {expectedlabel};
          if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
          let rsymtype = &self.Symbols[rsym.index].rusttype;
@@ -360,7 +359,7 @@ impl Grammar
           // determine if tuple variant or struct/named variant
           let mut tuplevariant = true;
           for rs in &self.Rules[*ri].rhs {
-            if rs.label.len()>0 && !rs.label.starts_with("_item") 
+            if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
               { tuplevariant = false; break; }
           } //determine if tuplevariant
 
@@ -381,9 +380,9 @@ impl Grammar
             // lbox
             let alreadyislbx =
               rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-	    let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
+	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
-              passthru=-2; checkboxlabel(&rsym.label).to_owned()
+              passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
             } else {expectedlabel};
             
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
