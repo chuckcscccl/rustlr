@@ -22,7 +22,8 @@ nonterminal UnaryExpr : Expr
 nonterminal LetExpr : Expr
 #nonterminal UnaryExpr
 #nonterminal LetExpr
-nonterminal Txpr : Expr
+nonterminal Txpr
+#nonterminal Txpr : Expr
 nonterminal Sxpr
 nonterminal Aexpr
 nonterminal Bexpr : Aexpr
@@ -39,10 +40,12 @@ left / 500
 left + 400
 left - 400
 
+variant-group Binop * /
+
 # rule for testing AST generation:
 #lexvalue bigint BigNumber(n) n
 Txpr --> ; int:ai int:bi ;
-Expr --> Sxpr ; Sxpr
+Expr --> Sxpr ; Sxpr:[]
 Sxpr --> Txpr:a1 ; Txpr:b
 Zxpr --> int:x ; Yxpr:a ; Yxpr:b int:y Xxpr:[xx] Expr Xxpr:yy { /*AAAA*/ ... } 
 Yxpr --> var ; var
@@ -66,13 +69,14 @@ UnaryExpr --> LPAREN LetExpr RPAREN
 Expr --> UnaryExpr
 Expr:Plus--> Expr + Expr
 Expr:Minus --> Expr - Expr
-Expr:Div --> Expr / Expr
-Expr:Times --> Expr * Expr
+# testing variant-group
+Expr --> Expr / Expr | Expr * Expr
+#Expr --> Expr * Expr
 
 LetExpr --> Expr
 LetExpr:Let --> let var:let_var = Expr:init_value in LetExpr:let_body
 
-ExprList:nil -->
+ExprList:nil --> 
 ExprList:cons --> LetExpr:car ; ExprList:cdr
 #ExprList --> LetExpr<;+> ;? 
 

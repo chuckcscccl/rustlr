@@ -334,13 +334,36 @@ impl Grammar
 	let mut AST = if willextend {String::new()}
           else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
         let NT = &self.Symbols[nti].sym;
+        let mut groupenums = HashSet::new(); // for variant-groups
+        // group enums are only generated for tuple variants, the presence
+        // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           let mut nolhslabel=false;
+          let mut groupoper = ""; // variant-group operator, default none
+          // groupoper cancelled if there is a lhs label
           if self.Rules[*ri].lhs.label.len()==0 { // make up lhs label
             nolhslabel = true;
-            let mut lhslab = format!("{}_{}",NT,ri); 
-            if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
+            let mut lhslab = format!("{}_{}",NT,ri); // default
+
+            // search for variant-group operator (only if no lhs label)
+            if self.vargroupnames.len()>0 {
+             for rsym in self.Rules[*ri].rhs.iter() {
+              if let Some(gnamei) = self.vargroups.get(&rsym.index) {
+                if groupoper.len()==0 { // not yet set 
+                  lhslab = self.vargroupnames[*gnamei].clone();
+                  groupoper = &self.Symbols[rsym.index].sym;
+                }
+              }// found variant-group operator (first one taken)
+              if rsym.label.len()>0 && !rsym.label.starts_with("_item") {
+                groupoper = "";
+                lhslab = format!("{}_{}",NT,ri); // default
+                break;
+              }// group variant canceled
+             }// search for variant-group operator
+            } // if there are variant groups
+
+            if groupoper.len()==0 && self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	      let symname = &self.Rules[*ri].rhs[0].sym;
 	      if is_alphanum(symname) { //insert r# into enum variant name
 	        lhslab = symname.clone();
@@ -352,9 +375,12 @@ impl Grammar
           let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
 	  let lhsymtype = self.Symbols[lhsi].rusttype.clone();
           let enumname = &self.Symbols[*toextend.get(nt).unwrap_or(nt)].sym;
-	  let mut ACTION = format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
-          // enumvariant
+
+          // enum action prefix
+	  let mut ACTION =format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
+          // enumvariant name
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
+          
 
           // determine if tuple variant or struct/named variant
           let mut tuplevariant = true;
@@ -363,11 +389,34 @@ impl Grammar
               { tuplevariant = false; break; }
           } //determine if tuplevariant
 
+          let mut nullenum = false; // enum variant already exists
+          
+          // form start of enumvariant and action...
 	  if self.Rules[*ri].rhs.len()>0 { // rhs exists
             if tuplevariant {
 	      enumvar.push('('); ACTION.push('(');
+              if groupoper.len()>0 {
+                if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  nullenum = true;
+                } else {
+                  enumvar.push_str("&'static str,");
+                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+                }
+                ACTION.push_str(&format!("\"{}\",",groupoper));
+              }
             } else {
               enumvar.push('{'); ACTION.push('{');
+              /*
+              if groupoper.len()>0 {
+                let operlab = self.Rules[*ri].lhs.label.to_lowercase();
+                if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  nullenum = true;
+                } else
+                   enumvar.push_str(&format!("{}:&'static str,",&operlab));
+                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+                }
+                ACTION.push_str(&format!("{}:\"{}\",",&operlab,groupoper));
+              */
             }  // struct variant
 	  }//rhsexists
 	  let mut rhsi = 0; // right-side index
@@ -488,10 +537,10 @@ impl Grammar
 	  else
           if !actbase.ends_with('}') && shouldpush {
   	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
-	    AST.push_str(&enumvar); AST.push_str(",\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str(",\n");}
 	  }
           else if shouldpush {  // added for 0.2.94
-	    AST.push_str(&enumvar); AST.push_str(",\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str(",\n");}
           }
 //println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT

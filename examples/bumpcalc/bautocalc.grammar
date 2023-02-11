@@ -3,7 +3,7 @@
 auto-bump
 lifetime 'lt
 nonterminals E ES
-nonterminals A1 B1 C1 A2
+nonterminals A1 B1 C1 A2 C2
 terminals + - * / ( ) = ;
 terminals let in
 valueterminal int ~ i64 ~ Num(n) ~ n
@@ -19,11 +19,13 @@ nonassoc = 300
 
 lexattribute set_line_comment("#")
 
+variant-group BinaryOp + -
+
 E:Val --> int
 E:Var --> var
-E:Plus --> E + E
-E:Minus --> E - E
-E:Times --> E * E
+E --> E + E | E - E
+#E:Minus --> E - E
+E:Times --> E * E:[]
 E:Div --> E:[e1] / E:[e2]
 E(600):Neg --> - E:[e]
 E:Let --> let var = E in E
@@ -35,12 +37,17 @@ B1 --> var var A1
 flatten B1
 flatten A2
 C1 --> A2 A1 B1 ; E
-A2 --> var int
+#A2 --> var int
+A2 --> ; ;
+
+C2:Ctwo --> int A1
+#C2 --> var:c var:[d]
 
 $static A1DEFAULT:A1<'static> = A1("","",&A1DEFAULT,0);
 $static B1DEFAULT:B1<'static> = B1("","",&A1DEFAULT);
 $impl<'t> Default for &'t A1<'t> { fn default() -> Self { &A1DEFAULT } }
 $impl<'t> Default for &'t B1<'t> { fn default() -> Self { &B1DEFAULT } }
+
 
 EOF
 

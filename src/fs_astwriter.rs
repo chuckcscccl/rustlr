@@ -329,13 +329,36 @@ impl Grammar
 	    format!("//enum\nand {} =\n",&ntsym.rusttype)	  
 	  };
         let NT = &self.Symbols[nti].sym;
+        let mut groupenums = HashSet::new(); // for variant-groups
+        // group enums are only generated for tuple variants, the presence
+        // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           let mut nolhslabel=false;
+          let mut groupoper = ""; // variant-group operator, default none
+          // groupoper cancelled if there is a lhs label
           if self.Rules[*ri].lhs.label.len()==0 { // make up lhs label
             nolhslabel = true;
-            let mut lhslab = format!("{}_{}",NT,ri); 
-            if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
+            let mut lhslab = format!("{}_{}",NT,ri); //default
+
+            // search for variant-group operator (only if no lhs label)
+            if self.vargroupnames.len()>0 {
+             for rsym in self.Rules[*ri].rhs.iter() {
+              if let Some(gnamei) = self.vargroups.get(&rsym.index) {
+                if groupoper.len()==0 { // not yet set 
+                  lhslab = self.vargroupnames[*gnamei].clone();
+                  groupoper = &self.Symbols[rsym.index].sym;
+                }
+              }// found variant-group operator (first one taken)
+              if rsym.label.len()>0 && !rsym.label.starts_with("_item") {
+                groupoper = "";
+                lhslab = format!("{}_{}",NT,ri); // default
+                break;
+              }// group variant canceled
+             }// search for variant-group operator
+            } // if there are variant groups
+
+            if groupoper.len()==0 && self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	      let symname = &self.Rules[*ri].rhs[0].sym;
 	      if is_alphanum(symname) { //insert r# into enum variant name
 	        lhslab = symname.clone();
@@ -360,8 +383,19 @@ impl Grammar
               { tuplevariant = false; break; }
           } //determine if tuplevariant
 	  */
+          let mut nullenum = false; // enum variant already exists
+          // form start of enumvariant and action...
 	  if self.Rules[*ri].rhs.len()>0 { // rhs exists
-	     enumvar.push_str(" of"); ACTION.push('(');	  
+	     enumvar.push_str(" of"); ACTION.push('(');
+             if groupoper.len()>0 {
+                if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  nullenum = true;
+                } else {
+                  enumvar.push_str(" string *");
+                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+                }
+                ACTION.push_str(&format!("\"{}\",",groupoper));
+             } // group oper exists
 	  }//rhsexists
 	  let mut rhsi = 0; // right-side index
           let mut viadjust = 0;
@@ -488,10 +522,10 @@ impl Grammar
 	  else
           if !actbase.ends_with('}') && shouldpush {
   	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
-	    AST.push_str(&enumvar); AST.push_str("\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str("\n");}
 	  }
           else if shouldpush {  // added for 0.2.94
-	    AST.push_str(&enumvar); AST.push_str("\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str("\n");}
           }
 //println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT

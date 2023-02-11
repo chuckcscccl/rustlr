@@ -151,6 +151,8 @@ pub struct Grammar
   pub mode: i32, // generic mode information
   pub bumpast: bool,
   pub sdcuts: HashMap<usize,usize>, // !# marker positions: rulenum to position
+  pub vargroupnames : Vec<String>,
+  pub vargroups: HashMap<usize,usize>,
 }
 
 impl Default for Grammar {
@@ -203,6 +205,8 @@ impl Grammar
        mode : 0,
        bumpast: false,
        sdcuts: HashMap::new(),
+       vargroupnames : Vec::new(),
+       vargroups : HashMap::new(),
      }
   }//new grammar
 
@@ -333,7 +337,7 @@ impl Grammar
          let mut stokens:Vec<&str> = toksplit.collect();
          if stokens.len()<1 {continue;}
                                     
-         match stokens[0] {
+         match stokens[0] {        // main match clause
             "!" => {  // place only in parser file
                let pbi = line.find('!').unwrap();
                self.Extras.push_str(&line[pbi+1..]);
@@ -695,14 +699,34 @@ impl Grammar
                let mut dtokens:Vec<_> = line[pos..].split('~').collect();
                self.Lexconditionals.push((dtokens[0].trim().to_owned(),dtokens[1].trim().to_owned()));
             },
-
+/*
             "transform" => {   // new for 0.2.96, transform_token added
-              /*
-               let pos = line.find("transform").unwrap()+10;
-               self.transform_function = line[pos..].trim().to_owned();
-              */
+
+               //let pos = line.find("transform").unwrap()+10;
+               //self.transform_function = line[pos..].trim().to_owned();
+
               eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
             },
+*/            
+            "variant-group" | "operator-group" if stokens.len()>2 => {
+             // variant Binop + - * DIV
+               self.vargroupnames.push(stokens[1].to_owned());
+               for tok in &stokens[2..] {
+                 let tokopt = self.Symhash.get(&tok[..]);
+                 match tokopt {
+                   Some(toki) if !self.vargroups.contains_key(toki) => {
+                     self.vargroups.insert(*toki,self.vargroupnames.len()-1);
+                   },
+                   Some(_) => {
+                     eprintln!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum);
+                   },
+                   _ => {
+                     eprintln!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum);
+                   },
+                 }//match
+               }
+            }, // variant-group
+
 //////////// case for grammar production:
 
 	    LHS0 if stokens.len()>1 => {
