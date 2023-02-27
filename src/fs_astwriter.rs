@@ -252,7 +252,7 @@ impl Grammar
                    let fltref = ""; //if nonlctype(ftype) || self.basictypes.contains(&ftype[..])  || ltref.len()==0 {""} else {&ltref};
                    fields.push_str(&format!("    mutable {}:{}{};\n",&newlab,fltref,ftype));  // non-simpletype
                    totalitems +=1;
-                   let islctype = ftype.starts_with("LBox<");
+                   let islctype = ftype.starts_with("LBox<") || ftype.starts_with("LC<");
                     SACTION.push_str(&format!("{}={}; ",&newlab,&newactionlab));
                    vfields.push((newindex,newlab,*albx,ftype.to_owned()));
                    fi+=1;
@@ -265,7 +265,7 @@ impl Grammar
            }//match
          }//if in flattentypes list (flatten this rhs symbol)
          if !flattened {
-           let islctype = rsymtype.starts_with("LBox<");
+           let islctype = rsymtype.starts_with("LBox<") || rsymtype.starts_with("LC<");
            let withref = ""; //if  needref  ||  islctype {&ltref} else {""}; 
            // not simpletype
            totalitems += 1;

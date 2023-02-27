@@ -752,11 +752,12 @@ impl Grammar
               }
 
               if stage<2 {stage=2;}
-              let LBC = if self.bumpast {"LC"} else {"LBox"};
+              //let LBC = if self.bumpast {"LC"} else {"LBox"};
+              let LBC = "LC";
               if self.bumpast && self.lifetime.len()==0 {self.lifetime="'src_lt".to_owned();}
               let bltref = if self.bumpast {format!("&{} ",&self.lifetime)} else {String::new()};
               let LBCref = if self.bumpast {format!("&{} LC",&self.lifetime)}
-                else {"LBox".to_owned()};
+                else {"LBox".to_owned()};  // only for option type
 
 	    // construct lhs symbol
 	      let findcsplit:Vec<_> = stokens[0].split(':').collect();
@@ -1018,7 +1019,8 @@ strtok is bstokens[i], but will change
                         if self.genabsyn {format!("Option<{}<@{}>>",&LBCref,&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
                      }
                      else {
-                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)} };
+                     
+                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LC<{}>>",&self.Symbols[gsymi].rusttype)} };
                    }
                    // else type stays () (,*)
                    /*  later
@@ -1055,7 +1057,7 @@ strtok is bstokens[i], but will change
                        if self.bumpast {
                          newrule1.action = String::from(" _item0_.push(parser.exstate.make(parser.lc(1,_item1_))); _item0_ }");
                        } else {
-		         newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+		         newrule1.action = String::from(" _item0_.push(parser.lc(1,_item1_)); _item0_ }");
                        }
                      } // not () type
 		   } // * or +
@@ -1069,7 +1071,7 @@ strtok is bstokens[i], but will change
                        if self.bumpast {
                          newrule0.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");
                        } else {
-  		         newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+  		         newrule0.action=String::from(" vec![parser.lc(0,_item0_)] }");
                        }
                      } // not () type
 		   }// ends with +
@@ -1180,8 +1182,8 @@ strtok is bstokens[i], but will change
                       newrule3.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");                  
                       newrule4.action=String::from(" _item0_.push(parser.exstate.make(parser.lc(2,_item2_))); _item0_ }");                    
                     } else {
-                      newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
-                      newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                      newrule3.action=String::from(" vec![parser.lc(0,_item0_)] }");                  
+                      newrule4.action=String::from(" _item0_.push(parser.lc(2,_item2_)); _item0_ }");
                     }//no bump
                   } // else leave at default for ()
                   if self.tracelev>3 {

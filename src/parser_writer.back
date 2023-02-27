@@ -15,7 +15,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 //use std::mem;
-use crate::{Statemachine,checkboxlabel};
+use crate::{Statemachine,checkboxexp};
 use crate::Stateaction::*;
 
 /////////////////////ENUM VERSION//////////////////////////////////////
@@ -61,14 +61,14 @@ impl Statemachine
         let mut plab = format!("_item{}_",k-1);
         match &findat {
           None if gsym.label.len()>0 /*&& !gsym.label.contains('(')*/ => {
-            let truelabel = checkboxlabel(&gsym.label);
-            boxedlabel = truelabel != &gsym.label;
+            let truelabel = checkboxexp(&gsym.label,&plab);
+            boxedlabel = gsym.label.starts_with('[') && (truelabel != &gsym.label);
             plab = String::from(truelabel);
           },
           Some(ati) if *ati>0 => {
             let rawlabel = gsym.label[0..*ati].trim();
-            let truelabel = checkboxlabel(rawlabel);
-            boxedlabel = truelabel != rawlabel;
+            let truelabel = checkboxexp(rawlabel,&plab);
+            boxedlabel = gsym.label.starts_with('[') && (truelabel != rawlabel);
             plab = String::from(truelabel);
             //plab=format!("{}",&gsym.label[0..*ati]);
           },

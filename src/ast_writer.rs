@@ -614,6 +614,7 @@ impl Grammar
 #![allow(unused_imports)]
 #![allow(dead_code)]
 extern crate rustlr;
+pub use rustlr::LC;
 use rustlr::LBox;\n")?;
 //     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
      if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}

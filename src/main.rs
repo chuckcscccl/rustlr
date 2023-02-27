@@ -41,6 +41,8 @@ use lalr_statemachine::LALRMachine;
 mod selmlk;
 use selmlk::{MLStatemachine};
 
+mod logos_lexer;
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
