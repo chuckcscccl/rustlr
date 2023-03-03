@@ -335,26 +335,12 @@ impl Grammar
        else if linelen>1 && &line[0..1]!="#" {
 
          // find "" and # positions.  # inside "" are ignored
-         let rbpos = line.rfind('\"');
-         let rhpos = line.rfind('#');
-         match (rbpos,rhpos) {
-            (Some(rb),Some(rh)) if rb<rh => {line.truncate(rh); println!("rh{}",rh);},
-            (None,Some(rh)) => {line.truncate(rh);println!("rhb{}",rh); },
-            _ => {},
-         }//match
-         if line.trim().len()==0 {continue;}
-
+         let rbpos = line.rfind(|c|{c=='\"' || c=='#'});
+         if let Some(rh) = rbpos {
+            if &line[rh..rh+1]=="#" {line.truncate(rh);}
+         }
          let toksplit = line.split_whitespace();
          let mut stokens:Vec<&str> = toksplit.collect();
-         /*
-         for i in (0..stokens.len()).rev() {
-           if stokens[i].ends_with('}') {break;}
-           if stokens[i].starts_with('#') {
-              stokens.truncate(i);
-              break;
-           }
-         }//for trims comments
-         */
          if stokens.len()<1 {continue;}
                                     
          match stokens[0] {        // main match clause
