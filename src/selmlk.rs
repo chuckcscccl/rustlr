@@ -169,7 +169,7 @@ impl MLState
             if *cpi==0 && pi+1==Gmr.Rules[*ri].rhs.len() && Gmr.Rules[*cri].lhs.index==Gmr.Rules[*ri].rhs[*pi].index && cla==la{ //conflict propagation
 
 
-              // !# propagation
+              // !% propagation
               if let Some(cutpi)=Gmr.sdcuts.get(ri) {
                 if *cutpi == Gmr.Rules[*ri].rhs.len() {
                    Gmr.sdcuts.insert(*cri,Gmr.Rules[*cri].rhs.len());
@@ -178,7 +178,7 @@ impl MLState
 
               newconflicts.insert(item);
               // PROPAGATION  A --> alpha .B, can't extend further
-              // But what if the rule is A -> alpha . B !#?
+              // But what if the rule is A -> alpha . B !%?
               // Propagation of conflict should take place, but no extension
               // should take place?
             }
@@ -196,7 +196,7 @@ impl MLState
               //let defaultcomb = vec![nti];
               //let comb = combing.get(&nti).unwrap_or(&defaultcomb);
 
-              // new January 2023: must add check against !# marks that
+              // new January 2023: must add check against !% marks that
               // forces extension to stop (stateful semantic actions).
 
                let comblen = comblength(&nti,combing);
@@ -205,22 +205,22 @@ impl MLState
                match Gmr.sdcuts.get(cri) {
                  Some(cutpi) if *cutpi==Gmr.Rules[*cri].rhs.len() => {
                    if !failed {
-                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !# at end of rule {}",cri);
+                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !% at end of rule {}",cri);
                      printrule2(*cri,Gmr,combing);
                    }
                    answer = false;               
                  },
                  _ => {},
                }//match
-               // but what if this is recursive, as in A --> B !#
+               // but what if this is recursive, as in A --> B !%
                // C --> A;  D --> C?  In these cases the as soon as a
-               // conflict item with !# at the end is detected, failure is
+               // conflict item with !% at the end is detected, failure is
                // reported.
                if answer {
                 match Gmr.sdcuts.get(ri) {
                  Some(cutpi) if *cutpi==pi+1 => {
                    if !failed {
-                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !# marker at rule {}, position {}, which may have been inherited from an original rule",ri,pi+1);
+                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !% marker at rule {}, position {}, which may have been inherited from an original rule",ri,pi+1);
                      printrule2(*ri,Gmr,combing);
                    }
                    answer = false;
@@ -1304,14 +1304,19 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        // check if first symbol at marker is a nonterminal
        let NT1 = &self.Rules[*ri].rhs[*dbegin];
        if NT1.terminal {
-         eprintln!("WARNING: STARTING DELAY MARKER MUST PRECEED NONTERMINAL SYMBOL, RULE {} IN GRAMMAR.  MARKERS IGNORED",ri); continue;
+         eprintln!("WARNING: STARTING DELAY MARKER AT POSITION {} MUST PRECEED NONTERMINAL SYMBOL, PRODUCTION {} IN GRAMMAR.  MARKERS IGNORED",dbegin,ri);
+         //eprintln!("symbol: {:?}",NT1);
+         printrule(&self.Rules[*ri],*ri);
+         continue;
        }// NT1 is non-terminal
        // construct suffix delta to be added to each rule
        let mut delta = Vec::new();
 //println!("!!!!dbegin:{}, dend:{}, ri:{}",dbegin,dend,ri);
 //printrule(&self.Rules[*ri],*ri);
        for i in dbegin+1..*dend {
-         delta.push(self.Rules[*ri].rhs[i].clone());
+         if i<self.Rules[*ri].rhs.len() {
+           delta.push(self.Rules[*ri].rhs[i].clone());
+         }
        }
        // construct new nonterminal name ([Mdelta])
        let mut newntname = format!("NEWSDNT_{}",&NT1.sym);
@@ -1326,9 +1331,11 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
          if self.sametype || !self.genabsyn {newnt.rusttype = self.Absyntype.clone();}  else {
             let mut nttype = String::from("(");
             for i in *dbegin .. *dend {
-             let rsymi = self.Rules[*ri].rhs[i].index;
-             nttype.push_str(&format!("{},",&self.Symbols[rsymi].rusttype));
-            }
+              if i < self.Rules[*ri].rhs.len() {
+                let rsymi = self.Rules[*ri].rhs[i].index;
+                nttype.push_str(&format!("{},",&self.Symbols[rsymi].rusttype));
+              }
+            }//for
             nttype.push(')');
             self.enumhash.insert(nttype.clone(),ntcx); ntcx+=1;
             newnt.rusttype = nttype;
@@ -1411,12 +1418,14 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        // break up tuple
        //let mut labi = 0;
        for i in *dbegin..*dend {
+        if i < self.Rules[*ri].rhs.len() {
           let defaultlab = format!("_item{}_",i);
           let symi = &self.Rules[*ri].rhs[i]; // original rule
           let labeli = if symi.label.len()>0 {checkboxlabel(&symi.label)}
             else {&defaultlab};
           newaction.push_str(&format!("let mut {} = {}.{}; ",labeli,&ntlabel,i-dbegin));
           //labi+=1;
+        }
        }// break up tuple
        // anything to do with the other values?  they have labels, but indexes
        // may be off - but original actions will refer to them as-is.

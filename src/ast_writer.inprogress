@@ -13,8 +13,7 @@ use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use crate::{Grammar,is_alphanum,checkboxlabel};
-//use crate::parser_writer::checkboxlabel;
+use crate::{Grammar,is_alphanum,emptybox,checkboxexp};
 
 // metaast for asts
 // grammar_processor needs to keep set of nti's to have types flattened.
@@ -169,7 +168,7 @@ impl Grammar
        */
        let mut simplestruct = true;
        for rs in &self.Rules[sri].rhs {
-         if rs.label.len()>0 && !rs.label.starts_with("_item") 
+         if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
            { simplestruct = false; break; }
        } //determine if simple struct
        let ntsym = &self.Symbols[*nt];
@@ -179,9 +178,9 @@ impl Grammar
        for rsym in self.Rules[sri].rhs.iter_mut() {
          let expectedlabel = format!("_item{}_",&rhsi);
          let alreadyislbx = rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-         let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
+         let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
-            passthru=-2; checkboxlabel(&rsym.label).to_owned()
+            passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
             } else {expectedlabel};
          if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
          let rsymtype = &self.Symbols[rsym.index].rusttype;
@@ -217,8 +216,10 @@ impl Grammar
          else {format!("#[derive(Default,Debug)]\npub struct {}(",&ntsym.rusttype)};  // sets struct header
        let mut fields = String::new();  // like "enumvar in previous version"
        let mut vfields = Vec::new(); // (rhsi,label,type)
+
        let mut SACTION = if *simplestruct {format!("{}(",NT)}
                else {format!("{} {{",NT)};
+               
        let mut viadjust:i32 = 0; //not used (not inc'ed)
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields { //original field
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
@@ -229,7 +230,7 @@ impl Grammar
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) { // maybe able to flatten in
            match structasts.get(&rhssymi) {
              Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-               if *pthr<0 && flatfields.len()>0 && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
+               if *pthr<0 && /* flatfields.len()>0 && */ (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
@@ -267,7 +268,8 @@ impl Grammar
                  //viadjust += (flatfields.len() as i32)-1;
                }//if can flatten
              },
-             aaa => { // println!("def {:?}",aaa); 
+             aaa => { 
+               //println!("NOT FLATTENING {}",&self.Symbols[rhssymi].sym);
              }, //no flattening
            }//match
          }//if in flattentypes list
@@ -332,13 +334,28 @@ impl Grammar
 	let mut AST = if willextend {String::new()}
           else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
         let NT = &self.Symbols[nti].sym;
+        let mut groupenums = HashSet::new(); // for variant-groups
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           let mut nolhslabel=false;
+          let mut groupoper = ""; // variant-group operator, default none
+          // groupoper cancelled if there is a lhs label
           if self.Rules[*ri].lhs.label.len()==0 { // make up lhs label
             nolhslabel = true;
-            let mut lhslab = format!("{}_{}",NT,ri); 
-            if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
+            let mut lhslab = format!("{}_{}",NT,ri); //defalut left label
+
+            // search for variant-group operator
+            if self.vargroupnames.len()>0 {
+             for rsym in self.Rules[*ri].rhs.iter() {
+              if let Some(gnamei) = self.vargroups.get(&rsym.index) {
+                lhslab = self.vargroupnames[*gnamei].clone();
+                groupoper = &self.Symbols[rsym.index].sym;
+                break;
+              }
+             }// search for variant-group operator
+            } // if there are variant groups
+
+            if groupoper.len()==0 && self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	      let symname = &self.Rules[*ri].rhs[0].sym;
 	      if is_alphanum(symname) { //insert r# into enum variant name
 	        lhslab = symname.clone();
@@ -350,28 +367,52 @@ impl Grammar
           let lhsi = self.Rules[*ri].lhs.index; //copy before mut borrow
 	  let lhsymtype = self.Symbols[lhsi].rusttype.clone();
           let enumname = &self.Symbols[*toextend.get(nt).unwrap_or(nt)].sym;
-	  let mut ACTION = format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
-          // enumvariant
+
+          // enum action prefix
+	  let mut ACTION =format!("{}::{}",enumname,&self.Rules[*ri].lhs.label);
+          // enumvariant name
 	  let mut enumvar = format!("  {}",&self.Rules[*ri].lhs.label);
+          
 
           // determine if tuple variant or struct/named variant
           let mut tuplevariant = true;
           for rs in &self.Rules[*ri].rhs {
-            if rs.label.len()>0 && !rs.label.starts_with("_item") 
+            if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
               { tuplevariant = false; break; }
           } //determine if tuplevariant
 
+          let mut nullenum = false; // enum variant already exists
+          
+          // form start of enumvariant and action...
 	  if self.Rules[*ri].rhs.len()>0 { // rhs exists
             if tuplevariant {
 	      enumvar.push('('); ACTION.push('(');
+              if groupoper.len()>0 {
+                if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  nullenum = true;
+                } else {
+                  enumvar.push_str("&'static str,");
+                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+                }
+                ACTION.push_str(&format!("\"{}\",",groupoper));
+              }
             } else {
               enumvar.push('{'); ACTION.push('{');
+              if groupoper.len()>0 {
+                let operlab = self.Rules[*ri].lhs.label.to_lowercase();
+                if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  nullenum = true;
+                } else {                
+                  enumvar.push_str(&format!("{}:&'static str,",&operlab));
+                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+                }
+                ACTION.push_str(&format!("{}:\"{}\",",&operlab,groupoper));
+              }              
             }  // struct variant
 	  }//rhsexists
 	  let mut rhsi = 0; // right-side index
           let mut viadjust = 0;
 	  let mut passthru:i32 = -1; // index of path-thru NT value
-          if tuplevariant {passthru = -2;} // forget about it
 	  for rsym in self.Rules[*ri].rhs.iter_mut()
 	  {
             let expectedlabel = format!("_item{}_",&rhsi);
@@ -379,9 +420,9 @@ impl Grammar
             // lbox
             let alreadyislbx =
               rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
-	    let mut itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
+	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
-              passthru=-2; checkboxlabel(&rsym.label).to_owned()
+              passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
             } else {expectedlabel};
             
             if rsym.terminal && rsym.precedence!=0 { passthru = -2; }
@@ -392,7 +433,7 @@ impl Grammar
             if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
                Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-                if *pthr<0 && flatfields.len()>0 && !rsym.label.starts_with('['){
+                if *pthr<0 && /* flatfields.len()>0 && */ !rsym.label.starts_with('['){
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
@@ -487,10 +528,10 @@ impl Grammar
 	  else
           if !actbase.ends_with('}') && shouldpush {
   	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
-	    AST.push_str(&enumvar); AST.push_str(",\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str(",\n");}
 	  }
           else if shouldpush {  // added for 0.2.94
-	    AST.push_str(&enumvar); AST.push_str(",\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str(",\n");}
           }
 //println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT
@@ -571,7 +612,7 @@ use rustlr::LBox;\n")?;
      println!("Abstract syntax structures created in {}",filename);
      // add the grammar .extras - these will only be placed in parser file
      self.Extras.push_str("use rustlr::LBox;\n");
-     self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
+     //self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));
      self.Extras.push_str(&format!("use crate::{}_ast::*;\n",&self.name));     
      Ok(())
    }//writeabsyn

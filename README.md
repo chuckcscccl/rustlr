@@ -43,6 +43,7 @@ lexterminal COLON :
 lexterminal COMMA ,
 lexterminal NULL null
 lexterminal MINUS -
+#token Alphanum("true") translate to terminal symbol TRUE with boolean value true:
 valueterminal TRUE~ bool~ Alphanum("true")~ true
 valueterminal FALSE~ bool~ Alphanum("false")~ false
 valueterminal STRING~ &'lt str~ Strlit(n)~ &n[1..n.len()-1]
@@ -120,7 +121,7 @@ production.  However, declarations such as `nonterminal List : Value` allow
 a type to be absorbed into another: there is no separate type for
 `List`.  There are other ways that a grammar can specify how ASTs are to be
 created, distinguishing the *abstract syntax tree* from the *parse tree*.
-Please consult the [tutorial](https://cs.hofstra.edu/~cscccl/rustlr_project/)
+Please consult the [tutorial](https://chuckcscccl.github.io/rustlr_project/)
 for further documentation.
 
 

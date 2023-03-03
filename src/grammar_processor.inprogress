@@ -123,7 +123,7 @@ pub struct Grammar
   pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
   pub Externtype : String,    // type of external structure
-  pub Resynch : HashSet<String>, // resynchronization terminal symbols, ordered
+  pub Resynch : HashSet<String>, // resynchronization terminal symbols
   pub Errsym : String,        // error recovery terminal symbol
   pub Lexnames : HashMap<String,String>, // print names of grammar symbols
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
@@ -149,6 +149,10 @@ pub struct Grammar
   pub eoftermi: usize,
   pub startrulei: usize,
   pub mode: i32, // generic mode information
+  pub bumpast: bool,
+  pub sdcuts: HashMap<usize,usize>, // !# marker positions: rulenum to position
+  pub vargroupnames : Vec<String>,
+  pub vargroups: HashMap<usize,usize>,
 }
 
 impl Default for Grammar {
@@ -160,7 +164,7 @@ impl Grammar
   pub fn new() -> Grammar
   {
      let mut btypes = HashSet::with_capacity(14);
-     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)"] { btypes.insert(t);}
+     for t in ["()","bool","i64","u64","usize","f64","i32","u32","u8","u16","i8","i16","f32","char","(usize,usize)","isize",] { btypes.insert(t);}
      Grammar {
        name : String::from(""),       // name of grammar
        Symbols: Vec::new(),           // grammar symbols
@@ -199,6 +203,10 @@ impl Grammar
        eoftermi : 0,
        startrulei : 0,
        mode : 0,
+       bumpast: false,
+       sdcuts: HashMap::new(),
+       vargroupnames : Vec::new(),
+       vargroups : HashMap::new(),
      }
   }//new grammar
 
@@ -329,7 +337,7 @@ impl Grammar
          let mut stokens:Vec<&str> = toksplit.collect();
          if stokens.len()<1 {continue;}
                                     
-         match stokens[0] {
+         match stokens[0] {        // main match clause
             "!" => {  // place only in parser file
                let pbi = line.find('!').unwrap();
                self.Extras.push_str(&line[pbi+1..]);
@@ -346,6 +354,11 @@ impl Grammar
             "auto" | "genabsyn" => {
                if stage==0 {self.genabsyn=true;} else if !self.genabsyn {
                  eprintln!("ERROR: Place 'auto' at beginning of the grammar or run with -auto option, directive may not be effective.");
+               }
+            },
+            "auto-bump" => {
+               if stage==0 {self.bumpast=true; self.genabsyn=true;} else if !self.genabsyn {
+                 eprintln!("ERROR: Place 'auto' or 'auto-bump' at beginning of the grammar or run with -auto option, directive may not be effective.");
                }
             },
             "EOF" => {atEOF=true},
@@ -686,14 +699,34 @@ impl Grammar
                let mut dtokens:Vec<_> = line[pos..].split('~').collect();
                self.Lexconditionals.push((dtokens[0].trim().to_owned(),dtokens[1].trim().to_owned()));
             },
-
+/*
             "transform" => {   // new for 0.2.96, transform_token added
-              /*
-               let pos = line.find("transform").unwrap()+10;
-               self.transform_function = line[pos..].trim().to_owned();
-              */
+
+               //let pos = line.find("transform").unwrap()+10;
+               //self.transform_function = line[pos..].trim().to_owned();
+
               eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
             },
+*/            
+            "variant-group" | "operator-group" if stokens.len()>2 => {
+             // variant Binop + - * DIV
+               self.vargroupnames.push(stokens[1].to_owned());
+               for tok in &stokens[2..] {
+                 let tokopt = self.Symhash.get(&tok[..]);
+                 match tokopt {
+                   Some(toki) if !self.vargroups.contains_key(toki) => {
+                     self.vargroups.insert(*toki,self.vargroupnames.len()-1);
+                   },
+                   Some(_) => {
+                     eprintln!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum);
+                   },
+                   _ => {
+                     eprintln!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum);
+                   },
+                 }//match
+               }
+            }, // variant-group
+
 //////////// case for grammar production:
 
 	    LHS0 if stokens.len()>1 => {
@@ -719,7 +752,13 @@ impl Grammar
               }
 
               if stage<2 {stage=2;}
-              
+              //let LBC = if self.bumpast {"LC"} else {"LBox"};
+              let LBC = "LC";
+              if self.bumpast && self.lifetime.len()==0 {self.lifetime="'src_lt".to_owned();}
+              let bltref = if self.bumpast {format!("&{} ",&self.lifetime)} else {String::new()};
+              let LBCref = if self.bumpast {format!("&{} LC",&self.lifetime)}
+                else {"LBox".to_owned()};  // only for option type
+
 	    // construct lhs symbol
 	      let findcsplit:Vec<_> = stokens[0].split(':').collect();
 	      let mut LHS = findcsplit[0];
@@ -780,6 +819,10 @@ impl Grammar
               let mut seenerrsym = false;
               let mut iadjust = 0;
               let mut markers = Vec::new(); // record delay markers
+
+              let reserved_rindex = self.Rules.len(); // fix index for this rule
+              self.Rules.push(Grule::new_skeleton(LHS));
+              
               while i<bstokens.len() {
 	        let mut strtok = bstokens[i];
 		i+=1;
@@ -792,7 +835,16 @@ impl Grammar
 		   break;
                 }
 // look for delay marker and record
-                if strtok=="#" {markers.push(i-1-iadjust); iadjust+=1; markersexist=true; continue; }
+                if strtok=="#" {
+                  markers.push(i-1-iadjust); iadjust+=1;
+                  markersexist=true; continue;
+                }
+                else if strtok=="!#" && !self.sdcuts.contains_key(&reserved_rindex) {
+                  self.sdcuts.insert(reserved_rindex,i-1-iadjust);
+//println!("sdcut rule {}, adjusted position {}",reserved_rindex, i-1-iadjust);
+                  iadjust+=1;
+                  continue;
+                }
 
 /*
 Strategfy for parsing EBNF syntax:
@@ -961,13 +1013,14 @@ strtok is bstokens[i], but will change
                    // part of ast type unless there is a given label: -?:m
                    if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
 		     newnt.rusttype = if strtok.ends_with('?') {
-                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with("LBox") {
+                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with(LBC) {
                         if self.genabsyn {format!("Option<@{}>",&self.Symbols[gsymi].sym)} else {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} }
                        else {
-                        if self.genabsyn {format!("Option<LBox<@{}>>",&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
+                        if self.genabsyn {format!("Option<{}<@{}>>",&LBCref,&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
                      }
                      else {
-                       if self.genabsyn {format!("Vec<LBox<@{}>>",&self.Symbols[gsymi].sym)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)} };
+                     
+                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LC<{}>>",&self.Symbols[gsymi].rusttype)} };
                    }
                    // else type stays () (,*)
                    /*  later
@@ -987,15 +1040,26 @@ strtok is bstokens[i], but will change
                    newrule1.precedence = self.Symbols[gsymi].precedence;
 		   if strtok.ends_with('?') {
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
-                     if nr1type.starts_with("Option<LBox<") {
-		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }"); } else if nr1type.starts_with("Option<") {newrule1.action = String::from(" Some(_item0_) }"); } // else nothing
+                     if nr1type.starts_with("Option<LBox<")  {
+		       newrule1.action=String::from(" Some(parser.lbx(0,_item0_)) }");
+                     }
+                     else if self.bumpast && nr1type.starts_with(&format!("Option<{}<",&LBCref))  {
+                       newrule1.action=String::from(" Some(parser.exstate.make(parser.lc(0,_item0_))) }");
+                     }
+                     else if nr1type.starts_with("Option<") {
+                       newrule1.action = String::from(" Some(_item0_) }");
+                     } 
 		   }// end with ?
 		   else { // * or +
   		     newrule1.rhs.push(newnt.clone());
 		     newrule1.rhs.push(self.Symbols[gsymi].clone());
                      if nr1type!="()" {
-		       newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
-                     }
+                       if self.bumpast {
+                         newrule1.action = String::from(" _item0_.push(parser.exstate.make(parser.lc(1,_item1_))); _item0_ }");
+                       } else {
+		         newrule1.action = String::from(" _item0_.push(parser.lc(1,_item1_)); _item0_ }");
+                       }
+                     } // not () type
 		   } // * or +
 		   let mut newrule0 = Grule::new_skeleton(&newntname);
 		   //newrule0.lhs.rusttype = newnt.rusttype.clone();
@@ -1004,8 +1068,12 @@ strtok is bstokens[i], but will change
 		   if strtok.ends_with('+') {
 		     newrule0.rhs.push(self.Symbols[gsymi].clone());
                      if nr0type!="()" {
-		       newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
-                     }
+                       if self.bumpast {
+                         newrule0.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");
+                       } else {
+  		         newrule0.action=String::from(" vec![parser.lc(0,_item0_)] }");
+                       }
+                     } // not () type
 		   }// ends with +
 		   else if strtok.ends_with('*') && nr0type!="()" {
 		     newrule0.action = String::from(" Vec::new() }");
@@ -1079,7 +1147,7 @@ strtok is bstokens[i], but will change
 	          let mut newnt3 = Gsym::new(&newntname3,false);
                   newnt3.rusttype = "()".to_owned();
                   if &self.Symbols[gsymi].rusttype!="()" || (septoks.len()>1 && septoks[1].len()>0) {
-		     newnt3.rusttype = format!("Vec<LBox<@{}>>",&self.Symbols[gsymi].sym);
+		     newnt3.rusttype = format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym);
                   } // else rusttype stays ()
                   // note: if types are not being generated, what should this
                   // type be? can note that it should follow from
@@ -1110,8 +1178,13 @@ strtok is bstokens[i], but will change
                   newrule4.rhs.push(self.Symbols[termi].clone());
                   newrule4.rhs.push(self.Symbols[gsymi].clone());//N-->N,E
                   if newnt3.rusttype.starts_with("Vec") {
-                    newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
-                    newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                    if self.bumpast {
+                      newrule3.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");                  
+                      newrule4.action=String::from(" _item0_.push(parser.exstate.make(parser.lc(2,_item2_))); _item0_ }");                    
+                    } else {
+                      newrule3.action=String::from(" vec![parser.lc(0,_item0_)] }");                  
+                      newrule4.action=String::from(" _item0_.push(parser.lc(2,_item2_)); _item0_ }");
+                    }//no bump
                   } // else leave at default for ()
                   if self.tracelev>3 {
                     printrule(&newrule3,self.Rules.len());
@@ -1180,9 +1253,12 @@ strtok is bstokens[i], but will change
                        if !seenerrsym { seenerrsym = true; }
                        else { eprintln!("Error symbol {} can only appear once in a production, line {}",&self.Errsym,linenum); return false; }
                      }
+		     // may take out following?
+		     /*
                      if !sym.terminal && seenerrsym {
                        eprintln!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum); return false;
                      }
+		     */
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<1 && !self.genabsyn {newsym.rusttype = self.Absyntype.clone();}
 
@@ -1242,13 +1318,15 @@ strtok is bstokens[i], but will change
 		precedence : maxprec,
 	      };
 	      if self.tracelev>3 {printrule(&rule,self.Rules.len());}
-	      self.Rules.push(rule);
+	      //self.Rules.push(rule);
+              self.Rules[reserved_rindex] = rule;
               // Add rules to Rulesfor map
               if let None = self.Rulesfor.get(&symind2) { //symind2 is LHS
                  self.Rulesfor.insert(symind2,HashSet::new());
               }
               let rulesforset = self.Rulesfor.get_mut(&symind2).unwrap();
-              rulesforset.insert(self.Rules.len()-1);
+              //rulesforset.insert(self.Rules.len()-1);
+              rulesforset.insert(reserved_rindex);
             //} 
             } // for rul
             }, 
@@ -1301,8 +1379,14 @@ strtok is bstokens[i], but will change
      self.Rulesfor.insert(self.startnti,startrfset); //for START
 //     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
      if self.Externtype.len()<1 {self.Externtype = self.Absyntype.clone();}
+
+     if self.bumpast {
+       if self.lifetime.len()==0 {self.lifetime="'src_lt".to_owned();}
+       self.Externtype = format!("Bumper<{},{}>",&self.lifetime,&self.Externtype);
+     }
+
      // compute sametype value (default true)
-     if &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
+     if &self.Absyntype!="()" && &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
         eprintln!("\nWARNING: THE TYPE FOR THE START SYMBOL ({}) IS NOT THE SAME AS THE VALUETYPE ({}",&topgsym.rusttype,&self.Absyntype);
         self.Absyntype = topgsym.rusttype.clone();
      }
@@ -1514,15 +1598,27 @@ pub fn genlexer(&self,fd:&mut File, fraw:&str) -> Result<(),std::io::Error>
    stk: StrTokenizer<{2}>,
    keywords: HashSet<&'static str>,
    lexnames: HashMap<&'static str,&'static str>,
-   shared_state: Rc<RefCell<{1}>>,
+   shared_state: Rc<RefCell<{1}>>,",&lexername,extype,lifetime)?;
+   if self.bumpast {
+     write!(fd,"\n   bump: Option<&{} bumpalo::Bump>,",lifetime)?;
+   }
+   write!(fd,"
 }}
 impl<{2}> {0}<{2}> 
 {{
   pub fn from_str(s:&{2} str) -> {0}<{2}>  {{
     Self::new(StrTokenizer::from_str(s))
   }}
-  pub fn from_source(s:&{2} LexSource<{2}>) -> {0}<{2}>  {{
-    Self::new(StrTokenizer::from_source(s))
+  pub fn from_source(s:&{2} LexSource<{2}>) -> {0}<{2}> {1} {{
+",&lexername,"",lifetime)?;
+  if self.bumpast {
+    write!(fd,"    let mut st = Self::new(StrTokenizer::from_source(s));
+    st.bump = s.get_bump();
+    st")?;
+  } else {
+    write!(fd,"    Self::new(StrTokenizer::from_source(s))")?;
+  }
+  write!(fd,"
   }}
   pub fn new(mut stk:StrTokenizer<{2}>) -> {0}<{2}> {{
     let mut lexnames = HashMap::with_capacity(64);
@@ -1545,7 +1641,13 @@ impl<{2}> {0}<{2}>
       for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
       write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
-      write!(fd,"    {} {{stk,keywords,lexnames,shared_state}}\n  }}\n}}\n",&lexername)?;
+
+      if self.bumpast {
+        write!(fd,"    let bump:Option<&{} bumpalo::Bump> = None;
+    {} {{stk,keywords,lexnames,shared_state,bump,}}\n  }}\n}}\n",&self.lifetime,&lexername)?;
+      } else {
+        write!(fd,"    {} {{stk,keywords,lexnames,shared_state,}}\n  }}\n}}\n",&lexername)?;
+      }
       // end of impl lexername
       write!(fd,"impl<{0}> Tokenizer<{0},{1}> for {2}<{0}>
 {{
@@ -1553,7 +1655,7 @@ impl<{2}> {0}<{2}>
 ",lifetime,retype,&lexername)?;
 
       for (condition,action) in self.Lexconditionals.iter() {
-        write!(fd,"    if ({}) {{ {} }}\n",condition,action)?;
+        write!(fd,"    if {} {{ self.stk.{} }}\n",condition,action)?;
       }
 
       write!(fd,"    let tokopt = self.stk.next_token();
@@ -1592,8 +1694,9 @@ impl<{2}> {0}<{2}>
       }},\n",fraw,retype)?;
       
       write!(fd,"      RawToken::Symbol(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
-      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;      
-      write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;
+      write!(fd,"      RawToken::Alphanum(s) => Some(TerminalToken::{}(token,s,<{}>::default())),\n",fraw,retype)?;
+      write!(fd,"      _ => {{ let _rrodb=token.0.to_staticstr(); Some(TerminalToken::{}(token,_rrodb,<{}>::default())) }},\n    }}\n  }}",fraw,retype)?;
+      //write!(fd,"      _ => Some(TerminalToken::{}(token,\"<LexicalError>\",<{}>::default())),\n    }}\n  }}",fraw,retype)?;      
       write!(fd,"
    fn linenum(&self) -> usize {{self.stk.line()}}
    fn column(&self) -> usize {{self.stk.column()}}
@@ -1645,6 +1748,19 @@ pub fn checkboxlabel(s:&str) -> &str
 {
     if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
 }// check if label is of form [x], returns x, or s if not of this form.
+
+pub fn emptybox(s:&str) -> bool {
+   s.starts_with('[') && s.ends_with(']') && s[1..s.len()-1].trim().len()==0
+}
+
+pub fn checkboxexp<'t>(s:&'t str, e:&'t str) -> &'t str //e is expected
+{
+  if s.starts_with('[') && s.ends_with(']') {
+    let t = s[1..s.len()-1].trim();
+    if t.len()==0 {e} else {t}
+  }
+  else {s}
+}
 
 // used by genlexer routines
 pub fn is_alphanum(x:&str) -> bool

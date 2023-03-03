@@ -330,7 +330,7 @@ storage_class_specifier ==>
 	| REGISTER
         | THREAD_LOCAL
 	<==
-storage_class_specifier --> TYPEDEF { parser.shared_state.borrow_mut().anticipate_typedef=true; ...}
+storage_class_specifier --> TYPEDEF !% { parser.shared_state.borrow_mut().anticipate_typedef=true; ...}
 
 type_specifier:Typename --> TYPEDEF_NAME        
 type_specifier ==>
@@ -391,6 +391,7 @@ alignment_specifier --> ALIGNAS ( constant_expression )
 
 # PROBLEMATIC LINE
 declarator -->  pointer? direct_declarator
+#declarator -->  pointer? !# direct_declarator
 #declarator:DEC --> # pointer? direct_declarator #
 
 direct_base ==> IDENTIFIER:id {

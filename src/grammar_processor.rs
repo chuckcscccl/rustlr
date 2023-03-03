@@ -24,7 +24,7 @@ pub const NONASSOCBIT:i32 = -1 - 0x40000000; // less than this means nonassoc
 // if lev<NONASSOCIBT, true precedence level = (lev-NONASSOCIBIT)*-1
 pub const TRACE:usize = 0; //deprecated
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Gsym // struct for a grammar symbol
 {
   pub sym : String,
@@ -150,7 +150,7 @@ pub struct Grammar
   pub startrulei: usize,
   pub mode: i32, // generic mode information
   pub bumpast: bool,
-  pub sdcuts: HashMap<usize,usize>, // !# marker positions: rulenum to position
+  pub sdcuts: HashMap<usize,usize>, // !% marker positions: rulenum to position
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<usize,usize>,
 }
@@ -333,8 +333,28 @@ impl Grammar
            self.ASTExtras.push_str(&line[1..]);
        }       
        else if linelen>1 && &line[0..1]!="#" {
+
+         // find "" and # positions.  # inside "" are ignored
+         let rbpos = line.rfind('\"');
+         let rhpos = line.rfind('#');
+         match (rbpos,rhpos) {
+            (Some(rb),Some(rh)) if rb<rh => {line.truncate(rh); println!("rh{}",rh);},
+            (None,Some(rh)) => {line.truncate(rh);println!("rhb{}",rh); },
+            _ => {},
+         }//match
+         if line.trim().len()==0 {continue;}
+
          let toksplit = line.split_whitespace();
          let mut stokens:Vec<&str> = toksplit.collect();
+         /*
+         for i in (0..stokens.len()).rev() {
+           if stokens[i].ends_with('}') {break;}
+           if stokens[i].starts_with('#') {
+              stokens.truncate(i);
+              break;
+           }
+         }//for trims comments
+         */
          if stokens.len()<1 {continue;}
                                     
          match stokens[0] {        // main match clause
@@ -727,7 +747,7 @@ impl Grammar
                }
             }, // variant-group
 
-//////////// case for grammar production:
+////////////////////////////////////////////////// case for grammar production:
 
 	    LHS0 if stokens.len()>1 => {
               let mut separator = "-->";
@@ -804,7 +824,7 @@ impl Grammar
 	      barsplit.push(linecs.trim()); // at least one
 
               if barsplit.len()>1 && findcsplit.len()>1 {
-	        eprintln!("The '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
+	        eprintln!("ERROR: the '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
                 return false;
 	      }
               
@@ -835,11 +855,11 @@ impl Grammar
 		   break;
                 }
 // look for delay marker and record
-                if strtok=="#" {
+                if strtok=="%" {
                   markers.push(i-1-iadjust); iadjust+=1;
                   markersexist=true; continue;
                 }
-                else if strtok=="!#" && !self.sdcuts.contains_key(&reserved_rindex) {
+                else if strtok=="!%" && !self.sdcuts.contains_key(&reserved_rindex) {
                   self.sdcuts.insert(reserved_rindex,i-1-iadjust);
 //println!("sdcut rule {}, adjusted position {}",reserved_rindex, i-1-iadjust);
                   iadjust+=1;
@@ -1288,10 +1308,9 @@ strtok is bstokens[i], but will change
 	      } // while there are tokens on rhs
 
               ///// at this point, we can transform grammar to apply delays
-              let ruleindex = self.Rules.len();
               if markers.len()%2==1 {eprintln!("ERROR: DELAY MARKERS MUST COME IN PAIRS, LINE {}\n",linenum); return false;}
               else if markers.len()>=2 {
-                self.delaymarkers.insert(ruleindex,BTreeSet::new());
+                self.delaymarkers.insert(reserved_rindex,BTreeSet::new());
               }
               let mut i = 0;
               while i+1<markers.len()
@@ -1300,7 +1319,7 @@ strtok is bstokens[i], but will change
                  let dend = markers[i+1];
                  i += 2;
                  if dend>dbegin+1 {
-                   self.delaymarkers.get_mut(&ruleindex).unwrap().insert((dbegin,dend));
+                   self.delaymarkers.get_mut(&reserved_rindex).unwrap().insert((dbegin,dend));
                  }
               }// while there are delay transformations to record
               ///// delays
