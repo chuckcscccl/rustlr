@@ -1,10 +1,10 @@
 [package]
 name = "rustlr"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Chuck Liang"]
 edition = "2021"
 license = "MIT"
-description = "LR-Style Parser Generator with Advanced Options"
+description = "Bottom-Up Parser Generator with Advanced Options"
 repository = "https://github.com/chuckcscccl/rustlr/"
 keywords = ["parser", "parsing", "parser-generator", "lr", "yacc"]
 categories = ["parsing", "compilers"]
@@ -13,7 +13,7 @@ categories = ["parsing", "compilers"]
 [dependencies]
 regex = "1"
 bumpalo = "3"
-logos = "0.12"
+#logos = "0.12"
 #termion = "*"
 
 #[patch.crates-io]

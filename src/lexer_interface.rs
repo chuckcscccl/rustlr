@@ -471,6 +471,10 @@ impl<'t> StrTokenizer<'t>
 //    let skipclosure = Box::new(||false);
     StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,skipcount,specialeof,tab_spaces,linetabs,allow_newline_in_string,priority_symbols}
   }// new
+
+  //testing
+  //pub fn action<FM:FnOnce()->()>(&mut self,f:FM)   { f(); }
+
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
   /// leading whitespaces and comments markers, e.g. "//" will have precedence
@@ -639,6 +643,28 @@ impl<'t> StrTokenizer<'t>
    self.position=0; self.prev_position=0; self.line=0; self.line_start=0;
    self.line_positions = vec![0,0];
   }
+
+
+  // backtracks the lexer by offset positions, if possible. This operation
+  // does not change the status of tokens already emitted.
+  pub fn backtrack(&mut self, offset:usize) {
+    if (self.position >= offset) {self.position -= offset;}
+    if self.position < self.line_positions[self.line_positions.len()-1] {
+           // binary search line_positions to determine line.
+      let (mut min,mut max) = (1,self.line_positions.len()-2);
+      while min<=max {
+         let mid = (min+max)/2;
+         if self.position >= self.line_positions[mid]
+              && self.position<self.line_positions[mid+1] {
+            self.line = mid;
+            self.line_positions.truncate(mid+1);
+            break;
+         }
+         else if self.position >= self.line_positions[mid+1] { min = mid+1; }
+         else { max = mid-1; }
+      }// while
+    }//binary search for previous line position
+  }//backtrack
 
   /// returns next token, along with starting line and column numbers.
   /// This function will return None at end of stream or LexError along

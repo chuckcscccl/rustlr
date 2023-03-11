@@ -41,7 +41,7 @@ use lalr_statemachine::LALRMachine;
 mod selmlk;
 use selmlk::{MLStatemachine};
 
-mod logos_lexer;
+//mod logos_lexer;
 
 fn main() 
 {
