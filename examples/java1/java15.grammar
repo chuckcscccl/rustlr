@@ -1,0 +1,750 @@
+# rustlr created 677 states using default LALR(1) mode
+# Rust version
+
+# no semantic actions except to return true on successful parse
+auto
+lifetime 'lt
+
+$#[derive(Debug,Default)]
+$pub struct multiswitch(usize); 
+$impl multiswitch {
+$  pub fn set(&mut self) { self.0 += 1; }
+$  pub fn get(&mut self) -> usize {
+$    if self.0>0 { self.0 -= 1;  self.0+1 } // auto-decrement
+$    else {self.0}
+$  }//test
+$}//impl testswitch
+
+externtype multiswitch
+
+valueterminal IDENTIFIER ~ &'lt str ~ Alphanum(n) ~ n
+valueterminal INTEGER_LITERAL ~ i64 ~ Num(n) ~ n
+valueterminal FLOATING_POINT_LITERAL ~ f64 ~ Float(n) ~ n
+valueterminal STRING_LITERAL ~ &'lt str ~ Strlit(s) ~ &s[1..s.len()-1]
+valueterminal BOOLEAN_LITERAL ~ bool ~ Alphanum("true") ~ true
+valueterminal BOOLEAN_LITERAL ~ bool ~ Alphanum("false") ~ false
+valueterminal CHARACTER_LITERAL ~ char ~ Char(c) ~ c
+
+lexconditional self.shared_state.borrow_mut().get()>0 ~ add_priority_symbol(">")
+
+lexterminal BOOLEAN boolean
+lexterminal BYTE byte
+lexterminal SHORT short
+lexterminal INT int
+lexterminal LONG long
+lexterminal CHAR char
+lexterminal FLOAT float
+lexterminal DOUBLE double
+lexterminal DOT .
+lexterminal LBRACK [
+lexterminal RBRACK ]
+lexterminal SEMICOLON ;
+lexterminal MULT *
+lexterminal COMMA ,
+lexterminal LBRACE {
+lexterminal RBRACE }
+lexterminal EQ =
+lexterminal LPAREN (
+lexterminal RPAREN )
+lexterminal COLON :
+lexterminal PACKAGE package
+lexterminal IMPORT import
+lexterminal PUBLIC public
+lexterminal PROTECTED protected
+lexterminal PRIVATE private
+lexterminal STATIC static
+lexterminal ABSTRACT abstract
+lexterminal FINAL final
+lexterminal NATIVE native
+lexterminal SYNCHRONIZED synchronized
+lexterminal TRANSIENT transient
+lexterminal VOLATILE volatile
+lexterminal CLASS class
+lexterminal EXTENDS extends
+lexterminal IMPLEMENTS implements
+lexterminal VOID void
+lexterminal THROWS throws
+lexterminal THIS this
+lexterminal SUPERT super
+lexterminal INTERFACE interface
+lexterminal IF if
+lexterminal ELSE else
+lexterminal SWITCH switch
+lexterminal CASE case
+lexterminal DEFAULT default
+lexterminal DO do
+lexterminal WHILE while
+lexterminal FOR for
+lexterminal BREAK break
+lexterminal CONTINUE continue
+lexterminal THROW throw
+lexterminal CATCH catch
+lexterminal TRY try
+lexterminal RETURN return
+lexterminal FINALLY finally
+lexterminal NEW new
+lexterminal PLUSPLUS ++
+lexterminal MINUSMINUS --
+lexterminal PLUS +
+lexterminal MINUS -
+lexterminal COMP ~
+lexterminal NOT !
+lexterminal DIV /
+lexterminal MOD %
+lexterminal LSHIFT <<
+
+#lexattribute custom Rangle >
+#valueterminal GT ~ bool ~ Rangle ~ (fun x->false)
+
+# must replace with nonterminals
+lexterminal RSHIFT >>
+lexterminal URSHIFT >>>
+lexterminal LT <
+lexterminal GT >
+lexterminal LTEQ <=
+lexterminal GTEQ >=
+lexterminal INSTANCEOF instanceof
+lexterminal EQEQ ==
+lexterminal NOTEQ !=
+lexterminal AND &
+lexterminal XOR ^
+lexterminal OR |
+lexterminal ANDAND &&
+lexterminal OROR ||
+lexterminal QUESTION ?
+lexterminal MULTEQ *=
+lexterminal DIVEQ /=
+lexterminal MODEQ %=
+lexterminal PLUSEQ +=
+lexterminal MINUSEQ -=
+lexterminal LSHIFTEQ <<=
+lexterminal RSHIFTEQ >>=
+lexterminal URSHIFTEQ >>>=
+lexterminal ANDEQ &=
+lexterminal XOREQ ^=
+lexterminal OREQ |=
+lexterminal NULL_LITERAL null
+lexterminal CONST const
+lexterminal GOTO goto
+lexterminal STRICTFP strictfp
+lexterminal ASSERT assert
+lexterminal ELLIPSIS ...
+lexterminal ENUM enum
+
+nonterminal  goal 
+nonterminal  literal 
+nonterminal  typexpr 
+nonterminal  primitive_type 
+nonterminal  numeric_type 
+nonterminal  integral_type 
+nonterminal  floating_point_type 
+nonterminal  reference_type 
+nonterminal  class_or_interface_type 
+nonterminal  class_type 
+nonterminal  interface_type 
+nonterminal  array_type 
+nonterminal  name 
+nonterminal  simple_name 
+nonterminal  qualified_name 
+nonterminal  compilation_unit 
+nonterminal  package_declaration_opt 
+nonterminal  package_declaration 
+nonterminal  import_declarations_opt 
+nonterminal  import_declarations 
+nonterminal  type_declarations_opt 
+nonterminal  type_declarations 
+nonterminal  import_declaration 
+nonterminal  single_type_import_declaration 
+nonterminal  type_import_on_demand_declaration 
+nonterminal  type_declaration 
+nonterminal  modifiers_opt 
+nonterminal  modifiers 
+nonterminal  modifier 
+nonterminal  class_declaration 
+nonterminal  superexpr 
+nonterminal  super_opt 
+nonterminal  interfaces 
+nonterminal  interfaces_opt 
+nonterminal  interface_type_list 
+nonterminal  class_body 
+nonterminal  class_body_declarations 
+nonterminal  class_body_declarations_opt 
+nonterminal  class_body_declaration 
+nonterminal  class_member_declaration 
+nonterminal  field_declaration 
+nonterminal  variable_declarators 
+nonterminal  variable_declarator 
+nonterminal  variable_declarator_id 
+nonterminal  variable_initializer 
+nonterminal  method_declaration 
+nonterminal  method_header 
+nonterminal  method_declarator 
+nonterminal  formal_parameter_list_opt 
+nonterminal  formal_parameter_list 
+nonterminal  formal_parameter 
+nonterminal  throws_opt 
+nonterminal  throws 
+nonterminal  class_type_list 
+nonterminal  method_body 
+nonterminal  static_initializer 
+nonterminal  constructor_declaration 
+nonterminal  constructor_declarator 
+nonterminal  constructor_body 
+nonterminal  explicit_constructor_invocation 
+nonterminal  interface_declaration 
+nonterminal  extends_interfaces_opt 
+nonterminal  extends_interfaces 
+nonterminal  interface_body 
+nonterminal  interface_member_declarations_opt 
+nonterminal  interface_member_declarations 
+nonterminal  interface_member_declaration 
+nonterminal  constant_declaration 
+nonterminal  abstract_method_declaration 
+nonterminal  array_initializer 
+nonterminal  variable_initializers 
+nonterminal  block 
+nonterminal  block_statements_opt 
+nonterminal  block_statements 
+nonterminal  block_statement 
+nonterminal  local_variable_declaration_statement 
+nonterminal  local_variable_declaration 
+nonterminal  statement 
+nonterminal  statement_no_short_if 
+nonterminal  statement_without_trailing_substatement 
+nonterminal  empty_statement 
+nonterminal  labeled_statement 
+nonterminal  labeled_statement_no_short_if 
+nonterminal  expression_statement 
+nonterminal  statement_expression 
+nonterminal  if_then_statement 
+nonterminal  if_then_else_statement 
+nonterminal  if_then_else_statement_no_short_if 
+nonterminal  switch_statement 
+nonterminal  switch_block 
+nonterminal  switch_block_statement_groups 
+nonterminal  switch_block_statement_group 
+nonterminal  switch_labels 
+nonterminal  switch_label 
+nonterminal  while_statement 
+nonterminal  while_statement_no_short_if 
+nonterminal  do_statement 
+nonterminal  for_statement 
+nonterminal  for_statement_no_short_if 
+nonterminal  for_init_opt 
+nonterminal  for_init 
+nonterminal  for_update_opt 
+nonterminal  for_update 
+nonterminal  statement_expression_list 
+nonterminal  identifier_opt 
+nonterminal  break_statement 
+nonterminal  continue_statement 
+nonterminal  return_statement 
+nonterminal  throw_statement 
+nonterminal  synchronized_statement 
+nonterminal  try_statement 
+nonterminal  catches_opt 
+nonterminal  catches 
+nonterminal  catch_clause 
+nonterminal  finally 
+nonterminal  assert_statement 
+nonterminal  primary 
+nonterminal  primary_no_new_array 
+nonterminal  class_instance_creation_expression 
+nonterminal  argument_list_opt 
+nonterminal  argument_list 
+nonterminal  array_creation_init 
+nonterminal  array_creation_uninit 
+nonterminal  dim_exprs 
+nonterminal  dim_expr 
+nonterminal  dims_opt 
+nonterminal  dims 
+nonterminal  field_access 
+nonterminal  method_invocation 
+nonterminal  array_access 
+nonterminal  postfix_expression 
+nonterminal  postincrement_expression 
+nonterminal  postdecrement_expression 
+nonterminal  unary_expression 
+nonterminal  unary_expression_not_plus_minus 
+nonterminal  preincrement_expression 
+nonterminal  predecrement_expression 
+nonterminal  cast_expression 
+nonterminal  multiplicative_expression 
+nonterminal  additive_expression 
+nonterminal  shift_expression 
+nonterminal  relational_expression 
+nonterminal  equality_expression 
+nonterminal  and_expression 
+nonterminal  exclusive_or_expression 
+nonterminal  inclusive_or_expression 
+nonterminal  conditional_and_expression 
+nonterminal  conditional_or_expression 
+nonterminal  conditional_expression 
+nonterminal  assignment_expression 
+nonterminal  assignment 
+nonterminal  assignment_operator 
+nonterminal  expression_opt 
+nonterminal  expression 
+nonterminal  constant_expression 
+
+nonterminals type_argument wildcard type_arguments class_name flag_state
+nonterminals generic_declaration generic_element generic_ci_type type_arg
+
+flatten flag_state
+
+topsym  goal
+resync SEMICOLON
+
+# top-level rule, only one that returns true
+goal --> compilation_unit
+
+literal --> INTEGER_LITERAL
+literal --> FLOATING_POINT_LITERAL
+literal --> BOOLEAN_LITERAL
+literal --> CHARACTER_LITERAL
+literal --> STRING_LITERAL
+literal --> NULL_LITERAL
+typexpr --> primitive_type
+typexpr --> reference_type
+primitive_type --> numeric_type
+primitive_type --> BOOLEAN
+numeric_type --> integral_type
+numeric_type --> floating_point_type
+integral_type --> BYTE
+integral_type --> SHORT
+integral_type --> INT
+integral_type --> LONG
+integral_type --> CHAR
+floating_point_type --> FLOAT
+floating_point_type --> DOUBLE
+reference_type --> class_or_interface_type
+reference_type --> array_type
+
+# add generics, only one original rule
+#class_or_interface_type --> name
+
+#new nonterminal
+# from https://docs.oracle.com/javase/specs/jls/se7/html/jls-4.html#jls-4.5
+
+type_argument --> name | wildcard
+wildcard --> QUESTION
+wildcard --> QUESTION EXTENDS name
+wildcard --> QUESTION SUPERT name
+
+type_arg --> type_argument type_arguments?
+
+#type_arguments --> LT type_argument<COMMA+> flag_state GT
+#type_arguments --> LT type_arg<COMMA+> flag_state GT
+type_arguments --> LT flag_state type_arg<COMMA+> GT
+
+flag_state -->  { parser.shared_state.borrow_mut().set(); ... }
+
+generic_ci_type --> name type_arguments?
+
+generic_declaration --> LT generic_element<COMMA+> GT
+generic_element --> IDENTIFIER
+generic_element --> IDENTIFIER EXTENDS generic_ci_type<AND+>
+
+class_type --> generic_ci_type
+interface_type --> generic_ci_type
+
+#class_type --> class_or_interface_type
+#interface_type --> class_or_interface_type
+
+class_or_interface_type --> name
+#class_or_interface_type --> name type_arguments
+#class_name --> IDENTIFIER 
+
+
+#clashes with:
+#postfix_expression --> name
+# so need something else, other than a name.
+#class_instance_creation_expression 
+
+#class_type --> class_or_interface_type
+#interface_type --> class_or_interface_type
+
+array_type --> primitive_type dims
+array_type --> name dims
+name --> simple_name
+name --> qualified_name
+simple_name --> IDENTIFIER
+qualified_name --> name DOT IDENTIFIER
+compilation_unit --> package_declaration_opt import_declarations_opt type_declarations_opt
+package_declaration_opt --> package_declaration
+package_declaration_opt -->   
+import_declarations_opt --> import_declarations
+import_declarations_opt -->   
+type_declarations_opt --> type_declarations
+type_declarations_opt -->   
+import_declarations --> import_declaration
+import_declarations --> import_declarations import_declaration
+type_declarations --> type_declaration
+type_declarations --> type_declarations type_declaration
+package_declaration --> PACKAGE name SEMICOLON
+import_declaration --> single_type_import_declaration
+import_declaration --> type_import_on_demand_declaration
+single_type_import_declaration --> IMPORT name SEMICOLON
+type_import_on_demand_declaration --> IMPORT name DOT MULT SEMICOLON
+type_declaration --> class_declaration
+type_declaration --> interface_declaration
+type_declaration --> SEMICOLON
+modifiers_opt -->   
+modifiers_opt --> modifiers
+modifiers --> modifier
+modifiers --> modifiers modifier
+modifier --> PUBLIC
+modifier --> PROTECTED
+modifier --> PRIVATE
+modifier --> STATIC
+modifier --> ABSTRACT
+modifier --> FINAL
+modifier --> NATIVE
+modifier --> SYNCHRONIZED
+modifier --> TRANSIENT
+modifier --> VOLATILE
+modifier --> STRICTFP
+
+#class_declaration --> modifiers_opt CLASS IDENTIFIER super_opt interfaces_opt class_body
+
+class_declaration --> modifiers_opt CLASS IDENTIFIER generic_declaration? super_opt interfaces_opt class_body
+
+superexpr --> EXTENDS class_type
+super_opt -->   
+super_opt --> superexpr
+interfaces --> IMPLEMENTS interface_type_list
+interfaces_opt -->   
+interfaces_opt --> interfaces
+interface_type_list --> interface_type
+interface_type_list --> interface_type_list COMMA interface_type
+class_body --> LBRACE class_body_declarations_opt RBRACE
+class_body_declarations_opt -->   
+class_body_declarations_opt --> class_body_declarations
+class_body_declarations --> class_body_declaration
+class_body_declarations --> class_body_declarations class_body_declaration
+class_body_declaration --> class_member_declaration
+class_body_declaration --> static_initializer
+class_body_declaration --> constructor_declaration
+class_body_declaration --> block
+class_member_declaration --> field_declaration
+class_member_declaration --> method_declaration
+class_member_declaration --> modifiers_opt CLASS IDENTIFIER super_opt interfaces_opt class_body
+class_member_declaration --> interface_declaration
+class_member_declaration --> SEMICOLON
+field_declaration --> modifiers_opt typexpr variable_declarators SEMICOLON
+variable_declarators --> variable_declarator
+variable_declarators --> variable_declarators COMMA variable_declarator
+variable_declarator --> variable_declarator_id
+variable_declarator --> variable_declarator_id EQ variable_initializer
+variable_declarator_id --> IDENTIFIER
+variable_declarator_id --> variable_declarator_id LBRACK RBRACK
+variable_initializer --> expression
+variable_initializer --> array_initializer
+method_declaration --> method_header method_body
+#method_header --> modifiers_opt type method_declarator throws_opt
+#method_header --> modifiers_opt VOID method_declarator throws_opt
+
+method_header --> modifiers_opt typexpr method_declarator throws_opt
+method_header --> modifiers_opt VOID method_declarator throws_opt
+method_header --> modifiers_opt generic_declaration typexpr method_declarator throws_opt
+method_header --> modifiers_opt generic_declaration VOID method_declarator throws_opt
+
+
+method_declarator --> IDENTIFIER LPAREN formal_parameter_list_opt RPAREN
+method_declarator --> method_declarator LBRACK RBRACK
+formal_parameter_list_opt -->   
+formal_parameter_list_opt --> formal_parameter_list
+formal_parameter_list --> formal_parameter
+formal_parameter_list --> formal_parameter_list COMMA formal_parameter
+
+formal_parameter --> typexpr variable_declarator_id
+formal_parameter --> FINAL typexpr variable_declarator_id
+formal_parameter --> typexpr type_arguments variable_declarator_id
+formal_parameter --> FINAL typexpr type_arguments variable_declarator_id
+
+
+throws_opt -->   
+throws_opt --> throws
+throws --> THROWS class_type_list
+class_type_list --> class_type
+class_type_list --> class_type_list COMMA class_type
+method_body --> block
+method_body --> SEMICOLON
+static_initializer --> STATIC block
+constructor_declaration --> modifiers_opt constructor_declarator throws_opt constructor_body
+constructor_declarator --> simple_name LPAREN formal_parameter_list_opt RPAREN
+constructor_body --> LBRACE explicit_constructor_invocation block_statements RBRACE
+constructor_body --> LBRACE explicit_constructor_invocation RBRACE
+constructor_body --> LBRACE block_statements RBRACE
+constructor_body --> LBRACE RBRACE
+explicit_constructor_invocation --> THIS LPAREN argument_list_opt RPAREN SEMICOLON
+explicit_constructor_invocation --> SUPERT LPAREN argument_list_opt RPAREN SEMICOLON
+explicit_constructor_invocation --> primary DOT THIS LPAREN argument_list_opt RPAREN SEMICOLON
+explicit_constructor_invocation --> primary DOT SUPERT LPAREN argument_list_opt RPAREN SEMICOLON
+
+interface_declaration --> modifiers_opt INTERFACE IDENTIFIER generic_declaration? extends_interfaces_opt interface_body
+
+extends_interfaces_opt -->   
+extends_interfaces_opt --> extends_interfaces
+extends_interfaces --> EXTENDS interface_type
+extends_interfaces --> extends_interfaces COMMA interface_type
+interface_body --> LBRACE interface_member_declarations_opt RBRACE
+interface_member_declarations_opt -->   
+interface_member_declarations_opt --> interface_member_declarations
+interface_member_declarations --> interface_member_declaration
+interface_member_declarations --> interface_member_declarations interface_member_declaration
+interface_member_declaration --> constant_declaration
+interface_member_declaration --> abstract_method_declaration
+interface_member_declaration --> class_declaration
+interface_member_declaration --> interface_declaration
+interface_member_declaration --> SEMICOLON
+constant_declaration --> field_declaration
+abstract_method_declaration --> method_header SEMICOLON
+array_initializer --> LBRACE variable_initializers COMMA RBRACE
+array_initializer --> LBRACE variable_initializers RBRACE
+array_initializer --> LBRACE COMMA RBRACE
+array_initializer --> LBRACE RBRACE
+variable_initializers --> variable_initializer
+variable_initializers --> variable_initializers COMMA variable_initializer
+
+block --> LBRACE block_statements_opt RBRACE
+block_statements_opt -->   
+block_statements_opt --> block_statements
+block_statements --> block_statement
+block_statements --> block_statements block_statement
+block_statement --> local_variable_declaration_statement
+block_statement --> statement
+block_statement --> class_declaration
+block_statement --> interface_declaration
+local_variable_declaration_statement --> local_variable_declaration SEMICOLON
+
+
+local_variable_declaration --> typexpr variable_declarators
+local_variable_declaration --> FINAL typexpr variable_declarators
+local_variable_declaration --> typexpr type_arguments variable_declarators
+local_variable_declaration --> FINAL typexpr type_arguments variable_declarators
+
+
+
+statement --> statement_without_trailing_substatement
+statement --> labeled_statement
+statement --> if_then_statement
+statement --> if_then_else_statement
+statement --> while_statement
+statement --> for_statement
+statement_no_short_if --> statement_without_trailing_substatement
+statement_no_short_if --> labeled_statement_no_short_if
+statement_no_short_if --> if_then_else_statement_no_short_if
+statement_no_short_if --> while_statement_no_short_if
+statement_no_short_if --> for_statement_no_short_if
+statement_without_trailing_substatement --> block
+statement_without_trailing_substatement --> empty_statement
+statement_without_trailing_substatement --> expression_statement
+statement_without_trailing_substatement --> switch_statement
+statement_without_trailing_substatement --> do_statement
+statement_without_trailing_substatement --> break_statement
+statement_without_trailing_substatement --> continue_statement
+statement_without_trailing_substatement --> return_statement
+statement_without_trailing_substatement --> synchronized_statement
+statement_without_trailing_substatement --> throw_statement
+statement_without_trailing_substatement --> try_statement
+statement_without_trailing_substatement --> assert_statement
+empty_statement --> SEMICOLON
+labeled_statement --> IDENTIFIER COLON statement
+labeled_statement_no_short_if --> IDENTIFIER COLON statement_no_short_if
+expression_statement --> statement_expression SEMICOLON
+statement_expression --> assignment
+statement_expression --> preincrement_expression
+statement_expression --> predecrement_expression
+statement_expression --> postincrement_expression
+statement_expression --> postdecrement_expression
+statement_expression --> method_invocation
+statement_expression --> class_instance_creation_expression
+if_then_statement --> IF LPAREN expression RPAREN statement
+if_then_else_statement --> IF LPAREN expression RPAREN statement_no_short_if ELSE statement
+if_then_else_statement_no_short_if --> IF LPAREN expression RPAREN statement_no_short_if ELSE statement_no_short_if
+switch_statement --> SWITCH LPAREN expression RPAREN switch_block
+switch_block --> LBRACE switch_block_statement_groups switch_labels RBRACE
+switch_block --> LBRACE switch_block_statement_groups RBRACE
+switch_block --> LBRACE switch_labels RBRACE
+switch_block --> LBRACE RBRACE
+switch_block_statement_groups --> switch_block_statement_group
+switch_block_statement_groups --> switch_block_statement_groups switch_block_statement_group
+switch_block_statement_group --> switch_labels block_statements
+switch_labels --> switch_label
+switch_labels --> switch_labels switch_label
+switch_label --> CASE constant_expression COLON
+switch_label --> DEFAULT COLON
+while_statement --> WHILE LPAREN expression RPAREN statement
+while_statement_no_short_if --> WHILE LPAREN expression RPAREN statement_no_short_if
+do_statement --> DO statement WHILE LPAREN expression RPAREN SEMICOLON
+
+for_statement --> FOR LPAREN for_init_opt SEMICOLON expression_opt SEMICOLON for_update_opt RPAREN statement
+
+for_statement_no_short_if --> FOR LPAREN for_init_opt SEMICOLON expression_opt SEMICOLON for_update_opt RPAREN statement_no_short_if
+
+# for-each loop
+for_statement --> FOR LPAREN typexpr IDENTIFIER COLON expression RPAREN statement
+for_statement_no_short_if --> FOR LPAREN typexpr IDENTIFIER COLON expression RPAREN statement_no_short_if
+
+
+for_init_opt -->   
+for_init_opt --> for_init
+for_init --> statement_expression_list
+for_init --> local_variable_declaration
+for_update_opt -->   
+for_update_opt --> for_update
+for_update --> statement_expression_list
+statement_expression_list --> statement_expression
+statement_expression_list --> statement_expression_list COMMA statement_expression
+identifier_opt -->   
+identifier_opt --> IDENTIFIER
+break_statement --> BREAK identifier_opt SEMICOLON
+continue_statement --> CONTINUE identifier_opt SEMICOLON
+return_statement --> RETURN expression_opt SEMICOLON
+throw_statement --> THROW expression SEMICOLON
+synchronized_statement --> SYNCHRONIZED LPAREN expression RPAREN block
+try_statement --> TRY block catches
+try_statement --> TRY block catches_opt finally
+catches_opt -->   
+catches_opt --> catches
+catches --> catch_clause
+catches --> catches catch_clause
+catch_clause --> CATCH LPAREN formal_parameter RPAREN block
+finally --> FINALLY block
+assert_statement --> ASSERT expression SEMICOLON
+assert_statement --> ASSERT expression COLON expression SEMICOLON
+primary --> primary_no_new_array
+primary --> array_creation_init
+primary --> array_creation_uninit
+primary_no_new_array --> literal
+primary_no_new_array --> THIS
+primary_no_new_array --> LPAREN expression RPAREN
+primary_no_new_array --> class_instance_creation_expression
+primary_no_new_array --> field_access
+primary_no_new_array --> method_invocation
+primary_no_new_array --> array_access
+primary_no_new_array --> primitive_type DOT CLASS
+primary_no_new_array --> VOID DOT CLASS
+primary_no_new_array --> array_type DOT CLASS
+primary_no_new_array --> name DOT CLASS
+primary_no_new_array --> name DOT THIS
+
+
+class_instance_creation_expression --> NEW class_or_interface_type LPAREN argument_list_opt RPAREN
+class_instance_creation_expression --> NEW class_or_interface_type type_arguments LPAREN argument_list_opt RPAREN
+
+class_instance_creation_expression --> NEW class_or_interface_type LPAREN argument_list_opt RPAREN class_body
+class_instance_creation_expression --> NEW class_or_interface_type type_arguments LPAREN argument_list_opt RPAREN class_body
+
+
+class_instance_creation_expression --> primary DOT NEW IDENTIFIER LPAREN argument_list_opt RPAREN
+class_instance_creation_expression --> primary DOT NEW IDENTIFIER LPAREN argument_list_opt RPAREN class_body
+class_instance_creation_expression --> name DOT NEW IDENTIFIER LPAREN argument_list_opt RPAREN
+class_instance_creation_expression --> name DOT NEW IDENTIFIER LPAREN argument_list_opt RPAREN class_body
+argument_list_opt -->   
+argument_list_opt --> argument_list
+argument_list --> expression
+argument_list --> argument_list COMMA expression
+array_creation_uninit --> NEW primitive_type dim_exprs dims_opt
+array_creation_uninit --> NEW class_or_interface_type dim_exprs dims_opt
+array_creation_init --> NEW primitive_type dims array_initializer
+array_creation_init --> NEW class_or_interface_type dims array_initializer
+dim_exprs --> dim_expr
+dim_exprs --> dim_exprs dim_expr
+dim_expr --> LBRACK expression RBRACK
+dims_opt -->   
+dims_opt --> dims
+dims --> LBRACK RBRACK
+dims --> dims LBRACK RBRACK
+field_access --> primary DOT IDENTIFIER
+field_access --> SUPERT DOT IDENTIFIER
+field_access --> name DOT SUPERT DOT IDENTIFIER
+method_invocation --> name LPAREN argument_list_opt RPAREN
+method_invocation --> primary DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+method_invocation --> SUPERT DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+method_invocation --> name DOT SUPERT DOT IDENTIFIER LPAREN argument_list_opt RPAREN
+array_access --> name LBRACK expression RBRACK
+array_access --> primary_no_new_array LBRACK expression RBRACK
+array_access --> array_creation_init LBRACK expression RBRACK
+postfix_expression --> primary
+postfix_expression --> name
+postfix_expression --> postincrement_expression
+postfix_expression --> postdecrement_expression
+postincrement_expression --> postfix_expression PLUSPLUS
+postdecrement_expression --> postfix_expression MINUSMINUS
+unary_expression --> preincrement_expression
+unary_expression --> predecrement_expression
+unary_expression --> PLUS unary_expression
+unary_expression --> MINUS unary_expression
+unary_expression --> unary_expression_not_plus_minus
+preincrement_expression --> PLUSPLUS unary_expression
+predecrement_expression --> MINUSMINUS unary_expression
+unary_expression_not_plus_minus --> postfix_expression
+unary_expression_not_plus_minus --> COMP unary_expression
+unary_expression_not_plus_minus --> NOT unary_expression
+unary_expression_not_plus_minus --> cast_expression
+cast_expression --> LPAREN primitive_type dims_opt RPAREN unary_expression
+cast_expression --> LPAREN expression RPAREN unary_expression_not_plus_minus
+cast_expression --> LPAREN name dims RPAREN unary_expression_not_plus_minus
+multiplicative_expression --> unary_expression
+multiplicative_expression --> multiplicative_expression MULT unary_expression
+multiplicative_expression --> multiplicative_expression DIV unary_expression
+multiplicative_expression --> multiplicative_expression MOD unary_expression
+additive_expression --> multiplicative_expression
+additive_expression --> additive_expression PLUS multiplicative_expression
+additive_expression --> additive_expression MINUS multiplicative_expression
+shift_expression --> additive_expression
+shift_expression --> shift_expression LSHIFT additive_expression
+
+shift_expression --> shift_expression RSHIFT additive_expression
+
+shift_expression --> shift_expression URSHIFT additive_expression
+relational_expression --> shift_expression
+relational_expression --> relational_expression LT shift_expression
+relational_expression --> relational_expression GT shift_expression
+relational_expression --> relational_expression LTEQ shift_expression
+relational_expression --> relational_expression GTEQ shift_expression
+relational_expression --> relational_expression INSTANCEOF reference_type
+equality_expression --> relational_expression
+equality_expression --> equality_expression EQEQ relational_expression
+equality_expression --> equality_expression NOTEQ relational_expression
+and_expression --> equality_expression
+and_expression --> and_expression AND equality_expression
+exclusive_or_expression --> and_expression
+exclusive_or_expression --> exclusive_or_expression XOR and_expression
+inclusive_or_expression --> exclusive_or_expression
+inclusive_or_expression --> inclusive_or_expression OR exclusive_or_expression
+conditional_and_expression --> inclusive_or_expression
+conditional_and_expression --> conditional_and_expression ANDAND inclusive_or_expression
+conditional_or_expression --> conditional_and_expression
+conditional_or_expression --> conditional_or_expression OROR conditional_and_expression
+conditional_expression --> conditional_or_expression
+conditional_expression --> conditional_or_expression QUESTION expression COLON conditional_expression
+assignment_expression --> conditional_expression
+assignment_expression --> assignment
+assignment --> postfix_expression assignment_operator assignment_expression
+assignment_operator --> EQ
+assignment_operator --> MULTEQ
+assignment_operator --> DIVEQ
+assignment_operator --> MODEQ
+assignment_operator --> PLUSEQ
+assignment_operator --> MINUSEQ
+assignment_operator --> LSHIFTEQ
+assignment_operator --> RSHIFTEQ
+assignment_operator --> URSHIFTEQ
+assignment_operator --> ANDEQ
+assignment_operator --> XOREQ
+assignment_operator --> OREQ
+expression_opt -->   
+expression_opt --> expression
+expression --> assignment_expression
+constant_expression --> expression
+
+#BOOLEAN_LITERAL --> TRUE | FALSE
+# added to accommodate generics Vec<HashMap<int>>, >> is not shift operator
+#RSHIFT --> GT GT
+#URSHIFT --> GT GT GT
+
+
+EOF
