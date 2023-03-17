@@ -17,7 +17,7 @@ lexattribute set_line_comment("#")
 
 nonterminal Expr
 nonterminal ExprList
-#nonterminal ExprList Vec<LBox<Expr<'lt>>>
+#nonterminal ExprList Vec<LC<@Expr>>
 nonterminal UnaryExpr : Expr
 nonterminal LetExpr : Expr
 #nonterminal UnaryExpr
@@ -66,19 +66,20 @@ UnaryExpr:Var --> var
 UnaryExpr:Neg --> - UnaryExpr
 UnaryExpr --> LPAREN LetExpr RPAREN
 
-Expr --> UnaryExpr
+Expr --> UnaryExpr       #passthru case
 Expr:Plus--> Expr + Expr
 Expr:Minus --> Expr - Expr
 # testing variant-group
-Expr --> Expr / Expr | Expr * Expr
+Expr --> Expr / Expr | Expr * Expr  # variant group cases
 #Expr --> Expr * Expr
 
 LetExpr --> Expr
 LetExpr:Let --> let var:let_var = Expr:init_value in LetExpr:let_body
 
-ExprList:nil --> 
-ExprList:cons --> LetExpr:car ; ExprList:cdr
-#ExprList --> LetExpr<;+> ;? 
+#ExprList:nil --> 
+#ExprList:cons --> LetExpr:[car] ; ExprList:cdr
+
+ExprList --> LetExpr<;+> ;? 
 
 #ExprList --> { vec![] }
 #ExprList --> ExprList:cdr LetExpr:car ; { cdr.push(car); cdr }

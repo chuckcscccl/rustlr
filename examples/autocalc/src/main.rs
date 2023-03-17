@@ -41,10 +41,12 @@ fn main() {
     });
 
     println!("\nABSYN: {:?}\n", &result4);
-    eval_seq(&newenv(), &result4, 1); // evaluate each expression in sequence
+    //eval_seq(&newenv(), &result4, 1); // evaluate each expression in sequence
                                       //   println!("\nline 10: {}",scanner4.get_line(10).unwrap());
 } //main
 
+
+/*
 /////////// evaluating generated ast
 
 pub enum Env<'t> {
@@ -145,3 +147,4 @@ fn eval_seq<'t>(env: &Rc<Env<'t>>, s: &ExprList, line: usize) -> Option<i64> {
         _ => None,
     } //match
 } //eval_seq
+*/
