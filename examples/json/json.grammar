@@ -1,0 +1,70 @@
+# Rustlr Grammar for JSON: generates lexical scanner, parser and AST types
+auto
+lifetime 'lt
+lexterminal LBRACE {
+lexterminal RBRACE }
+lexterminal LBRACK [
+lexterminal RBRACK ]
+lexterminal LPAREN (
+lexterminal RPAREN )
+lexterminal COLON :
+lexterminal COMMA ,
+lexterminal NULL null
+lexterminal MINUS -
+valueterminal TRUE~ bool~ Alphanum("true")~ true
+valueterminal FALSE~ bool~ Alphanum("false")~ false
+valueterminal STRING~ &'lt str~ Strlit(n)~ &n[1..n.len()-1]
+valueterminal NUM~ i64~ Num(n)~ n
+valueterminal FLOAT~ f64~ Float(n)~ n
+valueterminal BIGNUM~ &'lt str~ BigNumber(n)~ n
+
+nonterminal Integer i64
+nonterminal Floatpt f64
+nonterminal Boolean bool
+nonterminals Value KeyValuePair Number
+nonterminal List : Value
+nonterminal Object HashMap<&'lt str, LBox<@Value>>
+
+topsym Value
+resync COMMA RBRACK RBRACE
+
+Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
+Floatpt --> MINUS?:m FLOAT:n {if m.is_some() {-1.0*n} else {n}}
+# ? generates an Option type in the AST
+Number:Bignum --> MINUS?:m BIGNUM
+Number:Int --> Integer
+Number:Float --> Floatpt
+Boolean --> TRUE | FALSE
+
+Value:Number --> Number
+Value:Boolean --> Boolean
+Value:Str --> STRING
+Value:Objectmap --> Object
+Value --> List
+Value --> NULL
+Value --> LPAREN Value RPAREN
+KeyValuePair --> STRING COLON Value
+List:List --> LBRACK Value<COMMA*> RBRACK
+# <COMMA*> specifies a comma-separated list and generates a vector
+Object ==> LBRACE KeyValuePair<COMMA*>:entries RBRACE {
+  let mut kvmap = HashMap::new();
+  for (mut lbx) in entries {
+    if let KeyValuePair(k,v) = lbx.take() { kvmap.insert(k,v); }
+  }
+  kvmap
+} <==
+
+# The following line is injected into json_ast.rs
+$use std::collections::HashMap;
+
+# The following lines are injected into the parser
+!mod json_ast;
+!fn main()  {
+!  let srcfile = std::env::args().nth(1).unwrap(); // command-line arg  
+!  let source = LexSource::new(&srcfile).unwrap();
+!  let mut scanner1 = jsonlexer::from_source(&source);
+!  let mut parser1 = make_parser();
+!  let parseresult = parse_with(&mut parser1, &mut scanner1);
+!  let ast = parseresult.unwrap_or_else(|x|{println!("Parsing errors encountered; results not guaranteed.."); x});
+!   println!("\nAST: {:?}\n",&ast);
+!}//main

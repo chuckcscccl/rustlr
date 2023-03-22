@@ -321,8 +321,13 @@ impl Grammar
      let mut ASTS = String::from("\n"); // all asts to be generated
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
-          else {String::new()};
-          
+                 else {String::new()};
+     let mut groupvariants:HashMap<usize,HashSet<String>> = HashMap::new();
+     /*
+     for (_,ntd) in toextend.iter() {
+       groupvariants.insert(*ntd,HashSet::new());
+     }
+     */
      //main loop: for each nt and its rules
      for (nt,NTrules) in self.Rulesfor.iter() // for each nt and its rules
      {
@@ -334,7 +339,12 @@ impl Grammar
 	let mut AST = if willextend {String::new()}
           else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
         let NT = &self.Symbols[nti].sym;
-        let mut groupenums = HashSet::new(); // for variant-groups
+	let mut targetnt = nti;
+	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
+	if !groupvariants.contains_key(&targetnt) {
+	  groupvariants.insert(targetnt,HashSet::new());
+	}
+	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
         // group enums are only generated for tuple variants, the presence
         // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs
@@ -400,23 +410,14 @@ impl Grammar
                   nullenum = true;
                 } else {
                   enumvar.push_str("&'static str,");
-                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+		  let toinsert = self.Rules[*ri].lhs.label.clone();
+println!("inserting {} to groupenums, had len {}",&toinsert, groupenums.len());
+                  groupenums.insert(toinsert);
                 }
                 ACTION.push_str(&format!("\"{}\",",groupoper));
               }
             } else {
               enumvar.push('{'); ACTION.push('{');
-              /*
-              if groupoper.len()>0 {
-                let operlab = self.Rules[*ri].lhs.label.to_lowercase();
-                if groupenums.contains(&self.Rules[*ri].lhs.label) {
-                  nullenum = true;
-                } else
-                   enumvar.push_str(&format!("{}:&'static str,",&operlab));
-                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
-                }
-                ACTION.push_str(&format!("{}:\"{}\",",&operlab,groupoper));
-              */
             }  // struct variant
 	  }//rhsexists
 	  let mut rhsi = 0; // right-side index
