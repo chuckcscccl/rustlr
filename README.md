@@ -26,7 +26,7 @@ gradually become available.
 
 ### Quick Example: Arithmetic Expressions and Their Abstract Syntax
 
-The following is a Rustlr grammar:
+The following are the contents of a Rustlr grammar file, `simplecalc.grammar`:
 ```
 auto
 terminals + * - / ( )
@@ -77,14 +77,16 @@ impl Default for E { fn default()->Self { E::E_Nothing } }
 ```
 The form of the AST type(s) was determined by additional declarations within
 the grammar, including `variant-group` and the labels given to left-hand
-side non-terminal symbols (`Neg` and `Val`). The enum
+side non-terminal symbols (`Neg` and `Val`).  The `variant-group` declaration
+combined what would-have-been four enum variants into a single one.
+The enum
 variants generated from the productions for `T` and `F` are merged into the
 type for `E` by the declarations `nonterminal T : E` and `nonterminal F : E`.
 Specifying operator precedence and associativity instead of using the `T`
 and `F` categories is also supported.
 
-Rustlr contains a *custom smart pointer*
-[LBox](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html)
+Rustlr contains a *custom smart pointer,* 
+[LBox](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html),
 that automatically contains the line and column position of the start
 of the AST construct in the original source.  This information is
 usually required beyond the parsing stage.
@@ -102,8 +104,9 @@ the generated parser file.  To run this example,
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
   2. Create a Cargo crate with at least **`rustlr = "0.4"`** in its dependencies
      (**`cargo add rustlr`**)
-  3. save the grammar in the crate as **`simplecalc.grammar`**
-     (must have `.grammar` suffix).
+  3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
+  The filename determines the names of the modules created, and must 
+  have a `.grammar` suffix.
   4. Run rustlr in the crate with **`rustlr simplecalc.grammar -o src/main.rs`**
   5. **`cargo run`**
 
