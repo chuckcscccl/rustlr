@@ -57,17 +57,12 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
   {
      ZCRProduction {
        lhs : lh,
-       Ruleaction : |p|{/*println!("EXECUTING DEFAULT!!");*/ <AT>::default()},
+       Ruleaction : |p|{ <AT>::default() },
      }
   }
 }//impl ZCRProduction
 
-/// these structures are what's on the parse stack.  When writing a
-/// grammar rule such as `E --> E:a + E:b`, the variables a and b will
-/// be bound to values of this type, and thus inside the semantic actions
-/// one would need to use `a.value` to extract the value, which is of the
-/// declared 'absyntype' of the grammar.  Alternatively, one can use a
-/// pattern:  `E:@a@ + E:@b@` to bind a and b directly to the values.
+/// These structures are what's on the parse stack.
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
    si : usize, // state index

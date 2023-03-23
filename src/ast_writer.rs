@@ -411,7 +411,7 @@ impl Grammar
                 } else {
                   enumvar.push_str("&'static str,");
 		  let toinsert = self.Rules[*ri].lhs.label.clone();
-println!("inserting {} to groupenums, had len {}",&toinsert, groupenums.len());
+//println!("inserting {} to groupenums, had len {}",&toinsert, groupenums.len());
                   groupenums.insert(toinsert);
                 }
                 ACTION.push_str(&format!("\"{}\",",groupoper));
