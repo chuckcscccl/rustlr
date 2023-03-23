@@ -33,7 +33,7 @@ terminals + * - / ( )
 # defines terminals with values and how to extract values from tokens:
 valueterminal VAL ~ i32 ~ Num(n) ~ n as i32  
 nonterminal E
-nonterminal T : E  # specifies that AST for T should merge into E
+nonterminal T : E
 nonterminal F : E
 startsymbol E
 variant-group Operator + - * /
@@ -100,12 +100,12 @@ that demonstrates how to invoke the parser directly into
 the generated parser file.  To run this example,
 
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
-  2. Create a Cargo crate with **`rustlr = "0.4"`** in its dependencies
-     (or `cargo add rustlr`)
-  3. save the grammar in the crate as `simplecalc.grammar`
+  2. Create a Cargo crate with at least **`rustlr = "0.4"`** in its dependencies
+     (**`cargo add rustlr`**)
+  3. save the grammar in the crate as **`simplecalc.grammar`**
      (must have `.grammar` suffix).
   4. Run rustlr in the crate with **`rustlr simplecalc.grammar -o src/main.rs`**
-  5. `cargo run`
+  5. **`cargo run`**
 
 The expected output is
 ```
