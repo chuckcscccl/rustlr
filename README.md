@@ -26,7 +26,7 @@ gradually become available.
 
 ### Quick Example: Arithmetic Expressions and Their Abstract Syntax
 
-The following are the contents of a Rustlr grammar file, `simplecalc.grammar`:
+The following are the contents of a Rustlr grammar file, [`simplecalc.grammar`](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar):
 ```
 auto
 terminals + * - / ( )
@@ -78,8 +78,8 @@ impl Default for E { fn default()->Self { E::E_Nothing } }
 The form of the AST type(s) was determined by additional declarations within
 the grammar, including `variant-group` and the labels given to left-hand
 side non-terminal symbols (`Neg` and `Val`).  The `variant-group` declaration
-combined what would-have-been four enum variants into a single one.
-The enum
+combined what would-have-been four enum variants into a single "Operator"
+variant.  The enum
 variants generated from the productions for `T` and `F` are merged into the
 type for `E` by the declarations `nonterminal T : E` and `nonterminal F : E`.
 Specifying operator precedence and associativity instead of using the `T`

@@ -365,7 +365,7 @@ impl Grammar
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
-          
+     let mut groupvariants:HashMap<usize,HashSet<String>> = HashMap::new();
      //main loop: for each nt and its rules
      for (nt,NTrules) in self.Rulesfor.iter() // for each nt and its rules
      {
@@ -377,7 +377,14 @@ impl Grammar
 	let mut AST = if willextend {String::new()}
           else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
         let NT = &self.Symbols[nti].sym;
-        let mut groupenums = HashSet::new(); // for variant-groups
+
+	let mut targetnt = nti; // actual nt for enums
+ 	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
+ 	if !groupvariants.contains_key(&targetnt) {
+ 	  groupvariants.insert(targetnt,HashSet::new());
+ 	}
+ 	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
+        //let mut groupenums = HashSet::new(); // for variant-groups
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           let mut nolhslabel=false;

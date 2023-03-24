@@ -311,7 +311,7 @@ impl Grammar
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
-          
+     let mut groupvariants:HashMap<usize,HashSet<String>> = HashMap::new();
      //main loop: for each nt and its rules
      for (nt,NTrules) in self.Rulesfor.iter() // for each nt and its rules
      {
@@ -329,7 +329,13 @@ impl Grammar
 	    format!("//enum\nand {} =\n",&ntsym.rusttype)	  
 	  };
         let NT = &self.Symbols[nti].sym;
-        let mut groupenums = HashSet::new(); // for variant-groups
+	let mut targetnt = nti;
+ 	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
+ 	if !groupvariants.contains_key(&targetnt) {
+ 	  groupvariants.insert(targetnt,HashSet::new());
+ 	}
+ 	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
+        //let mut groupenums = HashSet::new(); // for variant-groups
         // group enums are only generated for tuple variants, the presence
         // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs
