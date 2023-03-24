@@ -1,9 +1,0 @@
-# grammar to nowhere
-
-nonterminal A
-terminal a
-topsym A
-
-A --> a A
-
-EOF
