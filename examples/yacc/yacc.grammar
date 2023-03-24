@@ -17,7 +17,7 @@ $}
 
 externtype symbol_table<'lt>
 
-lexconditional shared_state.borrow().skip ~ skip_to("$_RREOF_$");
+lexconditional self.shared_state.borrow().skip ~ skip_to("$_RREOF_$");
 
 lexattribute add_custom("literal",r"^'.'")
 lexattribute add_custom("%type",r"^%type")
@@ -35,7 +35,7 @@ lexattribute add_custom("decls",r"^(?m)^%\{(?s)[^%\}]*%\}")
 #valueterminal ACTION ~ &'lt str ~ Custom("action",d) ~ d
 
 # this works but may be inefficient
-lexconditional shared_state.borrow().skip_match ~ skip_match("{","}",1,"-->")
+lexconditional self.shared_state.borrow().skip_match ~ skip_match("{","}",1,"-->")
 valueterminal ACTION ~ &'lt str ~ Skipmatched(d) ~ d
 
 
