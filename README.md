@@ -30,7 +30,7 @@ The following are the contents of a Rustlr grammar file, [`simplecalc.grammar`](
 ```
 auto
 terminals + * - / ( )
-# defines terminals with values and how to extract values from tokens:
+# defines terminals with values and how to extract value from tokens:
 valueterminal VAL ~ i32 ~ Num(n) ~ n as i32  
 nonterminal E
 nonterminal T : E
