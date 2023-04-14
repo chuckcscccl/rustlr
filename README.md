@@ -107,7 +107,8 @@ the generated parser file.  To run this example,
   3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
   The filename determines the names of the modules created, and must 
   have a `.grammar` suffix.
-  4. Run rustlr in the crate with **`rustlr simplecalc.grammar -o src/main.rs`**
+  4. Run rustlr in the crate with
+  >  **`rustlr simplecalc.grammar -o src/main.rs`**
   5. **`cargo run`**
 
 The expected output is
