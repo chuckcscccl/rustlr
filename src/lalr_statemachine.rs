@@ -122,7 +122,7 @@ impl Grammar  // Grammar additions
             //println!("symbol {}, index {}", &Gs[i].sym, Gs[i].index);
             let firstgsym = self.First.get(&Gs[i].index).unwrap();
 	    for s in firstgsym { Fseq.insert(*s); }
-	    if !self.Nullable.contains(&Gs[i].sym) {nullable=false;}
+	    if !self.Nullable.contains(&Gs[i].index) {nullable=false;}
          }
 	 i += 1;
      }//while
@@ -136,7 +136,7 @@ impl Grammar  // Grammar additions
   pub fn Nullableseq(&self, Gs:&[Gsym]) -> bool
   {
      for g in Gs {
-       if g.terminal || !self.Nullable.contains(&g.sym) {return false;}
+       if g.terminal || !self.Nullable.contains(&g.index) {return false;}
      }
      return true;
   }

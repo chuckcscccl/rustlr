@@ -73,7 +73,6 @@ pub struct Grule  // struct for a grammar rule
   pub rhs : Vec<Gsym>, // right-hand side symbols (cloned from Symbols)
   pub action : String, //string representation of Ruleaction
   pub precedence : i32, // set to rhs symbol with highest |precedence|
-//  pub iprecedence : i8, // for internally generated rules to support REs
 }
 impl Grule
 {
@@ -84,7 +83,6 @@ impl Grule
        rhs : Vec::new(),
        action : String::default(),
        precedence : DEFAULTPRECEDENCE,
-//       iprecedence : 0,
      }
   }
   pub fn from_lhs(nt:&Gsym) -> Grule
@@ -94,7 +92,6 @@ impl Grule
        rhs : Vec::new(),
        action : String::default(),
        precedence : DEFAULTPRECEDENCE,
-//       iprecedence : 0,
      }     
   }
 }//impl Grule
@@ -118,7 +115,7 @@ pub struct Grammar
   pub Symhash : HashMap<String,usize>,
   pub Rules: Vec<Grule>,
   pub topsym : String,
-  pub Nullable : HashSet<String>,
+  pub Nullable : HashSet<usize>,
   pub First : HashMap<usize,HashSet<usize>>,
   pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
@@ -1435,10 +1432,7 @@ strtok is bstokens[i], but will change
 // last rule is always start rule and first state is start state
 
 
-//////////////////////  Nullable
-
-//// also sets the RulesFor map for easy lookup of all the rules for
-//// a non-terminal  **no-longer done!
+//////////////////////  Nullable set computation
 impl Grammar
 {
   pub fn compute_NullableRf(&mut self)
@@ -1452,23 +1446,13 @@ impl Grammar
        for rule in &self.Rules 
        {
           let mut addornot = true;
-          for gs in &rule.rhs 
-          {
-             if gs.terminal || !self.Nullable.contains(&gs.sym)
+          for gs in &rule.rhs {
+             if gs.terminal || !self.Nullable.contains(&gs.index)
              {addornot=false; break;}
           } // for each rhs symbol
 	  if (addornot) {
-             changed = self.Nullable.insert(rule.lhs.sym.clone()) || changed;
-             //if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
+             changed = self.Nullable.insert(rule.lhs.index) || changed;
           }
-/*
-          // add rule index to Rulesfor map:
-          if let None = self.Rulesfor.get(&rule.lhs.sym) {
-             self.Rulesfor.insert(rule.lhs.sym.clone(),HashSet::new());
-          }
-          let ruleset = self.Rulesfor.get_mut(&rule.lhs.sym).unwrap();
-          ruleset.insert(rulei);
-*/
           rulei += 1;
        } // for each rule
      } //while changed
@@ -1509,7 +1493,7 @@ impl Grammar
                   }
               } // if first set exists for gs
             } // non-terminal 
-           if gs.terminal || !self.Nullable.contains(&gs.sym) {isnullable=false;}
+           if gs.terminal || !self.Nullable.contains(&gs.index) {isnullable=false;}
 	    i += 1;
          } // while loop look at rhs until not nullable
        } // for each rule
@@ -1537,7 +1521,7 @@ impl Grammar
             //println!("symbol {}, index {}", &Gs[i].sym, Gs[i].index);
             let firstgsym = self.First.get(&Gs[i].index).unwrap();
 	    for s in firstgsym { Fseq.insert(*s); }
-	    if !self.Nullable.contains(&Gs[i].sym) {nullable=false;}
+	    if !self.Nullable.contains(&Gs[i].index) {nullable=false;}
          }
 	 i += 1;
      }//while
