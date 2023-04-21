@@ -1,31 +1,29 @@
 auto
-terminals + * - / ( )
-# defines terminals with values and how to extract values from tokens:
-valueterminal VAL ~ i32 ~ Num(n) ~ n as i32  
+terminals + * - / ( )   # verbatim terminal symbols
+valterminal INT i32     # terminal symbol with value
 nonterminal E
 nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
 startsymbol E
-variant-group Operator + - * /
+variant-group BinaryOp + - * /   # simplifies AST
 
 # production rules:
 E --> E + T  | E - T | T
 T --> T * F | T / F | F
 F:Neg --> - F
-F:Val --> VAL
+F:Val --> INT
 F --> ( E )
 
-# The following lines are injected verbatim into the parser
-!mod simplecalc_ast;
+!mod simplecalc_ast; // !-lines are injected verbatim into the parser
 !fn main()  {
-!  let mut scanner1 = simplecalclexer::from_str("3+2*4");
+!  let mut scanner1 = simplecalclexer::from_str("10+-2*4");
 !  let mut parser1 = make_parser();
 !  let parseresult = parse_with(&mut parser1, &mut scanner1);
 !  let ast =
-!     parseresult.
-!     unwrap_or_else(|x| {
-!        println!("Parsing errors encountered; results not guaranteed..");
-!        x
-!     });
+!    parseresult.
+!    unwrap_or_else(|x| {
+!       println!("Parsing errors encountered; results not guaranteed..");
+!       x
+!    });
 !  println!("\nAST: {:?}\n",&ast);
 !}//main

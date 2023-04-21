@@ -26,37 +26,35 @@ gradually become available.
 
 ### Quick Example: Arithmetic Expressions and Their Abstract Syntax
 
-The following are the contents of a Rustlr grammar file, [`simplecalc.grammar`](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar):
+The following are the contents of a Rustlr grammar, [`simplecalc.grammar`](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar):
 ```
 auto
-terminals + * - / ( )
-# defines terminals with values and how to extract value from tokens:
-valueterminal VAL ~ i32 ~ Num(n) ~ n as i32  
+terminals + * - / ( )   # verbatim terminal symbols
+valterminal INT i32     # terminal symbol with value
 nonterminal E
-nonterminal T : E
+nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
 startsymbol E
-variant-group Operator + - * /
+variant-group BinaryOp + - * /   # simplifies AST
 
 # production rules:
 E --> E + T  | E - T | T
 T --> T * F | T / F | F
 F:Neg --> - F
-F:Val --> VAL
+F:Val --> INT
 F --> ( E )
 
-# The following lines are injected verbatim into the parser
-!mod simplecalc_ast;
+!mod simplecalc_ast; // !-lines are injected verbatim into the parser
 !fn main()  {
-!  let mut scanner1 = simplecalclexer::from_str("3+2*4");
+!  let mut scanner1 = simplecalclexer::from_str("10+-2*4");
 !  let mut parser1 = make_parser();
 !  let parseresult = parse_with(&mut parser1, &mut scanner1);
 !  let ast =
-!     parseresult.
-!     unwrap_or_else(|x| {
-!        println!("Parsing errors encountered; results not guaranteed..");
-!        x
-!     });
+!    parseresult.
+!    unwrap_or_else(|x| {
+!       println!("Parsing errors encountered; results not guaranteed..");
+!       x
+!    });
 !  println!("\nAST: {:?}\n",&ast);
 !}//main
 ```
@@ -68,7 +66,7 @@ the type.
 ```
 #[derive(Debug)]
 pub enum E {
-  Operator(&'static str,LBox<E>,LBox<E>),
+  BinaryOp(&'static str,LBox<E>,LBox<E>),
   Neg(LBox<E>),
   Val(i32),
   E_Nothing,
@@ -78,7 +76,7 @@ impl Default for E { fn default()->Self { E::E_Nothing } }
 The form of the AST type(s) was determined by additional declarations within
 the grammar, including `variant-group` and the labels given to left-hand
 side non-terminal symbols (`Neg` and `Val`).  The `variant-group` declaration
-combined what would-have-been four enum variants into a single "Operator"
+combined what would-have-been four enum variants into a single "BinaryOp"
 variant.  The enum
 variants generated from the productions for `T` and `F` are merged into the
 type for `E` by the declarations `nonterminal T : E` and `nonterminal F : E`.
@@ -102,8 +100,7 @@ that demonstrates how to invoke the parser directly into
 the generated parser file.  To run this example,
 
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
-  2. Create a Cargo crate with at least **`rustlr = "0.4"`** in its dependencies
-     (**`cargo add rustlr`**)
+  2. Create a Cargo crate and **`cargo add rustlr`** inside the crate
   3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
   The filename determines the names of the modules created, and must 
   have a `.grammar` suffix.
@@ -113,8 +110,7 @@ the generated parser file.  To run this example,
 
 The expected output is
 ```
-AST: Operator("+", Val(3), Operator("*", Val(2), Val(4)))
-
+AST: BinaryOp("+", Val(10), BinaryOp("*", Neg(Val(2)), Val(4)))
 ```
 
 Please consult the [tutorial](https://chuckcscccl.github.io/rustlr_project/)

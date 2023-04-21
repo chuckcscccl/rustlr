@@ -114,7 +114,7 @@ pub struct Grammar
   pub Symbols : Vec<Gsym>,
   pub Symhash : HashMap<String,usize>,
   pub Rules: Vec<Grule>,
-  pub topsym : String,
+  pub topsym : usize,
   pub Nullable : HashSet<usize>,
   pub First : HashMap<usize,HashSet<usize>>,
   pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
@@ -167,7 +167,7 @@ impl Grammar
        Symbols: Vec::new(),           // grammar symbols
        Symhash: HashMap::new(),       
        Rules: Vec::new(),                 // production rules
-       topsym : String::default(),        // top symbol
+       topsym : usize::MAX,
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
@@ -292,6 +292,10 @@ impl Grammar
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
      self.Symbols.push(wildcard); // wildcard is first symbol.
      let mut markersexist = false; //delay markers exist
+     let mut inttypes = HashSet::with_capacity(10);
+     for x in ["i8","i16","i32","i64","u8","u16","u32","u64","isize","usize"] {
+       inttypes.insert(x);
+     }
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -339,8 +343,9 @@ impl Grammar
          let toksplit = line.split_whitespace();
          let mut stokens:Vec<&str> = toksplit.collect();
          if stokens.len()<1 {continue;}
-                                    
-         match stokens[0] {        // main match clause
+
+         //////////////////////////////// main match clause
+         match stokens[0] {
             "!" => {  // place only in parser file
                let pbi = line.find('!').unwrap();
                self.Extras.push_str(&line[pbi+1..]);
@@ -428,7 +433,6 @@ impl Grammar
                  let copynt = nttype[1..].trim();
                  let copynti = *self.Symhash.get(copynt).expect(&format!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum));
                  if self.Symbols[copynti].rusttype.starts_with(':') {
-//                   eprintln!("WARNING: TYPE EXTENSIONS ARE NOT TRANSITIVE: THIS MAY NOT WORK, LINE {}\n\n",linenum);
                    nttype = self.Symbols[copynti].rusttype.clone();
                  } else {break;}
                  limit -=1;
@@ -495,7 +499,7 @@ impl Grammar
                if stage>1 {eprintln!("Grammar start symbol must be defined before production rules, line {}",linenum); return false;}  else {stage=1;}
                match self.Symhash.get(stokens[1]) {
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
-              	    self.topsym = String::from(stokens[1]);
+              	    self.topsym = *tsi; //String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
                     if toptype != &self.Absyntype && !self.genabsyn && toptype.len()>0 {
                        eprintln!("WARNING: Type of Grammar start symbol {} set to {}; you should declare the valuetype unless using -auto mode.",stokens[1],&self.Absyntype);
@@ -639,7 +643,7 @@ impl Grammar
 	       }  // valueterminal ID: String: Alphanum(n) if ... : n.to_owned()
                let termname = dtokens[0].trim();
                  if self.Symhash.contains_key(termname) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",termname,linenum);
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
                    continue;
                  }               
                let mut newterm = Gsym::new(termname,true);
@@ -667,6 +671,61 @@ impl Grammar
 	       self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //valueterminal
+            "valterminal" => { //simplified valueterminal
+               if stokens.len()<3 || stage!=0 {
+                 eprintln!("WARNING: Invalid valterminal declaration on line {} ignored", linenum);
+                 continue;
+               }
+               let pos = line.find(stokens[1]).unwrap()+stokens[1].len();
+               let termname = stokens[1]; // copy of &str
+               let termtype0 = line[pos..].trim();
+               let mut termtype = termtype0.to_lowercase(); //String
+               let mut tokenform = "Num(_tt)"; // default
+               let mut valform = "_tt".to_owned();
+               if self.Symhash.contains_key(termname) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
+                   continue;
+               }//check if already declared
+               let mut newterm = Gsym::new(termname,true);
+               newterm.index = self.Symbols.len();
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
+               if termtype.starts_with("alphanum") || (self.lifetime.len()>0 
+                    && &termtype==&format!("&{} str",&self.lifetime)) {
+                 if self.lifetime.len()==0 { self.lifetime="'lt".to_owned(); }
+                 termtype = format!("&{} str",&self.lifetime);
+                 newterm.rusttype = termtype;
+                 tokenform = "Alphanum(_tt)"; //valform stays "_tt"
+                 self.haslt_base.insert(newterm.index);
+               }//alphanum type, set lifetime if necessary
+               else if &termtype=="string literal" || &termtype=="strlit" {
+                 if self.lifetime.len()==0 {self.lifetime="'lt".to_owned();}
+                 termtype = format!("&{} str",&self.lifetime);
+                 newterm.rusttype = termtype;
+                 tokenform = "Strlit(_tt)";
+                 self.haslt_base.insert(newterm.index);
+               }
+               else if &termtype=="f32" || &termtype=="f64" {
+                 tokenform = "Float(_tt)";
+                 if &termtype=="f32" {valform = "_tt as f32".to_owned();}
+                 newterm.rusttype = termtype;
+               }
+               else if inttypes.contains(&termtype[..]) {
+                 if &termtype!="i64" {
+                   valform=format!("_tt as {}",&termtype);
+                 }
+                 newterm.rusttype = termtype;                 
+               }
+               else {
+                 eprintln!("ERROR: type '{}' on line {} cannot be used with 'valterminal'; consider using 'valueterminal' or 'lexattribute add_custom'",termtype0,linenum);
+                 return false;
+               }
+               if &newterm.rusttype!=&self.Absyntype {self.sametype=false;}
+               self.enumhash.insert(newterm.rusttype.clone(),ntcx); ntcx+=1;
+               self.Symbols.push(newterm);
+               self.Lexvals.push((termname.to_string(),tokenform.to_owned(),valform));
+               self.Haslexval.insert(termname.to_string());
+	       self.genlex = true;
+            }, //valterminal - simplified form of valueterminal
             "lexterminal" => {
                if stokens.len()!=3 {
                eprintln!("MALFORMED lexterminal declaration line {}: a terminal name and a lexical form are required",linenum); return false;
@@ -1365,8 +1424,11 @@ strtok is bstokens[i], but will change
 //   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+3);
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
-//     self.Symbols.push(anyerr.clone());     
-     let topgsym = &self.Symbols[*self.Symhash.get(&self.topsym).expect("GRAMMAR START SYMBOL (topsym) NOT DECLARED")];
+     if self.topsym == usize::MAX {
+       eprintln!("GRAMMAR START SYMBOL NOT DECLARED");
+       return false;
+     }
+     let topgsym = &self.Symbols[self.topsym]; //self.Symbols.get(self.topsym).expect("GRAMMAR START SYMBOL (topsym) NOT DECLARED");
      let startrule = Grule {  // START-->topsym EOF
         lhs:startnt,
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
