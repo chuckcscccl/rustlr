@@ -689,16 +689,15 @@ impl Grammar
                let mut newterm = Gsym::new(termname,true);
                newterm.index = self.Symbols.len();
                self.Symhash.insert(termname.to_owned(),self.Symbols.len());
-               if termtype.starts_with("alphanum") || (self.lifetime.len()>0 
-                    && &termtype==&format!("&{} str",&self.lifetime)) {
-                 if self.lifetime.len()==0 { self.lifetime="'lt".to_owned(); }
+               if termtype.starts_with("alphanum") {
+                 if self.lifetime.len()==0 { self.lifetime="'input_lt".to_owned(); }
                  termtype = format!("&{} str",&self.lifetime);
                  newterm.rusttype = termtype;
                  tokenform = "Alphanum(_tt)"; //valform stays "_tt"
                  self.haslt_base.insert(newterm.index);
                }//alphanum type, set lifetime if necessary
                else if &termtype=="string literal" || &termtype=="strlit" {
-                 if self.lifetime.len()==0 {self.lifetime="'lt".to_owned();}
+                 if self.lifetime.len()==0 {self.lifetime="'input_lt".to_owned();}
                  termtype = format!("&{} str",&self.lifetime);
                  newterm.rusttype = termtype;
                  tokenform = "Strlit(_tt)";

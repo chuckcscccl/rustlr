@@ -21,6 +21,10 @@ to be written that's closer to EBNF syntax.
 language-analysis tools.  Parser generation for other such languages will
 gradually become available.
 
+Rustlr aims to simplify the creation of precise and efficient parsers and
+will continue to evolve and incorporate new features, though backwards
+compatibility will be maintained as much as possible.
+
 <p>
 
 
