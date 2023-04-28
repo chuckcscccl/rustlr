@@ -24,7 +24,7 @@ pub const NONASSOCBIT:i32 = -1 - 0x40000000; // less than this means nonassoc
 // if lev<NONASSOCIBT, true precedence level = (lev-NONASSOCIBIT)*-1
 pub const TRACE:usize = 0; //deprecated
 
-#[derive(Clone)]
+#[derive(Clone,Debug)]
 pub struct Gsym // struct for a grammar symbol
 {
   pub sym : String,
@@ -73,7 +73,6 @@ pub struct Grule  // struct for a grammar rule
   pub rhs : Vec<Gsym>, // right-hand side symbols (cloned from Symbols)
   pub action : String, //string representation of Ruleaction
   pub precedence : i32, // set to rhs symbol with highest |precedence|
-//  pub iprecedence : i8, // for internally generated rules to support REs
 }
 impl Grule
 {
@@ -84,7 +83,6 @@ impl Grule
        rhs : Vec::new(),
        action : String::default(),
        precedence : DEFAULTPRECEDENCE,
-//       iprecedence : 0,
      }
   }
   pub fn from_lhs(nt:&Gsym) -> Grule
@@ -94,7 +92,6 @@ impl Grule
        rhs : Vec::new(),
        action : String::default(),
        precedence : DEFAULTPRECEDENCE,
-//       iprecedence : 0,
      }     
   }
 }//impl Grule
@@ -117,8 +114,8 @@ pub struct Grammar
   pub Symbols : Vec<Gsym>,
   pub Symhash : HashMap<String,usize>,
   pub Rules: Vec<Grule>,
-  pub topsym : String,
-  pub Nullable : HashSet<String>,
+  pub topsym : usize,
+  pub Nullable : HashSet<usize>,
   pub First : HashMap<usize,HashSet<usize>>,
   pub Rulesfor: HashMap<usize,HashSet<usize>>,  //rules for a non-terminal
   pub Absyntype : String,     // string name of abstract syntax type
@@ -150,7 +147,7 @@ pub struct Grammar
   pub startrulei: usize,
   pub mode: i32, // generic mode information
   pub bumpast: bool,
-  pub sdcuts: HashMap<usize,usize>, // !# marker positions: rulenum to position
+  pub sdcuts: HashMap<usize,usize>, // !% marker positions: rulenum to position
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<usize,usize>,
 }
@@ -170,7 +167,7 @@ impl Grammar
        Symbols: Vec::new(),           // grammar symbols
        Symhash: HashMap::new(),       
        Rules: Vec::new(),                 // production rules
-       topsym : String::default(),        // top symbol
+       topsym : usize::MAX,
        Nullable : HashSet::new(),
        First : HashMap::new(),
        Rulesfor: HashMap::new(),
@@ -295,6 +292,10 @@ impl Grammar
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
      self.Symbols.push(wildcard); // wildcard is first symbol.
      let mut markersexist = false; //delay markers exist
+     let mut inttypes = HashSet::with_capacity(10);
+     for x in ["i8","i16","i32","i64","u8","u16","u32","u64","isize","usize"] {
+       inttypes.insert(x);
+     }
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -333,11 +334,18 @@ impl Grammar
            self.ASTExtras.push_str(&line[1..]);
        }       
        else if linelen>1 && &line[0..1]!="#" {
+
+         // find "" and # positions.  # inside "" are ignored
+         let rbpos = line.rfind(|c|{c=='\"' || c=='#'});
+         if let Some(rh) = rbpos {
+            if &line[rh..rh+1]=="#" {line.truncate(rh);}
+         }
          let toksplit = line.split_whitespace();
          let mut stokens:Vec<&str> = toksplit.collect();
          if stokens.len()<1 {continue;}
-                                    
-         match stokens[0] {        // main match clause
+
+         //////////////////////////////// main match clause
+         match stokens[0] {
             "!" => {  // place only in parser file
                let pbi = line.find('!').unwrap();
                self.Extras.push_str(&line[pbi+1..]);
@@ -425,7 +433,6 @@ impl Grammar
                  let copynt = nttype[1..].trim();
                  let copynti = *self.Symhash.get(copynt).expect(&format!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum));
                  if self.Symbols[copynti].rusttype.starts_with(':') {
-//                   eprintln!("WARNING: TYPE EXTENSIONS ARE NOT TRANSITIVE: THIS MAY NOT WORK, LINE {}\n\n",linenum);
                    nttype = self.Symbols[copynti].rusttype.clone();
                  } else {break;}
                  limit -=1;
@@ -492,7 +499,7 @@ impl Grammar
                if stage>1 {eprintln!("Grammar start symbol must be defined before production rules, line {}",linenum); return false;}  else {stage=1;}
                match self.Symhash.get(stokens[1]) {
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
-              	    self.topsym = String::from(stokens[1]);
+              	    self.topsym = *tsi; //String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
                     if toptype != &self.Absyntype && !self.genabsyn && toptype.len()>0 {
                        eprintln!("WARNING: Type of Grammar start symbol {} set to {}; you should declare the valuetype unless using -auto mode.",stokens[1],&self.Absyntype);
@@ -636,7 +643,7 @@ impl Grammar
 	       }  // valueterminal ID: String: Alphanum(n) if ... : n.to_owned()
                let termname = dtokens[0].trim();
                  if self.Symhash.contains_key(termname) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",termname,linenum);
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
                    continue;
                  }               
                let mut newterm = Gsym::new(termname,true);
@@ -664,6 +671,60 @@ impl Grammar
 	       self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //valueterminal
+            "valterminal" => { //simplified valueterminal
+               if stokens.len()<3 || stage!=0 {
+                 eprintln!("WARNING: Invalid valterminal declaration on line {} ignored", linenum);
+                 continue;
+               }
+               let pos = line.find(stokens[1]).unwrap()+stokens[1].len();
+               let termname = stokens[1]; // copy of &str
+               let termtype0 = line[pos..].trim();
+               let mut termtype = termtype0.to_lowercase(); //String
+               let mut tokenform = "Num(_tt)"; // default
+               let mut valform = "_tt".to_owned();
+               if self.Symhash.contains_key(termname) {
+  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
+                   continue;
+               }//check if already declared
+               let mut newterm = Gsym::new(termname,true);
+               newterm.index = self.Symbols.len();
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
+               if termtype.starts_with("alphanum") {
+                 if self.lifetime.len()==0 { self.lifetime="'input_lt".to_owned(); }
+                 termtype = format!("&{} str",&self.lifetime);
+                 newterm.rusttype = termtype;
+                 tokenform = "Alphanum(_tt)"; //valform stays "_tt"
+                 self.haslt_base.insert(newterm.index);
+               }//alphanum type, set lifetime if necessary
+               else if &termtype=="string literal" || &termtype=="strlit" {
+                 if self.lifetime.len()==0 {self.lifetime="'input_lt".to_owned();}
+                 termtype = format!("&{} str",&self.lifetime);
+                 newterm.rusttype = termtype;
+                 tokenform = "Strlit(_tt)";
+                 self.haslt_base.insert(newterm.index);
+               }
+               else if &termtype=="f32" || &termtype=="f64" {
+                 tokenform = "Float(_tt)";
+                 if &termtype=="f32" {valform = "_tt as f32".to_owned();}
+                 newterm.rusttype = termtype;
+               }
+               else if inttypes.contains(&termtype[..]) {
+                 if &termtype!="i64" {
+                   valform=format!("_tt as {}",&termtype);
+                 }
+                 newterm.rusttype = termtype;                 
+               }
+               else {
+                 eprintln!("ERROR: type '{}' on line {} cannot be used with 'valterminal'; consider using 'valueterminal' or 'lexattribute add_custom'",termtype0,linenum);
+                 return false;
+               }
+               if &newterm.rusttype!=&self.Absyntype {self.sametype=false;}
+               self.enumhash.insert(newterm.rusttype.clone(),ntcx); ntcx+=1;
+               self.Symbols.push(newterm);
+               self.Lexvals.push((termname.to_string(),tokenform.to_owned(),valform));
+               self.Haslexval.insert(termname.to_string());
+	       self.genlex = true;
+            }, //valterminal - simplified form of valueterminal
             "lexterminal" => {
                if stokens.len()!=3 {
                eprintln!("MALFORMED lexterminal declaration line {}: a terminal name and a lexical form are required",linenum); return false;
@@ -727,7 +788,7 @@ impl Grammar
                }
             }, // variant-group
 
-//////////// case for grammar production:
+////////////////////////////////////////////////// case for grammar production:
 
 	    LHS0 if stokens.len()>1 => {
               let mut separator = "-->";
@@ -752,11 +813,12 @@ impl Grammar
               }
 
               if stage<2 {stage=2;}
-              let LBC = if self.bumpast {"LC"} else {"LBox"};
+              //let LBC = if self.bumpast {"LC"} else {"LBox"};
+              let LBC = "LC";
               if self.bumpast && self.lifetime.len()==0 {self.lifetime="'src_lt".to_owned();}
               let bltref = if self.bumpast {format!("&{} ",&self.lifetime)} else {String::new()};
               let LBCref = if self.bumpast {format!("&{} LC",&self.lifetime)}
-                else {"LBox".to_owned()};
+                else {"LBox".to_owned()};  // only for option type
 
 	    // construct lhs symbol
 	      let findcsplit:Vec<_> = stokens[0].split(':').collect();
@@ -803,7 +865,7 @@ impl Grammar
 	      barsplit.push(linecs.trim()); // at least one
 
               if barsplit.len()>1 && findcsplit.len()>1 {
-	        eprintln!("The '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
+	        eprintln!("ERROR: the '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
                 return false;
 	      }
               
@@ -834,11 +896,11 @@ impl Grammar
 		   break;
                 }
 // look for delay marker and record
-                if strtok=="#" {
+                if strtok=="%" {
                   markers.push(i-1-iadjust); iadjust+=1;
                   markersexist=true; continue;
                 }
-                else if strtok=="!#" && !self.sdcuts.contains_key(&reserved_rindex) {
+                else if strtok=="!%" && !self.sdcuts.contains_key(&reserved_rindex) {
                   self.sdcuts.insert(reserved_rindex,i-1-iadjust);
 //println!("sdcut rule {}, adjusted position {}",reserved_rindex, i-1-iadjust);
                   iadjust+=1;
@@ -1018,7 +1080,8 @@ strtok is bstokens[i], but will change
                         if self.genabsyn {format!("Option<{}<@{}>>",&LBCref,&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
                      }
                      else {
-                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LBox<{}>>",&self.Symbols[gsymi].rusttype)} };
+                     
+                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LC<{}>>",&self.Symbols[gsymi].rusttype)} };
                    }
                    // else type stays () (,*)
                    /*  later
@@ -1055,7 +1118,7 @@ strtok is bstokens[i], but will change
                        if self.bumpast {
                          newrule1.action = String::from(" _item0_.push(parser.exstate.make(parser.lc(1,_item1_))); _item0_ }");
                        } else {
-		         newrule1.action = String::from(" _item0_.push(parser.lbx(1,_item1_)); _item0_ }");
+		         newrule1.action = String::from(" _item0_.push(parser.lc(1,_item1_)); _item0_ }");
                        }
                      } // not () type
 		   } // * or +
@@ -1069,7 +1132,7 @@ strtok is bstokens[i], but will change
                        if self.bumpast {
                          newrule0.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");
                        } else {
-  		         newrule0.action=String::from(" vec![parser.lbx(0,_item0_)] }");
+  		         newrule0.action=String::from(" vec![parser.lc(0,_item0_)] }");
                        }
                      } // not () type
 		   }// ends with +
@@ -1180,8 +1243,8 @@ strtok is bstokens[i], but will change
                       newrule3.action=String::from(" vec![parser.exstate.make(parser.lc(0,_item0_))] }");                  
                       newrule4.action=String::from(" _item0_.push(parser.exstate.make(parser.lc(2,_item2_))); _item0_ }");                    
                     } else {
-                      newrule3.action=String::from(" vec![parser.lbx(0,_item0_)] }");                  
-                      newrule4.action=String::from(" _item0_.push(parser.lbx(2,_item2_)); _item0_ }");
+                      newrule3.action=String::from(" vec![parser.lc(0,_item0_)] }");                  
+                      newrule4.action=String::from(" _item0_.push(parser.lc(2,_item2_)); _item0_ }");
                     }//no bump
                   } // else leave at default for ()
                   if self.tracelev>3 {
@@ -1286,10 +1349,9 @@ strtok is bstokens[i], but will change
 	      } // while there are tokens on rhs
 
               ///// at this point, we can transform grammar to apply delays
-              let ruleindex = self.Rules.len();
               if markers.len()%2==1 {eprintln!("ERROR: DELAY MARKERS MUST COME IN PAIRS, LINE {}\n",linenum); return false;}
               else if markers.len()>=2 {
-                self.delaymarkers.insert(ruleindex,BTreeSet::new());
+                self.delaymarkers.insert(reserved_rindex,BTreeSet::new());
               }
               let mut i = 0;
               while i+1<markers.len()
@@ -1298,7 +1360,7 @@ strtok is bstokens[i], but will change
                  let dend = markers[i+1];
                  i += 2;
                  if dend>dbegin+1 {
-                   self.delaymarkers.get_mut(&ruleindex).unwrap().insert((dbegin,dend));
+                   self.delaymarkers.get_mut(&reserved_rindex).unwrap().insert((dbegin,dend));
                  }
               }// while there are delay transformations to record
               ///// delays
@@ -1361,8 +1423,11 @@ strtok is bstokens[i], but will change
 //   self.Symhash.insert(String::from("ANY_ERROR"),self.Symbols.len()+3);
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
-//     self.Symbols.push(anyerr.clone());     
-     let topgsym = &self.Symbols[*self.Symhash.get(&self.topsym).expect("GRAMMAR START SYMBOL (topsym) NOT DECLARED")];
+     if self.topsym == usize::MAX {
+       eprintln!("GRAMMAR START SYMBOL NOT DECLARED");
+       return false;
+     }
+     let topgsym = &self.Symbols[self.topsym]; //self.Symbols.get(self.topsym).expect("GRAMMAR START SYMBOL (topsym) NOT DECLARED");
      let startrule = Grule {  // START-->topsym EOF
         lhs:startnt,
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
@@ -1428,10 +1493,7 @@ strtok is bstokens[i], but will change
 // last rule is always start rule and first state is start state
 
 
-//////////////////////  Nullable
-
-//// also sets the RulesFor map for easy lookup of all the rules for
-//// a non-terminal  **no-longer done!
+//////////////////////  Nullable set computation
 impl Grammar
 {
   pub fn compute_NullableRf(&mut self)
@@ -1445,23 +1507,13 @@ impl Grammar
        for rule in &self.Rules 
        {
           let mut addornot = true;
-          for gs in &rule.rhs 
-          {
-             if gs.terminal || !self.Nullable.contains(&gs.sym)
+          for gs in &rule.rhs {
+             if gs.terminal || !self.Nullable.contains(&gs.index)
              {addornot=false; break;}
           } // for each rhs symbol
 	  if (addornot) {
-             changed = self.Nullable.insert(rule.lhs.sym.clone()) || changed;
-             //if TRACE>3 {println!("{} added to Nullable",rule.lhs.sym);}
+             changed = self.Nullable.insert(rule.lhs.index) || changed;
           }
-/*
-          // add rule index to Rulesfor map:
-          if let None = self.Rulesfor.get(&rule.lhs.sym) {
-             self.Rulesfor.insert(rule.lhs.sym.clone(),HashSet::new());
-          }
-          let ruleset = self.Rulesfor.get_mut(&rule.lhs.sym).unwrap();
-          ruleset.insert(rulei);
-*/
           rulei += 1;
        } // for each rule
      } //while changed
@@ -1502,7 +1554,7 @@ impl Grammar
                   }
               } // if first set exists for gs
             } // non-terminal 
-           if gs.terminal || !self.Nullable.contains(&gs.sym) {isnullable=false;}
+           if gs.terminal || !self.Nullable.contains(&gs.index) {isnullable=false;}
 	    i += 1;
          } // while loop look at rhs until not nullable
        } // for each rule
@@ -1530,7 +1582,7 @@ impl Grammar
             //println!("symbol {}, index {}", &Gs[i].sym, Gs[i].index);
             let firstgsym = self.First.get(&Gs[i].index).unwrap();
 	    for s in firstgsym { Fseq.insert(*s); }
-	    if !self.Nullable.contains(&Gs[i].sym) {nullable=false;}
+	    if !self.Nullable.contains(&Gs[i].index) {nullable=false;}
          }
 	 i += 1;
      }//while

@@ -589,37 +589,26 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
      let lasym = &Gmr.Symbols[la];
      let lapred = lasym.precedence;
      let rulepred = Gmr.Rules[*ri].precedence;
-//     let iprec = Gmr.Rules[*ri].iprecedence;
-     if (lapred==rulepred) && lapred<0 {  //<0 means right-associative
+     if (lapred==rulepred) && rightassoc(lapred) { 
        /* default */
      } // right-associative lookahead, return shift
      else
-     if (lapred==rulepred) && lapred>0 { // left associative
+     if (lapred==rulepred) && leftassoc(lapred) { // left associative
         resolution = true;
      } // right-associative lookahead, return shift     
-     else if (lapred.abs()>rulepred.abs() && rulepred!=0) {/*default*/}
-     else if (lapred.abs()<rulepred.abs() /* && lapred!=0 */ ) {
+     else if (prec_level(lapred).abs()>prec_level(rulepred).abs() && rulepred!=0) {/*default*/}
+     else if prec_level(lapred).abs()<prec_level(rulepred).abs() {
        resolution = true;
        if lapred==0 {
           clearly_resolved = false;
-          println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved in favor of Reduce. The lookahead has undeclared precedence",&Gmr.Symbols[la].sym,ri,si);
+          println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
           printrulela(*ri,Gmr,la);
        }
      } // reduce
-     /*
-     else if iprec==-128 {  //NOT BEING USED!
-       clearly_resolved = true;  // but internally!
-       resolution = true;
-       if Gmr.tracelev>0 {
-         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} resolved by internal precedence given to embedded regular expressions: will reduce.\nGENERAL WARNING: using multiple regular expressions can easily lead to ambiguous grammars.",&Gmr.Symbols[la].sym,ri,si);
-         printrulela(*ri,Gmr,la);
-       }
-     }//iprecedence resolution
-     */
      else {
        clearly_resolved=false;
        // report unclear case
-       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved by precedence and associativity declarations, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
+       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
        printrulela(*ri,Gmr,la);
      }
      conflicts.insert((*ri,la),(clearly_resolved,resolution));

@@ -224,7 +224,8 @@ impl Grammar
        // actual semantic action code to be generated
        let mut SACTION = format!(" {{{}.",NT); // { structtype. .. for F#
        let mut viadjust:i32 = 0; //not used (not inc'ed)
-       
+
+       let mut totalitems = 0;
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields {
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
          if rhssymi==*nt {
@@ -240,7 +241,7 @@ impl Grammar
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) {
            match structasts.get(&rhssymi) {
              Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-               if *pthr<0 && flatfields.len()>0 && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
+               if *pthr<0 /* && flatfields.len()>0 */ && (!simplestruct||*simp) && !self.Rules[sri].rhs[*rhsi].label.starts_with('[') {
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
@@ -250,7 +251,8 @@ impl Grammar
                    let newindex = rhsi+(viadjust as usize)+fi;
                    let fltref = ""; //if nonlctype(ftype) || self.basictypes.contains(&ftype[..])  || ltref.len()==0 {""} else {&ltref};
                    fields.push_str(&format!("    mutable {}:{}{};\n",&newlab,fltref,ftype));  // non-simpletype
-                   let islctype = ftype.starts_with("LBox<");
+                   totalitems +=1;
+                   let islctype = ftype.starts_with("LBox<") || ftype.starts_with("LC<");
                     SACTION.push_str(&format!("{}={}; ",&newlab,&newactionlab));
                    vfields.push((newindex,newlab,*albx,ftype.to_owned()));
                    fi+=1;
@@ -261,11 +263,12 @@ impl Grammar
              aaa => { // println!("def {:?}",aaa); 
              }, //no flattening
            }//match
-         }//if in flattentypes list
+         }//if in flattentypes list (flatten this rhs symbol)
          if !flattened {
-           let islctype = rsymtype.starts_with("LBox<");
+           let islctype = rsymtype.starts_with("LBox<") || rsymtype.starts_with("LC<");
            let withref = ""; //if  needref  ||  islctype {&ltref} else {""}; 
            // not simpletype
+           totalitems += 1;
            fields.push_str(&format!("    mutable {}:{};\n",itemlabel,rsymtype));
 //           if !islctype || *alreadylbx {
              SACTION.push_str(&format!("{}={}; ",itemlabel,itemlabel));      
@@ -283,12 +286,22 @@ impl Grammar
   	    self.Rules[sri].action = format!("{}{}",&actbase,&SACTION);
 	    SAST.push_str(&fields);
        }
-       else  {SAST.push_str(&fields);}            
+       else  {SAST.push_str(&fields);}
+       // no empty records allowed in F#
+       if totalitems==0 {
+         if let Some(pos) = SAST.rfind("\n  {\n  }") {
+           SAST.replace_range(pos..," unit  //empty record\n");
+           SACTION=String::from(" ()");
+           if !actbase.ends_with("}") {
+             self.Rules[sri].action = format!("{}{}",&actbase,&SACTION);
+           }
+         }
+       }//totalitems=0 (empty record to unit)
        newsa.insert(*nt,(*simplestruct,*canflatten,*passthru,SAST,vfields));
      }// REAL struct generation loop: apply flatten
      structasts = newsa;
 
-// MAKE FIRST LETTER UPPERCASE!
+
 
 /////////////////////////////////////// enums generation stage
 
@@ -298,7 +311,7 @@ impl Grammar
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
           else {String::new()};
-          
+     let mut groupvariants:HashMap<usize,HashSet<String>> = HashMap::new();
      //main loop: for each nt and its rules
      for (nt,NTrules) in self.Rulesfor.iter() // for each nt and its rules
      {
@@ -316,13 +329,42 @@ impl Grammar
 	    format!("//enum\nand {} =\n",&ntsym.rusttype)	  
 	  };
         let NT = &self.Symbols[nti].sym;
+	let mut targetnt = nti;
+ 	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
+ 	if !groupvariants.contains_key(&targetnt) {
+ 	  groupvariants.insert(targetnt,HashSet::new());
+ 	}
+ 	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
+        //let mut groupenums = HashSet::new(); // for variant-groups
+        // group enums are only generated for tuple variants, the presence
+        // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           let mut nolhslabel=false;
+          let mut groupoper = ""; // variant-group operator, default none
+          // groupoper cancelled if there is a lhs label
           if self.Rules[*ri].lhs.label.len()==0 { // make up lhs label
             nolhslabel = true;
-            let mut lhslab = format!("{}_{}",NT,ri); 
-            if self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
+            let mut lhslab = format!("{}_{}",NT,ri); //default
+
+            // search for variant-group operator (only if no lhs label)
+            if self.vargroupnames.len()>0 {
+             for rsym in self.Rules[*ri].rhs.iter() {
+              if let Some(gnamei) = self.vargroups.get(&rsym.index) {
+                if groupoper.len()==0 { // not yet set 
+                  lhslab = self.vargroupnames[*gnamei].clone();
+                  groupoper = &self.Symbols[rsym.index].sym;
+                }
+              }// found variant-group operator (first one taken)
+              if rsym.label.len()>0 && !rsym.label.starts_with("_item") {
+                groupoper = "";
+                lhslab = format!("{}_{}",NT,ri); // default
+                break;
+              }// group variant canceled
+             }// search for variant-group operator
+            } // if there are variant groups
+
+            if groupoper.len()==0 && self.Rules[*ri].rhs.len()>0 && self.Rules[*ri].rhs[0].terminal {
 	      let symname = &self.Rules[*ri].rhs[0].sym;
 	      if is_alphanum(symname) { //insert r# into enum variant name
 	        lhslab = symname.clone();
@@ -347,8 +389,19 @@ impl Grammar
               { tuplevariant = false; break; }
           } //determine if tuplevariant
 	  */
+          let mut nullenum = false; // enum variant already exists
+          // form start of enumvariant and action...
 	  if self.Rules[*ri].rhs.len()>0 { // rhs exists
-	     enumvar.push_str(" of"); ACTION.push('(');	  
+	     enumvar.push_str(" of"); ACTION.push('(');
+             if groupoper.len()>0 {
+                if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  nullenum = true;
+                } else {
+                  enumvar.push_str(" string *");
+                  groupenums.insert(self.Rules[*ri].lhs.label.clone());
+                }
+                ACTION.push_str(&format!("\"{}\",",groupoper));
+             } // group oper exists
 	  }//rhsexists
 	  let mut rhsi = 0; // right-side index
           let mut viadjust = 0;
@@ -375,7 +428,7 @@ impl Grammar
             if !rsym.terminal && flattentypes.contains(&rsym.index) {
               match structasts.get(&rsym.index) {
                Some((simp,true,pthr,_,flatfields)) => {  //flatten in
-                if *pthr<0 && flatfields.len()>0 && !rsym.label.starts_with('['){
+                if *pthr<0 /* && flatfields.len()>0 */ && !rsym.label.starts_with('['){
                  flattened=true;
                  let mut fi = 0;
                  for (frhsi,flab,albx,ftype) in flatfields {
@@ -389,7 +442,9 @@ impl Grammar
                      ACTION.push_str(&newactionlab); ACTION.push(',');
                    } else {
                      enumvar.push_str(&format!(" {}:{} *",&newlab,ftype));
-                     ACTION.push_str(&format!("{}={};",&newlab,&newactionlab));
+                     //ACTION.push_str(&format!("{}={},",&newlab,&newactionlab));
+		     ACTION.push_str(&format!("{},",&newactionlab));
+
                    }// named/non-named field
                    
                    fi+=1;
@@ -418,7 +473,8 @@ impl Grammar
                 semact = format!("{},",&itemlabel);
               } else {
                 enumvar.push_str(&format!(" {}:LBox<{}> *",itemlabel,rsymtype));
-                semact = format!("{}={},",&itemlabel,&itemlabel);
+                //semact = format!("{}={},",&itemlabel,&itemlabel);
+		semact = format!("{},",&itemlabel);
               } // non-tuple variant
               ACTION.push_str(&semact);
               
@@ -431,7 +487,7 @@ impl Grammar
                 ACTION.push_str(&format!("{},",&itemlabel));
               } else {
                 enumvar.push_str(&format!(" {}:{} *",&itemlabel,rsymtype));
-                ACTION.push_str(&format!("{0}={0},",&itemlabel));          
+                ACTION.push_str(&format!("{},",&itemlabel));          
               }// non-tuple variant
               
               if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
@@ -472,10 +528,10 @@ impl Grammar
 	  else
           if !actbase.ends_with('}') && shouldpush {
   	    self.Rules[*ri].action = format!("{} {}",&actbase,&ACTION);
-	    AST.push_str(&enumvar); AST.push_str("\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str("\n");}
 	  }
           else if shouldpush {  // added for 0.2.94
-	    AST.push_str(&enumvar); AST.push_str("\n");
+	    if !nullenum {AST.push_str(&enumvar); AST.push_str("\n");}
           }
 //println!("Action for rule {}, NT {}: {}",ri,&self.Rules[*ri].lhs.sym,&self.Rules[*ri].action);
 	}// for each rule ri of non-terminal NT

@@ -7,13 +7,6 @@
 use std::fmt::Display;
 use std::default::Default;
 use std::collections::{HashMap,HashSet,BTreeSet};
-//mod lib;
-//use lib::*;
-//use crate::grammar_processor::{TRACE}
-//mod bunch;
-//use crate::bunch::*;
-//mod runtime_parser;
-//use crate::runtime_parser::*;
 
 mod grammar_processor;
 use grammar_processor::*;
@@ -27,8 +20,6 @@ mod augmenter;
 use augmenter::*;
 pub mod generic_absyn;
 pub use generic_absyn::*;
-//mod enhancements;
-//pub use enhancements::*;
 pub mod zc_parser;
 use zc_parser::*;
 
@@ -41,6 +32,8 @@ mod fs_parserwriter;
 mod ast_writer;
 use ast_writer::*;
 
+mod fs_astwriter;
+
 mod bumpast_writer;
 
 mod lalr_statemachine;
@@ -48,34 +41,37 @@ use lalr_statemachine::LALRMachine;
 mod selmlk;
 use selmlk::{MLStatemachine};
 
+//mod logos_lexer;
+
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
-  rustle(&args);
+  rustlr::rustle(&args);
 }//main
 
-
+/* function moved to lib.rs
 fn rustle(args:&Vec<String>) // called from main
 {
   let argc = args.len();
   if argc<2 {eprintln!("Must give path of .grammar file"); return;}
   let filepath = &args[1];
-  let mut parserfile = String::from("");
-  let mut argi = 2; // next argument position
+  let mut parserfile = String::from("");  // -o target
   let mut lalr = false;  // changed from false in version 0.2.0
   let mut newlalr = true;
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
-  let mut genlex = false;
+  let mut genlex = true;
   let mut genabsyn = false;
   let mut lrsd = false;
   let mut lrsdmaxk:usize = selmlk::MAXK;
   let mut regenerate = false;
   let mut mode = 0;
+  let mut argi = 2; // next argument position
   while argi<argc
   {
      match &args[argi][..] {
+       //filen if filen.ends_with(".grammar") => {filepath = &args[argi];},
        "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
@@ -100,6 +96,7 @@ fn rustle(args:&Vec<String>) // called from main
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
        "genlex" | "-genlex" => {genlex=true; },
+       "nolex" | "-nolex" => {genlex=false; },
        "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
        "binary" | "-binary" => { verbose=false; },       
@@ -147,11 +144,14 @@ fn rustle(args:&Vec<String>) // called from main
      if let None = slashpos {slashpos = parserfile.rfind('\\');}
      let mut astpath = format!("{}_ast.{}",&gramname,pfsuffix);
      if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
-     let wres = grammar1.writeabsyn(&astpath);
+     let wres;
+     if mode==1 {wres = grammar1.write_fsast(&astpath); }
+     else if !grammar1.bumpast { wres = grammar1.writeabsyn(&astpath); }
+     else {wres = grammar1.write_bumpast(&astpath); }
      if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
   }
 
- grammar1.delay_transform(); // hope this works!
+ grammar1.delay_transform(); // static delayed reduction markers
 
 
   if tracelev>2 {println!("computing Nullable set");}
@@ -220,3 +220,4 @@ fn rustle(args:&Vec<String>) // called from main
      println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
   }
 }//rustle
+*/

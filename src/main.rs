@@ -125,8 +125,6 @@ fn rustle(args:&Vec<String>) // called from main
     return;
   }
   // Check grammar integrity: now done inside parse
-//  let topi = *grammar1.Symhash.get(&grammar1.topsym).expect("FATAL ERROR: Grammar start symbol 'topsym' not defined");
-//  let toptype = &grammar1.Symbols[topi].rusttype;
   if grammar1.name.len()<2  { // derive grammar name from filepath
      let doti = if let Some(p)= filepath.rfind('.') {p} else {filepath.len()};
      let mut slashi = if let Some(p) = filepath.rfind('/') {p+1} else {0};

@@ -145,7 +145,7 @@ pub struct Grammar
   pub startnti: usize,
   pub eoftermi: usize,
   pub startrulei: usize,
-  pub mode: i32, // generic mode information
+  pub mode: i32, // generic mode information (0=rust)
   pub bumpast: bool,
   pub sdcuts: HashMap<usize,usize>, // !% marker positions: rulenum to position
   pub vargroupnames : Vec<String>,
@@ -296,6 +296,11 @@ impl Grammar
      for x in ["i8","i16","i32","i64","u8","u16","u32","u64","isize","usize"] {
        inttypes.insert(x);
      }
+     let mut usednum = false; // Num(n) already declared with valterminal
+     let mut usedfloat = false;
+     let mut usedstrlit = false;
+     let mut usedalphanum = false;
+
      while !atEOF
      {
        if !multiline {line = String::new();}
@@ -673,7 +678,7 @@ impl Grammar
             }, //valueterminal
             "valterminal" => { //simplified valueterminal
                if stokens.len()<3 || stage!=0 {
-                 eprintln!("WARNING: Invalid valterminal declaration on line {} ignored", linenum);
+                 eprintln!("\nWARNING: Invalid valterminal declaration on line {} ignored", linenum);
                  continue;
                }
                let pos = line.find(stokens[1]).unwrap()+stokens[1].len();
@@ -683,45 +688,70 @@ impl Grammar
                let mut tokenform = "Num(_tt)"; // default
                let mut valform = "_tt".to_owned();
                if self.Symhash.contains_key(termname) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
+  	           eprintln!("\nWARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
                    continue;
                }//check if already declared
                let mut newterm = Gsym::new(termname,true);
                newterm.index = self.Symbols.len();
-               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
                if termtype.starts_with("alphanum") {
+                 if usedalphanum {
+                   eprintln!("\nWARNING for line {}: only the first 'alphanumeric' valterminal declaration is recognized. Consider using 'valueterminal' or define custom token type.",linenum);
+                   continue;
+                 }
+                 else {usedalphanum=true;}
                  if self.lifetime.len()==0 { self.lifetime="'input_lt".to_owned(); }
-                 termtype = format!("&{} str",&self.lifetime);
+                 if self.mode==0 {termtype = format!("&{} str",&self.lifetime);}
+                 else {termtype="string".to_owned();} //keep "alphanumeric"
                  newterm.rusttype = termtype;
                  tokenform = "Alphanum(_tt)"; //valform stays "_tt"
                  self.haslt_base.insert(newterm.index);
                }//alphanum type, set lifetime if necessary
                else if &termtype=="string literal" || &termtype=="strlit" {
+                 if usedstrlit {
+                   eprintln!("\nWARNING for line {}: only the first 'string literal' valterminal declaration is recognized. Consider using 'valueterminal' or define custom token type.",linenum);
+                   continue;
+                 }
+                 else {usedstrlit=true;}
                  if self.lifetime.len()==0 {self.lifetime="'input_lt".to_owned();}
-                 termtype = format!("&{} str",&self.lifetime);
+                 if self.mode==0 {termtype = format!("&{} str",&self.lifetime);}
+                 else {termtype="string".to_owned();}
                  newterm.rusttype = termtype;
                  tokenform = "Strlit(_tt)";
                  self.haslt_base.insert(newterm.index);
                }
-               else if &termtype=="f32" || &termtype=="f64" {
+               else if &termtype=="f32" || &termtype=="f64" || (self.mode>0 && termtype0=="float") {
+                 if usedfloat {
+                   eprintln!("\nWARNING for line {}: valterminal declarations may only specify one floating point type as there is only one type of lexical token for all floating point values. Consider using 'valueterminal' or define custom token type.",linenum);
+                   continue;
+                 }
+                 else {usedfloat=true;}
+                 //if termtype0=="float" {termtype="f64".to_owned();}
                  tokenform = "Float(_tt)";
                  if &termtype=="f32" {valform = "_tt as f32".to_owned();}
                  newterm.rusttype = termtype;
                }
-               else if inttypes.contains(&termtype[..]) {
+               else if inttypes.contains(&termtype[..]) || (self.mode>0 && termtype0=="int") {
+                 if usednum {
+                   eprintln!("\nWARNING for line {}: only the first 'valterminal' declarations for an integer type is recognized as there is only one type of lexical token for all integer values. Consider using 'valueterminal' or define custom token type.",linenum);
+                   continue;
+                 }
+                 else {usednum=true;}
+                 //if termtype0=="int" { termtype = "i32".to_owned(); }
+                 // must post-process for other languages
                  if &termtype!="i64" {
                    valform=format!("_tt as {}",&termtype);
                  }
                  newterm.rusttype = termtype;                 
                }
                else {
-                 eprintln!("ERROR: type '{}' on line {} cannot be used with 'valterminal'; consider using 'valueterminal' or 'lexattribute add_custom'",termtype0,linenum);
+                 eprintln!("\nERROR: type '{}' on line {} cannot be used with 'valterminal'; consider using 'valueterminal' or define custom token type with 'lexattribute add_custom'",termtype0,linenum);
                  return false;
                }
                if &newterm.rusttype!=&self.Absyntype {self.sametype=false;}
                self.enumhash.insert(newterm.rusttype.clone(),ntcx); ntcx+=1;
+               self.Symhash.insert(termname.to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
-               self.Lexvals.push((termname.to_string(),tokenform.to_owned(),valform));
+               self.Lexvals.push((termname.to_owned(),tokenform.to_owned(),valform));
                self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //valterminal - simplified form of valueterminal

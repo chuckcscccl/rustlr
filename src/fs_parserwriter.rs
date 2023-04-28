@@ -390,14 +390,35 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
      write!(fd,"\nlet convert_token (lt:RawToken) =\n  if lt=null then None\n  else\n    let (uval,utype) = \n      match lt.token_name with\n")?;
      let abindex = self.Gmr.enumhash.get(&self.Gmr.Absyntype).expect("F absyn - Sharp!");
      let unitindex = self.Gmr.enumhash.get("()").expect("F absyn - Sharp!");
-     for (terminalname,tokentype,valfun) in &self.Gmr.Lexvals {
+     for (terminalname,tokentype0,valfun0) in &self.Gmr.Lexvals {
        let symi = *self.Gmr.Symhash.get(terminalname).unwrap();
-       let sym = &self.Gmr.Symbols[symi];
+       let sym = &mut self.Gmr.Symbols[symi];
+
+       /////////////////////////////////// process "valterminal" declarations:
+       let mut tokentype=tokentype0.trim();
+       let mut valfun = valfun0.trim();
+       if &sym.rusttype=="int" && tokentype0!="Num" {
+         tokentype = "Num";
+         valfun = "int";
+       }
+       else if &sym.rusttype=="float" && tokentype0!="Float" {
+         tokentype = "Float";
+         valfun = "float";
+       }
+       else if &sym.rusttype=="string" && tokentype0.starts_with("Alphanum(") {
+         tokentype = "Alphanum";
+         valfun = "(fun n -> n)";
+       }
+       else if &sym.rusttype=="string" && tokentype0.starts_with("Strlit(") {
+         tokentype = "StrLit";
+         valfun = "(fun (n:string) -> n.Substring(1,n.Length-1))"  
+       }// valterminal special form
+
        let eindex = self.Gmr.enumhash.get(&sym.rusttype).expect("F- Sharp!");
-       let valconvfun = if valfun.trim().starts_with("fun") {
-           format!("({})",valfun.trim()) } else {valfun.trim().to_owned()};
+       let valconvfun = if valfun.starts_with("fun") {
+           format!("({})",valfun) } else {valfun.to_owned()};
        if /* stype!=UNITTYPE && */ &sym.sym!="EOF" {
-         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype.trim(),eindex,&valconvfun,terminalname)?;
+         write!(fd,"        | \"{}\" -> (FLTypeDUnion.Enumvariant_{}({}(lt.token_text)),\"{}\")\n",tokentype,eindex,&valconvfun,terminalname)?;
        }  // has been declared like valueterminal~ num~ int~ n int(n)
      } //for (name,form,val) entry in Lexvals
      // for lexterminals:
