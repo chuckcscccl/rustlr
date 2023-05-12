@@ -342,7 +342,11 @@ impl Grammar
          // find "" and # positions.  # inside "" are ignored
          let rbpos = line.rfind(|c|{c=='\"' || c=='#'});
          if let Some(rh) = rbpos {
-            if &line[rh..rh+1]=="#" {line.truncate(rh);}
+            if &line[rh..rh+1]=="#"
+               && !line.trim().starts_with("lexterminal")
+               && !line.trim().starts_with("lexname") {
+              line.truncate(rh);
+            }
          }
          let toksplit = line.split_whitespace();
          let mut stokens:Vec<&str> = toksplit.collect();
