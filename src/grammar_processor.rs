@@ -271,7 +271,7 @@ impl Grammar
        _ => { eprintln!("cannot open file, reading from stdin..."); None},
      };//match
 
-     let mut line=String::from("");
+     let mut line=String::new();
      let mut atEOF = false;
      let mut linenum = 0;
      let mut linelen = 0;
@@ -302,7 +302,7 @@ impl Grammar
 
      while !atEOF
      {
-       if !multiline {line = String::new();}
+       if !multiline { line.clear(); }
        if foundeol { multiline=false;} //use current line
        else {
          let result = if let Some(br)=&mut reader {br.read_line(&mut line)}

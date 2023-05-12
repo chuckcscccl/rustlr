@@ -24,9 +24,11 @@ use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
 use bumpalo::Bump;
-//use std::rc::Rc;
-//use std::cell::RefCell;
-
+/*
+use std::cell::{RefCell,Ref,RefMut};
+use std::io::{self,Read,Write,BufReader,BufRead};
+use std::fs::File;
+*/
 /// **This structure is deprecated by [TerminalToken]**.
 /// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
@@ -381,7 +383,6 @@ pub struct StrTokenizer<'t>
    //strlit:Regex,
    alphan:Regex,
    nonalph:Regex,
-   //custom_defined:BTreeMap<&'static str, Regex>, // added for 0.2.95
    custom_defined:Vec<(&'static str,Regex)>,
    doubles:HashSet<&'t str>,   
    singles:HashSet<char>,
@@ -1051,6 +1052,40 @@ impl<'t> LexSource<'t>
   /// retrieves original path (such as filename) of this source
   pub fn get_path(&self)->&str {self.pathname}  
 }//impl LexSource
+
+/*
+pub struct BufferedSource
+{
+   contents:RefCell<String>,
+   bump:Option<Bump>,
+}
+impl BufferedSource
+{
+  /// creates a new BufferedSource
+  pub fn new(withbump:bool) -> std::io::Result<BufferedSource>
+  {
+     Ok(BufferedSource {
+           contents: RefCell::new(String::new()),
+           bump:if withbump {Some(Bump::new())} else {None},
+        })
+  }//new
+
+  /// read with given [std::io::BufReader]
+  pub fn read_line<R:Read>(&self, reader:&mut BufReader<R>) -> usize {
+    let mut line = String::new();
+    let res = reader.read_line(&mut line);
+    if let Err(_) = res { return 0; }
+    self.contents.borrow_mut().push_str(&line);
+    line.len()
+  }//read_line
+
+  pub fn len(&self)->usize {
+    self.contents.borrow().len()
+  }
+}//impl BufferedSource
+*/
+
+
 impl<'t> StrTokenizer<'t>
 {
    /// creates a StrTokenizer from a [LexSource] structure that contains
