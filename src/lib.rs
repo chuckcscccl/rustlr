@@ -190,7 +190,8 @@ pub fn rustle(args:&Vec<String>) // called from main
   if tracelev>2 {println!("computing Nullable set");}
   grammar1.compute_NullableRf();
   if tracelev>2 {println!("computing First sets");}
-  grammar1.compute_FirstIM();
+  //grammar1.compute_FirstIM();
+  grammar1.compute_First();
 
   let mut fsm0;
   if lrsd {
@@ -271,7 +272,8 @@ fn rustler(grammarname:&str, option:&str) {
   if TRACE>2 {println!("computing Nullable set");}
   gram1.compute_NullableRf();
   if TRACE>2 {println!("computing First sets");}
-  gram1.compute_FirstIM();
+  //gram1.compute_FirstIM();
+  gram1.compute_First();
   if gram1.name.len()<2 {gram1.name = grammarname.to_owned(); }
   let gramname = gram1.name.clone();
   let mut fsm0 = Statemachine::new(gram1);

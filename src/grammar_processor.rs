@@ -47,7 +47,6 @@ impl Gsym
       rusttype : String::new(),
       precedence : DEFAULTPRECEDENCE, // + means left, - means right
       index:0,
-//      canextend: true,
     }
   }
   pub fn setlabel(&mut self, la:&str)
@@ -1550,8 +1549,8 @@ impl Grammar
      } //while changed
   }//nullable
 
-  // calculate the First set of each non-terminal
-// with interior mutability, no need to clone HashSets. // USE THIS ONE!
+/*
+// with interior mutability,
   pub fn compute_FirstIM(&mut self)
   {
      let mut FIRST:HashMap<usize,RefCell<HashSet<usize>>> = HashMap::new();
@@ -1597,6 +1596,42 @@ impl Grammar
         }
      }
   }//compute_FirstIM
+*/
+
+// calculate the First set of each non-terminal
+pub fn compute_First(&mut self)
+  {
+     let mut additions:HashSet<usize> = HashSet::new();
+     let mut changed = true;
+     while changed 
+     {
+       changed = false;
+       for rule in &self.Rules
+       {
+         let nti = rule.lhs.index; // left symbol of rule is non-terminal
+         additions.clear(); // just for this nti
+	 // now look at rhs
+         for i in 0..rule.rhs.len() {
+            let gs = &rule.rhs[i]; // rhs grammar symbol
+	    if gs.terminal { additions.insert(gs.index); }
+            else if gs.index!=nti {   // other non-terminal
+              if let Some(firstgs) = self.First.get(&gs.index) {
+                  for symi in firstgs.iter() {
+                    additions.insert(*symi);
+                  }
+              } // if first set exists for gs
+            } // non-terminal 
+            if gs.terminal || !self.Nullable.contains(&gs.index) {
+              //isnullable=false;
+              break;
+            }
+         } //for loop, look at rhs until not nullable
+         // add additions to firstnt:
+         let mut Firstnt = self.First.entry(nti).or_default();
+         for j in additions.iter() { changed = Firstnt.insert(*j) || changed; }
+       } // for each rule
+     } // while changed
+  }//compute_First no interior mutability
 
 
   // First set of a sequence of symbols
