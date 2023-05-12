@@ -803,6 +803,7 @@ impl Grammar
              // variant Binop + - * DIV
                self.vargroupnames.push(stokens[1].to_owned());
                for tok in &stokens[2..] {
+                 // operators must be names of terminals, not raw tokens
                  let tokopt = self.Symhash.get(&tok[..]);
                  match tokopt {
                    Some(toki) if !self.vargroups.contains_key(toki) => {

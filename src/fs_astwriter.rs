@@ -331,11 +331,7 @@ impl Grammar
         let NT = &self.Symbols[nti].sym;
 	let mut targetnt = nti;
  	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
- 	if !groupvariants.contains_key(&targetnt) {
- 	  groupvariants.insert(targetnt,HashSet::new());
- 	}
- 	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
-        //let mut groupenums = HashSet::new(); // for variant-groups
+        let groupenums = groupvariants.entry(targetnt).or_default();
         // group enums are only generated for tuple variants, the presence
         // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs

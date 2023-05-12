@@ -34,19 +34,18 @@ The following are the contents of a Rustlr grammar, [`simplecalc.grammar`](https
 ```
 auto
 terminals + * - / ( )   # verbatim terminal symbols
-valterminal INT i32     # terminal symbol with value
+valterminal Int i32     # terminal symbol with value
 nonterminal E
 nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
 startsymbol E
-variant-group BinaryOp + - * /   # simplifies AST
+variant-group BinaryOp + - * /   # simplifies AST enum by combining variants
 
 # production rules:
 E --> E + T  | E - T | T
 T --> T * F | T / F | F
-F:Neg --> - F
-F:Val --> INT
-F --> ( E )
+F:Neg --> - F                    # 'Neg' names enum variant in AST
+F --> Int | ( E )
 
 !mod simplecalc_ast; // !-lines are injected verbatim into the parser
 !fn main()  {
@@ -71,24 +70,24 @@ the type.
 #[derive(Debug)]
 pub enum E {
   BinaryOp(&'static str,LBox<E>,LBox<E>),
+  Int(i32),
   Neg(LBox<E>),
-  Val(i32),
   E_Nothing,
 }
 impl Default for E { fn default()->Self { E::E_Nothing } }
 ```
-The form of the AST type(s) was determined by additional declarations within
-the grammar, including `variant-group` and the labels given to left-hand
-side non-terminal symbols (`Neg` and `Val`).  The `variant-group` declaration
-combined what would-have-been four enum variants into a single "BinaryOp"
-variant.  The enum
-variants generated from the productions for `T` and `F` are merged into the
-type for `E` by the declarations `nonterminal T : E` and `nonterminal F : E`.
-Specifying operator precedence and associativity instead of using the `T`
-and `F` categories is also supported.
+The form of the AST type(s) was determined by additional declarations
+within the grammar.  An enum is normally generated for each
+non-terminal with multiple productions, with a variant for each
+production.  However, the enum variants generated from the productions
+for `T` and `F` are merged into the type for `E` by the declarations
+`nonterminal T : E` and `nonterminal F : E`.  The `variant-group`
+declaration combined what would-have-been four variants into one.  The
+`Neg` label on the unary minus rule separates that case from the
+"BinaryOp" variant group.
 
-Rustlr contains a *custom smart pointer,* 
-[LBox](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html),
+[LBox](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html)
+is a *custom smart pointer*
 that automatically contains the line and column position of the start
 of the AST construct in the original source.  This information is
 usually required beyond the parsing stage.
@@ -97,11 +96,15 @@ Rustlr AST types implement the Default trait so that a partial result is
 always returned even when parse errors are encountered.
 
 Automatically generated AST types and semantic actions can always be
-manually overridden. A mixed approach is also possible.  
+manually overridden.
 
-As this is a quick example, we've also injected a `main`
-that demonstrates how to invoke the parser directly into
-the generated parser file.  To run this example,
+Specifying operator precedence and associativity instead of using the
+`T` and `F` categories is also supported.
+
+The generated parser and lexer normally form a separate module.  However,
+as this is a quick example, we've injected a `main` directly into the parser
+file to demonstrate how to invoke the parser.
+To run this example,
 
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
   2. Create a Cargo crate and **`cargo add rustlr`** inside the crate
@@ -114,7 +117,7 @@ the generated parser file.  To run this example,
 
 The expected output is
 ```
-AST: BinaryOp("+", Val(10), BinaryOp("*", Neg(Val(2)), Val(4)))
+AST: BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4)))
 ```
 
 Please consult the [tutorial](https://chuckcscccl.github.io/rustlr_project/)
