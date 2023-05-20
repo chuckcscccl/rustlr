@@ -191,14 +191,14 @@ impl Grammar
 //       transform_function: String::new(),
        basictypes : btypes,
        ASTExtras: String::new(),
-       haslt_base: HashSet::new(), //terminals that contains lifetime
+       haslt_base: HashSet::new(), //terminals that contain lifetime
        delaymarkers:HashMap::new(), // delayed LR markers for transformation
        flattentypes:HashSet::new(),
        ntcxmax : 0,
        startnti : 0,
        eoftermi : 0,
        startrulei : 0,
-       mode : 0,
+       mode : 0,    // 1 for F#
        bumpast: false,
        sdcuts: HashMap::new(),
        vargroupnames : Vec::new(),
@@ -439,10 +439,20 @@ impl Grammar
                 let mut limit = self.Symbols.len();
                 loop {
                  let copynt = nttype[1..].trim();
-                 let copynti = *self.Symhash.get(copynt).expect(&format!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum));
+                 let copyntiopt = self.Symhash.get(copynt);
+                 if copyntiopt.is_none() {
+                   eprintln!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum);
+                   return false;
+                 }
+                 let copynti = *copyntiopt.unwrap();
                  if self.Symbols[copynti].rusttype.starts_with(':') {
                    nttype = self.Symbols[copynti].rusttype.clone();
-                 } else {break;}
+                 }
+                 else if self.Symbols[copynti].rusttype.len()>0 && !self.Symbols[copynti].rusttype.contains('@') {
+                   eprintln!("ERROR: TYPE DEPENDENCIES ARE ONLY ALLOWED BETWEEN AUTO-GENERATED TYPES. TYPE {} CANNOT BE EXTENDED, line {}",&self.Symbols[copynti].rusttype,linenum);
+                   return false;
+                 }
+                 else {break;}
                  limit -=1;
                  if limit==0 {
                    eprintln!("WARNING: CIRCULARITY DETECTED IN TYPE DEPENDENCIES; TYPE RESET, LINE {}",linenum);
@@ -451,7 +461,7 @@ impl Grammar
                  }
                 }//loop
                }//check extension type integrity
-               
+
 	       if nttype.contains('@') {// copy type from other NT
                 let mut limit =self.Symbols.len()+1;
                 loop {
