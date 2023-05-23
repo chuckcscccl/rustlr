@@ -1,18 +1,17 @@
 auto
 terminals + * - / ( )   # verbatim terminal symbols
-valterminal INT i32     # terminal symbol with value
+valterminal Int i32     # terminal symbol with value
 nonterminal E
 nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
 startsymbol E
-variant-group BinaryOp + - * /   # simplifies AST
+variant-group BinaryOp + - * /   # simplifies AST enum by combining variants
 
 # production rules:
 E --> E + T  | E - T | T
 T --> T * F | T / F | F
-F:Neg --> - F
-F:Val --> INT
-F --> ( E )
+F:Neg --> - F                    # 'Neg' names enum variant in AST
+F --> Int | ( E )
 
 !mod simplecalc_ast; // !-lines are injected verbatim into the parser
 !fn main()  {
