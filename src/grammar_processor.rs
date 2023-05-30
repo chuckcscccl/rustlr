@@ -462,7 +462,7 @@ impl Grammar
                 }//loop
                }//check extension type integrity
 
-	       if nttype.contains('@') {// copy type from other NT
+	       if nttype.contains('@') { // copy type from other NT
                 let mut limit =self.Symbols.len()+1;
                 loop {
                  let mut copynt="";
