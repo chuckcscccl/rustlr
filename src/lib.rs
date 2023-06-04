@@ -76,7 +76,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.4.8";
+pub const VERSION:&'static str = "0.4.9";
 
 // main function, called from main with command-line args
 

@@ -24,6 +24,7 @@ use crate::RawToken::*;
 use crate::{LBox,LRc,lbup};
 use std::any::Any;
 use bumpalo::Bump;
+use std::io;
 /*
 use std::cell::{RefCell,Ref,RefMut};
 use std::io::{self,Read,Write,BufReader,BufRead};
@@ -1018,6 +1019,19 @@ impl<'t> LexSource<'t>
     LexSource::new(path)
   }
 
+  fn from_stdin_i(b:bool) -> Self {
+    let mut strbuf = String::new();
+    let stdin = io::stdin();
+    for ln in stdin.lines() {
+      let rr=ln.map(|x|{strbuf.push_str(&x); strbuf.push_str("\r\n");});
+    }//for
+    LexSource {
+      pathname: "stdin",
+      contents:strbuf,
+      bump:if b {Some(Bump::new())} else {None},
+    }
+  }//from_stdin_i
+
   /// creates a new LexSource struct with given file path,
   /// reads contents into struct using [std::fs::read_to_string],
   /// creates [bump](https://docs.rs/bumpalo/latest/bumpalo/index.html)
@@ -1040,7 +1054,21 @@ impl<'t> LexSource<'t>
          Err(e)
        },
      }//match
-  }//new
+  }//with_bump
+
+  /// Creates LexSource by reading all lines from stdin.  Note that
+  /// all lines are read at once and the input stream is expected to
+  /// be terminated (such as with Cntrl-D) before the LexSource is
+  /// created.
+  pub fn from_stdin() -> Self {
+    Self::from_stdin_i(false)
+  }
+
+  /// Creates lexsource by reading from stdin, with bump arena.
+  /// For use with auto-bump grammar option.
+  pub fn from_stdin_bump() -> Self {
+    Self::from_stdin_i(true)
+  }
 
   /// retrieves reference to bump allocator, if created with with_bump
   pub fn get_bump(&self) -> Option<&Bump> {
