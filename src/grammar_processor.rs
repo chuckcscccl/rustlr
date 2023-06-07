@@ -1854,7 +1854,7 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 //println!("enumhash for absyn {} is {:?}",absyn,self.enumhash.get(absyn));
     let ref extype = self.Externtype;
     let ref lifetime = self.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");
+    let has_lt = lifetime.len()>0; /* && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");*/
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
     //enum name is Retenumgrammarname, variant is _grammarname_enum_{n}
     let enumname = format!("RetTypeEnum{}",&ltopt);  // will be pub

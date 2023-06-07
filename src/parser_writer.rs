@@ -33,8 +33,9 @@ impl Statemachine
     
     let ref extype = self.Gmr.Externtype;
     let ref lifetime = self.Gmr.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
+    let has_lt = lifetime.len()>0 /*&& (absyn.len()==0 || (absyn.contains(lifetime) || extype.contains(lifetime)))*/;
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
+//println!("abysn: {}, ltopt: {}",absyn,&ltopt);    
     let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
 
     let rlen = self.Gmr.Rules.len();

@@ -1032,6 +1032,20 @@ impl<'t> LexSource<'t>
     }
   }//from_stdin_i
 
+
+  fn from_bufread_i<B:io::BufRead>(br:B, b:bool) -> Self {
+    let mut strbuf = String::new();
+    for ln in br.lines() {
+      let rr=ln.map(|x|{strbuf.push_str(&x); strbuf.push_str("\r\n");});
+    }//for
+    LexSource {
+      pathname: "stdin",
+      contents:strbuf,
+      bump:if b {Some(Bump::new())} else {None},
+    }
+  }//from_bufread_i
+
+
   /// creates a new LexSource struct with given file path,
   /// reads contents into struct using [std::fs::read_to_string],
   /// creates [bump](https://docs.rs/bumpalo/latest/bumpalo/index.html)
@@ -1064,10 +1078,22 @@ impl<'t> LexSource<'t>
     Self::from_stdin_i(false)
   }
 
-  /// Creates lexsource by reading from stdin, with bump arena.
+  /// Creates LexSource by reading from stdin, with bump arena.
   /// For use with auto-bump grammar option.
   pub fn from_stdin_bump() -> Self {
     Self::from_stdin_i(true)
+  }
+
+  /// Creates LexSource by reading all lines from a impl [io::BufRead]
+  /// argument.
+  pub fn from_bufread(br:impl io::BufRead) -> Self {
+    Self::from_bufread_i(br,false)
+  }
+
+  /// Creates LexSource by reading all lines from a impl [io::BufRead]
+  /// argument, with bump allocator
+  pub fn from_bufread_bump(br:impl io::BufRead) -> Self {
+    Self::from_bufread_i(br,true)
   }
 
   /// retrieves reference to bump allocator, if created with with_bump
