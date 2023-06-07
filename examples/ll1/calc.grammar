@@ -3,12 +3,15 @@ auto
 lifetime 'lt
 #valuetype i32
 terminals + - * / ( )
+lexterminal POWER **
 valterminal Int i32
 nonterminal E i32
 nonterminal T i32
 nonterminal F i32
+nonterminal G i32
 nonterminal E1 Continuation<'lt>
 nonterminal T1 Continuation<'lt>
+nonterminal F1 Continuation<'lt>
 startsymbol E
 
 # LR grammar:
@@ -28,7 +31,12 @@ T1 --> { Continuation::default() }
 T1 --> * F:z T1:g { Continuation::make(move |y|g.apply(y*z)) }
 T1 --> / F:z T1:g { Continuation::make(move |y|g.apply(y*z)) }
 
-F --> Int:x { x }
-F --> - F:x { -1*x }
-F --> ( E:x ) { x }
+#F --> G ** F | G   right associative, left factoring...
+F --> G:y F1:f { f.apply(y) }
+F1 --> { Continuation::default() }
+F1 --> POWER F:z { Continuation::make(move |y|y.pow(z as u32)) }
+
+G --> Int:x { x }
+G --> - G:x { -1*x }
+G --> ( E:x ) { x }
 
