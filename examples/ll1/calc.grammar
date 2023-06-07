@@ -1,0 +1,34 @@
+# LL1 grammar inside Rustlr
+auto
+lifetime 'lt
+#valuetype i32
+terminals + - * / ( )
+valterminal Int i32
+nonterminal E i32
+nonterminal T i32
+nonterminal F i32
+nonterminal E1 Continuation<'lt>
+nonterminal T1 Continuation<'lt>
+startsymbol E
+
+# LR grammar:
+# E --> E + T | E - T | T
+# T --> T * F | T / F | F
+# F --> Int | - F | ( E )
+
+!use crate::ll1calcast::*;
+
+E --> T:x E1:f { f.apply(x) }
+E1 -->  { Continuation::default() }
+E1 --> + T:y E1:f { Continuation::make(move |x|f.apply(x+y)) }
+E1 --> - T:y E1:f { Continuation::make(move |x|f.apply(x-y)) }
+
+T --> F:z T1:g { g.apply(z) }
+T1 --> { Continuation::default() }
+T1 --> * F:z T1:g { Continuation::make(move |y|g.apply(y*z)) }
+T1 --> / F:z T1:g { Continuation::make(move |y|g.apply(y*z)) }
+
+F --> Int:x { x }
+F --> - F:x { -1*x }
+F --> ( E:x ) { x }
+
