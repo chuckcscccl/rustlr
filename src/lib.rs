@@ -68,6 +68,9 @@ mod selmlk; // experimental
 
 //mod logos_lexer;
 
+mod yacc_ast;
+mod yaccparser;
+
 use lalr_statemachine::LALRMachine;
 use selmlk::{MLStatemachine};
 
@@ -90,7 +93,7 @@ pub fn rustle(args:&Vec<String>) // called from main
 {
   let argc = args.len();
   if argc<2 {eprintln!("Must give path of .grammar file"); return;}
-  let filepath = &args[1];
+  let mut filepath = "";
   let mut parserfile = String::from("");  // -o target
   let mut lalr = false;  // changed from false in version 0.2.0
   let mut newlalr = true;
@@ -103,11 +106,17 @@ pub fn rustle(args:&Vec<String>) // called from main
   let mut lrsdmaxk:usize = selmlk::MAXK;
   let mut regenerate = false;
   let mut mode = 0;
-  let mut argi = 2; // next argument position
+  let mut conv_yacc = false;
+  let mut argi = 1; // next argument position
   while argi<argc
   {
      match &args[argi][..] {
-       //filen if filen.ends_with(".grammar") => {filepath = &args[argi];},
+       filen if filen.ends_with(".grammar") => {filepath = &args[argi];},
+       filen if filen.ends_with(".y") => {
+          filepath=&args[argi];
+	  conv_yacc=true;
+	  break;
+       },
        "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
@@ -143,8 +152,18 @@ pub fn rustle(args:&Vec<String>) // called from main
      }//match directive
      argi+=1;
   }//while there are command-line args
+
+  if filepath.len()==0 {
+    eprintln!("Must give path of .grammar file or .y file to convert from");
+    return;
+  }
+  if conv_yacc {
+    yaccparser::convert_from_yacc(filepath);
+    return;
+  }
+
   if zc && verbose {
-     println!("verbose mode not compatible with -zc option");
+     eprintln!("verbose mode not compatible with -zc option");
      return;
   }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
