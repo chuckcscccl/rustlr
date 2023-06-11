@@ -120,9 +120,9 @@ The expected output is
 AST: BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4)))
 ```
 
-<br>
 
-### New in Version 0.4.8: Conversion From Yacc/Bison Grammar.
+
+#### New in Version 0.4.8: Conversion From Yacc/Bison Grammar.
 
 If the rustlr executable is given a file path that ends in ".y", it will
 attempt to convert a yacc/bison style grammar into rustlr's own grammar
