@@ -22,7 +22,7 @@ startsymbol E
 !use crate::ll1calcast::*;
 
 E --> T:x E1:f { f.apply(x) }
-E1 -->  { Continuation::default() }
+E1 -->  { Continuation::default() }   # default continuation is |x|x
 E1 --> + T:y E1:f { Continuation::make(move |x|f.apply(x+y)) }
 E1 --> - T:y E1:f { Continuation::make(move |x|f.apply(x-y)) }
 

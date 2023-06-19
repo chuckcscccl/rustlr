@@ -100,13 +100,12 @@ pub fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
   let names1= ["PLUS","MINUS","STAR","SLASH","MOD","HASH","AND","HAT","DOLLAR","ATSYMBOL","COMMA","SEMICOLON","PERIOD","BAR","COLON"];
   let syms2 =["=","!","!=","==","&&","||","++","--","<",">","<=",">=","**"];
   let names2= ["EQUALS","BANG","NOTEQ","EQEQ","ANDAND","OROR","PLUSPLUS","MINUSMINUS", "LESSTHAN", "GREATERTHAN","LEQ","GEQ","STARSTAR"];
-  let syms3 = ["(",")","[","]","{","}","+=","-=","*=","/=","?","\\","~"];
-  let names3= ["LPAREN","RPAREN","LBRACK","RBRACK","LBRACE","RBRACE","PLUSEQ","MINUSEQ","TIMESEQ","DIVEQ","QUEST","BACKSLASH","TILDE"];
+  let syms3 = ["(",")","[","]","{","}","+=","-=","*=","/=","?","\\","~","::","->"];
+  let names3= ["LPAREN","RPAREN","LBRACK","RBRACK","LBRACE","RBRACE","PLUSEQ","MINUSEQ","TIMESEQ","DIVEQ","QUEST","BACKSLASH","TILDE","COLONCOLON","ARROW"];
 
   for i in 0..syms1.len() {lexhash.insert(syms1[i],names1[i].to_owned());}
   for i in 0..syms2.len() {lexhash.insert(syms2[i],names2[i].to_owned());}
   for i in 0..syms3.len() {lexhash.insert(syms3[i],names3[i].to_owned());}
-
 
   let mut ltcx = 0;
   for lterm in symtab.lexterminals.iter() {

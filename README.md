@@ -88,7 +88,7 @@ declaration combined what would-have-been four variants into one.  The
 
 [LBox](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html)
 is a *custom smart pointer*
-that automatically contains the line and column position of the start
+that automatically contains the line and column positions of the start
 of the AST construct in the original source.  This information is
 usually required beyond the parsing stage.
 

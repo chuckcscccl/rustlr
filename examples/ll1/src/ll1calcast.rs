@@ -19,8 +19,7 @@ impl<'t,T> Continuation<'t,T> {
   }
 
   pub fn apply(&self, n:T) -> T {
-    let Continuation(f) = self;
-    f(n)
+    (self.0)(n)
   }
 }//impl Continuation
 
