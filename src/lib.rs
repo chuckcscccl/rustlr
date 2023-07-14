@@ -82,6 +82,7 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 pub const VERSION:&'static str = "0.4.9";
 
 // main function, called from main with command-line args
+//pub fn rustle(args:&Vec<String>) // called from main  (old sig)
 
 /// This is the function called from main in the rustlr executable once
 /// rustlr has been installed with **cargo install rustlr**.  This
@@ -89,7 +90,7 @@ pub const VERSION:&'static str = "0.4.9";
 /// parser: add `rustlr = "0.4" to Cargo dependencies.  It accepts the same
 /// command-line arguments as the executable in a vector of strings. See
 /// the documentation and tutorial on how to use rustlr as an executable.
-pub fn rustle(args:&Vec<String>) // called from main
+pub fn rustle(args:&[&str]) // called from main
 {
   let argc = args.len();
   if argc<2 {eprintln!("Must give path of .grammar file"); return;}
@@ -110,10 +111,10 @@ pub fn rustle(args:&Vec<String>) // called from main
   let mut argi = 1; // next argument position
   while argi<argc
   {
-     match &args[argi][..] {
-       filen if filen.ends_with(".grammar") => {filepath = &args[argi];},
+     match args[argi] {
+       filen if filen.ends_with(".grammar") => {filepath = args[argi];},
        filen if filen.ends_with(".y") => {
-          filepath=&args[argi];
+          filepath=args[argi];
 	  conv_yacc=true;
 	  break;
        },
@@ -146,7 +147,7 @@ pub fn rustle(args:&Vec<String>) // called from main
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {
           argi+=1;
-          if argi<argc {parserfile = args[argi].clone();}
+          if argi<argc {parserfile = String::from(args[argi]);}
        },
        _ => {},    
      }//match directive
