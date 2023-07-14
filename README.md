@@ -120,7 +120,12 @@ The expected output is
 AST: BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4)))
 ```
 
+#### New in Version 0.4.8: Conversion From Yacc/Bison Grammar.
 
+Given a parser instance `parser`, it's now possible to call
+`parser1.set_err_report(true)`, which will log parse errors internally
+instead of printing them to stderr.  The error report can be retrieved by
+calling `parser1.get_err_report()`.
 
 #### New in Version 0.4.8: Conversion From Yacc/Bison Grammar.
 
@@ -128,6 +133,7 @@ If the rustlr executable is given a file path that ends in ".y", it will
 attempt to convert a yacc/bison style grammar into rustlr's own grammar
 syntax, stripping away all semantic actions and other language-specific
 content.  All other command-line options are ignored.
+
 
 
 <br>

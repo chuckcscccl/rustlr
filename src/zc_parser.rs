@@ -127,7 +127,8 @@ pub struct ZCParser<AT:Default,ET:Default>
   pub Symset : HashSet<&'static str>,
   //pub tokenizer:&'t mut dyn Tokenizer<'t,AT>,
   popped : Vec<(usize,usize)>,
-  gindex : RefCell<u32>,
+  gindex : RefCell<u32>,  // global index for uid
+  err_report : Option<String>, // optional err report with logging reporter
 }//struct ZCParser
 
 
@@ -162,6 +163,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
          //tokenizer:tk,
          popped: Vec::with_capacity(8),
          gindex: RefCell::new(0),
+         err_report : None,
        };
        for _ in 0..slen {
          p.RSM.push(HashMap::with_capacity(16));
@@ -184,7 +186,10 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     /// "reduce" action of the parser.
     pub fn abort(&mut self, msg:&str)
     {
-       eprintln!("\n!!!Parsing Aborted: {}",msg);
+       self.err_report.as_mut().map_or_else(
+         ||eprintln!("\n!!!Parsing Aborted: {}",msg),
+         |x|x.push_str(&format!("\n!!!Parsing Aborted: {}\n",msg)));
+
        self.err_occurred = true;
        self.stopparsing=true;
     }
@@ -197,15 +202,29 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     {  
        //eprint!("{}",color::Fg(color::Yellow));
        if (self.report_line != self.linenum || self.linenum==0)  {
-//         eprint!("ERROR on line {}, column {}:\n{}\n",self.linenum,self.column,tokenizer.current_line());
          if showlc {
-           eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg); }
-         else { eprintln!("PARSER ERROR: {}",errmsg); }
+           self.err_report.as_mut().map_or_else(
+             ||eprintln!("ERROR on line {}, column {}: {}",self.linenum,self.column,errmsg),
+             |x|x.push_str(&format!("ERROR on line {}, column {}: {}\n",self.linenum,self.column,errmsg)));
+         }
+         else {
+           self.err_report.as_mut().map_or_else(
+             ||eprintln!("PARSER ERROR: {}",errmsg),
+             |x|x.push_str(&format!("PARSER ERROR: {}\n",errmsg)));
+         }
          self.report_line = self.linenum;
        }
        else {
-         if showlc { eprint!(" ({},{}): {}",self.linenum,self.column,errmsg); }
-         else {eprint!(" {}",errmsg);}
+         if showlc {
+           self.err_report.as_mut().map_or_else(
+             ||eprint!(" ({},{}): {}",self.linenum,self.column,errmsg),
+             |x|x.push_str(&format!(" ({},{}): {}",self.linenum,self.column,errmsg)));
+         }
+         else {
+           self.err_report.as_mut().map_or_else(
+             ||eprint!(" {}",errmsg),
+             |x|{x.push(' '); x.push_str(errmsg)});
+         }
        }
        //eprint!("{}",color::Fg(color::Reset));       
        self.err_occurred = true;
@@ -236,7 +255,6 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
        let actionopt = self.RSM[csi].get(sym);
        if let Some(Shift(ni)) = actionopt {
          self.stack.push(StackedItem::new(*ni,AT::default(),self.linenum,self.column)); true
-         //self.stack.push(Stackelement{si:*ni,value:AT::default()}); true
        }
        else {false}
     }
@@ -909,7 +927,28 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     self.exstate = ET::default();
   }//reset
 
+  /// Retrieves recorded error report.  This function will return an empty string
+  /// if [ZCParser::set_err_report] is not called.  It will also return an
+  /// empty string if there was no error
+  pub fn get_err_report(&self) -> &str {
+    self.err_report.as_deref().unwrap_or("")
+  }
+
+  /// When given true as argument, this option will disable the output of
+  /// parser errors to stderr, and instead log them internally until retrieved
+  /// with [ZCParser::get_err_report].  Each call to this function will
+  /// clear the previous report and begin a new one.
+  /// If the bool argument is false, it will erase and turn off error logging
+  /// and print all parser errors to stderr.  This function does not affect
+  /// interactive training, which uses stdio.
+  pub fn set_err_report(&mut self, onof:bool) {
+    if onof {self.err_report = Some(String::new());}
+    else {self.err_report = None;}
+  }
+
+
 }//impl ZCParser 2
+
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -1092,7 +1131,6 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
         if !self.err_occurred {self.err_occurred = true;}
         
         err_handler.err_reporter(self,&lookahead,&actclone, tokenizer);
-        //err_reporter(self,&lookahead,&actclone);
         
         match self.error_recover(&mut lookahead,tokenizer) {
           None => { self.stopparsing=true; break; }

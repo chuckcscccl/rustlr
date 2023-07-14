@@ -49,5 +49,6 @@ mod yaccparser;
 fn main() 
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
+  //let args:Vec<&str> = std::env::args().map(|x|x.as_str()).collect();
   rustlr::rustle(&args);
 }//main
