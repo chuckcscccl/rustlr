@@ -120,7 +120,7 @@ The expected output is
 AST: BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4)))
 ```
 
-#### New in Version 0.4.9: Conversion From Yacc/Bison Grammar.
+#### New in Version 0.4.9: Error logging option
 
 Given a parser instance `parser`, it's now possible to call
 `parser1.set_err_report(true)`, which will log parse errors internally
