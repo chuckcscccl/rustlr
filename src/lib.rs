@@ -90,10 +90,13 @@ pub const VERSION:&'static str = "0.4.9";
 /// parser: add `rustlr = "0.4" to Cargo dependencies.  It accepts the same
 /// command-line arguments as the executable in a vector of strings. See
 /// the documentation and tutorial on how to use rustlr as an executable.
-pub fn rustle(args:&[&str]) // called from main
+pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
 {
   let argc = args.len();
-  if argc<2 {eprintln!("Must give path of .grammar file"); return;}
+  if argc<2 {
+    //eprintln!("Must give path of .grammar file"); return;
+    return Err("Must give path of .grammar file");
+  }
   let mut filepath = "";
   let mut parserfile = String::from("");  // -o target
   let mut lalr = false;  // changed from false in version 0.2.0
@@ -155,17 +158,17 @@ pub fn rustle(args:&[&str]) // called from main
   }//while there are command-line args
 
   if filepath.len()==0 {
-    eprintln!("Must give path of .grammar file or .y file to convert from");
-    return;
+    //eprintln!("Must give path of .grammar file or .y file to convert from");
+    return Err("Must give path of .grammar file or .y file to convert from");
   }
   if conv_yacc {
     yaccparser::convert_from_yacc(filepath);
-    return;
+    return Ok(())
   }
 
   if zc && verbose {
-     eprintln!("verbose mode not compatible with -zc option");
-     return;
+     //eprintln!("verbose mode not compatible with -zc option");
+     return Err("verbose mode not compatible with -zc option");
   }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
@@ -176,8 +179,8 @@ pub fn rustle(args:&[&str]) // called from main
   grammar1.mode = mode; // 0 for rust, 1 for fsharp
   let parsedok = grammar1.parse_grammar(filepath);  //  ***
   if !parsedok {
-    println!("\nFailed to process grammar");
-    return;
+    //println!("\nFailed to process grammar");
+    return Err("\nFailed to process grammar");
   }
   // Check grammar integrity: now done inside parse
   if grammar1.name.len()<2  { // derive grammar name from filepath
@@ -201,7 +204,10 @@ pub fn rustle(args:&[&str]) // called from main
      if mode==1 {wres = grammar1.write_fsast(&astpath); }
      else if !grammar1.bumpast { wres = grammar1.writeabsyn(&astpath); }
      else {wres = grammar1.write_bumpast(&astpath); }
-     if !wres.is_ok() {eprintln!("Failed to generate abstract syntax"); return;}
+     if !wres.is_ok() {
+       //eprintln!("Failed to generate abstract syntax");
+       return Err("Failed to generate abstract syntax");
+     }
   }
 
  grammar1.delay_transform(); // static delayed reduction markers
@@ -220,7 +226,10 @@ pub fn rustle(args:&[&str]) // called from main
     println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
     //fsm0 = lrsdfsm.to_statemachine();
-    if lrsdfsm.failed {println!("NO PARSER GENERATED"); return;}
+    if lrsdfsm.failed {
+      //println!("NO PARSER GENERATED"); return;
+      return Err("LR SELECTIVE DELAY FAILURE. NO PARSER GENERATED");
+    }
     if !lrsdfsm.failed && lrsdfsm.regenerate { 
       println!("Re-Generating LR(1) machine for transformed grammar...");
       lrsd = false;
@@ -250,8 +259,8 @@ pub fn rustle(args:&[&str]) // called from main
   else if tracelev>1 && !newlalr && !lrsd {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.{}",&gramname,pfsuffix));}
   if fsm0.States.len()>65536  {
-    println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
-    return;
+    //println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
+    return Err("number of states execeeds limit of 65536");
   }
   let write_result =
     if mode==1 { fsm0.writefsparser(&parserfile) }
@@ -273,6 +282,7 @@ pub fn rustle(args:&[&str]) // called from main
   else if let Err(err) = write_result {
      println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
   }
+  Ok(())
 }//rustle
 
 
