@@ -79,7 +79,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.4.9";
+pub const VERSION:&'static str = "0.4.10";
 
 // main function, called from main with command-line args
 //pub fn rustle(args:&Vec<String>) // called from main  (old sig)
@@ -90,12 +90,12 @@ pub const VERSION:&'static str = "0.4.9";
 /// parser: add `rustlr = "0.4" to Cargo dependencies.  It accepts the same
 /// command-line arguments as the executable in a vector of strings. See
 /// the documentation and tutorial on how to use rustlr as an executable.
-pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
+pub fn rustle(args:&[&str]) -> Result<String,String> // called from main
 {
   let argc = args.len();
   if argc<2 {
     //eprintln!("Must give path of .grammar file"); return;
-    return Err("Must give path of .grammar file");
+    return Err("Must give path of .grammar file".to_owned());
   }
   let mut filepath = "";
   let mut parserfile = String::from("");  // -o target
@@ -159,16 +159,16 @@ pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
 
   if filepath.len()==0 {
     //eprintln!("Must give path of .grammar file or .y file to convert from");
-    return Err("Must give path of .grammar file or .y file to convert from");
+    return Err("Must give path of .grammar file or .y file to convert from".to_owned());
   }
   if conv_yacc {
     yaccparser::convert_from_yacc(filepath);
-    return Ok(())
+    return Ok(".y grammar converted to .grammar\n".to_owned());
   }
 
   if zc && verbose {
      //eprintln!("verbose mode not compatible with -zc option");
-     return Err("verbose mode not compatible with -zc option");
+     return Err("verbose mode not compatible with -zc option".to_owned());
   }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}
   if tracelev>1 {println!("parsing grammar from {}",&filepath);}
@@ -180,7 +180,7 @@ pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
   let parsedok = grammar1.parse_grammar(filepath);  //  ***
   if !parsedok {
     //println!("\nFailed to process grammar");
-    return Err("\nFailed to process grammar");
+    return Err(format!("\nFailed to process grammar at {}",filepath));
   }
   // Check grammar integrity: now done inside parse
   if grammar1.name.len()<2  { // derive grammar name from filepath
@@ -206,7 +206,7 @@ pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
      else {wres = grammar1.write_bumpast(&astpath); }
      if !wres.is_ok() {
        //eprintln!("Failed to generate abstract syntax");
-       return Err("Failed to generate abstract syntax");
+       return Err("Failed to generate abstract syntax".to_owned());
      }
   }
 
@@ -221,17 +221,17 @@ pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
 
   let mut fsm0;
   if lrsd {
+    grammar1.logprint(&format!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk));
     let mut lrsdfsm = MLStatemachine::new(grammar1);
     lrsdfsm.regenerate = regenerate;
-    println!("Generating Experimental LR-Selective Delay State Machine with Max Delay = {}",lrsdmaxk);
     lrsdfsm.selml(lrsdmaxk);
     //fsm0 = lrsdfsm.to_statemachine();
     if lrsdfsm.failed {
       //println!("NO PARSER GENERATED"); return;
-      return Err("LR SELECTIVE DELAY FAILURE. NO PARSER GENERATED");
+      return Err("LR SELECTIVE DELAY FAILURE. NO PARSER GENERATED".to_owned());
     }
-    if !lrsdfsm.failed && lrsdfsm.regenerate { 
-      println!("Re-Generating LR(1) machine for transformed grammar...");
+    if !lrsdfsm.failed && lrsdfsm.regenerate {
+      lrsdfsm.Gmr.logprint("Re-Generating LR(1) machine for transformed grammar...");
       lrsd = false;
       fsm0 = Statemachine::new(lrsdfsm.Gmr);
       fsm0.lalr = false;
@@ -243,24 +243,23 @@ pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
 
   } else  // not lrsd
   if newlalr { // newlalr takes precedence over other flags
+     grammar1.logprint("Generating LALR(1) state machine");
      let mut lalrfsm = LALRMachine::new(grammar1);
-     println!("Generating LALR(1) state machine");
      lalrfsm.generatefsm();
      fsm0 = lalrfsm.to_statemachine();
   }
   else {
+    grammar1.logprint(&format!("Generating {} state machine for grammar {}...",if lalr {"older LALR"} else {"LR1"},&gramname));
     fsm0 = Statemachine::new(grammar1);
     fsm0.lalr = lalr;
     if lalr {fsm0.Open = Vec::with_capacity(1024); } // important
-    if tracelev>0 {println!("Generating {} state machine for grammar {}...",if lalr {"older LALR"} else {"LR1"},&gramname);}
     fsm0.generatefsm(); //GENERATE THE FSM
   } // old code
   if tracelev>2 && !newlalr && !lrsd { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
   else if tracelev>1 && !newlalr && !lrsd {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print states
   if parserfile.len()<1 || parserfile.ends_with('/') || parserfile.ends_with('\\') {parserfile.push_str(&format!("{}parser.{}",&gramname,pfsuffix));}
   if fsm0.States.len()>65536  {
-    //println!("too many states: {} execeeds limit of 65536",fsm0.States.len());
-    return Err("number of states execeeds limit of 65536");
+    return Err(format!("too many states: {} execeeds limit of 65536",fsm0.States.len()));
   }
   let write_result =
     if mode==1 { fsm0.writefsparser(&parserfile) }
@@ -275,50 +274,15 @@ pub fn rustle(args:&[&str]) -> Result<(),&'static str> // called from main
       if verbose /*fsm0.States.len()<=16*/ {fsm0.write_verbose(&parserfile)}
       else {fsm0.writeparser(&parserfile)}
     }; // write_result =
-  if tracelev>0 && !lrsd {eprintln!("{} total states",fsm0.FSM.len());}
+  //if tracelev>0 && !lrsd {eprintln!("{} total states",fsm0.FSM.len());}
+  fsm0.Gmr.logprint(&format!("{} total states",fsm0.FSM.len()));
   if let Ok(_) = write_result {
-     if tracelev>0 {println!("Parser saved in {}",&parserfile);}
+     fsm0.Gmr.logprint(&format!("Parser saved in {}",&parserfile));
   }
   else if let Err(err) = write_result {
-     println!("failed to write parser, likely due to invalid -o destination: {:?}",err);    
+     return Err(format!("failed to write parser, likely due to invalid -o destination\n{:?}",err));    
   }
-  Ok(())
+  let mut savedlog = String::new();
+  if tracelev==0 {fsm0.Gmr.swap_log(&mut savedlog);}
+  Ok(savedlog)
 }//rustle
-
-
-/*
-fn rustler(grammarname:&str, option:&str) {
-  let mut gram1 = Grammar::new();
-  let grammarfile = format!("{}.grammar",&grammarname);
-
-  let lalr =  match option {
-    "lalr" | "LALR" => true,   
-    "lr1" | "LR1" => false,
-    _ => {println!("Option {} not supported, defaulting to full LR1 generation",option); false},
-  };
-  
-  if TRACE>1 {println!("parsing grammar from {}",grammarfile);}
-  gram1.parse_grammar(&grammarfile);
-  if TRACE>2 {println!("computing Nullable set");}
-  gram1.compute_NullableRf();
-  if TRACE>2 {println!("computing First sets");}
-  //gram1.compute_FirstIM();
-  gram1.compute_First();
-  if gram1.name.len()<2 {gram1.name = grammarname.to_owned(); }
-  let gramname = gram1.name.clone();
-  let mut fsm0 = Statemachine::new(gram1);
-  fsm0.lalr = lalr;
-  if lalr {fsm0.Open = Vec::with_capacity(1024); }
-  println!("Generating {} state machine for grammar...",if lalr {"LALR"} else {"LR1"});
-  fsm0.generatefsm();
-  if TRACE>1 { for state in &fsm0.States {printstate(state,&fsm0.Gmr);} }
-  else if TRACE>0 {   printstate(&fsm0.States[0],&fsm0.Gmr); }//print state
-  let parserfile = format!("{}parser.rs",&gramname);
-  let write_result = 
-    if fsm0.States.len()<=16 {fsm0.write_verbose(&parserfile)}
-    else if fsm0.States.len()<=65536 {fsm0.writeparser(&parserfile)}
-    else {panic!("too many states: {}",fsm0.States.len())};
-  println!("{} total states",fsm0.States.len());
-  if let Ok(_) = write_result {println!("written parser to {}",&parserfile);}
-}//rustler
-*/

@@ -322,12 +322,9 @@ impl Grammar
 
      let ltopt = if self.lifetime.len()>0 {format!("<{}>",&self.lifetime)}
                  else {String::new()};
+     // set of variant group names such as "Binop" that target nt-enum can group
      let mut groupvariants:HashMap<usize,HashSet<String>> = HashMap::new();
-     /*
-     for (_,ntd) in toextend.iter() {
-       groupvariants.insert(*ntd,HashSet::new());
-     }
-     */
+     
      //main loop: for each nt and its rules
      for (nt,NTrules) in self.Rulesfor.iter() // for each nt and its rules
      {
@@ -341,10 +338,14 @@ impl Grammar
         let NT = &self.Symbols[nti].sym;
 	let mut targetnt = nti;
 	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
+        /*
 	if !groupvariants.contains_key(&targetnt) {
 	  groupvariants.insert(targetnt,HashSet::new());
 	}
 	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
+        */
+        //set of lhs labels that are variant-group names
+        let groupenums = groupvariants.entry(targetnt).or_default();
         // group enums are only generated for tuple variants, the presence
         // of any left or right-side label will cancel its generation.
 	for ri in NTrules  // for each rule with NT on lhs
@@ -407,11 +408,11 @@ impl Grammar
 	      enumvar.push('('); ACTION.push('(');
               if groupoper.len()>0 {
                 if groupenums.contains(&self.Rules[*ri].lhs.label) {
+                  // enum variant type (Binop(&static str,..)) already generated
                   nullenum = true;
                 } else {
                   enumvar.push_str("&'static str,");
 		  let toinsert = self.Rules[*ri].lhs.label.clone();
-//println!("inserting {} to groupenums, had len {}",&toinsert, groupenums.len());
                   groupenums.insert(toinsert);
                 }
                 ACTION.push_str(&format!("\"{}\",",groupoper));
@@ -585,8 +586,7 @@ impl Grammar
      }// closing all enums and add to ASTS (for loop)
 
      // set Absyntype
-     let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist
-     self.Absyntype = self.Symbols[*topi].rusttype.clone();
+     self.Absyntype = self.Symbols[self.topsym].rusttype.clone();
      self.enumhash.insert(self.Absyntype.clone(), 0);
 //println!("\n AST generated:\n\n{}",&ASTS);
 

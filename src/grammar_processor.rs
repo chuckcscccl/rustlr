@@ -95,6 +95,25 @@ impl Grule
   }
 }//impl Grule
 
+pub fn printruleb(rule:&Grule,ri:usize) -> String //independent function
+{
+   let mut msg = format!("PRODUCTION_{}: {} --> ",ri,rule.lhs.sym);
+   
+   //print!("PRODUCTION_{}: {} --> ",ri,rule.lhs.sym);
+   for s in &rule.rhs {
+      //print!("{}",s.sym);
+      msg.push_str(&s.sym);
+      if s.label.len()>0  { //{print!(":{}",s.label);}
+        msg.push(':'); msg.push_str(&s.label);
+      }
+      //print!(" ");
+      msg.push(' ');
+   }
+   //println!(" action{{ {}, precedence {}",rule.action.trim(),rule.precedence);
+   msg.push_str(&format!(" action{{ {}, precedence {}\n",rule.action.trim(),rule.precedence));
+   msg
+} // printrule
+
 pub fn printrule(rule:&Grule,ri:usize)  //independent function
 {
    print!("PRODUCTION_{}: {} --> ",ri,rule.lhs.sym);
@@ -103,8 +122,7 @@ pub fn printrule(rule:&Grule,ri:usize)  //independent function
       if s.label.len()>0 {print!(":{}",s.label);}
       print!(" ");
    }
-   println!(" action{{ {}, precedence {}",rule.action.trim(),rule.precedence);  // {{ is \{
-}
+   println!(" action{{ {}, precedence {}",rule.action.trim(),rule.precedence);  }
 
 /////main global class, roughly corresponds to "metaparser"
 pub struct Grammar
@@ -149,7 +167,8 @@ pub struct Grammar
   pub sdcuts: HashMap<usize,usize>, // !% marker positions: rulenum to position
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<usize,usize>,
-}
+  pub genlog : String,
+}// struct Grammar
 
 impl Default for Grammar {
   fn default() -> Self { Grammar::new() }
@@ -188,7 +207,6 @@ impl Grammar
        genabsyn: false,
        enumhash:HashMap::new(),
        Reachable:HashMap::new(),
-//       transform_function: String::new(),
        basictypes : btypes,
        ASTExtras: String::new(),
        haslt_base: HashSet::new(), //terminals that contain lifetime
@@ -203,8 +221,27 @@ impl Grammar
        sdcuts: HashMap::new(),
        vargroupnames : Vec::new(),
        vargroups : HashMap::new(),
+       genlog : String::new(),
      }
   }//new grammar
+
+  pub fn logprint(&mut self, msg:&str) {
+    if self.tracelev>0 {println!("{}",msg);}
+    else { self.genlog.push_str(msg); self.genlog.push('\n'); }
+  }
+  pub fn logprint0(&mut self, msg:&str) {
+    if self.tracelev>0 {print!("{}",msg);}
+    else { self.genlog.push_str(msg); }
+  }
+  pub fn logeprint(&mut self, msg:&str) {
+    if self.tracelev>0 {eprintln!("{}",msg);}
+    else { self.genlog.push_str(msg); self.genlog.push('\n'); }
+  }
+
+  pub fn getlog(&self) -> &str { &self.genlog  }
+  pub fn swap_log(&mut self, other:&mut String) {
+    core::mem::swap(other, &mut self.genlog);
+  }//clear_log
 
   pub fn basictype(&self,ty0:&str) -> bool
   {
@@ -268,7 +305,7 @@ impl Grammar
   {
      let mut reader =  match File::open(filename) {
        Ok(f) => { Some(BufReader::new(f)) },
-       _ => { eprintln!("cannot open file, reading from stdin..."); None},
+       _ => { self.logeprint("cannot open file, reading from stdin..."); None},
      };//match
 
      let mut line=String::new();
@@ -307,6 +344,7 @@ impl Grammar
        else {
          let result = if let Some(br)=&mut reader {br.read_line(&mut line)}
                       else {std::io::stdin().read_line(&mut line)};
+                      //else { return false; };
          match result {
             Ok(0) | Err(_) => { line = String::from("EOF"); },
   	    Ok(n) => {linenum+=1;},
@@ -318,7 +356,7 @@ impl Grammar
        if multiline && linelen>1 && &line[0..1]!="#" {
           // keep reading until <== found
           if linelen==3 && &line[0..3]=="EOF" {
-            eprintln!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==, line {}",linenum);  return false;
+            self.logeprint(&format!("MULTI-LINE GRAMMAR PRODUCTION DID NOT END WITH <==, line {}",linenum));  return false;
           }
           match line.rfind("<==") {
             None => {}, // keep reading, add to line buffer
@@ -331,7 +369,7 @@ impl Grammar
        else if linelen>1 && &line[0..1]=="!" {
            self.Extras.push_str(&line[1..]);
            if line[1..].trim().starts_with("pub ") {
-             eprintln!("WARNING: this public declaration may result in redundancy and conflicts, line {}",linenum);
+             self.logeprint(&format!("WARNING: this public declaration may result in redundancy and conflicts, line {}",linenum));
            }
        }
        else if linelen>1 && &line[0..1]=="$" {
@@ -369,19 +407,19 @@ impl Grammar
             },
             "auto" | "genabsyn" => {
                if stage==0 {self.genabsyn=true;} else if !self.genabsyn {
-                 eprintln!("ERROR: Place 'auto' at beginning of the grammar or run with -auto option, directive may not be effective.");
+                 self.logeprint("ERROR: Place 'auto' at beginning of the grammar or run with -auto option, directive may not be effective.");
                }
             },
             "auto-bump" => {
                if stage==0 {self.bumpast=true; self.genabsyn=true;} else if !self.genabsyn {
-                 eprintln!("ERROR: Place 'auto' or 'auto-bump' at beginning of the grammar or run with -auto option, directive may not be effective.");
+                 self.logeprint("ERROR: Place 'auto' or 'auto-bump' at beginning of the grammar or run with -auto option, directive may not be effective.");
                }
             },
             "EOF" => {atEOF=true},
             ("terminal" | "terminals") if stage==0 => {
                for i in 1..stokens.len() {
                  if self.Symhash.contains_key(stokens[i]) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[i],linenum);
+  	           self.logeprint(&format!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[i],linenum));
                    continue;
                  }               
 	          let mut newterm = Gsym::new(stokens[i],true);
@@ -398,7 +436,7 @@ impl Grammar
             }, //terminals
 	    "typedterminal" if stage==0 && stokens.len()>2 => {
                  if self.Symhash.contains_key(stokens[1]) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum);
+  	           self.logeprint(&format!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum));
                    continue;
                  }            
 	       let mut newterm = Gsym::new(stokens[1],true);
@@ -421,7 +459,7 @@ impl Grammar
 	    }, //typed terminals
 	    "nonterminal" | "typednonterminal" if stage==0 && stokens.len()>1 => {   // with type
 	       if self.Symhash.get(stokens[1]).is_some() {
-	         eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum);
+	         self.logeprint(&format!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[1],linenum));
 		 continue;
 	       }
 	       let mut newterm = Gsym::new(stokens[1],false);
@@ -441,7 +479,7 @@ impl Grammar
                  let copynt = nttype[1..].trim();
                  let copyntiopt = self.Symhash.get(copynt);
                  if copyntiopt.is_none() {
-                   eprintln!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum);
+                   self.logeprint(&format!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum));
                    return false;
                  }
                  let copynti = *copyntiopt.unwrap();
@@ -449,13 +487,13 @@ impl Grammar
                    nttype = self.Symbols[copynti].rusttype.clone();
                  }
                  else if self.Symbols[copynti].rusttype.len()>0 && !self.Symbols[copynti].rusttype.contains('@') {
-                   eprintln!("ERROR: TYPE DEPENDENCIES ARE ONLY ALLOWED BETWEEN AUTO-GENERATED TYPES. TYPE {} CANNOT BE EXTENDED, line {}",&self.Symbols[copynti].rusttype,linenum);
+                   self.logeprint(&format!("ERROR: TYPE DEPENDENCIES ARE ONLY ALLOWED BETWEEN AUTO-GENERATED TYPES. TYPE {} CANNOT BE EXTENDED, line {}",&self.Symbols[copynti].rusttype,linenum));
                    return false;
                  }
                  else {break;}
                  limit -=1;
                  if limit==0 {
-                   eprintln!("WARNING: CIRCULARITY DETECTED IN TYPE DEPENDENCIES; TYPE RESET, LINE {}",linenum);
+                   self.logeprint(&format!("WARNING: CIRCULARITY DETECTED IN TYPE DEPENDENCIES; TYPE RESET, LINE {}",linenum));
                    nttype = String::new();
                    break;
                  }
@@ -500,7 +538,7 @@ impl Grammar
             "nonterminals" if stage==0 => {
                for i in 1..stokens.len() {
                  if self.Symhash.contains_key(stokens[i]) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[i],linenum);
+  	           self.logeprint(&format!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",stokens[i],linenum));
                    continue;
                  }
                  
@@ -514,39 +552,42 @@ impl Grammar
                }
             },
 	    "topsym" | "startsymbol" /*if stage==0*/ => {
-               if stage>1 {eprintln!("Grammar start symbol must be defined before production rules, line {}",linenum); return false;}  else {stage=1;}
+               if stage>1 { self.logeprint(&format!("Grammar start symbol must be defined before production rules, line {}",linenum)); return false;}  else {stage=1;}
                match self.Symhash.get(stokens[1]) {
                  Some(tsi) if *tsi<self.Symbols.len() && !self.Symbols[*tsi].terminal => {
               	    self.topsym = *tsi; //String::from(stokens[1]);
                     let toptype = &self.Symbols[*tsi].rusttype;
                     if toptype != &self.Absyntype && !self.genabsyn && toptype.len()>0 {
-                       eprintln!("WARNING: Type of Grammar start symbol {} set to {}; you should declare the valuetype unless using -auto mode.",stokens[1],&self.Absyntype);
-                       if !self.genabsyn {self.Symbols[*tsi].rusttype = self.Absyntype.clone();}
+                    let msg = format!("WARNING: Type of Grammar start symbol {} set to {}; you should declare the valuetype unless using -auto mode.\n",stokens[1],&self.Absyntype);
+                      if self.tracelev>0 {eprint!("{}",msg);}
+                      else {self.genlog.push_str(&msg);}
+                      if !self.genabsyn {self.Symbols[*tsi].rusttype = self.Absyntype.clone();}
                     }
                  },
-                 _ => { eprintln!("top symbol {} not found in declared non-terminals; check ordering of declarations, line {}",stokens[1],linenum);
+                 _ => {  let msg = format!("top symbol {} not found in declared non-terminals; check ordering of declarations, line {}\n",stokens[1],linenum);
+                         if self.tracelev>0 {eprint!("{}",msg);}
+                         else {self.genlog.push_str(&msg);}
                         return false;
                  },
                }//match
-	       //if TRACE>4 {println!("top symbol is {}",stokens[1]);}
 	    }, //topsym
             "flatten" if stokens.len()>=2 => {
               for tok in stokens[1..].iter() {
                 let fnti = *self.Symhash.get(&tok[..]).expect(&format!("UNDEFINED GRAMMAR SYMBOL {}, LINE {}\n",tok,linenum));
                 if self.Symbols[fnti].terminal {
-                  eprintln!("WARNING: ONLY NON-TERMINALS CAN HAVE THEIR ASTS FLATTENED ({}), LINE {}\n",tok,linenum);
+                  self.logeprint(&format!("WARNING: ONLY NON-TERMINALS CAN HAVE THEIR ASTS FLATTENED ({}), LINE {}\n",tok,linenum));
                 }
                 else {self.flattentypes.insert(fnti);}
               }//for each tok
             },
             "errsym" | "errorsymbol" => {
                if stage>1 {
-                 eprintln!("!!! Error recover symbol must be declared before production rules, line {}",linenum);
+                 self.logeprint(&format!("!!! Error recover symbol must be declared before production rules, line {}",linenum));
                  return false;
                }
                if stage==0 {stage=1;}
                if !self.terminal(stokens[1]) {
-                 eprintln!("!!!Error recover symbol {} is not a terminal, line {} ",stokens[1],linenum);
+                 self.logeprint(&format!("!!!Error recover symbol {} is not a terminal, line {} ",stokens[1],linenum));
                  return false;
                }
                self.Errsym = stokens[1].to_owned();
@@ -557,7 +598,8 @@ impl Grammar
                for i in 1..stokens.len()
                {
                   if !self.nonterminal(stokens[i]) {
-                     eprintln!("!!!Error recovery symbol {} is not a declared non-terminal, line {}",stokens[i],linenum);  return false;
+                     self.logeprint(&format!("!!!Error recovery symbol {} is not a declared non-terminal, line {}",stokens[i],linenum));
+                     return false;
                   }
                   self.Recover.insert(stokens[i].to_owned());
                } // for each subsequent token
@@ -568,7 +610,8 @@ impl Grammar
                for i in 1..stokens.len()
                {
                   if !self.terminal(stokens[i]) {
-                     eprintln!("!!!Error recovery re-synchronization symbol {} is not a declared terminal, line {}",stokens[i],linenum); return false;
+                     self.logeprint(&format!("!!!Error recovery re-synchronization symbol {} is not a declared terminal, line {}",stokens[i],linenum));
+                     return false;
                   }
                   self.Resynch.insert(stokens[i].trim().to_owned());
                } // for each subsequent token
@@ -579,9 +622,9 @@ impl Grammar
 	       ltopt = format!("<{}>",&self.lifetime);
             },
             "absyntype" | "valuetype" /*if stage==0*/ => {
-               if stage>0 {eprintln!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum); return false;}
+               if stage>0 {self.logeprint(&format!("The grammar's abstract syntax type must be declared before production rules, line {}",linenum)); return false;}
                if self.genabsyn {
-                 eprintln!("WARNING: absyntype/valuetype declaration ignored in -auto (genabsyn) mode, line {}", linenum);
+                 self.logeprint(&format!("WARNING: absyntype/valuetype declaration ignored in -auto (genabsyn) mode, line {}", linenum));
                  continue;
                }
                let pos = line.find(stokens[0]).unwrap() + stokens[0].len();
@@ -594,31 +637,26 @@ impl Grammar
 	    "left" | "right" | "nonassoc" if stage<2 && stokens.len()>2 => {
                if stage==0 {stage=1;}
                if stokens.len()<3 {
-	         eprintln!("MALFORMED ASSOCIATIVITY/PRECEDENCE DECLARATION SKIPPED ON LINE {}",linenum);
+	         self.logeprint(&format!("MALFORMED ASSOCIATIVITY/PRECEDENCE DECLARATION SKIPPED ON LINE {}",linenum));
 	         continue;
 	       }
 	       let mut preclevel:i32 = DEFAULTPRECEDENCE;
 	       if let Ok(n)=stokens[2].parse::<i32>() {
                  if n>0 && n<=0x40000000 {preclevel = n;}
-                 else {eprintln!("ERROR: PRECEDENCE VALUE MUST BE BETWEEN 1 AND {}, LINE {}\n",0x40000000,linenum); return false;}
+                 else {self.logeprint(&format!("ERROR: PRECEDENCE VALUE MUST BE BETWEEN 1 AND {}, LINE {}\n",0x40000000,linenum)); return false;}
                }
-               else {eprintln!("ERROR: Did not read precedence level on line {}\n",linenum); return false;}
+               else {self.logeprint(&format!("ERROR: Did not read precedence level on line {}\n",linenum)); return false;}
                if stokens[0]=="nonassoc" && preclevel>0 { preclevel = NONASSOCBIT-preclevel;}
 	       else if stokens[0]=="right" && preclevel>0 {preclevel = -1 * preclevel;}
                let mut targetsym = stokens[1];
                if targetsym=="_" {targetsym = "_WILDCARD_TOKEN_";}
                if let Some(index) = self.Symhash.get(targetsym) {
-               /*
-                 if preclevel.abs()<=DEFAULTPRECEDENCE {
-                   eprintln!("WARNING: precedence of {} is non-positive",stokens[1]);
-                 }
-               */
                  self.Symbols[*index].precedence = preclevel;
-               } else {eprintln!("UNDEFINED GRAMMAR SYMBOL {}, LINE {}\n",targetsym,linenum); return false;}
+               } else {self.logeprint(&format!("UNDEFINED GRAMMAR SYMBOL {}, LINE {}\n",targetsym,linenum)); return false;}
 	    }, // precedence and associativity, left or right or nonassoc
 	    "lexname"  => {
                if stokens.len()<3 {
-	         eprintln!("MALFORMED lexname declaration line {} skipped",linenum);
+	         self.logeprint(&format!("MALFORMED lexname declaration line {} skipped",linenum));
 	         continue;
 	       }
                self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
@@ -630,7 +668,7 @@ impl Grammar
                let declaration = &line[pos..];
                let dtokens:Vec<_>=declaration.split_whitespace().collect();
 	       if dtokens.len()<3 {
-	         eprintln!("MALFORMED lexvalue declaration skipped, line {}",linenum);
+	         self.logeprint(&format!("MALFORMED lexvalue declaration skipped, line {}",linenum));
 	         continue;
 	       }  // "int" -> ("Num(n)","Val(n)")
 	       let mut valform = String::new();
@@ -651,17 +689,17 @@ impl Grammar
                let mut usingcolon = true;
                let mut dtokens:Vec<_> = declaration.split('~').collect();
                if dtokens.len()>1 && dtokens.len()<4 {
-                 eprintln!("ERROR ON LINE {}. MISSING ~",linenum);
+                 self.logeprint(&format!("ERROR ON LINE {}. MISSING ~",linenum));
                  return false;
                }
                if dtokens.len()<4 {dtokens=declaration.split_whitespace().collect(); usingcolon=false;}
 	       if dtokens.len()<4 {
-	         eprintln!("MALFORMED valueterminal declaration skipped, line {}",linenum);
+	         self.logeprint(&format!("MALFORMED valueterminal declaration skipped, line {}",linenum));
 	         continue;
 	       }  // valueterminal ID: String: Alphanum(n) if ... : n.to_owned()
                let termname = dtokens[0].trim();
                  if self.Symhash.contains_key(termname) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
+  	           self.logeprint(&format!("WARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum));
                    continue;
                  }               
                let mut newterm = Gsym::new(termname,true);
@@ -691,7 +729,7 @@ impl Grammar
             }, //valueterminal
             "valterminal" => { //simplified valueterminal
                if stokens.len()<3 || stage!=0 {
-                 eprintln!("\nWARNING: Invalid valterminal declaration on line {} ignored", linenum);
+                 self.logeprint(&format!("\nWARNING: Invalid valterminal declaration on line {} ignored", linenum));
                  continue;
                }
                let pos = line.find(stokens[1]).unwrap()+stokens[1].len();
@@ -701,14 +739,14 @@ impl Grammar
                let mut tokenform = "Num(_tt)"; // default
                let mut valform = "_tt".to_owned();
                if self.Symhash.contains_key(termname) {
-  	           eprintln!("\nWARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum);
+  	           self.logeprint(&format!("\nWARNING: REDEFINITION OF SYMBOL {} IGNORED, line {} of grammar",termname,linenum));
                    continue;
                }//check if already declared
                let mut newterm = Gsym::new(termname,true);
                newterm.index = self.Symbols.len();
                if termtype.starts_with("alphanum") {
                  if usedalphanum {
-                   eprintln!("\nWARNING for line {}: only the first 'alphanumeric' valterminal declaration is recognized. Consider using 'valueterminal' or define custom token type.",linenum);
+                   self.logeprint(&format!("\nWARNING for line {}: only the first 'alphanumeric' valterminal declaration is recognized. Consider using 'valueterminal' or define custom token type.",linenum));
                    continue;
                  }
                  else {usedalphanum=true;}
@@ -721,7 +759,7 @@ impl Grammar
                }//alphanum type, set lifetime if necessary
                else if &termtype=="string literal" || &termtype=="strlit" {
                  if usedstrlit {
-                   eprintln!("\nWARNING for line {}: only the first 'string literal' valterminal declaration is recognized. Consider using 'valueterminal' or define custom token type.",linenum);
+                   self.logeprint(&format!("\nWARNING for line {}: only the first 'string literal' valterminal declaration is recognized. Consider using 'valueterminal' or define custom token type.",linenum));
                    continue;
                  }
                  else {usedstrlit=true;}
@@ -734,7 +772,7 @@ impl Grammar
                }
                else if &termtype=="f32" || &termtype=="f64" || (self.mode>0 && termtype0=="float") {
                  if usedfloat {
-                   eprintln!("\nWARNING for line {}: valterminal declarations may only specify one floating point type as there is only one type of lexical token for all floating point values. Consider using 'valueterminal' or define custom token type.",linenum);
+                   self.logeprint(&format!("\nWARNING for line {}: valterminal declarations may only specify one floating point type as there is only one type of lexical token for all floating point values. Consider using 'valueterminal' or define custom token type.",linenum));
                    continue;
                  }
                  else {usedfloat=true;}
@@ -745,7 +783,7 @@ impl Grammar
                }
                else if inttypes.contains(&termtype[..]) || (self.mode>0 && termtype0=="int") {
                  if usednum {
-                   eprintln!("\nWARNING for line {}: only the first 'valterminal' declarations for an integer type is recognized as there is only one type of lexical token for all integer values. Consider using 'valueterminal' or define custom token type.",linenum);
+                   self.logeprint(&format!("\nWARNING for line {}: only the first 'valterminal' declarations for an integer type is recognized as there is only one type of lexical token for all integer values. Consider using 'valueterminal' or define custom token type.",linenum));
                    continue;
                  }
                  else {usednum=true;}
@@ -757,7 +795,7 @@ impl Grammar
                  newterm.rusttype = termtype;                 
                }
                else {
-                 eprintln!("\nERROR: type '{}' on line {} cannot be used with 'valterminal'; consider using 'valueterminal' or define custom token type with 'lexattribute add_custom'",termtype0,linenum);
+                 self.logeprint(&format!("\nERROR: type '{}' on line {} cannot be used with 'valterminal'; consider using 'valueterminal' or define custom token type with 'lexattribute add_custom'",termtype0,linenum));
                  return false;
                }
                if &newterm.rusttype!=&self.Absyntype {self.sametype=false;}
@@ -770,12 +808,12 @@ impl Grammar
             }, //valterminal - simplified form of valueterminal
             "lexterminal" => {
                if stokens.len()!=3 {
-               eprintln!("MALFORMED lexterminal declaration line {}: a terminal name and a lexical form are required",linenum); return false;
+               self.logeprint(&format!("MALFORMED lexterminal declaration line {}: a terminal name and a lexical form are required",linenum)); return false;
 	         //continue;
                }
                let termname = stokens[1].trim();
                  if self.Symhash.contains_key(termname) {
-  	           eprintln!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",termname,linenum);
+  	           self.logeprint(&format!("WARNING: REDEFINITION OF SYMBOL {} SKIPPED, line {} of grammar",termname,linenum));
                    continue;
                  }                              
                let mut newterm = Gsym::new(termname,true);
@@ -803,15 +841,6 @@ impl Grammar
                let mut dtokens:Vec<_> = line[pos..].split('~').collect();
                self.Lexconditionals.push((dtokens[0].trim().to_owned(),dtokens[1].trim().to_owned()));
             },
-/*
-            "transform" => {   // new for 0.2.96, transform_token added
-
-               //let pos = line.find("transform").unwrap()+10;
-               //self.transform_function = line[pos..].trim().to_owned();
-
-              eprintln!("WARNING: DECLARATION IGNORED, Line {}. The transform directive was only used in Rustlr version 0.2.96 and no longer supported.  Use the shared_state variable for a more general solution.",linenum);
-            },
-*/            
             "variant-group" | "operator-group" if stokens.len()>2 => {
              // variant Binop + - * DIV
                self.vargroupnames.push(stokens[1].to_owned());
@@ -823,10 +852,10 @@ impl Grammar
                      self.vargroups.insert(*toki,self.vargroupnames.len()-1);
                    },
                    Some(_) => {
-                     eprintln!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum);
+                     self.logeprint(&format!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum));
                    },
                    _ => {
-                     eprintln!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum);
+                     self.logeprint(&format!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum));
                    },
                  }//match
                }
@@ -845,13 +874,11 @@ impl Grammar
                 separator = "==>";
               }
               else {
-                eprintln!("ERROR PARSING GRAMMAR LINE {}, unexpected declaration at grammar stage {}",linenum,stage);
+                self.logeprint(&format!("ERROR PARSING GRAMMAR LINE {}, unexpected declaration at grammar stage {}",linenum,stage));
                 return false;
               }
               if !foundeol && separator=="==>" {multiline=true; continue;}
               else if foundeol {foundeol=false;}
-              // println!("RULE {}",&line);
-
               if sepposition < stokens[0].len() {
                 stokens[0] = &stokens[0][..sepposition];
               }
@@ -876,16 +903,16 @@ impl Grammar
             if rb!=0 && lb+1<rb {
               let parseopt = LHS0[lb+1..rb].parse::<i32>();
               if let Ok(lev)=parseopt {manual_precedence=lev;}
-              else {eprintln!("ERROR: Precedence Level ({}) must be numeric, line {}\n",&LHS[lb+1..rb],linenum); return false;}
+              else {self.logeprint(&format!("ERROR: Precedence Level ({}) must be numeric, line {}\n",&LHS[lb+1..rb],linenum)); return false;}
               LHS = &stokens[0][..lb];  // change LHS from above
             }
             else if (lb,rb)!=(0,0) {
-               eprintln!("MALFORMED LEFT HAND SIDE LINE {}\n",linenum);
+               self.logeprint(&format!("MALFORMED LEFT HAND SIDE LINE {}\n",linenum));
                return false;
             }// parse default precedence
             let symindex = match self.Symhash.get(LHS) {
                Some(smi) if *smi<self.Symbols.len() && !self.Symbols[*smi].terminal => smi,
-               _ => {eprintln!("unrecognized non-terminal symbol {}, line {}",LHS,linenum); return false;},
+               _ => { self.logeprint(&format!("unrecognized non-terminal symbol {}, line {}",LHS,linenum)); return false;},
              };
             let symind2 = *symindex;
              let mut ntcnt = 0; // for generating new nonterminal names
@@ -909,7 +936,7 @@ impl Grammar
 	      barsplit.push(linecs.trim()); // at least one
 
               if barsplit.len()>1 && findcsplit.len()>1 {
-	        eprintln!("ERROR: the '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum);
+	        self.logeprint(&format!("ERROR: the '|' symbol is not accepted in rules that has an labeled non-terminal on the left-hand side ({}) as it becomes ambiguous as to how to autmatically generate abstract syntax, line {}",findcsplit[1],linenum));
                 return false;
 	      }
               
@@ -935,7 +962,7 @@ impl Grammar
                    let position = rul.find('{').unwrap();
                    semaction = rul.split_at(position+1).1;
                    if self.genabsyn && semaction.contains("return ") {
-                     eprintln!("WARNING: USING \"return\" INSIDE SEMANTIC ACTIONS COULD CAUSE CONFLICTS WITH AUTOMATIC CODE GENERATION, LINE {}\n",linenum);
+                     self.logeprint(&format!("WARNING: USING \"return\" INSIDE SEMANTIC ACTIONS COULD CAUSE CONFLICTS WITH AUTOMATIC CODE GENERATION, LINE {}\n",linenum));
                    }
 		   break;
                 }
@@ -985,30 +1012,30 @@ strtok is bstokens[i], but will change
                         if let Some(rpp) = retokisplit[0].rfind(')') {
                            breakpoint = true;
                            retoki = &retokisplit[0][..rpp];
-                           if (retoki.len()<1) {eprintln!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum); return false;}
+                           if (retoki.len()<1) {self.logeprint(&format!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum)); return false;}
                            if retokisplit.len()>1 {
                              defaultrelab2=retokisplit[1].to_owned();
                              if !is_alphanum(checkboxlabel(&defaultrelab2)) {
-                               eprintln!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum); return false;
+                               self.logeprint(&format!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum)); return false;
                              }
                            }
                         }
-                        else {eprintln!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum); return false;}
+                        else {self.logeprint(&format!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum)); return false;}
                      }
                      else
                      if retokisplit[0].ends_with(")*") || retokisplit[0].ends_with(")+") || retokisplit[0].ends_with(")?") {
                        breakpoint=true;
                        retoki =  &retokisplit[0][..retokisplit[0].len()-2];
-                       if (retoki.len()<1) {eprintln!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum); return false;}
+                       if (retoki.len()<1) {self.logeprint(&format!("INVALID EXPRESSION IN GRAMMAR LINE {}: DO NOT SEPARATE TOKEN FROM `)`\n",linenum)); return false;}
                        suffix = &retokisplit[0][retokisplit[0].len()-1..];
                        if retokisplit.len()>1 {defaultrelab2=retokisplit[1].to_owned();}
                      } // if retokisplit[0].ends_with(")*")...
                      else if retokisplit.len()>1 {
-                       eprintln!("LABELS (:{}) ARE NOT ALLOWED INSIDE (..) GROUPINGS, LINE {}",retokisplit[1],linenum); return false;
+                       self.logeprint(&format!("LABELS (:{}) ARE NOT ALLOWED INSIDE (..) GROUPINGS, LINE {}",retokisplit[1],linenum)); return false;
                      }
                      // retoki should not end with )?, etc...
                      if retoki.ends_with("*") || retoki.ends_with("+") || retoki.ends_with("?") || retoki.ends_with(">") {
-                         eprintln!("NESTED *, +, ? and <> EXPRESSIONS ARE NOT ALLOWED, LINE {}\n",linenum); return false;
+                         self.logeprint(&format!("NESTED *, +, ? and <> EXPRESSIONS ARE NOT ALLOWED, LINE {}\n",linenum)); return false;
                        }
                      
                      let errmsg = format!("unrecognized grammar symbol '{}', line {}",retoki,linenum);
@@ -1031,7 +1058,7 @@ strtok is bstokens[i], but will change
                      i+=1; // indexes bstokens
                      retoki = bstokens[i-1];
                   }// while i<=bstokens.len()
-                  if i>bstokens.len() {eprintln!("INVALID EXPRESSION IN GRAMMER, line {}",linenum); return false;}
+                  if i>bstokens.len() {self.logeprint(&format!("INVALID EXPRESSION IN GRAMMER, line {}",linenum)); return false;}
                   iadjust += jk as usize;
                   if passthru>=0 { // set action of new rule to be passthru
                     newrule2.action = format!(" _item{}_ }}",passthru);
@@ -1094,7 +1121,7 @@ strtok is bstokens[i], but will change
 		   let relabel = if retoks.len()>1 && retoks[1].len()>0
                      {
                          if !is_alphanum(checkboxlabel(retoks[1])) {
-                            eprintln!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum); return false;
+                            self.logeprint(&format!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum)); return false;
                          }                     
                        retoks[1]
                      }
@@ -1218,10 +1245,10 @@ strtok is bstokens[i], but will change
                     let termsym = &strtok[lb+1..rb-1]; // like COMMA
                     let termiopt = self.Symhash.get(termsym);
                     if !self.terminal(termsym) {
-                      eprintln!("ERROR ON LINE {}, {} is not a terminal symbol of this grammar\n",linenum,termsym); return false;
+                      self.logeprint(&format!("ERROR ON LINE {}, {} is not a terminal symbol of this grammar\n",linenum,termsym)); return false;
                     }
                     termi = *termiopt.unwrap();
-                  } else {eprintln!("MALFORMED EXPRESSION LINE {}\n",linenum); return false;}
+                  } else {self.logeprint(&format!("MALFORMED EXPRESSION LINE {}\n",linenum)); return false;}
                   strtok = septoks[0]; // to the left of :, E<,*>
                   let defaultrelab3;
                   if !markersexist {
@@ -1232,7 +1259,7 @@ strtok is bstokens[i], but will change
                   }
 		  let relabel3 = if septoks.len()>1 && septoks[1].len()>0 {
                      if !is_alphanum(checkboxlabel(septoks[1])) {
-                       eprintln!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum); return false;
+                       self.logeprint(&format!("ERROR: LABELS FOR RE EXPRESSIONS CANNOT BE PATTERNS, LINE {}\n",linenum)); return false;
                      }
                      septoks[1]
                   } else {&defaultrelab3};
@@ -1351,24 +1378,24 @@ strtok is bstokens[i], but will change
 		let mut toks:Vec<&str> = strtok.split(':').collect();
                 if toks[0]=="_" {toks[0] = "_WILDCARD_TOKEN_";}
 		match self.Symhash.get(toks[0]) {
-		   None => {eprintln!("Unrecognized grammar symbol '{}', line {} of grammar",toks[0],linenum); return false; },
+		   None => {self.logeprint(&format!("Unrecognized grammar symbol '{}', line {} of grammar",toks[0],linenum)); return false; },
 		   Some(symi) => {
                      let sym = &self.Symbols[*symi];
                      if self.Errsym.len()>0 && &sym.sym == &self.Errsym {
                        if !seenerrsym { seenerrsym = true; }
-                       else { eprintln!("Error symbol {} can only appear once in a production, line {}",&self.Errsym,linenum); return false; }
+                       else { self.logeprint(&format!("Error symbol {} can only appear once in a production, line {}",&self.Errsym,linenum)); return false; }
                      }
 		     // may take out following?
 		     /*
                      if !sym.terminal && seenerrsym {
-                       eprintln!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum); return false;
+                       self.logeprint(&format!("Only terminal symbols may follow the error recovery symbol {}, line {}",&self.Errsym, linenum)); return false;
                      }
 		     */
 		     let mut newsym = sym.clone();
                      if newsym.rusttype.len()<1 && !self.genabsyn {newsym.rusttype = self.Absyntype.clone();}
 
                      if toks.len()>1 && toks[1].trim().len()==0 {
-                       eprintln!("WARNING: EMPTY LABEL FOR {}, LINE {}; remove whitespaces between ':' and the label\n",toks[0],linenum);
+                       self.logeprint(&format!("WARNING: EMPTY LABEL FOR {}, LINE {}; remove whitespaces between ':' and the label\n",toks[0],linenum));
                      }
                      else
 		     if toks.len()>1 && toks[1].trim().len()>0 { //label exists
@@ -1380,7 +1407,7 @@ strtok is bstokens[i], but will change
 			 { // i indexes all tokens split by whitespaces
 			    label.push(' '); label.push_str(bstokens[i]); i+=1;
 			 }
-			 if !label.ends_with('@') { eprintln!("pattern labels must be closed with @, line {}",linenum); return false;}			 
+			 if !label.ends_with('@') { self.logeprint(&format!("pattern labels must be closed with @, line {}",linenum)); return false;}			 
 		       } // if-let pattern
                        else { label = toks[1].trim().to_string(); }
 		       newsym.setlabel(label.trim_end_matches('@'));
@@ -1393,7 +1420,7 @@ strtok is bstokens[i], but will change
 	      } // while there are tokens on rhs
 
               ///// at this point, we can transform grammar to apply delays
-              if markers.len()%2==1 {eprintln!("ERROR: DELAY MARKERS MUST COME IN PAIRS, LINE {}\n",linenum); return false;}
+              if markers.len()%2==1 {self.logeprint(&format!("ERROR: DELAY MARKERS MUST COME IN PAIRS, LINE {}\n",linenum)); return false;}
               else if markers.len()>=2 {
                 self.delaymarkers.insert(reserved_rindex,BTreeSet::new());
               }
@@ -1434,7 +1461,7 @@ strtok is bstokens[i], but will change
             //} 
             } // for rul
             }, 
-            _ => {eprintln!("ERROR parsing grammar on line {}, unexpected declaration at grammar stage {}",linenum,stage); return false;},  
+            _ => {self.logeprint(&format!("ERROR parsing grammar on line {}, unexpected declaration at grammar stage {}",linenum,stage)); return false;},  
          }//match first word
        }// not an empty or comment line
      } // while !atEOF
@@ -1444,7 +1471,7 @@ strtok is bstokens[i], but will change
      // at the very end, add start, eof symbols, startrule
      if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF") || self.Symhash.contains_key("ANY_ERROR")
      {
-        eprintln!("Error in grammar: START and EOF are reserved symbols");
+        self.logeprint(&format!("Error in grammar: START and EOF are reserved symbols"));
         return false;
      }
      // add start,eof and starting rule:
@@ -1468,7 +1495,7 @@ strtok is bstokens[i], but will change
      self.Symbols.push(startnt.clone());
      self.Symbols.push(eofterm.clone());
      if self.topsym == usize::MAX {
-       eprintln!("GRAMMAR START SYMBOL NOT DECLARED");
+       self.logeprint("GRAMMAR START SYMBOL NOT DECLARED");
        return false;
      }
      let topgsym = &self.Symbols[self.topsym]; //self.Symbols.get(self.topsym).expect("GRAMMAR START SYMBOL (topsym) NOT DECLARED");
@@ -1477,7 +1504,6 @@ strtok is bstokens[i], but will change
         rhs:vec![topgsym.clone()], //,eofterm],  //eofterm is lookahead
         action: String::default(),
         precedence : DEFAULTPRECEDENCE,
-//        iprecedence : 0,
      };
      self.Rules.push(startrule);  // last rule is start rule
      self.startrulei = self.Rules.len()-1;
@@ -1494,14 +1520,16 @@ strtok is bstokens[i], but will change
 
      // compute sametype value (default true)
      if &self.Absyntype!="()" && &topgsym.rusttype!=&self.Absyntype && topgsym.rusttype.len()>0 {
-        eprintln!("\nWARNING: THE TYPE FOR THE START SYMBOL ({}) IS NOT THE SAME AS THE VALUETYPE ({}",&topgsym.rusttype,&self.Absyntype);
+        let msg = format!("\nWARNING: THE TYPE FOR THE START SYMBOL ({}) IS NOT THE SAME AS THE VALUETYPE ({})\n",&topgsym.rusttype,&self.Absyntype);
+        if self.tracelev>0 {eprint!("{}",msg);}
+        else { self.genlog.push_str(&msg); }
         self.Absyntype = topgsym.rusttype.clone();
      }
      /*
      for ri in 1..self.Symbols.len() // exclude Symbols[0] for wildcard
      {
         if &self.Symbols[ri].rusttype!=&self.Absyntype {
-//	  println!("NOT SAME TYPE: {} for {} and {}",&self.Symbols[ri].rusttype,&self.Symbols[ri].sym,&self.Absyntype);	
+//	  eprintln!("NOT SAME TYPE: {} for {} and {}",&self.Symbols[ri].rusttype,&self.Symbols[ri].sym,&self.Absyntype);	
           self.sametype = false;
         }
      }//compute sametype
@@ -1517,12 +1545,16 @@ strtok is bstokens[i], but will change
      for sym in &self.Symbols {
         // skip wildcard, START and EOF
         if sym.index>0 && sym.index<self.Symbols.len()-2 && !startreach.contains(&sym.index) {
-          eprintln!("WARNING: The symbol {} is not reachable from the grammar's start symbol.\n",&sym.sym);
+          let msg = format!("WARNING: The symbol {} is not reachable from the grammar's start symbol.\n\n",&sym.sym);
+          if self.tracelev>0 {eprint!("{}",msg);}
+          else {self.genlog.push_str(&msg);}
         }
         if !sym.terminal {
           if let Some(rset) = self.Rulesfor.get(&sym.index) {
             if rset.len()<1 {
-             eprintln!("WARNING: The symbol {}, which was declared non-terminal, does not occur on the left-hand side of any production rule.\n",&sym.sym);
+             let msg = format!("WARNING: The symbol {}, which was declared non-terminal, does not occur on the left-hand side of any production rule.\n\n",&sym.sym);
+             if self.tracelev>0 {eprint!("{}",msg);}
+             else {self.genlog.push_str(&msg);}
             }
           } else {
             self.Rulesfor.insert(sym.index,HashSet::new()); 
@@ -1530,7 +1562,7 @@ strtok is bstokens[i], but will change
         }   // nonterminal actually used on left side
      }
      //integrity checks
-     if self.tracelev>0 {println!("{} rules in grammar",self.Rules.len());}
+     if self.tracelev>0 {self.logprint(&format!("{} rules in grammar",self.Rules.len()));}
      true
   }//parse_grammar
 }// impl Grammar

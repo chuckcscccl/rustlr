@@ -121,7 +121,9 @@ impl Grammar
        }//while still contains @ - keep doing it
        if addtosymhash && limit>0 {self.enumhash.insert(self.Symbols[*nt].rusttype.clone(),ntcx); ntcx+=1;}
        else if limit==0 {
-          eprintln!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES (type {} for nonterminal {}). THIS TYPE WILL BE RESET AND REGENERATED",&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym);
+          let msg = format!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES (type {} for nonterminal {}). THIS TYPE WILL BE RESET AND REGENERATED\n",&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym);
+          if self.tracelev>0 {eprint!("{}",msg);}
+          else { self.genlog.push_str(&msg); }
           self.Symbols[*nt].rusttype = String::new();
        }
      }//second pass
@@ -145,7 +147,9 @@ impl Grammar
             let breach = self.Reachable.get(b).unwrap();
             if areach.contains(b) && breach.contains(a) {
                flattentypes.remove(a); flattentypes.remove(b);
-               eprintln!("WARNING: MUTUALLY RECURSIVE TYPES {} AND {} CANNOT FLATTEN INTO EACHOTHER\n",&self.Symbols[*a].sym,&self.Symbols[*b].sym);
+               let msg = format!("WARNING: MUTUALLY RECURSIVE TYPES {} AND {} CANNOT FLATTEN INTO EACHOTHER\n",&self.Symbols[*a].sym,&self.Symbols[*b].sym);
+               if self.tracelev>0 {eprint!("{}",msg);}
+               else {self.genlog.push_str(&msg);}
             }
          }
        }
@@ -160,12 +164,6 @@ impl Grammar
        let lhsymtype = self.Symbols[*nt].rusttype.clone();         
        if !lhsymtype.starts_with(NT) {continue;}
        let mut canflatten = true;
-       /*
-       if self.Reachable.get(nt).unwrap().contains(nt) {
-         canflatten=false;
-         if self.flattentypes.contains(nt) {eprintln!("WARNING: Recursive non-terminals cannot have their ASTs flattened ({})\n",NT);}
-       }
-       */
        let mut simplestruct = true;
        for rs in &self.Rules[sri].rhs {
          if rs.label.len()>0 && !rs.label.starts_with("_item") && !emptybox(&rs.label)
@@ -224,7 +222,7 @@ impl Grammar
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields { //original field
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
          if rhssymi==*nt {
-            eprintln!("WARNING: TYPE {} CANNOT FLATTEN INTO ITSELF\n",&self.Rules[sri].rhs[*rhsi].sym);
+            self.logeprint(&format!("WARNING: TYPE {} CANNOT FLATTEN INTO ITSELF\n",&self.Rules[sri].rhs[*rhsi].sym));
          }
          let mut flattened = false;
          if rhssymi!=*nt && flattentypes.contains(&rhssymi) { // maybe able to flatten in
@@ -620,7 +618,7 @@ use rustlr::LBox;\n")?;
 //     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
      if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}
      write!(fd,"{}",&ASTS)?;
-     println!("Abstract syntax structures created in {}",filename);
+     self.logprint(&format!("Abstract syntax structures created in {}",filename));
      // add the grammar .extras - these will only be placed in parser file
      self.Extras.push_str("use rustlr::LBox;\n");
      //self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));

@@ -161,7 +161,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     // record table entries in a static array
     let mut totalsize = 0;
     for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
-if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
+    if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
     write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
     // generate table to represent FSM
     let mut encode:u64 = 0;

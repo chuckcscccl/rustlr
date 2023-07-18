@@ -82,6 +82,7 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 pub const VERSION:&'static str = "0.4.9";
 
 // main function, called from main with command-line args
+//pub fn rustle(args:&Vec<String>) // called from main  (old sig)
 
 /// This is the function called from main in the rustlr executable once
 /// rustlr has been installed with **cargo install rustlr**.  This
@@ -89,11 +90,11 @@ pub const VERSION:&'static str = "0.4.9";
 /// parser: add `rustlr = "0.4" to Cargo dependencies.  It accepts the same
 /// command-line arguments as the executable in a vector of strings. See
 /// the documentation and tutorial on how to use rustlr as an executable.
-pub fn rustle(args:&Vec<String>) // called from main
+pub fn rustle(args:&[&str]) // called from main
 {
   let argc = args.len();
   if argc<2 {eprintln!("Must give path of .grammar file"); return;}
-  let filepath = &args[1];
+  let mut filepath = "";
   let mut parserfile = String::from("");  // -o target
   let mut lalr = false;  // changed from false in version 0.2.0
   let mut newlalr = true;
@@ -106,11 +107,17 @@ pub fn rustle(args:&Vec<String>) // called from main
   let mut lrsdmaxk:usize = selmlk::MAXK;
   let mut regenerate = false;
   let mut mode = 0;
-  let mut argi = 2; // next argument position
+  let mut conv_yacc = false;
+  let mut argi = 1; // next argument position
   while argi<argc
   {
-     match &args[argi][..] {
-       //filen if filen.ends_with(".grammar") => {filepath = &args[argi];},
+     match args[argi] {
+       filen if filen.ends_with(".grammar") => {filepath = args[argi];},
+       filen if filen.ends_with(".y") => {
+          filepath=args[argi];
+	  conv_yacc=true;
+	  break;
+       },
        "lr1" | "LR1" | "-lr1" => { lalr=false; newlalr=false; },
        "lalr" | "LALR" | "-lalr" => {newlalr=true; },
        "lalr1" | "LALR1" | "-lalr1" => {newlalr=true; },
@@ -140,14 +147,24 @@ pub fn rustle(args:&Vec<String>) // called from main
        "binary" | "-binary" => { verbose=false; },       
        "-o" => {
           argi+=1;
-          if argi<argc {parserfile = args[argi].clone();}
+          if argi<argc {parserfile = String::from(args[argi]);}
        },
        _ => {},    
      }//match directive
      argi+=1;
   }//while there are command-line args
+
+  if filepath.len()==0 {
+    eprintln!("Must give path of .grammar file or .y file to convert from");
+    return;
+  }
+  if conv_yacc {
+    yaccparser::convert_from_yacc(filepath);
+    return;
+  }
+
   if zc && verbose {
-     println!("verbose mode not compatible with -zc option");
+     eprintln!("verbose mode not compatible with -zc option");
      return;
   }
   if tracelev>0 && verbose {println!("verbose parsers should be used for diagnositic purposes and cannot be trained/augmented");}

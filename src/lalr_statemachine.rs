@@ -240,7 +240,7 @@ impl LALRMachine
      let gsymbol = &self.Gmr.Symbols[nextsymi];
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
-     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,false);  // no need to check conflicts with these actions
+     add_action(&mut self.FSM, &mut self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,false);  // no need to check conflicts with these actions
   }  //addstate
 
 
@@ -359,20 +359,7 @@ fn set_propagations0(&mut self)  // and spontaneous lookaheads
           let mut nextlas = self.States[nsi].lookaheads.get(&nextitem).unwrap().borrow_mut();
           for la in itemlas.iter() {
             if *la<self.Gmr.Symbols.len() {
-
                nextlas.insert(*la);
-               /*
-               let inserted2 =                nextlas.insert(*la);
-               
-               if inserted2 { //debug
-                 let symname = &self.Gmr.Symbols[*la].sym;
-                 let lhsindex = self.Gmr.Rules[nextitem.0].lhs.index;
-                 let lhsname = &self.Gmr.Symbols[lhsindex].sym;
-                 if lhsname=="UnaryExpr" && nextitem.0==40 && symname=="LSQUAREB" {
-              println!("{} ADDED TO LAS FOR UnaryExpr, rule {}",symname,nextitem.0);
-                 }
-               }//debug
-               */
             }
           }// for la in itemlas
        }// if not propagate, then spontaneous
@@ -393,23 +380,9 @@ fn set_propagations0(&mut self)  // and spontaneous lookaheads
            let mut slas = self.States[si].lookaheads.get(&newitem).unwrap().borrow_mut();
            let mut reinsert = false;
            for xla in Xlookaheads.iter() {
-
              // don't propagate the dummy: possible fix 11/3/2022
              //if *xla < self.Gmr.Symbols.len() {slas.insert(*xla);}
              slas.insert(*xla);
-
-             /*
-             let rinsert1 = slas.insert(*xla);
-             if rinsert1 && *xla<self.Gmr.Symbols.len() { //debug
-               let symname = &self.Gmr.Symbols[*xla].sym;
-               let lhsindex = self.Gmr.Rules[newitem.0].lhs.index;
-               let lhsname = &self.Gmr.Symbols[lhsindex].sym;
-               if lhsname=="UnaryExpr" && newitem.0==40 && symname=="LSQUAREB" {
-              println!("{} ADDED TO LAS FOR UnaryExpr, rule {}",symname,newitem.0);
-               }
-             }//debug
-             */
-
              if !interior.contains(&(newitem,*xla)) {reinsert =true; }
            }
            // these lookaheads should be sent over to nextstate next loop
@@ -480,10 +453,10 @@ fn set_propagations0(&mut self)  // and spontaneous lookaheads
              
              let isaccept = (ri == self.Gmr.startrulei && la==&(self.Gmr.eoftermi));
              if isaccept {
-               add_action(&mut self.FSM,&self.Gmr,Accept,si,*la,&mut self.sr_conflicts,false);  // don't check conflicts here
+               add_action(&mut self.FSM,&mut self.Gmr,Accept,si,*la,&mut self.sr_conflicts,false);  // don't check conflicts here
              }
              else {
-               add_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,*la,&mut self.sr_conflicts,true);  // check conflicts here
+               add_action(&mut self.FSM,&mut self.Gmr,Reduce(ri),si,*la,&mut self.sr_conflicts,true);  // check conflicts here
 //println!("added Reduced({}) to state {}, la {}",ri,si,la);
              }
            } // for each la

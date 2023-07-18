@@ -150,11 +150,12 @@ impl MLState
               if comblen>maxk {
                if !failed {
                   let comb = uncombing(&rilhs,combing);               
-                  print!("FAILURE. MAXIMAL COMBING IN CONFLICT:\n  [[ ");
+                  Gmr.logprint("FAILURE. MAXIMAL COMBING IN CONFLICT:\n  [[ ");
                   for x in &comb {
-                    print!("{} ",&Gmr.Symbols[*x].sym);
+                    if Gmr.tracelev>0 { print!("{} ",&Gmr.Symbols[*x].sym);}
+                    else {Gmr.genlog.push_str(&format!("{} ",&Gmr.Symbols[*x].sym));}
                   }
-                  println!("]]");
+                  Gmr.logprint("]]");
                   failed = true;
                }
                //return false;    // report failure
@@ -205,7 +206,7 @@ impl MLState
                match Gmr.sdcuts.get(cri) {
                  Some(cutpi) if *cutpi==Gmr.Rules[*cri].rhs.len() => {
                    if !failed {
-                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !% at end of rule {}",cri);
+                     Gmr.logprint(&format!("\nSELECTIVE DELAY EXTENSION FAILED due to !% at end of rule {}",cri));
                      printrule2(*cri,Gmr,combing);
                    }
                    answer = false;               
@@ -220,7 +221,7 @@ impl MLState
                 match Gmr.sdcuts.get(ri) {
                  Some(cutpi) if *cutpi==pi+1 => {
                    if !failed {
-                     println!("\nSELECTIVE DELAY EXTENSION FAILED due to !% marker at rule {}, position {}, which may have been inherited from an original rule",ri,pi+1);
+                     Gmr.logprint(&format!("\nSELECTIVE DELAY EXTENSION FAILED due to !% marker at rule {}, position {}, which may have been inherited from an original rule",ri,pi+1));
                      printrule2(*ri,Gmr,combing);
                    }
                    answer = false;
@@ -232,11 +233,11 @@ impl MLState
                if answer && comblen>maxk {
                  if !failed {
                     let comb = uncombing(&rilhs,combing);               
-                    print!("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[ ");
+                    Gmr.logprint0("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[ ");
                     for x in &comb {
-                      print!("{} ",&Gmr.Symbols[*x].sym);
+                      Gmr.logprint0(&format!("{} ",&Gmr.Symbols[*x].sym));
                     }
-                    println!("]]");
+                    Gmr.logprint("]]");
                     failed = true;
                  }//print
                  answer =  false;
@@ -427,10 +428,10 @@ impl MLStatemachine
        {
           let isconflict;
           if isaccept {
-            isconflict =tryadd_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.known_conflicts,false,self.failed);
+            isconflict =tryadd_action(&mut self.FSM,&mut self.Gmr,Accept,si,item.la,&mut self.known_conflicts,false,self.failed);
           }
           else {
-            isconflict=tryadd_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.known_conflicts,false,self.failed);
+            isconflict=tryadd_action(&mut self.FSM, &mut self.Gmr,Reduce(item.ri),si,item.la,&mut self.known_conflicts,false,self.failed);
           }
           // if tryadd action returned conflict, insert conflict into
           // state's conflict set
@@ -530,7 +531,8 @@ if LTRACE {println!("FOUND EXISTING STATE {} from state {}",toadd,psi);}
          if self.States[psi].conflicts.insert(bc) {
             bchanged = true;
             if bc.pi==0 && !self.failed && checkfailure(&bc,&self.Gmr,&self.combing,self.maxk)   {
-               reportfailure(&self.Gmr.Rules[bc.ri].lhs.index,&self.Gmr,&self.combing);
+               let sgri = self.Gmr.Rules[bc.ri].lhs.index;
+               reportfailure(&sgri,&mut self.Gmr,&self.combing);
                self.failed=true; break;
             }//failure check
          }//inserted
@@ -557,7 +559,7 @@ if LTRACE {println!("state {} pushed back onto agenda because of backward confli
      // toadd is index of next state, new or old
      // insert action into FSM
 
-     let isconflict = tryadd_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.known_conflicts,false,self.failed);
+     let isconflict = tryadd_action(&mut self.FSM, &mut self.Gmr, newaction,psi,nextsymi,&mut self.known_conflicts,false,self.failed);
      match &isconflict {
             (changed,Some((false,r1,la1))) => {
               let confitem = LRitem{ri:*r1,pi:self.Gmr.Rules[*r1].rhs.len(),la:*la1};
@@ -632,10 +634,10 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
          let (ri,pi,la) = (item.ri,item.pi,item.la);
          let isaccept = (ri== self.Gmr.startrulei && la==self.Gmr.eoftermi && pi>0);
          if isaccept {
-               tryadd_action(&mut self.FSM,&self.Gmr,Accept,si,la,&mut self.known_conflicts,true,self.failed);  
+               tryadd_action(&mut self.FSM,&mut self.Gmr,Accept,si,la,&mut self.known_conflicts,true,self.failed);  
          }         
          else if pi==self.Gmr.Rules[ri].rhs.len() { //dot at end of rhs
-               tryadd_action(&mut self.FSM,&self.Gmr,Reduce(ri),si,la,&mut self.known_conflicts,true,self.failed); 
+               tryadd_action(&mut self.FSM,&mut self.Gmr,Reduce(ri),si,la,&mut self.known_conflicts,true,self.failed); 
          }//if reduce situation
        } // for each item
      }// while frontier exists
@@ -643,7 +645,7 @@ if LTRACE {println!("new sr-conflict {:?} detected for state {}, re-agenda",&con
      for si in 0..self.FSM.len() {
        if !interior.contains(&si) { self.FSM[si]=HashMap::new(); }
      }
-     println!("LRSD: total reachable states: {}",interior.len());
+     self.Gmr.logprint(&format!("LRSD: total reachable states: {}",interior.len()));
 
   }//mlset_reduce
 
@@ -764,7 +766,8 @@ propagated=true;
            for bc in topropagate {
              if self.States[*psi].conflicts.insert(bc) {
                if bc.pi==0 && !self.failed && checkfailure(&bc,&self.Gmr,&self.combing,self.maxk) {
-                 reportfailure(&self.Gmr.Rules[bc.ri].lhs.index,&self.Gmr,&self.combing);
+                 let sgri = self.Gmr.Rules[bc.ri].lhs.index;
+                 reportfailure(&sgri,&mut self.Gmr,&self.combing);
                  self.failed=true; break;
                   }
                propedpsi=true;
@@ -873,14 +876,14 @@ if LTRACE {
      }//while agenda exists
 
      if self.failed {
-       eprintln!("\nSELECTIVE DELAY ALGORITHM FAILED; DEFAULTS APPLIED.\n");
+       self.Gmr.logeprint("\nSELECTIVE DELAY ALGORITHM FAILED; DEFAULTS APPLIED.\n");
      }
 
-     if LTRACE {println!("CALLING FINAL mlset_reduce..");}
+     //if LTRACE {println!("CALLING FINAL mlset_reduce..");}
      self.mlset_reduce();
 
      if self.failed {
-       eprintln!("\nConsider the following options:\n  1. extending the maximum length of delays unless you already notice\n     a repeating pattern in the \"maximum combing in conflict.\"\n  2. adding operator precedence and associativity declarations\n  3. rewriting the grammar, perhaps it was ambiguous\n");
+       self.Gmr.logeprint("\nConsider the following options:\n  1. extending the maximum length of delays unless you already notice\n     a repeating pattern in the \"maximum combing in conflict.\"\n  2. adding operator precedence and associativity declarations\n  3. rewriting the grammar, perhaps it was ambiguous\n");
      }
 //if true || LTRACE {println!("FINAL RULE COUNT: {}",self.Gmr.Rules.len());}
 
@@ -936,13 +939,13 @@ if LTRACE {
     if self.Gmr.tracelev>1 {
      println!("ALL RULES OF TRANSFORMED GRAMMAR");
      for ri in &liverules {
-       printrule2(*ri,&self.Gmr,&self.combing);
+       printrule2(*ri,&mut self.Gmr,&self.combing);
      }
     }
   }//if regenerate
      if self.Gmr.tracelev>4 {
       for state in self.States.iter() {
-        if self.FSM[state.index].len()!=0 {printmlstate(state,&self.Gmr,&self.combing);}}
+        if self.FSM[state.index].len()!=0 {printmlstate(state,&mut self.Gmr,&self.combing);}}
      }
 
   }//selml
@@ -970,7 +973,7 @@ if LTRACE {
 // calling it a state!   but later it could change.
 
 // try-add returns option<not-clearly resolved conflict>
-pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool, failed:bool) -> (bool,Option<(bool,usize,usize)>)
+pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&mut Grammar, newaction:Stateaction, si:usize, la:usize, known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>, mut printout:bool, failed:bool) -> (bool,Option<(bool,usize,usize)>)
   {  
      let mut answer = None;
      let currentaction = FSM[si].get(&la);
@@ -992,7 +995,7 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
          let winner = if (cri<nri) {cri} else {nri};
          if (printout || failed) && !known_conflicts.contains_key(&(true,*cri,*nri))   {
-           println!("Reduce-Reduce conflict between rules {} and {} resolved by default to {} ",cri,nri,winner);
+           Gmr.logprint(&format!("Reduce-Reduce conflict between rules {} and {} resolved by default to {} ",cri,nri,winner));
            printrulela(*cri,Gmr,la);
            printrulela(*nri,Gmr,la);
          }
@@ -1027,7 +1030,7 @@ pub  fn tryadd_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, n
   // reslove shift-reduce conflict, returns true if reduce, but defaults
   // to false (shift) so parsing will always continue and terminate.
   // returns (clear,reduce/shift)
-fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>,printout:bool) -> (bool,bool)
+fn mlsr_resolve(Gmr:&mut Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut HashMap<(bool,usize,usize),(bool,usize)>,printout:bool) -> (bool,bool)
   {
      let mut isknown = true;
      match known_conflicts.get(&(false,*ri,la)) { //false means sr, not rr
@@ -1055,7 +1058,7 @@ fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut
        if lapred==0 {
           clearly_resolved = false;
           if printout && !isknown {
-            println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} non clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
+            Gmr.logprint(&format!("Shift-Reduce conflict between lookahead {} and rule {} in state {} non clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si));
             printrulela(*ri,Gmr,la);
           }
        }
@@ -1064,7 +1067,7 @@ fn mlsr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,known_conflicts:&mut
        clearly_resolved=false;
        // report unclear case
        if printout && !isknown {
-         println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
+         Gmr.logprint(&format!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si));
          printrulela(*ri,Gmr,la);
        }
      }
@@ -1192,7 +1195,7 @@ impl Grammar
            rulehash.insert(rhashv,self.Rules.len());
            self.Rules.push(newrule);
            
-if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,la:self.eoftermi};  printitem2(&pitem,self,combing);}
+//if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,la:self.eoftermi};  printitem2(&pitem,self,combing);}
 
            rset.insert(self.Rules.len()-1);
          }// for each rule for this NT1 to be delayed, add suffix
@@ -1304,9 +1307,15 @@ if LTRACE {print!("Added rule "); let pitem = LRitem{ri:self.Rules.len()-1,pi:0,
        // check if first symbol at marker is a nonterminal
        let NT1 = &self.Rules[*ri].rhs[*dbegin];
        if NT1.terminal {
-         eprintln!("WARNING: STARTING DELAY MARKER AT POSITION {} MUST PRECEED NONTERMINAL SYMBOL, PRODUCTION {} IN GRAMMAR.  MARKERS IGNORED",dbegin,ri);
-         //eprintln!("symbol: {:?}",NT1);
-         printrule(&self.Rules[*ri],*ri);
+         let msg = format!("WARNING: STARTING DELAY MARKER AT POSITION {} MUST PRECEED NONTERMINAL SYMBOL, PRODUCTION {} IN GRAMMAR.  MARKERS IGNORED\n",dbegin,ri);
+         if self.tracelev>0 {
+            eprint!("{}",&msg);
+            printrule(&self.Rules[*ri],*ri);            
+         }
+         else {
+           self.genlog.push_str(&msg);
+           self.genlog.push_str(&printruleb(&self.Rules[*ri],*ri));
+         }
          continue;
        }// NT1 is non-terminal
        // construct suffix delta to be added to each rule
@@ -1511,7 +1520,7 @@ impl<TA:Hash+Default+Eq+Clone, TB:Hash+Default+Eq+Clone> Bimap<TA,TB>
 }//impl Bimap
 // will be used to map nonterminal symbols to vectors of symbols
 */
-
+/*
 fn printitem(item:&LRitem, Gmr:&Grammar)
 {
    let lhs = &Gmr.Rules[item.ri].lhs;
@@ -1523,8 +1532,9 @@ fn printitem(item:&LRitem, Gmr:&Grammar)
    if item.pi==Gmr.Rules[item.ri].rhs.len() {print!(" . ");}
    println!(" LA: {}",&Gmr.Symbols[item.la].sym);
 }//printitem
+*/
 
-fn printitem2(item:&LRitem, Gmr:&Grammar,combing:&COMBINGTYPE)
+fn printitem2(item:&LRitem, Gmr:&mut Grammar,combing:&COMBINGTYPE)
 {
    let lhs = &Gmr.Rules[item.ri].lhs;
       let mut psym = Gmr.Rules[item.ri].lhs.sym.clone();
@@ -1538,9 +1548,9 @@ fn printitem2(item:&LRitem, Gmr:&Grammar,combing:&COMBINGTYPE)
         }
         psym.push_str("]]");
       }   
-   print!("({}) {} --> ",item.ri,&psym);
+   Gmr.logprint0(&format!("({}) {} --> ",item.ri,&psym));
    for i in 0..Gmr.Rules[item.ri].rhs.len() {
-      if i==item.pi {print!(" . ");}
+      if i==item.pi {Gmr.logprint0(" . ");}
       psym = Gmr.Rules[item.ri].rhs[i].sym.clone();
       if psym.starts_with("NEWDELAYNT") {
         //let defaultcomb = vec![Gmr.Rules[item.ri].rhs[i].index];
@@ -1553,20 +1563,21 @@ fn printitem2(item:&LRitem, Gmr:&Grammar,combing:&COMBINGTYPE)
         }
         if comb.len()>1 {psym.push_str("]]");}
       }
-      print!("{} ",&psym);
+      Gmr.logprint0(&format!("{} ",&psym));
    }
-   if item.pi==Gmr.Rules[item.ri].rhs.len() {print!(" . ");}
+   if item.pi==Gmr.Rules[item.ri].rhs.len() {Gmr.logprint0(" . ");}
    if item.pi<=Gmr.Rules[item.ri].rhs.len() 
-     {print!(" LA: {}",&Gmr.Symbols[item.la].sym);}
-   println!();
+     {Gmr.logprint0(&format!(" LA: {}",&Gmr.Symbols[item.la].sym));}
+   Gmr.logprint("");
 }//printitem : to avoid printing the dot, give large pi value
-fn printrule2(ri:usize, Gmr:&Grammar,combing:&COMBINGTYPE) {
+
+fn printrule2(ri:usize, Gmr:&mut Grammar,combing:&COMBINGTYPE) {
    printitem2(&LRitem{ri:ri,pi:usize::MAX,la:0},Gmr,combing);
 }
 
 
 // independent function for tracing
-pub fn printmlstate(state:&MLState,Gmr:&Grammar,combing:&COMBINGTYPE) 
+pub fn printmlstate(state:&MLState,Gmr:&mut Grammar,combing:&COMBINGTYPE) 
 {
   println!("-----------\nState {}:",state.index);
   for item@LRitem{ri,pi,la} in state.items.iter() {
@@ -1627,14 +1638,14 @@ fn checkfailure(item:&LRitem,Gmr:&Grammar,combing:&COMBINGTYPE,maxk:usize) -> bo
    comblength(&nti,combing)>maxk
 }
 
-fn reportfailure(rilhs:&usize, Gmr:&Grammar,combing:&COMBINGTYPE)
+fn reportfailure(rilhs:&usize, Gmr:&mut Grammar,combing:&COMBINGTYPE)
 {
    let comb = uncombing(rilhs,combing);               
-   print!("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[");
+   Gmr.logprint0("FAILURE. MAXIMUM COMBING IN CONFLICT:\n  [[");
    for x in &comb {
-      print!("{} ",&Gmr.Symbols[*x].sym);
+      Gmr.logprint0(&format!("{} ",&Gmr.Symbols[*x].sym));
    }
-   println!("]]");
+   Gmr.logprint("]]");
 }//reportfailure
 
 

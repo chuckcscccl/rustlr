@@ -52,7 +52,8 @@ fn main()
   let mut args2 = Vec::new();
   for s in &args { args2.push(&s[..]); }
   let res = rustlr::rustle(&args2[..]);
-  if let Err(s) = res {
-    eprintln!("{}",s);
-  }
+  match res {
+    Err(s) => { eprintln!("FAILURE: {}",s); },
+    Ok(s) => { println!("{}",s);},   // for command-line app only
+  }//match
 }//main

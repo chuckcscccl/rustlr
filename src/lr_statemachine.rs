@@ -28,15 +28,20 @@ pub struct LRitem
    //interior : bool,  // can't have this here if deriving Eq
 }
 
-pub fn printrulela(ri:usize, Gmr:&Grammar, la:usize)
+pub fn printrulela(ri:usize, Gmr:&mut Grammar, la:usize)
 {
-     if ri>=Gmr.Rules.len() {println!("printing invalid rule number {}",ri); return;}
+     if ri>=Gmr.Rules.len() {Gmr.logprint(&format!("printing invalid rule number {}",ri)); return;}
      let ref lhs_sym = Gmr.Rules[ri].lhs.sym;
      let ref rhs = Gmr.Rules[ri].rhs;
-     print!("  (Rule {}) {} --> ",ri,lhs_sym);
-     for gsym in rhs  { print!("{} ",gsym.sym); }
-     println!(" , lookahead {}",Gmr.symref(la));
+     if Gmr.tracelev>0 {print!("  (Rule {}) {} --> ",ri,lhs_sym);}
+     else {Gmr.genlog.push_str(&format!("  (Rule {}) {} --> ",ri,lhs_sym));}
+     for gsym in rhs  {
+       if Gmr.tracelev>0 {print!("{} ",gsym.sym);}
+       else {Gmr.genlog.push_str(&gsym.sym); Gmr.genlog.push(' ');}
+     }
+     Gmr.logprint(&format!(" , lookahead {}",Gmr.symref(la)));
 }
+/*
 pub fn printitem(item:&LRitem, Gmr:&Grammar)
 {
      let ref lhs_sym = Gmr.Rules[item.ri].lhs.sym;
@@ -52,7 +57,7 @@ pub fn printitem(item:&LRitem, Gmr:&Grammar)
      if &position==&item.pi {print!(". ");}
      println!(", {}",Gmr.symref(item.la));  
 }// printitem
-
+*/
 // representation of each LR1 state
 pub type Itemset = HashSet<LRitem>;
 // check if two states are the same
@@ -215,12 +220,13 @@ pub fn printstate(state:&LR1State,Gmr:&Grammar)
      println!(" }}");
   }//for key
 }//printstate
+/*
 pub fn printstate_raw(state:&LR1State,Gmr:&Grammar) 
 {
   for item in &state.items
   { printitem(item,Gmr); }
 }
-
+*/
 
 pub fn stateclosure0(state:&mut LR1State, Gmr:&Grammar)
 {
@@ -422,7 +428,7 @@ impl Statemachine
      let gsymbol = &self.Gmr.Symbols[nextsymi]; //self.Gmr.getsym(nextsym).
      let newaction = if gsymbol.terminal {Stateaction::Shift(toadd)}
         else {Stateaction::Gotonext(toadd)};
-     add_action(&mut self.FSM, &self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,true);
+     add_action(&mut self.FSM, &mut self.Gmr, newaction,psi,nextsymi,&mut self.sr_conflicts,true);
      // reduce rules are only added with . at end, nextsymbol terminal,
      // so a "reduce-gotonext" conflict is not possible
   }  //addstate
@@ -460,10 +466,10 @@ impl Statemachine
        {
           let isaccept = (item.ri == self.Gmr.startrulei && self.Gmr.symref(item.la)=="EOF");
           if isaccept {
-            add_action(&mut self.FSM,&self.Gmr,Accept,si,item.la,&mut self.sr_conflicts,true);
+            add_action(&mut self.FSM,&mut self.Gmr,Accept,si,item.la,&mut self.sr_conflicts,true);
           }
           else {
-            add_action(&mut self.FSM, &self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts,true);
+            add_action(&mut self.FSM, &mut self.Gmr,Reduce(item.ri),si,item.la,&mut self.sr_conflicts,true);
           }
           // only place addreduce is called
        } // set reduce action
@@ -536,7 +542,7 @@ pub fn decode_action(code:u64) -> Stateaction
 
 
   // add_action unifies elements of previous addstate and addreduce 3/22
-pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>, checkconflict:bool)
+pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&mut Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>, checkconflict:bool)
   {
      if !checkconflict {
        FSM[si].insert(la,newaction);
@@ -556,9 +562,7 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
        (Some(Reduce(cri)),Reduce(nri)) if cri==nri => { changefsm=false; },
        (Some(Reduce(cri)),Reduce(nri)) if cri!=nri => { // RR conflict
          let winner = if (cri<nri) {cri} else {nri};
-         println!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner);
-//         printrule(&Gmr.Rules[*cri]);
-//         printrule(&Gmr.Rules[*nri]);
+         Gmr.logprint(&format!("Reduce-Reduce conflict between rules {} and {} resolved in favor of {} ",cri,nri,winner));
          printrulela(*cri,Gmr,la);
          printrulela(*nri,Gmr,la);
          if winner==cri {changefsm=false;}
@@ -579,7 +583,7 @@ pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&Grammar, newa
 
   // reslove shift-reduce conflict, returns true if reduce, but defaults
   // to false (shift) so parsing will always continue and terminate.
-pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut HashMap<(usize,usize),(bool,bool)>) -> bool
+pub fn sr_resolve(Gmr:&mut Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut HashMap<(usize,usize),(bool,bool)>) -> bool
   {
      if let Some((c,r)) = conflicts.get(&(*ri,la)) {
         return *r;
@@ -601,14 +605,14 @@ pub fn sr_resolve(Gmr:&Grammar, ri:&usize, la:usize, si:usize,conflicts:&mut Has
        resolution = true;
        if lapred==0 {
           clearly_resolved = false;
-          println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si);
+          Gmr.logprint(&format!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Reduce because the rule has positive precedence.",&Gmr.Symbols[la].sym,ri,si));
           printrulela(*ri,Gmr,la);
        }
      } // reduce
      else {
        clearly_resolved=false;
        // report unclear case
-       println!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si);
+       Gmr.logprint(&format!("Shift-Reduce conflict between lookahead {} and rule {} in state {} not clearly resolved, defaulting to Shift",&Gmr.Symbols[la].sym,ri,si));
        printrulela(*ri,Gmr,la);
      }
      conflicts.insert((*ri,la),(clearly_resolved,resolution));

@@ -138,7 +138,10 @@ impl Grammar
        }//while still contains @ - keep doing it
        if addtosymhash && limit>0 {self.enumhash.insert(self.Symbols[*nt].rusttype.clone(),ntcx); ntcx+=1;}
        else if limit==0 {
-          eprintln!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES (type {} for nonterminal {}). THIS TYPE WILL BE RESET AND REGENERATED",&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym);
+          let msg = format!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES (type {} for nonterminal {}). THIS TYPE WILL BE RESET AND REGENERATED\n",&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym);
+          if self.tracelev>0 {eprint!("{}",msg);}
+          else {self.genlog.push_str(&msg);}
+          //eprintln!("CIRCULARITY DETECTED IN PROCESSING TYPE DEPENDENCIES (type {} for nonterminal {}). THIS TYPE WILL BE RESET AND REGENERATED",&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym);
           self.Symbols[*nt].rusttype = String::new();
        }
      }//second pass
@@ -162,7 +165,9 @@ impl Grammar
             let breach = self.Reachable.get(b).unwrap();
             if areach.contains(b) && breach.contains(a) {
                flattentypes.remove(a); flattentypes.remove(b);
-               eprintln!("WARNING: MUTUALLY RECURSIVE TYPES {} AND {} CANNOT FLATTEN INTO EACHOTHER\n",&self.Symbols[*a].sym,&self.Symbols[*b].sym);
+               let msg = format!("WARNING: MUTUALLY RECURSIVE TYPES {} AND {} CANNOT FLATTEN INTO EACHOTHER\n\n",&self.Symbols[*a].sym,&self.Symbols[*b].sym);
+               if self.tracelev>0 {eprint!("{}",&msg);}
+               else {self.genlog.push_str(&msg);}
             }
          }
        }
@@ -246,7 +251,7 @@ impl Grammar
        for (rhsi,itemlabel,alreadylbx,rsymtype) in vecfields { //original field
          let rhssymi = self.Rules[sri].rhs[*rhsi].index;
          if rhssymi==*nt {
-            eprintln!("WARNING: TYPE {} CANNOT FLATTEN INTO ITSELF\n",&self.Rules[sri].rhs[*rhsi].sym);
+            self.logeprint(&format!("WARNING: TYPE {} CANNOT FLATTEN INTO ITSELF\n",&self.Rules[sri].rhs[*rhsi].sym));
          }
 
          let lhsreachable = match self.Reachable.get(&rhssymi) {
@@ -255,7 +260,7 @@ impl Grammar
               };
          let needref = lhsreachable && !nonlctype(&rsymtype) && !self.basictypes.contains(&rsymtype[..]) &&ltref.len()>0;
          if needref {
-           eprintln!("WARNING: Recursive structs may require the manual implementation of the Default trait for reference types, as in\n  impl<{0}> Default for &{0} {1} ...",&self.lifetime,&lhsymtype);
+           self.logeprint(&format!("WARNING: Recursive structs may require the manual implementation of the Default trait for reference types, as in\n  impl<{0}> Default for &{0} {1} ...",&self.lifetime,&lhsymtype));
          }
 
          let mut flattened = false;
@@ -661,7 +666,7 @@ use rustlr::{{LC,Bumper}};\n")?;
 //     if self.Extras.len()>0 {write!(fd,"{}\n",&self.Extras)?;}
      if self.ASTExtras.len()>0 {write!(fd,"\n{}\n",&self.ASTExtras)?;}
      write!(fd,"{}",&ASTS)?;
-     println!("Bump AST types created in {}",filename);
+     self.logprint(&format!("Bump AST types created in {}",filename));
      // add the grammar .extras - these will only be placed in parser file
      self.Extras.push_str("use rustlr::{LC,Bumper};\n");
      //self.Extras.push_str(&format!("use crate::{}_ast;\n",&self.name));

@@ -439,10 +439,20 @@ impl Grammar
                 let mut limit = self.Symbols.len();
                 loop {
                  let copynt = nttype[1..].trim();
-                 let copynti = *self.Symhash.get(copynt).expect(&format!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum));
+                 let copyntiopt = self.Symhash.get(copynt);
+                 if copyntiopt.is_none() {
+                   eprintln!("ERROR: EXTENSION TYPE {} NOT DEFINED YET, LINE {}\n\n",copynt,linenum);
+                   return false;
+                 }
+                 let copynti = *copyntiopt.unwrap();
                  if self.Symbols[copynti].rusttype.starts_with(':') {
                    nttype = self.Symbols[copynti].rusttype.clone();
-                 } else {break;}
+                 }
+                 else if self.Symbols[copynti].rusttype.len()>0 && !self.Symbols[copynti].rusttype.contains('@') {
+                   eprintln!("ERROR: TYPE DEPENDENCIES ARE ONLY ALLOWED BETWEEN AUTO-GENERATED TYPES. TYPE {} CANNOT BE EXTENDED, line {}",&self.Symbols[copynti].rusttype,linenum);
+                   return false;
+                 }
+                 else {break;}
                  limit -=1;
                  if limit==0 {
                    eprintln!("WARNING: CIRCULARITY DETECTED IN TYPE DEPENDENCIES; TYPE RESET, LINE {}",linenum);
@@ -451,8 +461,8 @@ impl Grammar
                  }
                 }//loop
                }//check extension type integrity
-               
-	       if nttype.contains('@') {// copy type from other NT
+
+	       if nttype.contains('@') { // copy type from other NT
                 let mut limit =self.Symbols.len()+1;
                 loop {
                  let mut copynt="";
@@ -1844,7 +1854,7 @@ pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 //println!("enumhash for absyn {} is {:?}",absyn,self.enumhash.get(absyn));
     let ref extype = self.Externtype;
     let ref lifetime = self.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");
+    let has_lt = lifetime.len()>0; /* && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");*/
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
     //enum name is Retenumgrammarname, variant is _grammarname_enum_{n}
     let enumname = format!("RetTypeEnum{}",&ltopt);  // will be pub

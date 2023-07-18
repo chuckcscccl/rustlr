@@ -630,10 +630,8 @@ impl Grammar
      }// closing all enums and add to ASTS (for loop)
 
      // set Absyntype
-     let topi = self.Symhash.get(&self.topsym).unwrap(); // must exist
-     self.Absyntype = self.Symbols[*topi].rusttype.clone();
+     self.Absyntype = self.Symbols[self.topsym].rusttype.clone();
      self.enumhash.insert(self.Absyntype.clone(), 0);
-//println!("\n AST generated:\n\n{}",&ASTS);
 
      // now add all the generated struct asts
      for (_,(_,_,_,Sast,_)) in structasts.iter() {
