@@ -9,8 +9,7 @@
 #![allow(unused_imports)]
 use std::io::{self,Read,Write,BufReader,BufRead};
 use std::collections::HashSet;
-//use std::hash::{Hash,Hasher};
-//use std::any::Any;
+//use std::hash::{Hash,Hasher}; //use std::any::Any;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -23,16 +22,16 @@ use crate::Stateaction::*;
 ////////////////////////////////////////////////
 impl Statemachine
 {
-  pub fn writelrsdparser(&self, filename:&str)->Result<(),std::io::Error>
+  pub fn writelrsdparser(&mut self, filename:&str)->Result<(),std::io::Error>
   {
-    let ref absyn = self.Gmr.Absyntype;
+    let mut absyn = &self.Gmr.Absyntype;
 
     if self.Gmr.sametype || is_lba(absyn){
        return self.writelbaparser(filename);
     }
     
-    let ref extype = self.Gmr.Externtype;
-    let ref lifetime = self.Gmr.lifetime;
+    let mut extype = &self.Gmr.Externtype;
+    let lifetime = &self.Gmr.lifetime;
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
     let rlen = self.Gmr.Rules.len();
@@ -63,6 +62,10 @@ impl Statemachine
         let symk= &self.Gmr.Rules[ri].rhs[k]; 
         let symktype = &self.Gmr.Symbols[symk.index].rusttype;
         let(labelkind,label) = decode_label(&symk.label,k);
+        if labelkind>1 {
+          if self.Gmr.tracelev>0 { println!("\nWARNING: @..@ PATTERNS MUST BE IRREFUTABLE WITH THE -lrsd OPTION\n\n");}
+          else {self.Gmr.genlog.push_str("\nWARNING: @..@ PATTERNS MUST BE IRREFUTABLE WITH THE -lrsd OPTION\n\n");}
+        }
         let mut fargk = match labelkind {
           0 => {format!(", mut {}:{}",&label,symktype)},
           1 => {format!(", mut {}:{}{}<{}>",&label,&bltref,LBC,symktype)},
@@ -184,6 +187,10 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       {
         let gsym = &self.Gmr.Rules[ri].rhs[k-1]; // rhs syms right to left
         let (lbtype,poppedlab) = decode_label(&gsym.label,k-1);
+        if lbtype>1 {
+          if self.Gmr.tracelev>0 { println!("\nWARNING: @..@ PATTERNS MUST BE IRREFUTABLE WITH THE -lrsd OPTION\n\n");}
+          else {self.Gmr.genlog.push_str("\nWARNING: @..@ PATTERNS MUST BE IRREFUTABLE WITH THE -lrsd OPTION\n\n");}
+        }
         let symtype=&self.Gmr.Symbols[gsym.index].rusttype;
         let emsg = format!("FATAL ERROR: '{}' IS NOT A TYPE IN THIS GRAMMAR. DID YOU INTEND TO USE THE -auto OPTION TO GENERATE TYPES?",&symtype);
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
@@ -351,8 +358,10 @@ pub fn decode_label(label:&str,k:usize) -> (u8,String)
           },
     _ => {},
   }//match
+  /*
   if ltype>1
     {eprintln!("\nWARNING: @..@ PATTERNS MUST BE IRREFUTABLE WITH THE -lrsd OPTION\n");}
   //if plab.starts_with("NEW") {plab=format!("_item{}_",k);}
+  */
   (ltype,plab)
 }//decode_label
