@@ -120,6 +120,14 @@ The expected output is
 AST: BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4)))
 ```
 
+Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
+
+#### New in Version 0.4.10:
+
+When called from the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function, rustlr can be made completely silent if given the
+`-trace 0` option.  All reports are logged and returned by the function.
+
+
 #### New in Version 0.4.9: Error logging option
 
 Given a parser instance `parser`, it's now possible to call

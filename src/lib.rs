@@ -81,16 +81,32 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 
 pub const VERSION:&'static str = "0.4.10";
 
-// main function, called from main with command-line args
-//pub fn rustle(args:&Vec<String>) // called from main  (old sig)
+/// This function can be called from within Rust to generate a parser/lexer.
+/// It takes the same arguments as the rustlr command-line application.
+/// Furthermore, if given the `-trace 0` option, no output will be
+/// sent to stdout or stderr.  Instead, a log of events is recorded and
+/// is returned.  An `Ok(_)` result indicates that some parser was created
+/// and an `Err(_)` result indicates failure.
+/// Example:
+/// ```ignore
+///   let report = rustlr::generate("simplecalc.grammar -o src/main.rs -trace 0");
+/// ```  
+pub fn generate(argv:&str) -> Result<String,String> {
+  let asplit:Vec<_> = argv.split_whitespace().collect();
+  rustle1(&asplit)
+}
 
-/// This is the function called from main in the rustlr executable once
-/// rustlr has been installed with **cargo install rustlr**.  This
-/// function can also be called from another rust program to generate a
-/// parser: add `rustlr = "0.4" to Cargo dependencies.  It accepts the same
-/// command-line arguments as the executable in a vector of strings. See
-/// the documentation and tutorial on how to use rustlr as an executable.
-pub fn rustle(args:&[&str]) -> Result<String,String> // called from main
+
+/// This function is retained for backwards compatiblity.  It is recommended
+/// to call [generate] instead.
+pub fn rustle(args:&Vec<String>) -> Result<String,String> // called from main
+{
+  let mut args2 = Vec::new();
+  for s in args { args2.push(&s[..]); }
+  rustle1(&args2[..])
+}
+
+fn rustle1(args:&[&str]) -> Result<String,String> // called from main
 {
   let argc = args.len();
   if argc<2 {
