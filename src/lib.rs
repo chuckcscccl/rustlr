@@ -4,7 +4,7 @@
 //!   that controls how ASTS are created, so that the generated types do
 //!   not necessarily reflect the format of the grammar.
 //!  2. Option to use [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create
-//!  ASTS types that enable *nested* pattern matching against recursive types.
+//!  ASTS types that enable *nested* pattern atching against recursive types.
 //! 
 //!  3. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
