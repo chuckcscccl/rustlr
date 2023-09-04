@@ -1671,8 +1671,10 @@ fn Follow_set(&self) -> HashMap<usize,HashSet<usize>>
       for i in 0..rule.rhs.len() {
         if !rule.rhs[i].terminal {
           additions.clear();
-          let frest = self.Firstseq(&rule.rhs[i+1..],self.eoftermi);
-          for f in frest.iter() { additions.insert(*f); }
+          let frest = self.Firstseq(&rule.rhs[i+1..],self.Symbols.len());
+          for f in frest {
+            if f<self.Symbols.len() {additions.insert(f);}
+          }
           if self.Nullableseq(&rule.rhs[i+1..]) {
              if let Some(lhsfollow) = Follow.get(&rule.lhs.index) {
                for f in lhsfollow.iter() {
