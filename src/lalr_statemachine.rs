@@ -132,7 +132,8 @@ impl Grammar  // Grammar additions
      Fseq
   }//FirstSeqb
   //determine if a sequence of symbols is nullable
-  
+
+/*  moved to grammar_processor
   pub fn Nullableseq(&self, Gs:&[Gsym]) -> bool
   {
      for g in Gs {
@@ -140,6 +141,7 @@ impl Grammar  // Grammar additions
      }
      return true;
   }
+ */
 }//impl Grammar
 
 pub struct LALRMachine

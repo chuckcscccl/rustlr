@@ -61,11 +61,10 @@ F --> Int | ( E )
 !  println!("\nAST: {:?}\n",&ast);
 !}//main
 ```
-
 In addition to a parser, the grammar generates a lexical scanner from
 the declarations of terminal symbols.  It also created the following
-abstract syntax type and the semantic actions that produce instances of
-the type.
+abstract syntax types and the semantic actions that produce instances of
+the types.
 ```
 #[derive(Debug)]
 pub enum E {
@@ -76,7 +75,7 @@ pub enum E {
 }
 impl Default for E { fn default()->Self { E::E_Nothing } }
 ```
-The form of the AST type(s) was determined by additional declarations
+The structure of the AST types was determined by declarations
 within the grammar.  An enum is normally generated for each
 non-terminal with multiple productions, with a variant for each
 production.  However, the enum variants generated from the productions

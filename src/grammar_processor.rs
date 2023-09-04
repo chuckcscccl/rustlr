@@ -1575,11 +1575,9 @@ impl Grammar
   pub fn compute_NullableRf(&mut self)
   {
      let mut changed = true;
-     let mut rulei:usize = 0;
      while changed 
      {
        changed = false;
-       rulei = 0;
        for rule in &self.Rules 
        {
           let mut addornot = true;
@@ -1590,60 +1588,18 @@ impl Grammar
 	  if (addornot) {
              changed = self.Nullable.insert(rule.lhs.index) || changed;
           }
-          rulei += 1;
        } // for each rule
      } //while changed
   }//nullable
 
-/*
-// with interior mutability,
-  pub fn compute_FirstIM(&mut self)
+  pub fn Nullableseq(&self, Gs:&[Gsym]) -> bool
   {
-     let mut FIRST:HashMap<usize,RefCell<HashSet<usize>>> = HashMap::new();
-     let mut changed = true;
-     while changed 
-     {
-       changed = false;
-       for rule in &self.Rules
-       {
-         let nti = rule.lhs.index; // left symbol of rule is non-terminal
-	 if !FIRST.contains_key(&nti) {
-            changed = true;
-	    FIRST.insert(nti,RefCell::new(HashSet::new()));
-         } // make sure set exists for this non-term
-	 let mut Firstnt = FIRST.get(&nti).unwrap().borrow_mut();
-	 // now look at rhs
-	 let mut i = 0;
-	 let mut isnullable = true;
- 	 while i< rule.rhs.len() && isnullable
-         {
-            let gs = &rule.rhs[i]; // rhs grammar symbol
-	    if gs.terminal {
-	      changed=Firstnt.insert(gs.index) || changed;
-              isnullable = false;
-            }
-            else if gs.index!=nti {   // non-terminal
-              if let Some(firstgs) = FIRST.get(&gs.index) {
-                  let firstgsb = firstgs.borrow();
-                  for symi in firstgsb.iter() {
-                    changed=Firstnt.insert(*symi) || changed;
-                  }
-              } // if first set exists for gs
-            } // non-terminal 
-           if gs.terminal || !self.Nullable.contains(&gs.index) {isnullable=false;}
-	    i += 1;
-         } // while loop look at rhs until not nullable
-       } // for each rule
-     } // while changed
-     // Eliminate RefCells and place in self.First
-     for nt in FIRST.keys() {
-        if let Some(rcell) = FIRST.get(nt) {
-          self.First.insert(*nt,rcell.take());
-        }
+     for g in Gs {
+       if g.terminal || !self.Nullable.contains(&g.index) {return false;}
      }
-  }//compute_FirstIM
-*/
-
+     return true;
+  }
+  
 // calculate the First set of each non-terminal
 pub fn compute_First(&mut self)
   {
@@ -1701,6 +1657,37 @@ pub fn compute_First(&mut self)
      if nullable {Fseq.insert(la);}
      Fseq
   }//FirstSeqb
+
+// not used - in case needed in future
+fn Follow_set(&self) -> HashMap<usize,HashSet<usize>>
+{
+  let mut Follow:HashMap<usize,HashSet<usize>> = HashMap::with_capacity(self.Symbols.len());
+  let mut changed = true;
+  let mut additions = HashSet::new();
+  while changed
+  {
+    changed = false;
+    for rule in &self.Rules {
+      for i in 0..rule.rhs.len() {
+        if !rule.rhs[i].terminal {
+          additions.clear();
+          let frest = self.Firstseq(&rule.rhs[i+1..],self.eoftermi);
+          for f in frest.iter() { additions.insert(*f); }
+          if self.Nullableseq(&rule.rhs[i+1..]) {
+             if let Some(lhsfollow) = Follow.get(&rule.lhs.index) {
+               for f in lhsfollow.iter() {
+                 additions.insert(*f);
+               }
+             }//if let
+          } // add follow(lhs) to follow
+          let follownt=Follow.entry(rule.rhs[i].index).or_default();
+          for f in additions.iter() { changed = follownt.insert(*f) || changed;}
+        }// ith symbol on rhs is non-terminal
+      }// for each symbol on rhs of rule
+    }// for each rule
+  }// while changed
+  Follow
+}//follow (not used)
 
 // procedure to generate lexical scanner from lexname, lexval and lexattribute
 // declarations in the grammar file.  Added for Version 0.2.3.  This procedure
