@@ -322,7 +322,9 @@ impl Grammar
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true); // special terminal
-     wildcard.rusttype="(usize,usize)".to_owned();
+
+     wildcard.rusttype="(usize,usize)".to_owned();  // really?
+     
      self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
      wildcard.index = self.Symbols.len();
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
@@ -1535,7 +1537,7 @@ strtok is bstokens[i], but will change
      }//compute sametype
      */
      // reset wildcard type if sametype on all other symbols
-     if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();}
+     if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // Symbols[0] is wildcard
      if !self.genabsyn {self.enumhash.insert(self.Absyntype.clone(),0);} // 0 reserved
 
      // compute reachability relation.
@@ -1789,7 +1791,10 @@ impl<{2}> {0}<{2}>
       for d in triples {write!(fd,"\"{}\",",d)?;}
       write!(fd,"] {{stk.add_triple(d);}}
     for (k,v) in [")?;
-      for (kl,vl) in &self.Lexnames {write!(fd,"(r\"{}\",\"{}\"),",kl,vl)?;}
+      for (kl,vl) in &self.Lexnames {
+        //let kle = escapequotes(kl);
+        write!(fd,"(r#\"{}\"#,\"{}\"),",kl,vl)?;
+      }
       write!(fd,"] {{lexnames.insert(k,v);}}\n")?;
     for attr in &self.Lexextras {write!(fd,"    stk.{};\n",attr.trim())?;}
 
@@ -1985,3 +1990,19 @@ pub fn prec_level(lev:i32) -> i32
    if lev<NONASSOCBIT {-1*(lev-NONASSOCBIT)} else {lev}
 }//prec_level
 
+
+
+/*
+///// independent function for  "Custom("define")"
+fn escapequotes(s:&str) -> String
+{
+  let mut S = String::from(s);
+  let mut start = 0;
+  while let Some(pos) = S[start..].find('\"') {
+    eprintln!("IN LOOP ,start = {}",start);
+    S.replace_range(start+pos..start+pos+1, "\\\"");
+    start += pos+2;
+  }
+  S
+}//escapequotes
+*/

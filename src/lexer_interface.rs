@@ -474,8 +474,11 @@ impl<'t> StrTokenizer<'t>
     StrTokenizer{decuint,hexnum,floatp,/*strlit,*/alphan,nonalph,custom_defined,doubles,singles,triples,input,position,prev_position,keep_whitespace,keep_newline,line,line_comment,ml_comment_start,ml_comment_end,keep_comment,line_start,src,line_positions,skipbegin,skipend,skipcount,specialeof,tab_spaces,linetabs,allow_newline_in_string,priority_symbols}
   }// new
 
-  //testing
-  //pub fn action<FM:FnOnce()->()>(&mut self,f:FM)   { f(); }
+  /// applies closure to self, can be used together with lexconditional
+  /// to invoke custom actions
+  pub fn map<FM:FnOnce(&mut StrTokenizer<'t>)>(&mut self,f:FM)  {
+    f(self);
+  }
 
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for
