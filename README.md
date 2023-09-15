@@ -33,23 +33,26 @@ compatibility will be maintained as much as possible.
 The following are the contents of a Rustlr grammar, [`simplecalc.grammar`](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar):
 ```
 auto
-terminals + * - / ( )   # verbatim terminal symbols
-valterminal Int i32     # terminal symbol with value
+terminals + * - / ; ( )   # verbatim terminal symbols
+valterminal Int i32       # terminal symbol with value
 nonterminal E
 nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
-startsymbol E
-variant-group BinaryOp + - * /   # simplifies AST enum by combining variants
+nonterminal ExpList
+startsymbol ExpList
+variant-group BinaryOp + - * /  # simplifies AST enum by combining variants
 
 # production rules:
 E --> E + T  | E - T | T
 T --> T * F | T / F | F
-F:Neg --> - F                    # 'Neg' names enum variant in AST
+F:Neg --> - F                   # 'Neg' names enum variant in AST
 F --> Int | ( E )
+ExpList --> E<;+> ;?    # ;-separated list with optional trailing ;
+
 
 !mod simplecalc_ast; // !-lines are injected verbatim into the parser
 !fn main()  {
-!  let mut scanner1 = simplecalclexer::from_str("10+-2*4");
+!  let mut scanner1 = simplecalclexer::from_str("10+-2*4; 9-(4-1)");
 !  let mut parser1 = make_parser();
 !  let parseresult = parse_with(&mut parser1, &mut scanner1);
 !  let ast =
@@ -61,10 +64,11 @@ F --> Int | ( E )
 !  println!("\nAST: {:?}\n",&ast);
 !}//main
 ```
-In addition to a parser, the grammar generates a lexical scanner from
-the declarations of terminal symbols.  It also created the following
-abstract syntax types and the semantic actions that produce instances of
-the types.
+The grammar recognizes one or more arithmetic expressions separated by
+semicolons.  In addition to a parser, the grammar generates a lexical
+scanner from the declarations of terminal symbols.  It also created
+the following abstract syntax types and the semantic actions that
+produce instances of the types.
 ```
 #[derive(Debug)]
 pub enum E {
@@ -74,22 +78,31 @@ pub enum E {
   E_Nothing,
 }
 impl Default for E { fn default()->Self { E::E_Nothing } }
-```
-The structure of the AST types was determined by declarations
-within the grammar.  An enum is normally generated for each
-non-terminal with multiple productions, with a variant for each
-production.  However, the enum variants generated from the productions
-for `T` and `F` are merged into the type for `E` by the declarations
-`nonterminal T : E` and `nonterminal F : E`.  The `variant-group`
-declaration combined what would-have-been four variants into one.  The
-`Neg` label on the unary minus rule separates that case from the
-"BinaryOp" variant group.
 
+#[derive(Default,Debug)]
+pub struct ExpList(pub Vec<LC<E>>,);
+```
 [LBox](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LBox.html)
-is a *custom smart pointer*
-that automatically contains the line and column positions of the start
-of the AST construct in the original source.  This information is
-usually required beyond the parsing stage.
+and
+[LC](https://docs.rs/rustlr/latest/rustlr/generic_absyn/struct.LC.html)
+are structures that contain the line and column positions of the start
+of the AST constructs in the original source.  This information is
+automatically inserted into the structures by the parser.  LBox
+encapsulates a Box and serves as a custom smart pointer while LC
+contains the extra information in an exposed tuple.  Both `LBox<T>`
+and `LC<T>` implement `Deref<T>` and `DerefMut<T>` thus carrying the
+extra information non-intrusively.
+
+Rustlr generates AST types based on the grammar but special
+declarations can control the precise structure of these types.  A
+struct is normally generated for nonterminal symbols with a single
+production while an enum is generated for nonterminals with multiple
+productions, with a variant for each production.  However, the enum
+variants generated from the productions for `T` and `F` are merged
+into the type for `E` by the declarations `nonterminal T : E` and
+`nonterminal F : E`.  The `variant-group` declaration combined what
+would-have-been four variants into one.  The `Neg` label on the unary
+minus rule separates that case from the "BinaryOp" variant group.
 
 Rustlr AST types implement the Default trait so that a partial result is
 always returned even when parse errors are encountered.
@@ -102,7 +115,7 @@ Specifying operator precedence and associativity instead of using the
 
 The generated parser and lexer normally form a separate module.  However,
 as this is a quick example, we've injected a `main` directly into the parser
-file to demonstrate how to invoke the parser.
+to demonstrate how to invoke the parser.
 To run this example,
 
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
@@ -110,16 +123,21 @@ To run this example,
   3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
   The filename determines the names of the modules created, and must 
   have a `.grammar` suffix.
-  4. Run rustlr in the crate with
+  4. Run the rustlr application in the crate with
   >  **`rustlr simplecalc.grammar -o src/main.rs`**
   5. **`cargo run`**
 
 The expected output is
 ```
-AST: BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4)))
+AST: ExpList([BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4))), BinaryOp("-", Int(9), BinaryOp("-", Int(4), Int(1)))])
 ```
 
 Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
+
+<p>
+
+#### New in Version 0.4.11: The wildcard `_` token now carries the original
+text of the token as its semantic value by default.
 
 #### New in Version 0.4.10:
 
