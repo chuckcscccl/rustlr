@@ -134,10 +134,12 @@ AST: ExpList([BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4))), Binary
 
 Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
 
-<p>
+<br>
 
-#### New in Version 0.4.11: The wildcard `_` token now carries the original
-text of the token as its semantic value by default.
+#### New in Version 0.4.11:
+
+The wildcard `_` token now carries the original text of the token as
+its semantic value by default.
 
 #### New in Version 0.4.10:
 
