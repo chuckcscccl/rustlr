@@ -90,7 +90,7 @@ of the AST constructs in the original source.  This information is
 automatically inserted into the structures by the parser.  LBox
 encapsulates a Box and serves as a custom smart pointer while LC
 contains the extra information in an exposed tuple.  Both `LBox<T>`
-and `LC<T>` implement `Deref<T>` and `DerefMut<T>` thus carrying the
+and `LC<T>` implement `Deref<T>` and `DerefMut<T>`, thus carrying the
 extra information non-intrusively.
 
 Rustlr generates AST types based on the grammar but special
