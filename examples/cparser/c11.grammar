@@ -1,11 +1,11 @@
 # This part of the Rustlr tutorial is under construction and now only
 # contains the grammar.
 
-# ANSI C YACC Grammar 2011 version re-written in  Rustlr
+# ANSI C YACC Grammar 2011 version re-written in Rustlr
 # Compare to the original from http://www.quut.com/c/ANSI-C-grammar-y.html
 
-# This grammar can only be processed with rustlr -lrsd 3, as it is
-# a "Selective Markus-Leermakers" or selML(3,1) grammar, which is a class
+# This grammar can only be processed with rustlr -lrsd, as it is
+# a "Selective Markus-Leermakers" or selML(2,1) grammar, which is a class
 # of unambiguous grammars properly larger than LR(1).
 
 
@@ -149,7 +149,7 @@ nonterminal logical_or_expression : expression
 nonterminal conditional_expression : expression
 nonterminal assignment_expression : expression
 nonterminal constant_expression : expression
-nonterminal expressions
+#nonterminal expressions : expression
 
 nonterminal labeled_statement : statement
 nonterminal compound_statement : statement
@@ -292,8 +292,8 @@ assignment_operator ==>
 	<==
 
 # unifying point for expression-type in AST
-expression:expr_list --> expressions
-expressions --> assignment_expression<Comma+>
+#expression:expr_list --> expressions
+expression:expr_list --> assignment_expression<Comma+>
 
 # intentionally ambiguous
 #expression --> assignment_expression<Comma+>
@@ -476,7 +476,8 @@ compound_statement:Blockstat --> Lbrace block_item* Rbrace
 block_item:Declaration --> declaration
 block_item:Statement --> statement
 
-expression_statement:Expr_list --> expression? SEMICOLON
+#expression_statement:Expr_list --> expression? SEMICOLON
+expression_statement:Expr_opt --> expression? SEMICOLON
 
 
 #selection_statement:Ifstat --> IF ( expression ) statement (ELSE statement)?

@@ -255,6 +255,12 @@ pub trait Tokenizer<'t,AT:Default>
   fn transform_wildcard(&self,t:TerminalToken<'t,AT>) -> TerminalToken<'t,AT>
   {t}
 
+/*  won't compile
+  fn map<G,FM:FnOnce(&mut dyn Tokenizer<'t,AT>)->G>(&mut self, f:FM) -> G {
+     f(self)
+  }
+*/
+
   /// returns next [TerminalToken].  This provided function calls nextsym but
   /// will return a TerminalToken with sym="EOF" at end of stream, with
   /// value=AT::default().  The is the only provided function that should *not*
@@ -476,9 +482,14 @@ impl<'t> StrTokenizer<'t>
 
   /// applies closure to self, can be used together with lexconditional
   /// to invoke custom actions
-  pub fn map<FM:FnOnce(&mut StrTokenizer<'t>)>(&mut self,f:FM)  {
-    f(self);
+  pub fn map<G,FM:FnOnce(&mut StrTokenizer<'t>) -> G>(&mut self,f:FM) -> G {
+    f(self)
   }
+
+  /// returns the current text of the tokenizer
+  pub fn current_text(&self) -> &'t str {
+    &self.input[self.previous_position()..self.current_position()]
+  }//current_text
 
   /// adds a symbol of exactly length two. If the length is not two the function
   /// has no effect.  Note that these symbols override all other types except for

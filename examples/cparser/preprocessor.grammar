@@ -1,17 +1,146 @@
 
 auto
 lifetime 'lt
-lexattribute add_custom("directive",r"^(?m)^#(.|(\\\n|\\\r))*$")
+#lexterminal HASH #
+lexterminal Lt <
+lexterminal Gt >
+lexterminal Comma ,
+terminals ( ) defined
+valueterminal IDENTIFIER~ &'lt str~ Alphanum(n)~ n
+valueterminal I_CONSTANT~ i32~ Num(n)~ (n as i32)
+valueterminal STRING_LITERAL~ &'lt str~ Strlit(s)~ s
+#lexattribute add_custom("directive",r"^(?m)^#(.|(\\\n|\\\r))*$")
 #lexattribute add_custom("junk",r"(?m)(.|(\\\))*$")
-lexattribute add_custom("junk",r"^(?m)^.*$")
-valueterminal directive ~ &'lt str ~ Custom("directive",d) ~ d
-#valueterminal junk ~ &'lt str ~ Custom("junk",d) ~ d
-valueterminal junk ~ () ~ Custom("junk",_) ~ ()
-nonterminals S Stuff 
+lexattribute add_custom("include",r"^(?m)^#include")
+valueterminal INCLUDE ~ () ~ Custom("include",_) ~ ()
+lexattribute add_custom("define",r"^(?m)^#define")
+valueterminal DEFINE ~ () ~ Custom("define",_) ~ ()
+lexattribute add_custom("undef",r"^(?m)^#undef")
+valueterminal UNDEF ~ () ~ Custom("undef",_) ~ ()
+lexattribute add_custom("line",r"^(?m)^#line")
+valueterminal LINE ~ () ~ Custom("line",_) ~ ()
+lexattribute add_custom("error",r"^(?m)^#error")
+valueterminal PERROR ~ () ~ Custom("error",_) ~ ()
+lexattribute add_custom("pragma",r"^(?m)^#pragma")
+valueterminal PRAGMA ~ () ~ Custom("pragma",_) ~ ()
+lexattribute add_custom("pif",r"^(?m)^#if")
+valueterminal PIF ~ () ~ Custom("pif",_) ~ ()
+lexattribute add_custom("ifdef",r"^(?m)^#ifdef")
+valueterminal IFDEF ~ () ~ Custom("ifdef",_) ~ ()
+lexattribute add_custom("ifndef",r"^(?m)^#ifndef")
+valueterminal IFNDEF ~ () ~ Custom("ifndef",_) ~ ()
+lexattribute add_custom("pelse",r"^(?m)^#else")
+valueterminal PELSE ~ () ~ Custom("pelse",_) ~ ()
+lexattribute add_custom("pelif",r"^(?m)^#elif")
+valueterminal PELIF ~ () ~ Custom("pelif",_) ~ ()
+lexattribute add_custom("endif",r"^(?m)^#endif")
+valueterminal ENDIF ~ () ~ Custom("endif",_) ~ ()
+#lexattribute add_custom("text",r"^(?m)^.*$")
+#valueterminal TEXT ~ &'lt str ~ Custom("text",d) ~ d
+#valueterminal directive ~ &'lt str ~ Custom("directive",d) ~ d
+#valueterminal junk ~ () ~ Custom("junk",_) ~ ()
+
+#lexattribute keep_newline=true
+#valueterminal ENDL ~ () ~ Newline ~ ()
+
+nonterminals S Stuff text if_part if_line else_part elif_line
+nonterminals control_line elif_parts pconstant_expression
 startsymbol S
 
 S --> Stuff*
 #Stuff --> junk:j { print!("see junk ({}): ",&j); for b in j.bytes() {print!("{}, ",b as u8);} println!(); ... }
 
-Stuff --> directive:d { println!("See directive: {}",d); ... }
-Stuff --> junk
+text --> _*
+
+Stuff --> control_line
+#Stuff --> text
+
+control_line:define_macro --> DEFINE IDENTIFIER ( IDENTIFIER<Comma*> ) text
+control_line:define_const --> DEFINE IDENTIFIER text
+control_line:include_string --> INCLUDE STRING_LITERAL:path
+control_line:include --> INCLUDE Lt _* Gt
+control_line:line --> LINE I_CONSTANT STRING_LITERAL?
+control_line:undef --> UNDEF IDENTIFIER
+control_line:perror --> PERROR text
+control_line:pragma --> PRAGMA text
+control_line:conditional --> if_part elif_parts? else_part? ENDIF
+if_part --> if_line text
+if_line:if_const --> PIF pconstant_expression
+if_line:ifdef --> IFDEF IDENTIFIER
+if_line:ifndef --> IFNDEF IDENTIFIER
+elif_parts --> (elif_line text)+
+elif_line --> PELIF pconstant_expression
+else_part --> PELSE text
+pconstant_expression:defined --> defined ( IDENTIFIER ) 
+#pconstant_expression:constexpr --> constant_expression
+
+EOF
+
+# from  https://learn.microsoft.com/en-us/cpp/preprocessor/grammar-summary-c-cpp?view=msvc-170
+
+control-line:
+ #define identifier token-stringopt
+ #define identifier ( identifieropt , ... , identifieropt ) token-stringopt
+ #include "path-spec"
+ #include <path-spec>
+ #line digit-sequence "filename"opt
+ #undef identifier
+ #error token-string
+ #pragma token-string
+
+constant-expression:
+ defined( identifier ) defined identifier
+ any other constant expression
+
+conditional:
+ if-part elif-partsopt else-partopt endif-line
+
+if-part:
+ if-line text
+
+if-line:
+ #if constant-expression
+ #ifdef identifier
+ #ifndef identifier
+
+elif-parts:
+ elif-line text
+ elif-parts elif-line text
+
+elif-line:
+ #elif constant-expression
+
+else-part:
+ else-line text
+
+else-line:
+ #else
+
+endif-line:
+ #endif
+
+digit-sequence:
+ digit
+ digit-sequence digit
+
+digit: one of
+ 0 1 2 3 4 5 6 7 8 9
+
+token-string:
+ String of token
+
+token:
+ keyword
+ identifier
+ constant
+ operator
+ punctuator
+
+filename:
+ Legal operating system filename
+
+path-spec:
+ Legal file path
+
+text:
+ Any sequence of text

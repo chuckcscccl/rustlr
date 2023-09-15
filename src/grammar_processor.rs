@@ -168,6 +168,7 @@ pub struct Grammar
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<usize,usize>,
   pub genlog : String,
+  pub wildcardvarnum : usize,
 }// struct Grammar
 
 impl Default for Grammar {
@@ -222,6 +223,7 @@ impl Grammar
        vargroupnames : Vec::new(),
        vargroups : HashMap::new(),
        genlog : String::new(),
+       wildcardvarnum : 2,       
      }
   }//new grammar
 
@@ -322,10 +324,12 @@ impl Grammar
      let mut ntcx = 2;  // used by -genabsyn option
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true); // special terminal
-
-     wildcard.rusttype="(usize,usize)".to_owned();  // really?
-     
+     wildcard.rusttype="(usize,usize)".to_owned();  // change?
+     self.wildcardvarnum = ntcx;
      self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
+    
+    // change this to &'lt str if lifetime is declared?
+
      wildcard.index = self.Symbols.len();
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
      self.Symbols.push(wildcard); // wildcard is first symbol.
@@ -1536,6 +1540,17 @@ strtok is bstokens[i], but will change
         }
      }//compute sametype
      */
+
+     // change wildcard type if lifetime declared
+     if self.lifetime.len()>0 {
+       let wildtype = format!("&{} str",&self.lifetime);
+       self.Symbols[0].rusttype = wildtype.clone();
+       self.wildcardvarnum = ntcx;
+       self.enumhash.insert(wildtype,ntcx); ntcx+=1;
+       self.ntcxmax=ntcx;
+       self.haslt_base.insert(0);
+     }//change wildcard type
+
      // reset wildcard type if sametype on all other symbols
      if self.sametype && !self.genabsyn {self.Symbols[0].rusttype = self.Absyntype.clone();} // Symbols[0] is wildcard
      if !self.genabsyn {self.enumhash.insert(self.Absyntype.clone(),0);} // 0 reserved
@@ -1861,11 +1876,20 @@ impl<{2}> {0}<{2}>
    fn get_line(&self,i:usize) -> Option<&str> {{self.stk.get_line(i)}}
    fn get_slice(&self,s:usize,l:usize) -> &str {{self.stk.get_slice(s,l)}}")?;
    if (!self.sametype) || self.genabsyn {
-//      let ttlt = if self.lifetime.len()>0 {&self.lifetime} else {"'wclt"};
-//      let ltparam = if self.lifetime.len()>0 {""} else {"<'wclt>"};
-      write!(fd,"
-   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_2((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype)?;
-   }
+
+// wildcardtype depends on if lifetime was declared
+      if self.lifetime.len()>0 { // change wildcard type to &'lt str
+        write!(fd,"
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text()),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;
+      }// no lifetime
+      else { // no lifetime 
+        write!(fd,"
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;      
+      }
+   }// if (!self.sametype) || self.genabsyn {
+
+
+
    write!(fd,"
 }}//impl Tokenizer
 \n")?;
