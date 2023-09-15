@@ -486,7 +486,7 @@ impl<'t> StrTokenizer<'t>
     f(self)
   }
 
-  /// returns the current text of the tokenizer
+  /// returns text of the current token, untrimed
   pub fn current_text(&self) -> &'t str {
     &self.input[self.previous_position()..self.current_position()]
   }//current_text

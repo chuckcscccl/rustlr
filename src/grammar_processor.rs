@@ -1880,8 +1880,8 @@ impl<{2}> {0}<{2}>
 // wildcardtype depends on if lifetime was declared
       if self.lifetime.len()>0 { // change wildcard type to &'lt str
         write!(fd,"
-   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text()),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;
-      }// no lifetime
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text().trim()),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;
+      }// has lifetime
       else { // no lifetime 
         write!(fd,"
    fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;      
