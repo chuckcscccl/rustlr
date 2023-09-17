@@ -336,36 +336,39 @@ impl Grammar
         let NT = &self.Symbols[nti].sym;
 	let mut targetnt = nti;
 	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
-        /*
-	if !groupvariants.contains_key(&targetnt) {
-	  groupvariants.insert(targetnt,HashSet::new());
-	}
-	let groupenums = groupvariants.get_mut(&targetnt).unwrap();
-        */
         //set of lhs labels that are variant-group names
         let groupenums = groupvariants.entry(targetnt).or_default();
         // group enums are only generated for tuple variants, the presence
-        // of any left or right-side label will cancel its generation.
+        // of any left or right-side label will cancel its generation
+	// for that particular production/variant
 	for ri in NTrules  // for each rule with NT on lhs
 	{
           let mut nolhslabel=false;
           let mut groupoper = ""; // variant-group operator, default none
           // groupoper cancelled if there is a lhs label
-          if self.Rules[*ri].lhs.label.len()==0 { // make up lhs label
+          if self.Rules[*ri].lhs.label.len()==0 { // no lhs label: make up
             nolhslabel = true;
             let mut lhslab = format!("{}_{}",NT,ri); // default
 
             // search for variant-group operator (only if no lhs label)
             if self.vargroupnames.len()>0 {
+	     let enti = *toextend.get(&nti).unwrap_or(&nti);
              for rsym in self.Rules[*ri].rhs.iter() {
-              if let Some(gnamei) = self.vargroups.get(&rsym.index) {
+              if let Some(gnamei) = self.vargroups.get(&(enti,rsym.index)) {
                 if groupoper.len()==0 { // not yet set 
                   lhslab = self.vargroupnames[*gnamei].clone();
                   groupoper = &self.Symbols[rsym.index].sym;
                 }
-              }// found variant-group operator (first one taken)
+              }// found variant-group operator for current lhs nonterminal
+	      else if let Some(gnamei) = self.vargroups.get(&(usize::MAX,rsym.index)) {
+                if groupoper.len()==0 { // not yet set 
+                  lhslab = self.vargroupnames[*gnamei].clone();
+                  groupoper = &self.Symbols[rsym.index].sym;
+                }
+              }// found variant-group operator for all non-terminals
+	      
               if rsym.label.len()>0 && !rsym.label.starts_with("_item") {
-                groupoper = "";
+                groupoper = ""; // cancel grouping
                 lhslab = format!("{}_{}",NT,ri); // default
                 break;
               }// group variant canceled
@@ -522,8 +525,13 @@ impl Grammar
 	      if tuplevariant {ACTION.push(')');}
               else {ACTION.push('}');}
 	  } else if enumvar.ends_with('(') || enumvar.ends_with('{') {
+	    // this is for the case of no meaningful value,
+	    // but does it cover Binop::"/" ??
 	    enumvar.pop();
 	    ACTION.pop();
+	  }
+	  if ACTION.ends_with('\"') { // for Binaryop("/" ..
+	    if tuplevariant {ACTION.push(')');} else {ACTION.push('}');}
 	  }
     	  ACTION.push_str(" }");  // action already has last rbrack
 	  // determine if action and ast enum should be generated:

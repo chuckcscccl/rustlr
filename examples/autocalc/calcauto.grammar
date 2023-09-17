@@ -41,6 +41,7 @@ left + 400
 left - 400
 
 variant-group Binop * /
+#variant-group-for Expr Binop * /
 
 # rule for testing AST generation:
 #lexvalue bigint BigNumber(n) n
@@ -55,7 +56,9 @@ AA --> BB:p int:q BB:r
 AA --> var var CC var
 BB --> var:a AA:b AA:c
 #BB --> var AA AA
-CC --> ; ;
+CC --> ; * ;
+CC --> int + ;
+CC --> let / ;
 
 Aexpr:ae --> int
 Bexpr:be --> var

@@ -166,9 +166,10 @@ pub struct Grammar
   pub bumpast: bool,
   pub sdcuts: HashMap<usize,usize>, // !% marker positions: rulenum to position
   pub vargroupnames : Vec<String>,
-  pub vargroups: HashMap<usize,usize>,
+  pub vargroups: HashMap<(usize,usize),usize>, // (ntsymi, rhssymi) to index in vargroupnames  , ntsymi can be usize::MAX to mean any nt
+  //pub vargroups: HashMap<usize,usize>, //symi to index in vargroupnames
   pub genlog : String,
-  pub wildcardvarnum : usize,
+  pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
 }// struct Grammar
 
 impl Default for Grammar {
@@ -841,21 +842,21 @@ impl Grammar
 	       self.Lexextras.push(prop);
 	       self.genlex = true;
 	    },
-
             "lexconditional" if stokens.len() > 2 => {
                let pos = line.find("lexconditional").unwrap()+15;
                let mut dtokens:Vec<_> = line[pos..].split('~').collect();
                self.Lexconditionals.push((dtokens[0].trim().to_owned(),dtokens[1].trim().to_owned()));
             },
             "variant-group" | "operator-group" if stokens.len()>2 => {
-             // variant Binop + - * DIV
-               self.vargroupnames.push(stokens[1].to_owned());
+	       let groupfornt = usize::MAX;
+	       // there may be some duplicates in following vector ... fine
+               self.vargroupnames.push(stokens[1].to_owned()); 
                for tok in &stokens[2..] {
                  // operators must be names of terminals, not raw tokens
                  let tokopt = self.Symhash.get(&tok[..]);
                  match tokopt {
-                   Some(toki) if !self.vargroups.contains_key(toki) => {
-                     self.vargroups.insert(*toki,self.vargroupnames.len()-1);
+                   Some(toki) if !self.vargroups.contains_key(&(groupfornt,*toki)) => {
+                     self.vargroups.insert((groupfornt,*toki),self.vargroupnames.len()-1);
                    },
                    Some(_) => {
                      self.logeprint(&format!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum));
@@ -866,6 +867,36 @@ impl Grammar
                  }//match
                }
             }, // variant-group
+            "variant-group-for" | "operator-group-for" if stokens.len()>3 => {
+	       // variant-group-for E Binop * + / -
+	       let mut groupfornt = usize::MAX;
+	       match self.Symhash.get(stokens[1]) {
+	         Some(i) if *i<self.Symbols.len() && !self.Symbols[*i].terminal => {
+                      groupfornt = self.Symbols[*i].index;
+                 },
+                 _ => {
+		    self.logeprint(&format!("ERROR: {} is not a declared non-terminal symbol",stokens[1]));
+		    return false;
+		 },
+	       }//match
+	       // there may be some duplicates in following vector ... fine
+               self.vargroupnames.push(stokens[2].to_owned()); 
+               for tok in &stokens[3..] {
+                 // operators must be names of terminals, not raw tokens
+                 let tokopt = self.Symhash.get(&tok[..]);
+                 match tokopt {
+                   Some(toki) if !self.vargroups.contains_key(&(groupfornt,*toki)) => {
+                     self.vargroups.insert((groupfornt,*toki),self.vargroupnames.len()-1);
+                   },
+                   Some(_) => {
+                     self.logeprint(&format!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum));
+                   },
+                   _ => {
+                     self.logeprint(&format!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum));
+                   },
+                 }//match
+               }
+            }, // variant-group for specific lhs nonterminal	    
 
 ////////////////////////////////////////////////// case for grammar production:
 
@@ -1880,7 +1911,7 @@ impl<{2}> {0}<{2}>
 // wildcardtype depends on if lifetime was declared
       if self.lifetime.len()>0 { // change wildcard type to &'lt str
         write!(fd,"
-   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text().trim()),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text()),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;
       }// has lifetime
       else { // no lifetime 
         write!(fd,"

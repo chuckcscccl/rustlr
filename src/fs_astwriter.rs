@@ -345,13 +345,20 @@ impl Grammar
 
             // search for variant-group operator (only if no lhs label)
             if self.vargroupnames.len()>0 {
+	     let enti = *toextend.get(&nti).unwrap_or(&nti);
              for rsym in self.Rules[*ri].rhs.iter() {
-              if let Some(gnamei) = self.vargroups.get(&rsym.index) {
+              if let Some(gnamei) = self.vargroups.get(&(enti,rsym.index)) {
                 if groupoper.len()==0 { // not yet set 
                   lhslab = self.vargroupnames[*gnamei].clone();
                   groupoper = &self.Symbols[rsym.index].sym;
                 }
-              }// found variant-group operator (first one taken)
+              }// found  variant-group operator for this lhs nt
+              else if let Some(gnamei) = self.vargroups.get(&(usize::MAX,rsym.index)) {
+                if groupoper.len()==0 { // not yet set 
+                  lhslab = self.vargroupnames[*gnamei].clone();
+                  groupoper = &self.Symbols[rsym.index].sym;
+                }
+              }// found generic variant-group operator (first one taken)
               if rsym.label.len()>0 && !rsym.label.starts_with("_item") {
                 groupoper = "";
                 lhslab = format!("{}_{}",NT,ri); // default
@@ -512,6 +519,9 @@ impl Grammar
 	    enumvar.pop(); enumvar.pop();
 	  }
 	  if ACTION.ends_with('(')||ACTION.ends_with(',') {ACTION.pop();}
+	  if ACTION.ends_with('\"') { // for Binaryop("/" ..
+	    ACTION.push(')');
+	  }
     	  //ACTION.push_str(" }");  // action already has last rbrack
 	  // determine if action and ast enum should be generated:
 //          if self.Rules[*ri].action.len()<=1 && passthru>=0 && nolhslabel { // special case
