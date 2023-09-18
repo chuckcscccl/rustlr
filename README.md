@@ -40,7 +40,7 @@ nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
 nonterminal ExpList
 startsymbol ExpList
-variant-group BinaryOp + - * /  # simplifies AST enum by combining variants
+variant-group-for E BinaryOp + - * /  # group operators in AST generation
 
 # production rules:
 E --> E + T  | E - T | T
