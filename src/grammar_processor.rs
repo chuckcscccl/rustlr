@@ -197,6 +197,7 @@ impl Grammar
        Resynch : HashSet::new(),
        Errsym : String::new(),
        Lexnames : HashMap::new(),
+//       Nameslex : HashMap::new(),
        Extras: String::new(),
        sametype:true,
        lifetime:String::new(), // empty means inferred
@@ -830,6 +831,7 @@ impl Grammar
                self.Symhash.insert(termname.to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Lexnames.insert(stokens[2].to_string(),termname.to_string());
+//	       self.Nameslex.insert(termname.to_string(),stokens[2].to_string());
 	       self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //lexterminal

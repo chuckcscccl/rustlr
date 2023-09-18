@@ -499,9 +499,8 @@ translation_unit --> external_declaration+
 external_declaration:declaration --> declaration
 external_declaration:directive --> COMPILER_DIRECTIVE
 
-function_header ==> declaration_specifier+:[ds] declarator declaration* {
+function_header ==> declaration_specifier+:[ds] declarator:dc declaration*:dl {
   let mut table=parser.shared_state.borrow_mut();
-  let mut report = String::new();
   if table.in_function {
      println!("WARNING: NESTED FUNCTION DEFINITIONS ARE NOT TECHNICALLY ALLOWED IN ANSI C, line {}, column {}",ds.line,ds.column);
      table.warnings_issued=true;
