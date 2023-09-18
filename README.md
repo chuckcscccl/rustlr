@@ -100,7 +100,7 @@ production while an enum is generated for nonterminals with multiple
 productions, with a variant for each production.  However, the enum
 variants generated from the productions for `T` and `F` are merged
 into the type for `E` by the declarations `nonterminal T : E` and
-`nonterminal F : E`.  The `variant-group` declaration combined what
+`nonterminal F : E`.  The `variant-group-for` declaration combined what
 would-have-been four variants into one.  The `Neg` label on the unary
 minus rule separates that case from the "BinaryOp" variant group.
 

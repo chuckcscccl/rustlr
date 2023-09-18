@@ -57,6 +57,8 @@ lexterminal EQ_OP ==
 lexterminal NE_OP !=
 lexterminal AND_OP &&
 lexterminal OR_OP ||
+#terminals = *= /= %= += -= <<= >>= &= |= ^=
+lexterminal ASSIGN =
 lexterminal MUL_ASSIGN *=
 lexterminal DIV_ASSIGN /=
 lexterminal MOD_ASSIGN %=
@@ -109,15 +111,14 @@ lexterminal Hat ^
 lexterminal Dot .
 lexterminal Comma ,
 lexterminal Colon :
-lexterminal Star *
-lexterminal Div /
+#lexterminal Star *
+#lexterminal Div /
 lexterminal Percent %
 lexterminal Lt <
 lexterminal Gt >
-lexterminal ASSIGN =
 lexterminal Quest ?
 lexterminal SEMICOLON ;
-terminals [ ] ( )  + - ~
+terminals [ ] ( )  + - ~ * /
 
 # self below refers to the generated lexer, which will always have a
 # shared_state with the parser (via an Rc<RefCell<defined_id_table>>)
@@ -223,7 +224,7 @@ unary_expression ==>
 	<==
 
 unary_operator --> Amp
-unary_operator --> Star
+unary_operator --> *
 unary_operator:UniPlus --> +
 unary_operator:Neg --> -
 unary_operator:BinComp --> ~
@@ -233,8 +234,8 @@ cast_expression --> unary_expression
 cast_expression:Typecast --> ( type_name ) cast_expression
 
 multiplicative_expression --> cast_expression
-multiplicative_expression:Times -->  multiplicative_expression Star cast_expression
-multiplicative_expression:Divide -->  multiplicative_expression Div cast_expression
+multiplicative_expression:Times -->  multiplicative_expression * cast_expression
+multiplicative_expression:Divide -->  multiplicative_expression / cast_expression
 multiplicative_expression:Mod -->  multiplicative_expression Percent cast_expression
 
 additive_expression --> multiplicative_expression
@@ -404,9 +405,9 @@ direct_base ==> IDENTIFIER:id {
  
 direct_base:DEC --> ( declarator )
 direct_contents ==>
-          [ Star?:star ]
+          [ *?:star ]
         | [ STATIC?:is_static assignment_expression ]
-        | [ type_qualifier+ Star ]
+        | [ type_qualifier+ * ]
         | [ STATIC?:is_static type_qualifier+ assignment_expression ]
         | [ type_qualifier+ (STATIC assignment_expression)? ]
 	| ( parameter_type_list )
@@ -416,7 +417,7 @@ direct_contents ==>
 flatten direct_declarator        
 direct_declarator --> direct_base direct_contents*
 
-pointer --> Star type_qualifier*:tql pointer?:ptr
+pointer --> * type_qualifier*:tql pointer?:ptr
 
 parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS)?:ellipsis
 
@@ -432,7 +433,7 @@ abstract_declarator --> pointer
 abstract_declarator --> pointer? ( abstract_declarator ) da_base* 
 abstract_declarator -->  pointer? da_base+
 
-da_base --> [ Star?:star ]
+da_base --> [ *?:star ]
 da_base --> ( parameter_type_list )
 da_base --> [ expression ]
 da_base --> [ STATIC type_qualifier* assignment_expression ]
