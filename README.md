@@ -136,10 +136,11 @@ Rustlr can also be invoked from within Rust by calling the [rustlr::generate](ht
 
 <br>
 
-#### New in Version 0.4.11:
+#### New in Versions 0.4.11 and 0.4.12:
 
 The wildcard `_` token now carries the original text of the token as
-its semantic value by default.
+its semantic value by default.  The `variant-group` directive is now
+deprecated (though still available) by `variant-group-for`.
 
 #### New in Version 0.4.10:
 
