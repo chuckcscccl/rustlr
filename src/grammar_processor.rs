@@ -140,6 +140,7 @@ pub struct Grammar
   pub Resynch : HashSet<String>, // resynchronization terminal symbols
   pub Errsym : String,        // error recovery terminal symbol
   pub Lexnames : HashMap<String,String>, // print names of grammar symbols
+  //pub Nameslex : HashMap<String,String>, // inverse of Lexnames
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
   pub sametype: bool,  // determine if absyntype is only valuetype
   pub lifetime: String,
@@ -167,7 +168,6 @@ pub struct Grammar
   pub sdcuts: HashMap<usize,usize>, // !% marker positions: rulenum to position
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<(usize,usize),usize>, // (ntsymi, rhssymi) to index in vargroupnames  , ntsymi can be usize::MAX to mean any nt
-  //pub vargroups: HashMap<usize,usize>, //symi to index in vargroupnames
   pub genlog : String,
   pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
 }// struct Grammar

@@ -172,7 +172,7 @@ nonterminals generic_association static_assert_declaration designation
 nonterminals function_specifier alignment_specifier atomic_type_specifier
 nonterminals designator block_item declaration_specifier
 nonterminals specifier_qualifier initializer_designation
-nonterminals direct_declarator direct_contents declarator da_base
+nonterminals direct_declarator direct_contents declarator abs_declarator_unit
 nonterminal direct_base
 nonterminal function_definition : external_declaration
 terminal errorterm
@@ -218,13 +218,14 @@ unary_expression:Unaryop --> unary_operator cast_expression
 unary_expression ==>
 	  INC_OP unary_expression
 	| DEC_OP unary_expression
-	| SIZEOF unary_expression
-	| SIZEOF ( type_name )
-        | ALIGNOF ( type_name )
 	<==
+unary_expression:Alignof_type --> ALIGNOF ( type_name )
+unary_expression:Sizeof_unary --> SIZEOF unary_expression
+unary_expression:Sizeof_type --> SIZEOF ( type_name )
+	
 
 unary_operator --> Amp
-unary_operator --> *
+unary_operator:UniStar --> *
 unary_operator:UniPlus --> +
 unary_operator:Neg --> -
 unary_operator:BinComp --> ~
@@ -304,16 +305,16 @@ constant_expression:const_expr --> conditional_expression
 
 ############# declarations
 
-!use crate::c11_ast::declaration_specifier::*;
-!use crate::c11_ast::storage_class_specifier::*;
-!use crate::c11_ast::direct_base::*;
+#!use crate::c11_ast::declaration_specifier::*;
+#!use crate::c11_ast::storage_class_specifier::*;
+#!use crate::c11_ast::direct_base::*;
 
-declaration:DecSpec --> declaration_specifier+ SEMICOLON
+declaration:Declaration_spec --> declaration_specifier+ SEMICOLON
 declaration:Statassert --> static_assert_declaration
 declaration:fundef --> function_definition
 
 # TYPEDEF CASES
-declaration:DecSpecList --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
+declaration:Declaration_specs --> declaration_specifier+:dsl init_declarator<Comma+>:initdc SEMICOLON
 
 declaration_specifier:storage --> storage_class_specifier
 declaration_specifier:typespec --> type_specifier
@@ -382,8 +383,8 @@ type_qualifier --> CONST | VOLATILE | ATOMIC | RESTRICT
 
 function_specifier --> INLINE | NORETURN
 
-alignment_specifier --> ALIGNAS ( type_name ) 
-alignment_specifier --> ALIGNAS ( constant_expression )
+alignment_specifier:Align_spec_type --> ALIGNAS ( type_name ) 
+alignment_specifier:Align_spec_const --> ALIGNAS ( constant_expression )
 
 # PROBLEMATIC LINE
 declarator -->  pointer? direct_declarator
@@ -412,7 +413,9 @@ direct_declarator --> direct_base direct_contents*
 
 pointer --> * type_qualifier*:tql pointer?:ptr
 
-parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS)?:ellipsis
+#parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS)?:ellipsis
+parameter_type_list:param_type_list --> parameter_declaration<Comma+>
+parameter_type_list:param_type_list_ellipsis --> parameter_declaration<Comma+> Comma ELLIPSIS
 
 parameter_declaration:Param_declarator --> declaration_specifier+ declarator
 parameter_declaration:Param_abs_declarator --> declaration_specifier+ abstract_declarator
@@ -420,16 +423,16 @@ parameter_declaration:Param_declaration_specs --> declaration_specifier+
 
 type_name --> specifier_qualifier+ abstract_declarator?
 
-abstract_declarator --> pointer
-abstract_declarator --> pointer? ( abstract_declarator ) da_base* 
-abstract_declarator -->  pointer? da_base+
+abstract_declarator:Abs_declarator_ptr --> pointer
+abstract_declarator:Abs_declarator_abs_list --> pointer? ( abstract_declarator ) abs_declarator_unit* 
+abstract_declarator:Abs_declarator_list -->  pointer? abs_declarator_unit+
 
-da_base --> [ *?:star ]
-da_base --> ( parameter_type_list )
-da_base --> [ expression ]
-da_base --> [ STATIC type_qualifier* assignment_expression ]
-da_base --> [ type_qualifier+ STATIC?:is_static assignment_expression ]
-da_base --> [ type_qualifier+ ]
+abs_declarator_unit:AD_staropt --> [ *?:star ]
+abs_declarator_unit:AD_param_list --> ( parameter_type_list )
+abs_declarator_unit:AD_expr --> [ expression ]
+abs_declarator_unit:AD_static_assign --> [ STATIC type_qualifier* assignment_expression ]
+abs_declarator_unit:AD_assign --> [ type_qualifier+:type_qualifiers STATIC?:is_static assignment_expression:assignment ]
+abs_declarator_unit:AD_type_qualifier --> [ type_qualifier+ ]
 
 initializer:expr --> assignment_expression
 initializer:values --> Lbrace initializer_designation<Comma+> Comma? Rbrace
