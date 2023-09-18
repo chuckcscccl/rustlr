@@ -333,7 +333,6 @@ storage_class_specifier ==>
 	<==
 storage_class_specifier --> TYPEDEF !% { parser.shared_state.borrow_mut().anticipate_typedef=true; ...}
 
-type_specifier:Typename --> TYPEDEF_NAME        
 type_specifier ==>
 	 VOID
 	| CHAR
@@ -347,34 +346,31 @@ type_specifier ==>
         | BOOL
         | COMPLEX
         | IMAGINARY
-	| struct_or_union_specifier
-	| enum_specifier
-        | atomic_type_specifier
-	<==
+        <==
+type_specifier:Typename --> TYPEDEF_NAME        
+type_specifier:Typespec_structunion --> struct_or_union_specifier
+type_specifier:Typespec_enum --> enum_specifier
+type_specifier:Typespec_atomic --> atomic_type_specifier
 
 
-struct_or_union_specifier ==>
-	 struct_or_union IDENTIFIER? Lbrace struct_declaration+ Rbrace
-	| struct_or_union IDENTIFIER
-	<==
+
+struct_or_union_specifier:Structunion_braces --> struct_or_union IDENTIFIER? Lbrace struct_declaration+ Rbrace
+struct_or_union_specifier:Structunion_id --> struct_or_union IDENTIFIER
 
 # labels ensure enum generated.
 struct_or_union --> STRUCT | UNION
 
-struct_declaration ==>
-         specifier_qualifier+ struct_declarator<Comma*> SEMICOLON
-       | static_assert_declaration
-       <==
+struct_declaration:Struct_declarators --> specifier_qualifier+ struct_declarator<Comma*> SEMICOLON
+struct_declaration:Struct_static_assert --> static_assert_declaration
 
-specifier_qualifier --> type_specifier | type_qualifier
+specifier_qualifier:Type_specifier --> type_specifier
+specifier_qualifier:Type_qualifier --> type_qualifier
 
 struct_declarator:declare --> declarator (Colon constant_expression)?
 struct_declarator:nodeclare --> Colon constant_expression
 
-enum_specifier ==>
-	 ENUM IDENTIFIER? Lbrace enumerator<Comma+> Comma? Rbrace
-	| ENUM IDENTIFIER
-	<==
+enum_specifier:Enum_braces --> ENUM IDENTIFIER? Lbrace enumerator<Comma+> Comma? Rbrace
+enum_specifier:Enum_id --> ENUM IDENTIFIER
 
 enumerator ==> IDENTIFIER:id (ASSIGN constant_expression)? {
   parser.shared_state.borrow_mut().enum_ids.insert(id); 
@@ -383,7 +379,6 @@ enumerator ==> IDENTIFIER:id (ASSIGN constant_expression)? {
 atomic_type_specifier --> ATOMIC ( type_name )
 
 type_qualifier --> CONST | VOLATILE | ATOMIC | RESTRICT
-
 
 function_specifier --> INLINE | NORETURN
 
@@ -404,15 +399,13 @@ direct_base ==> IDENTIFIER:id {
  ... } <==
  
 direct_base:DEC --> ( declarator )
-direct_contents ==>
-          [ *?:star ]
-        | [ STATIC?:is_static assignment_expression ]
-        | [ type_qualifier+ * ]
-        | [ STATIC?:is_static type_qualifier+ assignment_expression ]
-        | [ type_qualifier+ (STATIC assignment_expression)? ]
-	| ( parameter_type_list )
-	| ( IDENTIFIER<Comma*> )
-        <==
+direct_contents:Staropt --> [ *?:star ]
+direct_contents:Staticopt --> [ STATIC?:is_static assignment_expression ]
+direct_contents:Type_qualifiers --> [ type_qualifier+ * ]
+direct_contents:Type_qualifiers_assign -->  [ STATIC?:is_static type_qualifier+ assignment_expression ]
+direct_contents:Type_qualifiers_static_assignopt: --> [ type_qualifier+ (STATIC assignment_expression)? ]
+direct_contents:Parameter_types --> ( parameter_type_list )
+direct_contents:Identifiers --> ( IDENTIFIER<Comma*> )
         
 flatten direct_declarator        
 direct_declarator --> direct_base direct_contents*
@@ -421,11 +414,9 @@ pointer --> * type_qualifier*:tql pointer?:ptr
 
 parameter_type_list --> parameter_declaration<Comma+>:parameters (Comma ELLIPSIS)?:ellipsis
 
-parameter_declaration ==>
-	 declaration_specifier+ declarator
-	| declaration_specifier+ abstract_declarator
-	| declaration_specifier+
-	<==
+parameter_declaration:Param_declarator --> declaration_specifier+ declarator
+parameter_declaration:Param_abs_declarator --> declaration_specifier+ abstract_declarator
+parameter_declaration:Param_declaration_specs --> declaration_specifier+
 
 type_name --> specifier_qualifier+ abstract_declarator?
 
