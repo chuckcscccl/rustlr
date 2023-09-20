@@ -492,8 +492,8 @@ compound_statement:Blockstat --> Lbrace block_item* Rbrace
 block_item:Declaration --> declaration
 block_item:Statement --> statement
 
-#expression_statement:Expr_list --> expression? SEMICOLON
-expression_statement:Expr_opt --> expression? SEMICOLON
+expression_statement:null_expr --> SEMICOLON
+expression_statement:expr_statement --> expression SEMICOLON
 
 
 #selection_statement:Ifstat --> IF ( expression ) statement (ELSE statement)?
