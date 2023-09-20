@@ -139,8 +139,8 @@ pub struct Grammar
   pub Externtype : String,    // type of external structure
   pub Resynch : HashSet<String>, // resynchronization terminal symbols
   pub Errsym : String,        // error recovery terminal symbol
-  pub Lexnames : HashMap<String,String>, // print names of grammar symbols
-  //pub Nameslex : HashMap<String,String>, // inverse of Lexnames
+  pub Lexnames : HashMap<String,String>, //  ; -> semicolon
+  pub Nameslex : HashMap<usize,String>, // inverse of Lexnames
   pub Extras : String,        // indicated by {% .. %}, mostly  use ...
   pub sametype: bool,  // determine if absyntype is only valuetype
   pub lifetime: String,
@@ -197,7 +197,7 @@ impl Grammar
        Resynch : HashSet::new(),
        Errsym : String::new(),
        Lexnames : HashMap::new(),
-//       Nameslex : HashMap::new(),
+       Nameslex : HashMap::new(),
        Extras: String::new(),
        sametype:true,
        lifetime:String::new(), // empty means inferred
@@ -669,6 +669,9 @@ impl Grammar
 	       }
                self.Lexnames.insert(stokens[2].to_string(),stokens[1].to_string());
 	       self.Haslexval.insert(stokens[1].to_string());
+	       self.Symhash.get(stokens[1]).map(|sind|{
+	           self.Nameslex.insert(*sind,stokens[2].to_string());
+	         });
 	       self.genlex = true;
             },
 	    "lexvalue" => {
@@ -831,7 +834,7 @@ impl Grammar
                self.Symhash.insert(termname.to_owned(),self.Symbols.len());
                self.Symbols.push(newterm);
                self.Lexnames.insert(stokens[2].to_string(),termname.to_string());
-//	       self.Nameslex.insert(termname.to_string(),stokens[2].to_string());
+	       self.Nameslex.insert(self.Symbols.len()-1,stokens[2].to_string());
 	       self.Haslexval.insert(termname.to_string());
 	       self.genlex = true;
             }, //lexterminal
@@ -893,6 +896,20 @@ impl Grammar
                    Some(_) => {
                      self.logeprint(&format!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum));
                    },
+		   None if self.Lexnames.contains_key(&tok[..]) => {
+		     let gsymname = self.Lexnames.get(&tok[..]).unwrap();
+		     if let Some(ti) = self.Symhash.get(gsymname) {
+		       if !self.vargroups.contains_key(&(groupfornt,*ti)) {
+		         self.vargroups.insert((groupfornt,*ti),self.vargroupnames.len()-1);
+		       }
+		       else {
+		         self.logeprint(&format!("WARNING: duplicate variant-group declaration for {} ignored, line {}",tok,linenum));
+		       }
+		     }
+		     else {
+		       self.logeprint(&format!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum));
+		     }
+		   }, // convert ";" to semicolon
                    _ => {
                      self.logeprint(&format!("WARNING: {} is not recognized as symbol of the grammar; declaration ignore, line {}",tok,linenum));
                    },

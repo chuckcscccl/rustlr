@@ -132,7 +132,7 @@ lexattribute add_custom("directive",r"^(?m)^#.*$")
 valueterminal COMPILER_DIRECTIVE~ &'lt str~ Custom("directive",d)~ d
 
 nonterminals unary_operator assignment_operator expression statement
-
+nonterminal twoormoreexps Vec<LC<@expression>>
 nonterminal primary_expression : expression
 nonterminal postfix_expression : expression
 nonterminal unary_expression : expression
@@ -189,11 +189,17 @@ nonassoc ATOMIC 1
 
 resynch SEMICOLON )
 
+variant-group-for expression Assignment_op = *= /= %= += -= <<= >>= &= |= ^=
+variant-group-for expression Relational_op == != <= >= < >
+#variant-group-for expression Boolean_op || &&
+variant-group-for expression Bitwise_op | & ^ ~ << >>
+variant-group-for expression Arithmetic_op + - / * %
+
 primary_expression:Var --> IDENTIFIER
-primary_expression --> ( expression )
 primary_expression:Constant --> Constant
 primary_expression:Stringlit --> Stringlit
 primary_expression:Generic --> generic_selection
+primary_expression --> ( expression:e1 ) { e1 }  # because of circularity
 
 # ENUMERATION CONSTANT needs to be treated like TYPE_NAME
 Constant --> I_CONSTANT | F_CONSTANT | ENUMERATION_CONSTANT
@@ -235,36 +241,36 @@ cast_expression --> unary_expression
 cast_expression:Typecast --> ( type_name ) cast_expression
 
 multiplicative_expression --> cast_expression
-multiplicative_expression:Times -->  multiplicative_expression * cast_expression
-multiplicative_expression:Divide -->  multiplicative_expression / cast_expression
-multiplicative_expression:Mod -->  multiplicative_expression Percent cast_expression
+multiplicative_expression -->  multiplicative_expression * cast_expression
+multiplicative_expression -->  multiplicative_expression / cast_expression
+multiplicative_expression -->  multiplicative_expression Percent cast_expression
 
 additive_expression --> multiplicative_expression
-additive_expression:Plus -->  additive_expression + multiplicative_expression
-additive_expression:Minus -->  additive_expression - multiplicative_expression
+additive_expression -->  additive_expression + multiplicative_expression
+additive_expression -->  additive_expression - multiplicative_expression
 
 shift_expression --> additive_expression
 shift_expression:Lshift --> shift_expression LEFT_OP additive_expression
 shift_expression:Rshift --> shift_expression RIGHT_OP additive_expression
 
 relational_expression --> shift_expression
-relational_expression:Lt --> relational_expression Lt shift_expression
-relational_expression:Gt --> relational_expression Gt shift_expression
-relational_expression:Leq --> relational_expression LE_OP shift_expression
-relational_expression:Geq --> relational_expression GE_OP shift_expression
+relational_expression --> relational_expression Lt shift_expression
+relational_expression --> relational_expression Gt shift_expression
+relational_expression --> relational_expression LE_OP shift_expression
+relational_expression --> relational_expression GE_OP shift_expression
 
 equality_expression -->	 relational_expression
-equality_expression:Equals --> equality_expression EQ_OP relational_expression
-equality_expression:NotEquals --> equality_expression NE_OP relational_expression
+equality_expression --> equality_expression EQ_OP relational_expression
+equality_expression --> equality_expression NE_OP relational_expression
 
 and_expression --> equality_expression
-and_expression:BitAnd --> and_expression Amp equality_expression
+and_expression --> and_expression Amp equality_expression
 
 exclusive_or_expression --> and_expression
-exclusive_or_expression:BitXor --> exclusive_or_expression Hat and_expression
+exclusive_or_expression --> exclusive_or_expression Hat and_expression
 
 inclusive_or_expression --> exclusive_or_expression
-inclusive_or_expression:BitOr --> inclusive_or_expression Bar exclusive_or_expression
+inclusive_or_expression --> inclusive_or_expression Bar exclusive_or_expression
 
 logical_and_expression --> inclusive_or_expression
 logical_and_expression:And --> logical_and_expression AND_OP inclusive_or_expression
@@ -276,29 +282,44 @@ conditional_expression --> logical_or_expression
 conditional_expression:Quest --> logical_or_expression Quest expression Colon conditional_expression
 
 assignment_expression --> conditional_expression
-assignment_expression:Assignment --> unary_expression assignment_operator assignment_expression
+#assignment_expression:Assignment --> unary_expression assignment_operator assignment_expression
 
+assignment_expression --> unary_expression ASSIGN assignment_expression
+assignment_expression --> unary_expression MUL_ASSIGN assignment_expression
+assignment_expression --> unary_expression DIV_ASSIGN assignment_expression
+assignment_expression --> unary_expression MOD_ASSIGN assignment_expression
+assignment_expression --> unary_expression ADD_ASSIGN assignment_expression
+assignment_expression --> unary_expression SUB_ASSIGN assignment_expression
+assignment_expression --> unary_expression LEFT_ASSIGN assignment_expression
+assignment_expression --> unary_expression RIGHT_ASSIGN assignment_expression
+assignment_expression --> unary_expression AND_ASSIGN assignment_expression
+assignment_expression --> unary_expression OR_ASSIGN assignment_expression
+assignment_expression --> unary_expression XOR_ASSIGN assignment_expression
 
-assignment_operator ==>
-	 ASSIGN
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
-	<==
+#assignment_operator ==>
+#	 ASSIGN
+#	| MUL_ASSIGN
+#	| DIV_ASSIGN
+#	| MOD_ASSIGN
+#	| ADD_ASSIGN
+#	| SUB_ASSIGN
+#	| LEFT_ASSIGN
+#	| RIGHT_ASSIGN
+#	| AND_ASSIGN
+#	| XOR_ASSIGN
+#	| OR_ASSIGN
+#	<==
 
 # unifying point for expression-type in AST
-#expression:expr_list --> expressions
-expression:expr_list --> assignment_expression<Comma+>
+
+expression --> assignment_expression
+expression:expr_list --> twoormoreexps
+twoormoreexps --> assignment_expression:[car] Comma assignment_expression<Comma+>:cdr {cdr.insert(0,LC::from_lbox(car)); cdr }
+
 
 # intentionally ambiguous
 #expression --> assignment_expression<Comma+>
+#expression:expr_list --> expressions
 
 # the following rule was marked "with constraints"
 constant_expression:const_expr --> conditional_expression

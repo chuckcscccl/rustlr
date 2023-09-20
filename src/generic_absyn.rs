@@ -107,6 +107,7 @@ impl<T> LBox<T>
   /// interface
   pub fn line(&self)-> usize {self.line as usize}
   pub fn column(&self)->usize {self.column as usize}
+  pub fn uid(&self) -> u32 {self.uid}
 }//impl LBox
 impl<T> Deref for LBox<T>
 {
@@ -153,6 +154,11 @@ impl<T:Default+?Sized> LBox<T>
    {   let mut res = T::default();
        std::mem::swap(&mut res, self.as_mut());
        res
+   }
+   /// convert information from [LC] to LBox, consumes LC
+   pub fn from_lc(c:LC<T>) -> Self
+   {
+       LBox{exp:Box::new(c.0), line:c.1.0, column:c.1.1, uid:c.1.2}
    }
 }
 impl<'t> LBox<dyn Any+'t>
@@ -376,6 +382,15 @@ impl<T> LC<T>
   /// consumes the LC enclosure and returns the enclosed value
   pub fn consume(self) -> T { self.0 }
 }//impl LC
+
+impl<T:Default+?Sized> LC<T>
+{
+  ///transfers information from an [LBox] into an LC, consumes LBox
+  pub fn from_lbox(mut lb:LBox<T>) -> Self {
+    LC::make(lb.take(),lb.line(),lb.column(),lb.uid())
+  }
+}  
+
 impl<T:Default+?Sized> LC<T>
 {
    /// replaces the enclosed value with T::default() and returns the value

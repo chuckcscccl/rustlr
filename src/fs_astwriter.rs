@@ -356,7 +356,9 @@ impl Grammar
               else if let Some(gnamei) = self.vargroups.get(&(usize::MAX,rsym.index)) {
                 if groupoper.len()==0 { // not yet set 
                   lhslab = self.vargroupnames[*gnamei].clone();
-                  groupoper = &self.Symbols[rsym.index].sym;
+                  groupoper = self.Nameslex.get(&rsym.index)
+		              .unwrap_or(&self.Symbols[rsym.index].sym);
+                  //groupoper = &self.Symbols[rsym.index].sym;
                 }
               }// found generic variant-group operator (first one taken)
               if rsym.label.len()>0 && !rsym.label.starts_with("_item") {

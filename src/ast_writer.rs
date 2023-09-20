@@ -357,7 +357,11 @@ impl Grammar
               if let Some(gnamei) = self.vargroups.get(&(enti,rsym.index)) {
                 if groupoper.len()==0 { // not yet set 
                   lhslab = self.vargroupnames[*gnamei].clone();
-                  groupoper = &self.Symbols[rsym.index].sym;
+
+		  groupoper = self.Nameslex.get(&rsym.index)
+		              .unwrap_or(&self.Symbols[rsym.index].sym);
+
+                  //groupoper = &self.Symbols[rsym.index].sym;
                 }
               }// found variant-group operator for current lhs nonterminal
 	      else if let Some(gnamei) = self.vargroups.get(&(usize::MAX,rsym.index)) {
