@@ -187,10 +187,15 @@ impl Grammar
                None => false,
                Some(rset) => rset.contains(nt),
               };
-         if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) /* && !self.basictypes.contains(&rsymtype[..])*/) {
+         if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype)) {
                if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
                else {passthru = -2;}
-               vfields.push((rhsi,itemlabel.clone(),alreadyislbx,format!("LBox<{}>",rsymtype)));
+	       if lhsreachable && !nonlbxtype(rsymtype) {
+                 vfields.push((rhsi,itemlabel.clone(),alreadyislbx,format!("LBox<{}>",rsymtype)));
+	       }
+	       else {
+ 	         vfields.push((rhsi,itemlabel.clone(),alreadyislbx,format!("LC<{}>",rsymtype)));	       
+	       }
          }// lbox
          else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox, and not unit type without label
            vfields.push((rhsi,itemlabel.clone(),alreadyislbx,rsymtype.to_owned()));
@@ -273,18 +278,26 @@ impl Grammar
          }//if in flattentypes list
          if !flattened {
            let islbxtype = rsymtype.starts_with("LBox<");
+	   let islctype = rsymtype.starts_with("LC<");
            if  *simplestruct {
              fields.push_str("pub ");
              fields.push_str(rsymtype); fields.push(',');
              if islbxtype {
                SACTION.push_str(&format!("parser.lbx({},{}),",rhsi+(viadjust as usize),itemlabel));
-//println!("HEER3 lbx({},{})",(viadjust as usize),itemlabel);               
-             } else { SACTION.push_str(itemlabel); SACTION.push(','); }
-           } else { // not simpletype
+             }
+	     else if islctype {
+               SACTION.push_str(&format!("parser.lc({},{}),",rhsi+(viadjust as usize),itemlabel));	     
+	     }
+	     else { SACTION.push_str(itemlabel); SACTION.push(','); }
+           } else { // not simplestruct
              fields.push_str(&format!("  pub {}:{},\n",itemlabel,rsymtype));
-             if !islbxtype || *alreadylbx {
+             if (!islbxtype && !islctype) || *alreadylbx {
                SACTION.push_str(&format!("{}:{}, ",itemlabel,itemlabel));
-             } else {
+             }
+	     else if islctype {
+               SACTION.push_str(&format!("{}:parser.lc({},{}), ",itemlabel,rhsi+(viadjust as usize),itemlabel));	     
+	     }
+	     else {
                SACTION.push_str(&format!("{}:parser.lbx({},{}), ",itemlabel,rhsi+(viadjust as usize),itemlabel));
              }
            }//not simpletype
@@ -482,15 +495,30 @@ impl Grammar
                None => false,
                Some(rset) => rset.contains(&lhsi),
               };
-            if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) /* && !self.basictypes.contains(&rsymtype[..]) */) {
-
-              let semact;
+            if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype)) {
+	      let mut lclbx = "";
+	      let semact;
               if tuplevariant {
-                enumvar.push_str(&format!("LBox<{}>,",rsymtype));
-                semact = if alreadyislbx {format!("{},",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
-              } else {
-                enumvar.push_str(&format!("{}:LBox<{}>,",itemlabel,rsymtype));
-                semact = if alreadyislbx {format!("{0}:{0},",&itemlabel)} else {format!("{}:parser.lbx({},{}),",&itemlabel,&rhsi, &itemlabel)};                
+	        if lhsreachable && !nonlbxtype(rsymtype) {
+                  enumvar.push_str(&format!("LBox<{}>,",rsymtype));
+		  lclbx = "lbx";
+		}
+		else {
+                  enumvar.push_str(&format!("LC<{}>,",rsymtype));
+		  lclbx = "lc";
+		}
+                semact = if alreadyislbx {format!("{},",&itemlabel)} else {format!("parser.{}({},{}),",lclbx,&rhsi, &itemlabel)};
+              } else { // non-tuple variant
+		if lhsreachable && !nonlbxtype(rsymtype) {
+                  enumvar.push_str(&format!("{}:LBox<{}>,",itemlabel,rsymtype));
+		  lclbx="lbx";
+		} else {
+                  enumvar.push_str(&format!("{}:LC<{}>,",itemlabel,rsymtype));
+		  lclbx = "lc";
+		}
+		semact = if lclbx.len()==0 {format!("{0}:{0},",&itemlabel)} else {format!("{}:parser.{}({},{}),",&itemlabel,lclbx,&rhsi, &itemlabel)};
+                //semact = if alreadyislbx {format!("{0}:{0},",&itemlabel)} else {format!("{}:parser.{}({},{}),",&itemlabel,lclbx,&rhsi, &itemlabel)};
+println!("!!!!semact: {}, type: {}", &semact, rsymtype);		
               } // non-tuple variant
               ACTION.push_str(&semact);
               
