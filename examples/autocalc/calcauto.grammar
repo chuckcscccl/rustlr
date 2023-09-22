@@ -3,7 +3,8 @@
 
 auto
 lifetime 'lt
-terminals + - * / = ;
+terminals + - / = ;
+lexterminal Star *
 terminals let in
 #typedterminal int i64
 valueterminal int ~ i64 ~ Num(n) ~ n
@@ -28,20 +29,20 @@ nonterminal Sxpr
 nonterminal Aexpr
 nonterminal Bexpr : Aexpr
 nonterminals Yxpr Zxpr Xxpr
-nonterminals AA BB CC
+nonterminals AA BB CC DD
 flatten BB
 flatten Yxpr Zxpr Xxpr CC
 
 topsym ExprList
 resync ;
 
-left * 500
+left Star 500
 left / 500
 left + 400
 left - 400
 
-variant-group Binop * /
-#variant-group-for Expr Binop * /
+#variant-group Binop * /
+variant-group-for Expr Binop * /
 
 # rule for testing AST generation:
 #lexvalue bigint BigNumber(n) n
@@ -56,9 +57,10 @@ AA --> BB:p int:q BB:r
 AA --> var var CC var
 BB --> var:a AA:b AA:c
 #BB --> var AA AA
-CC --> ; * ;
+CC --> ; Star ;
 CC --> int + ;
 CC --> let / ;
+DD --> ; let in ;
 
 Aexpr:ae --> int
 Bexpr:be --> var
@@ -73,7 +75,7 @@ Expr --> UnaryExpr       #passthru case
 Expr:Plus--> Expr + Expr
 Expr:Minus --> Expr - Expr
 # testing variant-group
-Expr --> Expr / Expr | Expr * Expr  # variant group cases
+Expr --> Expr / Expr | Expr Star Expr  # variant group cases
 #Expr --> Expr * Expr
 
 LetExpr --> Expr
