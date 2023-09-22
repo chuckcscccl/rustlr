@@ -1,9 +1,0 @@
-  define a:int = getint();
-  define b:int = getint();
-  while (a!=0 && b!=0) {
-    if (a>b) then a=a%b else b=b%a;
-  }
-  print("the gcd=");
-  print(a+b);
-  print(".\n");
-

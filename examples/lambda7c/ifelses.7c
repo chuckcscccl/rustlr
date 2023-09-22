@@ -1,6 +1,0 @@
-define x = getint();
-if (x<10) then { print("small\n"); } else { print("large\n"); print(x); }
-
-define y = if (x<10) then 1 else 2;
-print(y);
-

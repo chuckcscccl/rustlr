@@ -1,8 +1,0 @@
-
-//make_stack takes pointer to externally allocated stack and captures it
-//inside closures.  S[0] will always represent tos/size value
-define make_stack = lambda S:int[256] . {
-  define stack = lambda opcode:int . {
-    
-  }
-}//make_stack
