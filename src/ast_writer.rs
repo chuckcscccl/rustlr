@@ -175,7 +175,7 @@ impl Grammar
        let mut passthru:i32 = -1; // index of path-thru NT value
        for rsym in self.Rules[sri].rhs.iter_mut() {
          let expectedlabel = format!("_item{}_",&rhsi);
-         let alreadyislbx = rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
+         let alreadyislbxlab = rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
          let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
             passthru=-2; checkboxexp(&rsym.label,&expectedlabel).to_owned()
@@ -187,13 +187,19 @@ impl Grammar
                None => false,
                Some(rset) => rset.contains(nt),
               };
-         if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) /* && !self.basictypes.contains(&rsymtype[..])*/) {
+         let needrecursion = lhsreachable && !nonlbxtype(rsymtype);
+         if alreadyislbxlab || needrecursion {
                if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
                else {passthru = -2;}
-               vfields.push((rhsi,itemlabel.clone(),alreadyislbx,format!("LBox<{}>",rsymtype)));
-         }// lbox
+	       if !self.bumpast && needrecursion {
+                 vfields.push((rhsi,itemlabel.clone(),alreadyislbxlab,format!("LBox<{}>",rsymtype)));
+	       }
+	       else if alreadyislbxlab && !nonlctype(rsymtype) {
+ 	         vfields.push((rhsi,itemlabel.clone(),alreadyislbxlab,format!("LC<{}>",rsymtype)));	       
+	       }
+         }// box label or need recursion
          else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox, and not unit type without label
-           vfields.push((rhsi,itemlabel.clone(),alreadyislbx,rsymtype.to_owned()));
+           vfields.push((rhsi,itemlabel.clone(),alreadyislbxlab,rsymtype.to_owned()));
            if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
               else {passthru = -2;}
          } //no Lbox, and not unit type without label
@@ -273,18 +279,26 @@ impl Grammar
          }//if in flattentypes list
          if !flattened {
            let islbxtype = rsymtype.starts_with("LBox<");
+	   let islctype = rsymtype.starts_with("LC<");
            if  *simplestruct {
              fields.push_str("pub ");
              fields.push_str(rsymtype); fields.push(',');
              if islbxtype {
                SACTION.push_str(&format!("parser.lbx({},{}),",rhsi+(viadjust as usize),itemlabel));
-//println!("HEER3 lbx({},{})",(viadjust as usize),itemlabel);               
-             } else { SACTION.push_str(itemlabel); SACTION.push(','); }
-           } else { // not simpletype
+             }
+	     else if islctype {
+               SACTION.push_str(&format!("parser.lc({},{}),",rhsi+(viadjust as usize),itemlabel));	     
+	     }
+	     else { SACTION.push_str(itemlabel); SACTION.push(','); }
+           } else { // not simplestruct
              fields.push_str(&format!("  pub {}:{},\n",itemlabel,rsymtype));
-             if !islbxtype || *alreadylbx {
+             if (!islbxtype && !islctype) || *alreadylbx {
                SACTION.push_str(&format!("{}:{}, ",itemlabel,itemlabel));
-             } else {
+             }
+	     else if islctype {
+               SACTION.push_str(&format!("{}:parser.lc({},{}), ",itemlabel,rhsi+(viadjust as usize),itemlabel));	     
+	     }
+	     else {
                SACTION.push_str(&format!("{}:parser.lbx({},{}), ",itemlabel,rhsi+(viadjust as usize),itemlabel));
              }
            }//not simpletype
@@ -434,7 +448,7 @@ impl Grammar
             let expectedlabel = format!("_item{}_",&rhsi);
             // check if item has a symbol of the form [x], which forces an
             // lbox
-            let alreadyislbx =
+            let alreadyislbxlab =
               rsym.label.len()>1 && rsym.label.starts_with('[') && rsym.label.ends_with(']');
 	    let itemlabel = if rsym.label.len()>0 && &rsym.label!=&expectedlabel && !rsym.label.starts_with('@') {
             // presence of rhs label also cancels passthru
@@ -482,22 +496,40 @@ impl Grammar
                None => false,
                Some(rset) => rset.contains(&lhsi),
               };
-            if alreadyislbx || (lhsreachable && !nonlbxtype(rsymtype) /* && !self.basictypes.contains(&rsymtype[..]) */) {
 
-              let semact;
+            let needrecursion = lhsreachable && !nonlbxtype(rsymtype);
+            if alreadyislbxlab || needrecursion {
+	      let mut lclbx = ""; // no lc or lbox needed
+	      let semact;
               if tuplevariant {
-                enumvar.push_str(&format!("LBox<{}>,",rsymtype));
-                semact = if alreadyislbx {format!("{},",&itemlabel)} else {format!("parser.lbx({},{}),",&rhsi, &itemlabel)};
-              } else {
-                enumvar.push_str(&format!("{}:LBox<{}>,",itemlabel,rsymtype));
-                semact = if alreadyislbx {format!("{0}:{0},",&itemlabel)} else {format!("{}:parser.lbx({},{}),",&itemlabel,&rhsi, &itemlabel)};                
-              } // non-tuple variant
-              ACTION.push_str(&semact);
-              
-               if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
-               else {passthru = -2;}
-	    } // with Lbox
-	    else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox
+	        if !self.bumpast && needrecursion {
+                  enumvar.push_str(&format!("LBox<{}>,",rsymtype));
+		  lclbx = "lbx";
+		}
+		else if alreadyislbxlab && !nonlctype(rsymtype) {
+                  enumvar.push_str(&format!("LC<{}>,",rsymtype));
+		  lclbx = "lc";
+		}
+                semact = if lclbx.len()==0 {format!("{},",&itemlabel)} else {format!("parser.{}({},{}),",lclbx,&rhsi, &itemlabel)};
+            } //tuplevariant
+            else { // non-tuple variant
+		if !self.bumpast && needrecursion {
+                  enumvar.push_str(&format!("{}:LBox<{}>,",itemlabel,rsymtype));
+		  lclbx="lbx";
+		} else if alreadyislbxlab && !nonlctype(rsymtype) {
+                  enumvar.push_str(&format!("{}:LC<{}>,",itemlabel,rsymtype));
+		  lclbx = "lc";
+		}
+		semact = if lclbx.len()==0 {format!("{0}:{0},",&itemlabel)} else {format!("{}:parser.{}({},{}),",&itemlabel,lclbx,&rhsi, &itemlabel)};
+//println!("!!!!semact: {}, type: {}", &semact, rsymtype);
+                 } // non-tuple variant
+                 ACTION.push_str(&semact);              
+                 if rsymtype==&lhsymtype && passthru==-1 {passthru=rhsi as i32;}
+                 else {passthru = -2;}
+
+            } // alreadyislbxlabel or need recursion
+
+	    else if rsymtype!="()" || (rsym.label.len()>0 && !rsym.label.starts_with("_item")) {  //no Lbox, include only if non-unit type or has label
 //println!("looking at symbol {}, rusttype {}, label {}",&rsym.sym, &rsym.rusttype, &rsym.label);
               if tuplevariant {
                 enumvar.push_str(&format!("{},",rsymtype));
@@ -804,9 +836,13 @@ fn augment_action(act0:&str) -> String
    return String::from(act);
 }
 
-  // non-LBox types
+  // non-LBox types (nor LC)
 fn nonlbxtype(ty:&str) -> bool
   {
      ty=="String" || (ty.starts_with('&') && !ty.contains("mut")) || ty.starts_with("Vec<LC") || ty.starts_with("Vec<LBox") || ty.starts_with("LBox") || ty.starts_with("Option<LBox")
   }//nonlbxtype
 
+fn nonlctype(ty:&str) -> bool
+  {
+    ty.starts_with("LC<") || ty.starts_with("LBox<") || ty.starts_with("Vec<LC") || ty.starts_with("Vec<LBox") || ty.starts_with("Option<LBox") || ty.starts_with("Option<LC")
+  }

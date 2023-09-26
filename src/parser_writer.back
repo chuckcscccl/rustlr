@@ -33,8 +33,9 @@ impl Statemachine
     
     let ref extype = self.Gmr.Externtype;
     let ref lifetime = self.Gmr.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
+    let has_lt = lifetime.len()>0 /*&& (absyn.len()==0 || (absyn.contains(lifetime) || extype.contains(lifetime)))*/;
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
+//println!("abysn: {}, ltopt: {}",absyn,&ltopt);    
     let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
 
     let rlen = self.Gmr.Rules.len();
@@ -160,7 +161,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     // record table entries in a static array
     let mut totalsize = 0;
     for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
-if true || self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
+    if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
     write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
     // generate table to represent FSM
     let mut encode:u64 = 0;

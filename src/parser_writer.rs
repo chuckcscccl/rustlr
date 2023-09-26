@@ -71,7 +71,6 @@ impl Statemachine
             let truelabel = checkboxexp(rawlabel,&plab);
             boxedlabel = gsym.label.starts_with('[') && (truelabel != rawlabel);
             plab = String::from(truelabel);
-            //plab=format!("{}",&gsym.label[0..*ati]);
           },
           _ => {},
         }//match
@@ -81,16 +80,27 @@ impl Statemachine
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
         //form RetTypeEnum::Enumvariant_{eindex}(popped value)
         let stat;
-        if !boxedlabel { // not a [x] label
-          stat = format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
-        } else {
+        
+//        if !boxedlabel { // not a [x] label -
+// NEW APPROACH 0.4.13: let ast_writer decide if it's an lbox - always
+
+        if self.Gmr.bumpast && boxedlabel {  // if bumpast and [x] label
+           stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.exstate.make(parser.lc({3},_{0}_));  ",poppedlab,&eindex,symtype,k-1);
+        }  // special case to correspond with bumpast_writer
+        else {
+           stat = format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype);
+        }
+
+/*          
+        } else {   // is boxedlabel  (new: do same)
           if self.Gmr.bumpast {
             stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.exstate.make(parser.lc({3},_{0}_));  ",poppedlab,&eindex,symtype,k-1);
           } else {
             stat = format!("let mut _{0}_ = if let RetTypeEnum::Enumvariant_{1}(_x_{1})=parser.popstack().value {{ _x_{1} }} else {{<{2}>::default()}};  let mut {0} = parser.lbx({3},_{0}_);  ",poppedlab,&eindex,symtype,k-1);
           }//no bump
-        }// is a [x] label
-        
+        }// is a boxed [x] label
+*/
+
         fndef.push_str(&stat);
 
         if gsym.label.len()>1 && findat.is_some() { // if-let pattern @@

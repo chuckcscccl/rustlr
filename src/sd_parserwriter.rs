@@ -35,8 +35,10 @@ impl Statemachine
     let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
     let rlen = self.Gmr.Rules.len();
-    let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
+
     let LBC = if self.Gmr.bumpast {"LC"} else {"LBox"};
+//    let LBC = "LC";
+    
     let bltref = if self.Gmr.bumpast {format!("&{} ",&self.Gmr.lifetime)} else {String::new()};
     
     // generate action fn's from strings stored in gen-time grammar
@@ -68,8 +70,16 @@ impl Statemachine
         }
         let mut fargk = match labelkind {
           0 => {format!(", mut {}:{}",&label,symktype)},
-          1 => {format!(", mut {}:{}{}<{}>",&label,&bltref,LBC,symktype)},
-          //1 => {format!(", mut {}:LBox<{}>",&label,symktype)},
+          //1 => {format!(", mut {}:{}{}<{}>",&label,&bltref,LBC,symktype)},
+          1 => {
+            if self.Gmr.bumpast {
+              format!(", mut {}:{}{}<{}>",&label,&bltref,LBC,symktype)
+            }
+            else {
+              format!(", mut {}:{}",&label,symktype) //.lc inserted by writer
+            }
+          },
+          // need to distinguish LC and LBox here!
           2 => {   // label is a e@..@ pattern
             let ati = symk.label.find('@').unwrap();
             patternactions.push_str(&format!("let {} = {}; ",
@@ -196,21 +206,22 @@ use std::collections::{{HashMap,HashSet}};\n")?;
         let eindex = self.Gmr.enumhash.get(symtype).expect(&emsg);
         actualargs.push(format!("{}",&poppedlab));           
         let stat = match lbtype {
-           0 => {
-             format!("let {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",&poppedlab,&eindex,symtype)
+           0  => {
+             format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",&poppedlab,&eindex,symtype)
            },
-           1  | 3 => {
+           1  |  3 => {
              if self.Gmr.bumpast {
-               format!("let _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.exstate.make(parser.lc({3},_rr{0}_)); ",&poppedlab,&eindex,symtype,k-1)
+               format!("let mut _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.exstate.make(parser.lc({3},_rr{0}_)); ",&poppedlab,&eindex,symtype,k-1)
              } else {
-               format!("let _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lbx({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)
+//               format!("let mut _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lbx({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)
+             format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",&poppedlab,&eindex,symtype)
              }
            },
            2 => {
              format!("let ref mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype)
            },
            _ => {
-             format!("let {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype)
+             format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",poppedlab,&eindex,symtype)
            },
         };
         write!(fd,"{}",&stat)?;
