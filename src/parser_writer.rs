@@ -296,7 +296,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_train_with public function\n",absyn)?;
 
 
-      ////// WRITE ENUM (test)
+      ////// WRITE ENUM
       self.Gmr.gen_enum(&mut fd)?;
     // }// !sametype
     

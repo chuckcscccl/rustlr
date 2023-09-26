@@ -212,7 +212,7 @@ generic_association:by_default -->  DEFAULT Colon assignment_expression
 postfix_expression --> primary_expression
 postfix_expression:Indexing --> postfix_expression [ expression ]
 postfix_expression:Function_call --> postfix_expression ( assignment_expression<Comma*> )
-postfix_expression:Dotaccess --> postfix_expression Dot IDENTIFIER
+postfix_expression:Dotaccess --> postfix_expression Dot IDENTIFIER:id
 postfix_expression:Ptraccess --> postfix_expression PTR_OP IDENTIFIER
 postfix_expression:PlusPlus --> postfix_expression INC_OP
 postfix_expression:MinusMinus --> postfix_expression DEC_OP
@@ -314,8 +314,10 @@ assignment_expression --> unary_expression XOR_ASSIGN assignment_expression
 
 expression --> assignment_expression
 expression:expr_list --> twoormoreexps
-twoormoreexps --> assignment_expression:[car] Comma assignment_expression<Comma+>:cdr {cdr.insert(0,LC::from_lbox(car)); cdr }
+#twoormoreexps --> assignment_expression:car Comma assignment_expression<Comma+>:cdr {cdr.insert(0,parser.lc(0,car)); cdr }
 
+twoormoreexps --> assignment_expression:[a] Comma assignment_expression:[b] { vec![a,b] }
+twoormoreexps --> twoormoreexps:v Comma assignment_expression:[c] { v.push(c); v }
 
 # intentionally ambiguous
 #expression --> assignment_expression<Comma+>
@@ -344,7 +346,7 @@ declaration_specifier:funcspec --> function_specifier
 declaration_specifier:alignspec --> alignment_specifier
 
 flatten init_declarator
-init_declarator --> declarator:decl (ASSIGN initializer)?:initializer
+init_declarator --> declarator:[decl] (ASSIGN initializer)?:initializer
 
 storage_class_specifier ==>
 	EXTERN
@@ -394,7 +396,7 @@ struct_declarator:nodeclare --> Colon constant_expression
 enum_specifier:Enum_braces --> ENUM IDENTIFIER? Lbrace enumerator<Comma+> Comma? Rbrace
 enum_specifier:Enum_id --> ENUM IDENTIFIER
 
-enumerator ==> IDENTIFIER:id (ASSIGN constant_expression)? {
+enumerator ==> IDENTIFIER:[id] (ASSIGN constant_expression)? {
   parser.shared_state.borrow_mut().enum_ids.insert(id); 
   ... } <==
 
@@ -520,10 +522,11 @@ translation_unit --> external_declaration+
 external_declaration:declaration --> declaration
 external_declaration:directive --> COMPILER_DIRECTIVE
 
-function_header ==> declaration_specifier+:[ds] declarator:dc declaration*:dl {
+function_header ==> declaration_specifier+:ds declarator:dc declaration*:dl {
   let mut table=parser.shared_state.borrow_mut();
   if table.in_function {
-     println!("WARNING: NESTED FUNCTION DEFINITIONS ARE NOT TECHNICALLY ALLOWED IN ANSI C, line {}, column {}",ds.line,ds.column);
+     let (dsline,dscolumn) = (ds[0].line(),ds[0].column()); //+ means nonempty
+     println!("WARNING: NESTED FUNCTION DEFINITIONS ARE NOT TECHNICALLY ALLOWED IN ANSI C, line {}, column {}",dsline,dscolumn);
      table.warnings_issued=true;
   } else { table.in_function=true; }
   ... } <==

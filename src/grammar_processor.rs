@@ -172,7 +172,7 @@ pub struct Grammar
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<(usize,usize),usize>, // (ntsymi, rhssymi) to index in vargroupnames  , ntsymi can be usize::MAX to mean any nt
   pub genlog : String,
-  pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
+  //pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
 }// struct Grammar
 
 impl Default for Grammar {
@@ -228,7 +228,7 @@ impl Grammar
        vargroupnames : Vec::new(),
        vargroups : HashMap::new(),
        genlog : String::new(),
-       wildcardvarnum : 2,       
+       //wildcardvarnum : 2,       
      }
   }//new grammar
 
@@ -330,14 +330,14 @@ impl Grammar
      self.enumhash.insert("()".to_owned(), 1); //for untyped terminals at least
      let mut wildcard = Gsym::new("_WILDCARD_TOKEN_",true); // special terminal
      wildcard.rusttype="(usize,usize)".to_owned();  // change?
-     self.wildcardvarnum = ntcx;
-     self.enumhash.insert("(usize,usize)".to_owned(),ntcx); ntcx+=1;
-    
-    // change this to &'lt str if lifetime is declared?
+     self.enumhash.insert("(usize,usize)".to_owned(),ntcx);
+     ntcx+=1;
+     
+     // change this to &'lt str if lifetime is declared later
 
      wildcard.index = self.Symbols.len();
      self.Symhash.insert(String::from("_WILDCARD_TOKEN_"),self.Symbols.len());
-     self.Symbols.push(wildcard); // wildcard is first symbol.
+     self.Symbols.push(wildcard); // wildcard is first symbol, Symbols[0]
      let mut markersexist = false; //delay markers exist
      let mut inttypes = HashSet::with_capacity(10);
      for x in ["i8","i16","i32","i64","u8","u16","u32","u64","isize","usize"] {
@@ -1526,7 +1526,7 @@ strtok is bstokens[i], but will change
        }// not an empty or comment line
      } // while !atEOF
 
-     self.ntcxmax = ntcx;
+     //self.ntcxmax = ntcx;
 
      // at the very end, add start, eof symbols, startrule
      if self.Symhash.contains_key("START") || self.Symhash.contains_key("EOF") || self.Symhash.contains_key("ANY_ERROR")
@@ -1600,9 +1600,7 @@ strtok is bstokens[i], but will change
      if self.lifetime.len()>0 {
        let wildtype = format!("&{} str",&self.lifetime);
        self.Symbols[0].rusttype = wildtype.clone();
-       self.wildcardvarnum = ntcx;
-       self.enumhash.insert(wildtype,ntcx); ntcx+=1;
-       self.ntcxmax=ntcx;
+       self.enumhash.insert(wildtype,ntcx); ntcx+=1;         
        self.haslt_base.insert(0);
      }//change wildcard type
 
@@ -1635,6 +1633,7 @@ strtok is bstokens[i], but will change
      }
      //integrity checks
      if self.tracelev>0 {self.logprint(&format!("{} rules in grammar",self.Rules.len()));}
+     self.ntcxmax = ntcx;     
      true
   }//parse_grammar
 }// impl Grammar
@@ -1933,13 +1932,14 @@ impl<{2}> {0}<{2}>
    if (!self.sametype) || self.genabsyn {
 
 // wildcardtype depends on if lifetime was declared
+      let wildcardvar = self.enumhash.get(&self.Symbols[0].rusttype).unwrap();
       if self.lifetime.len()>0 { // change wildcard type to &'lt str
         write!(fd,"
-   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text()),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}(self.stk.current_text()),t.line,t.column) }}",lifetime,retype,lifetime,retype,wildcardvar)?;
       }// has lifetime
       else { // no lifetime 
         write!(fd,"
-   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype,self.wildcardvarnum)?;      
+   fn transform_wildcard(&self,t:TerminalToken<{},{}>) -> TerminalToken<{},{}> {{ TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_{}((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }}",lifetime,retype,lifetime,retype,wildcardvar)?;      
       }
    }// if (!self.sametype) || self.genabsyn {
 
@@ -1956,7 +1956,6 @@ impl<{2}> {0}<{2}>
 pub fn gen_enum(&self,fd:&mut File) -> Result<(),std::io::Error>
 {
     let ref absyn = self.Absyntype;
-//println!("enumhash for absyn {} is {:?}",absyn,self.enumhash.get(absyn));
     let ref extype = self.Externtype;
     let ref lifetime = self.lifetime;
     let has_lt = lifetime.len()>0; /* && (absyn.contains(lifetime) || extype.contains(lifetime) || absyn=="LBox<dyn Any>");*/

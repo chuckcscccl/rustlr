@@ -179,7 +179,8 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   }
   if conv_yacc {
     yaccparser::convert_from_yacc(filepath);
-    return Ok(".y grammar converted to .grammar\n".to_owned());
+    return Ok(String::new());
+    //return Ok(".y grammar converted to .grammar\n".to_owned());
   }
 
   if zc && verbose {

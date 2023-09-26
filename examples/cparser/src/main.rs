@@ -29,6 +29,7 @@ fn main()
  let mut scanner1 = preprocessorparser::preprocessorlexer::from_source(&source);
  let mut parser1 = preprocessorparser::make_parser();
  let result1 = preprocessorparser::parse_with(&mut parser1, &mut scanner1);
+ println!("PREPROCESSOR AST: {:?}",&result1);
  println!("--- Completed Preprocessor Parsing ---");
 
   let mut scanner2 = c11lexer::from_source(&source);
