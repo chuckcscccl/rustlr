@@ -136,12 +136,12 @@ Rustlr can also be invoked from within Rust by calling the [rustlr::generate](ht
 
 <br>
 
-#### New in Versions 0.4.12
+#### New in Versions 0.4.13
 
 Boxed labels such as `[x]` are now represented by LC instead of LBox during
 auto-generation.  
 
-#### New in Versions 0.4.11 
+#### New in Versions 0.4.11 and 0.4.12
 
 The wildcard `_` token now carries the original text of the token as
 its semantic value by default.  The `variant-group` directive is now
