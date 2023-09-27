@@ -79,7 +79,8 @@ impl Statemachine
                 format!(", mut {}:{}",&label,symktype) //.lc inserted by writer
               }
               else {
-                format!(", mut {}:{}LC<{}>",&label,&bltref,symktype)
+                //format!(", mut {}:{}LC<{}>",&label,&bltref,symktype)
+                format!(", mut {}:LBox<{}>",&label,symktype)
               }
             }// not bumpast
           },
@@ -229,7 +230,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
                  format!("let mut {0} = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; ",&poppedlab,&eindex,symtype) // lc/lbx determined by ast_writer
                }
                else {
-                 format!("let mut _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lc({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)               
+                 format!("let mut _rr{0}_ = if let RetTypeEnum::Enumvariant_{1}(_rr_{1})=parser.popstack().value {{ _rr_{1} }} else {{<{2}>::default()}}; let mut {0} = parser.lbx({3},_rr{0}_); ",&poppedlab,&eindex,symtype,k-1)
                }
              } // not bumpast
            },
