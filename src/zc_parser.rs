@@ -361,6 +361,9 @@ This is correct because linenum/column will again reflect start of tos item
        LBox::make(e,ln,cl,newuid)
     }//lbx
 
+    /// alias for [Self::lbx]
+    pub fn lbox<T>(&self,i:usize,e:T) -> LBox<T> { self.lbx(i,e) }
+
     /// creates [LC] enclosing e using line/column information associated
     /// with right-hand side symbols, numbered left-to-right starting at 0
     pub fn lc<T>(&self,i:usize,e:T) -> LC<T>

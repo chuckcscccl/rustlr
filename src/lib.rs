@@ -79,7 +79,7 @@ pub use runtime_parser::{RuntimeParser,RProduction};
 pub use zc_parser::{ZCParser,ZCRProduction};
 //pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
 
-pub const VERSION:&'static str = "0.4.12";
+pub const VERSION:&'static str = "0.4.13";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.

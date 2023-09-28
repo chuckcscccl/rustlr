@@ -253,8 +253,10 @@ impl Grammar
   pub fn basictype(&self,ty0:&str) -> bool
   {
    let ty=ty0.trim();
+//println!("BASICTYPES SIZE: {}", self.basictypes.len());
+//for t in self.basictypes.iter() {println!("\t{}",t);}
    if self.basictypes.contains(ty) {return true;}
-   if ty.starts_with('&') && !ty.contains("mut") {return true;}
+   if ty.starts_with('&') && !ty.contains("mut ") {return true;}
    false
   }
 
@@ -1204,11 +1206,12 @@ strtok is bstokens[i], but will change
                    // part of ast type unless there is a given label: -?:m
                    if &self.Symbols[gsymi].rusttype!="()" || (retoks.len()>1 && retoks[1].len()>0) {
 		     newnt.rusttype = if strtok.ends_with('?') {
-                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with(LBC) {
+//                       if self.basictypes.contains(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with(LBC) {
+                       if self.basictype(&self.Symbols[gsymi].rusttype[..]) || self.Symbols[gsymi].rusttype.starts_with("Vec<") || self.Symbols[gsymi].rusttype.starts_with(LBC) {
                         if self.genabsyn {format!("Option<@{}>",&self.Symbols[gsymi].sym)} else {format!("Option<{}>",&self.Symbols[gsymi].rusttype)} }
                        else {
                         if self.genabsyn {format!("Option<{}<@{}>>",&LBCref,&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
-                     }
+                     } // ends in ?
                      else {
                      
                        if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LC<{}>>",&self.Symbols[gsymi].rusttype)} };
