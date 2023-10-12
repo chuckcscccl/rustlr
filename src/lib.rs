@@ -90,7 +90,7 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 #[cfg(feature = "legacy-parser")]
 pub use runtime_parser::{RuntimeParser,RProduction};
 
-pub const VERSION:&'static str = "0.4.14";
+pub const VERSION:&'static str = "0.5.0";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.
