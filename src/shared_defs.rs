@@ -24,3 +24,31 @@ pub enum Stateaction {
   /// by removing all instances of ".to_string()" from the load_extras function.
   Error(&'static str),
 }
+
+/// Determines if action is not valid
+pub fn iserror(actionopt:&Option<&Stateaction>) -> bool
+    { use crate::Stateaction::*;
+       match actionopt {
+           None => true,
+           Some(Error(_)) => true,
+           _ => false,
+         }
+    }//iserror
+
+// encode a state transition: FSM[i].get(key)=action as u64 numbers
+/// this function is only exported because it's used by the generated parsers.
+pub fn decode_action(code:u64) -> Stateaction
+{   use crate::Stateaction::*;
+    let actiontype =   code & 0x000000000000ffff;
+    let actionvalue = (code & 0x00000000ffff0000) >> 16;
+    //let symboli =     (code & 0x0000ffff00000000) >> 32;
+    //let statei =      (code & 0xffff000000000000) >> 48;    
+    match (actiontype,actionvalue) {
+      (0,si) => Shift(si as usize),
+      (1,si) => Gotonext(si as usize),
+      (2,ri) => Reduce(ri as usize),
+      (3,_)  => Accept,
+      (4,x)  => Error("shouldn't be here"),
+      _      => Error("unrecognized action in TABLE"),
+    }
+}//decode - must be independent function seen by parsers

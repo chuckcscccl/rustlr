@@ -13,7 +13,7 @@ use std::cell::{RefCell,Ref,RefMut};
 use std::hash::{Hash,Hasher};
 use std::mem;
 use crate::grammar_processor::*;
-use crate::Stateaction;
+use crate::{Stateaction,decode_action};
 use crate::Stateaction::*;
 
 /////////////// LR state machine
@@ -523,6 +523,7 @@ impl Statemachine
 
 }//impl Statemachine
 
+/*
 // encode a state transition: FSM[i].get(key)=action as u64 numbers
 /// this function is only exported because it's used by the generated parsers.
 pub fn decode_action(code:u64) -> Stateaction
@@ -540,7 +541,7 @@ pub fn decode_action(code:u64) -> Stateaction
       _      => Error("unrecognized action in TABLE"),
     }
 }//decode - must be independent function seen by parsers
-
+*/
 
   // add_action unifies elements of previous addstate and addreduce 3/22
 pub  fn add_action(FSM: &mut Vec<HashMap<usize,Stateaction>>, Gmr:&mut Grammar, newaction:Stateaction, si:usize, la:usize, conflicts:&mut HashMap<(usize,usize),(bool,bool)>, checkconflict:bool)

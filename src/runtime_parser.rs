@@ -30,7 +30,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
-use crate::{Lexer,Lextoken,Stateaction};
+use crate::{Lexer,Lextoken,Stateaction,iserror};
 #[cfg(feature = "generator")]
 use crate::Statemachine;
 use crate::{LBox,LRc};
@@ -491,7 +491,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 
 } // impl Statemachine
 
-
+/*
 //// independent function
     fn iserror(actionopt:&Option<&Stateaction>) -> bool
     {
@@ -502,7 +502,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
          }
     }//iserror
 
-
+*/
 
 
 

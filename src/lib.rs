@@ -59,7 +59,6 @@ use augmenter::*;
 pub mod generic_absyn;
 pub use generic_absyn::*;
 pub mod zc_parser;
-use zc_parser::*;
 #[cfg(feature = "generator")]
 mod parser_writer;
 #[cfg(feature = "generator")]
@@ -87,10 +86,9 @@ mod yaccparser;
 use lalr_statemachine::LALRMachine;
 #[cfg(feature = "generator")]
 use selmlk::{MLStatemachine};
-#[cfg(feature = "generator")]
-pub use lr_statemachine::{decode_action};
 pub use zc_parser::{ZCParser,ZCRProduction};
-//pub use runtime_parser::{RuntimeParser,RProduction};
+#[cfg(feature = "legacy-parser")]
+pub use runtime_parser::{RuntimeParser,RProduction};
 
 pub const VERSION:&'static str = "0.4.14";
 

@@ -35,7 +35,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
 //use crate::{Stateaction,Statemachine,TerminalToken,Tokenizer};
-use crate::{Stateaction,TerminalToken,Tokenizer};
+use crate::{Stateaction,iserror,TerminalToken,Tokenizer};
 use crate::{LBox,LRc,LC};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
@@ -788,12 +788,9 @@ use std::collections::{{HashMap,HashSet}};\n")?;
   }//writelbaparser
 
 
-
-
-
 //write-verbose no longer supported
 } // impl Statemachine
-
+/*
 ////// independent function
     fn iserror(actionopt:&Option<&Stateaction>) -> bool
     {
@@ -803,7 +800,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
            _ => false,
          }
     }//iserror
-
+*/
 ////// independent function
   #[cfg(feature = "generator")]
   fn is_lba(t:&str) -> bool {
