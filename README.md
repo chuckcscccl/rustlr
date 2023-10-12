@@ -121,8 +121,8 @@ To run this example,
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
   2. Create a Cargo crate and add
   ```
-  [dependencies]
-  rustlr = {version="0.5", default-features=false}
+    [dependencies]
+    rustlr = {version="0.5", default-features=false}
   ```
   to its Cargo.toml.  Turning off default features will include
   only the runtime parsing routines of rustlr as part of the crate.
