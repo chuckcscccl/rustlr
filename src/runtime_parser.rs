@@ -30,19 +30,23 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
-use crate::{TRACE,Lexer,Lextoken,Stateaction,Statemachine};
+use crate::{Lexer,Lextoken,Stateaction};
+#[cfg(feature = "generator")]
+use crate::Statemachine;
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
 
 /// this structure is only exported because it is required by the generated parsers.
 /// There is no reason to use it in other programs.
+#[cfg(feature = "legacy-parser")]
 #[derive(Clone)]
 pub struct RProduction<AT:Default,ET:Default>  // runtime rep of grammar rule
 {
   pub lhs: &'static str, // left-hand side nonterminal of rule
   pub Ruleaction : fn(&mut RuntimeParser<AT,ET>) -> AT, //parser as arg
 }
+#[cfg(feature = "legacy-parser")]
 impl<AT:Default,ET:Default> RProduction<AT,ET>
 {
   pub fn new_skeleton(lh:&'static str) -> RProduction<AT,ET>
@@ -56,6 +60,7 @@ impl<AT:Default,ET:Default> RProduction<AT,ET>
 
 pub struct Stackelement<AT:Default>
 {
+#[cfg(feature = "legacy-parser")]
    pub si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
    //pub line: usize,  // line and column
@@ -70,6 +75,7 @@ pub struct Stackelement<AT:Default>
 /// and [RuntimeParser::error_occurred] should be called directly 
 /// from user programs.  Only the field [RuntimeParser::exstate] should be accessed
 /// by user programs.
+#[cfg(feature = "legacy-parser")]
 pub struct RuntimeParser<AT:Default,ET:Default>  
 {
   /// this is the "external state" structure, with type ET defined by the grammar.
@@ -105,6 +111,7 @@ pub struct RuntimeParser<AT:Default,ET:Default>
   pub Symset : HashSet<&'static str>,
 }//struct RuntimeParser
 
+#[cfg(feature = "legacy-parser")]
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 {
     /// this is only called by the make_parser function in the machine-generated
@@ -205,7 +212,6 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
               let val = (rulei.Ruleaction)(self); // calls delegate function
               let newtop = self.stack[self.stack.len()-1].si; 
               let goton = self.RSM[newtop].get(ruleilhs).unwrap();
-//              if TRACE>1 {println!(" ..performing Reduce({}), new state {}, action on {}: {:?}..",ri,newtop,ruleilhs,goton);}
               if let Stateaction::Gotonext(nsi) = goton {
                 self.stack.push(Stackelement{si:*nsi,value:val});
                 // DO NOT CHANGE LOOKAHEAD AFTER REDUCE!
@@ -249,10 +255,24 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 }// impl RuntimeParser
 
 
+
+#[cfg(not(feature = "legacy-parser"))]
+#[cfg(feature = "generator")]
+impl Statemachine {
+  pub fn write_verbose(&self, filename:&str)->Result<(),std::io::Error> {
+   panic!("verbose feature not supported without `legacy-parser` option");
+  }
+  pub fn writeparser(&self, filename:&str)->Result<(),std::io::Error> {
+   panic!("feature not supported without `legacy-parser` option");
+  }
+} // for compatibility
+
+
+
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //// new version of write_fsm:
-
+#[cfg(all(feature = "generator", feature = "legacy-parser"))]
 impl Statemachine
 {
   pub fn writeparser(&self, filename:&str)->Result<(),std::io::Error>
@@ -490,7 +510,7 @@ use rustlr::{{RuntimeParser,RProduction,Stateaction}};\n")?;
 ////// reimplementing the parsing algorithm more modularly, with aim of
 ////// allowing custom parsers
 //////////// errors should compile a report
-
+#[cfg(feature = "legacy-parser")]
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 {
   /// this function is used to invoke the generated parser returned by
@@ -611,6 +631,7 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 /// the default ErrHandler that uses standard I/O as interface and has the
 /// ability to train the parser.  But other implementations of the trait
 /// can be created that use different interfaces, such as a graphical IDE.
+#[cfg(feature = "legacy-parser")]
 pub trait ErrHandler<AT:Default,ET:Default> // not same as error recovery
 {
   fn err_reporter(&mut self, parser:&mut RuntimeParser<AT,ET>, lookahead:&Lextoken<AT>, erropt:&Option<Stateaction>);
@@ -671,6 +692,7 @@ impl StandardReporter
   // augment_train implemented in augmenter.rs
 }//impl StandardReporter
 
+#[cfg(feature = "legacy-parser")]
 impl<AT:Default,ET:Default> ErrHandler<AT,ET> for StandardReporter
 {
   // this function will be able to write training script to file
@@ -763,6 +785,7 @@ impl<AT:Default,ET:Default> ErrHandler<AT,ET> for StandardReporter
 
 
 //////////////// temporary: live side by side with parse_core (tobe replaced)
+#[cfg(feature = "legacy-parser")]
 impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
 {
   /// Core parser (temporarily lives side by side with parse_core) that

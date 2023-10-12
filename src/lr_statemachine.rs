@@ -13,6 +13,7 @@ use std::cell::{RefCell,Ref,RefMut};
 use std::hash::{Hash,Hasher};
 use std::mem;
 use crate::grammar_processor::*;
+use crate::Stateaction;
 use crate::Stateaction::*;
 
 /////////////// LR state machine
@@ -311,7 +312,7 @@ pub fn stateclosure(mut state:LR1State, Gmr:&Grammar)
   closed
 }//stateclosure generation
 
-
+/*
 ////// Contruction of the FSM, which is a Vec<HashMap<usize,stateaction>>
 
 /// this enum is only exported because it's used by the generated parsers.
@@ -330,7 +331,7 @@ pub enum Stateaction {
   Error(&'static str),
 }
 
-/*
+
 // for keeping track of conflicts
 #[derive(Hash,PartialEq,Eq,Debug)]
 enum Conflict

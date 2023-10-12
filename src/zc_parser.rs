@@ -34,14 +34,18 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
-use crate::{TRACE,Stateaction,Statemachine,TerminalToken,Tokenizer};
+//use crate::{Stateaction,Statemachine,TerminalToken,Tokenizer};
+use crate::{Stateaction,TerminalToken,Tokenizer};
 use crate::{LBox,LRc,LC};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
+use crate::{StandardReporter};
+#[cfg(feature = "generator")]
+use crate::{Statemachine};
+
 //extern crate termion;
 //use termion::{color,style};
 
-use crate::{StandardReporter};
 
 /// this structure is only exported because it is required by the generated parsers.
 /// There is no reason to use it in other programs.  Replaces [crate::RProduction] for new parsers since version 0.2.0
@@ -396,7 +400,7 @@ This is correct because linenum/column will again reflect start of tos item
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //// new version of write_fsm: (include calls to genlexer)
-
+#[cfg(feature = "generator")]
 impl Statemachine
 {  /////// zc version
   pub fn writezcparser(&self, filename:&str)->Result<(),std::io::Error>
@@ -801,6 +805,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     }//iserror
 
 ////// independent function
+  #[cfg(feature = "generator")]
   fn is_lba(t:&str) -> bool {
    t.trim().starts_with("LBox") && t.contains("Any") && t.contains('<') && t.contains('>')
   
@@ -814,7 +819,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 ////// reimplementing the parsing algorithm more modularly, with aim of
 ////// allowing custom parsers
 //////////// errors should compile a report
-
 impl<AT:Default,ET:Default> ZCParser<AT,ET>
 {
   /// Error recovery routine of rustlr, separate from error_reporter.
@@ -1242,13 +1246,11 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
   }//train_from_script
 
 }// 3rd impl ZCParser
-
+#[cfg(feature = "generator")]
 fn checkboxlabel(s:&str) -> &str
 {
     if s.starts_with('[') && s.ends_with(']') {s[1..s.len()-1].trim()} else {s}
 }// check if label is of form [x], returns x, or s if not of this form.
-
-
 
 // used by genlex routines
 fn is_alphanum(x:&str) -> bool

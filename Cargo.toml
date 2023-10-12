@@ -1,6 +1,6 @@
 [package]
 name = "rustlr"
-version = "0.4.13"
+version = "0.4.14"
 authors = ["Chuck Liang"]
 edition = "2021"
 license = "MIT"
@@ -9,6 +9,11 @@ repository = "https://github.com/chuckcscccl/rustlr/"
 keywords = ["parser", "parsing", "parser-generator", "lr", "yacc"]
 categories = ["parsing", "compilers"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["generator"]
+generator = []
+legacy-parser = []
 
 [dependencies]
 regex = "1"

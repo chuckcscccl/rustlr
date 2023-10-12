@@ -40,46 +40,59 @@
 #![allow(unused_doc_comments)]
 #![allow(unused_imports)]
 
-//use std::default::Default;
+mod shared_defs;
+pub use shared_defs::*;
+#[cfg(feature = "generator")]
 mod grammar_processor;
+#[cfg(feature = "generator")]
 use grammar_processor::*;
+#[cfg(feature = "generator")]
 mod lr_statemachine;
+#[cfg(feature = "generator")]
 use lr_statemachine::*;
 pub mod lexer_interface;
 pub use lexer_interface::*;
 pub mod runtime_parser;
-use runtime_parser::*;
+pub use runtime_parser::*;
 mod augmenter;
 use augmenter::*;
 pub mod generic_absyn;
 pub use generic_absyn::*;
 pub mod zc_parser;
 use zc_parser::*;
+#[cfg(feature = "generator")]
 mod parser_writer;
+#[cfg(feature = "generator")]
 mod sd_parserwriter;
+#[cfg(feature = "generator")]
 mod fs_parserwriter;
+#[cfg(feature = "generator")]
 mod ast_writer;
+#[cfg(feature = "generator")]
 mod fs_astwriter;
-
+#[cfg(feature = "generator")]
 mod bumpast_writer;
-
+#[cfg(feature = "generator")]
 mod lalr_statemachine;
+#[cfg(feature = "generator")]
 mod selmlk; // experimental
 
 //mod logos_lexer;
 
+#[cfg(feature = "generator")]
 mod yacc_ast;
+#[cfg(feature = "generator")]
 mod yaccparser;
-
+#[cfg(feature = "generator")]
 use lalr_statemachine::LALRMachine;
+#[cfg(feature = "generator")]
 use selmlk::{MLStatemachine};
-
-pub use lr_statemachine::{Stateaction,decode_action};
-pub use runtime_parser::{RuntimeParser,RProduction};
+#[cfg(feature = "generator")]
+pub use lr_statemachine::{decode_action};
 pub use zc_parser::{ZCParser,ZCRProduction};
-//pub use enhancements::{ParseValue,ParseResult,Enhanced_Lexer};
+//pub use runtime_parser::{RuntimeParser,RProduction};
 
-pub const VERSION:&'static str = "0.4.13";
+pub const VERSION:&'static str = "0.4.14";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.
@@ -90,7 +103,8 @@ pub const VERSION:&'static str = "0.4.13";
 /// Example:
 /// ```ignore
 ///   let report = rustlr::generate("simplecalc.grammar -o src/main.rs -trace 0");
-/// ```  
+/// ```
+#[cfg(feature = "generator")]
 pub fn generate(argv:&str) -> Result<String,String> {
   let asplit:Vec<_> = argv.split_whitespace().collect();
   rustle1(&asplit)
@@ -99,13 +113,14 @@ pub fn generate(argv:&str) -> Result<String,String> {
 
 /// This function is retained for backwards compatiblity.  It is recommended
 /// to call [generate] instead.
+#[cfg(feature = "generator")]
 pub fn rustle(args:&Vec<String>) -> Result<String,String> // called from main
 {
   let mut args2 = Vec::new();
   for s in args { args2.push(&s[..]); }
   rustle1(&args2[..])
 }
-
+#[cfg(feature = "generator")]
 fn rustle1(args:&[&str]) -> Result<String,String> // called from main
 {
   let argc = args.len();
@@ -302,4 +317,4 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   let mut savedlog = String::new();
   if tracelev==0 {fsm0.Gmr.swap_log(&mut savedlog);}
   Ok(savedlog)
-}//rustle
+}//rustle1

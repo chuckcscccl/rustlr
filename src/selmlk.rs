@@ -14,6 +14,7 @@ use std::hash::{Hash,Hasher};
 use std::io::{self,Read,Write,BufReader,BufRead};
 use crate::grammar_processor::*;
 use crate::lr_statemachine::*;
+use crate::Stateaction;
 use crate::Stateaction::*;
 use crate::sd_parserwriter::decode_label;
 
