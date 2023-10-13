@@ -146,6 +146,10 @@ Rustlr can also be invoked from within Rust by calling the [rustlr::generate](ht
 
 <br>
 
+#### New in Version 0.5.0
+
+The option to install only the runtime parser, without parser generation routines
+
 #### New in Versions 0.4.13
 
 Boxed labels such as `[x]` are now represented by LC instead of LBox during

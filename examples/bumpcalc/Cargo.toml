@@ -1,5 +1,5 @@
 [package]
-name = "simplecalc"
+name = "bumpcalc"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 rustlr = { path = "../../../rustlr", default-features = false }
+bumpalo = "3"

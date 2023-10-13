@@ -4,7 +4,7 @@
 //!   that controls how ASTS are created, so that the generated types do
 //!   not necessarily reflect the format of the grammar.
 //!  2. Option to use [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create
-//!  ASTS types that enable *nested* pattern atching against recursive types.
+//!  ASTS types that enable *nested* pattern matching against recursive types.
 //! 
 //!  3. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 //!  the writing of grammars and allow better ASTs to be created.
@@ -15,19 +15,46 @@
 //!  5. The ability to train the parser interactively for better error reporting
 //!  6. Also generates parsers for F# and other .Net languages
 //!
-//! A **[tutorial](<https://chuckcscccl.github.io/rustlr_project/>)**
+//! A **[TUTORIAL](<https://chuckcscccl.github.io/rustlr_project/>)**
 //! is separately available that will explain the
 //! format of grammars and how to generate and deploy parsers for several 
 //! examples.  The documentation found here should be used as a technical
 //! reference.
 //!
-//! Rustlr should be installed as an executable (**cargo install rustlr**),
-//! although parser generation can also be invoked with the [rustle] function.
-//! Many of the items exported by this crate are only required by the parsers
+//! **INSTALLING RUSTLR**
+//!
+//! Rustlr consists of two main components: the parser generation routines and
+//! the runtime parser routines that interpret the generated parsing tables.
+//! The default installation will install both.  However, the runtime parser
+//! can be installed independently.
+//!
+//! 
+//! Rustlr should first be installed as a command-line application:
+//! **`cargo install rustlr`**.  This will install both the generator and
+//! runtime parser.
+//!
+//! Parser generation can also be invoked from within a rust
+//! program with the [generate] function of the rustlr crate.
+//!
+//! Once a parser has been generated and included in another crate, rustlr
+//! should be installed with only the runtime parsing routines with
+//! **`cargo add rustlr --no-default-features`**.  Alternatively, add the
+//! the following to your Cargo.toml:
+//! ```
+//!   [dependencies]
+//!   rustlr = { version = "0.5", default-features = false }
+//! ```
+//!
+//! There is another optional feature, `legacy-parser`, that can be enabled
+//! with or without the parser generation routines, that is required for
+//! grammars and parsers for very old versions of rustlr (prior to version 0.2).
+//! This feature is *not* included by default.
+//!
+//! Many of the items exported are only required by the parsers
 //! that are generated, and are not intended to be used in other programs.
 //! However, rustlr uses traits and trait objects to loosely couple the 
 //! various components of the runtime parser so that custom interfaces, such as
-//! those for graphical IDEs, can built around a basic [ZCParser::parse_core]
+//! those for graphical IDEs, can be built around a basic [ZCParser::parse_core]
 //! function.
 //!
 
@@ -86,7 +113,7 @@ mod yaccparser;
 use lalr_statemachine::LALRMachine;
 #[cfg(feature = "generator")]
 use selmlk::{MLStatemachine};
-pub use zc_parser::{ZCParser,ZCRProduction};
+pub use zc_parser::{ZCParser,ZCRProduction,StackedItem};
 #[cfg(feature = "legacy-parser")]
 pub use runtime_parser::{RuntimeParser,RProduction};
 
