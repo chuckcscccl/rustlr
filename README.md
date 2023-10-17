@@ -122,7 +122,7 @@ To run this example,
   
   2. Create a Cargo crate for the sample and **`cargo add rustlr --no-default-features`**
   in the crate.  Turning off default features will include
-  only the runtime parsing routines of rustlr.
+  only runtime parsing routines.
   
   3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
   The filename determines the names of the modules created, and must 
