@@ -120,13 +120,9 @@ To run this example,
 
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
   
-  2. Create a Cargo crate and add
-  ```
-    [dependencies]
-    rustlr = {version="0.5", default-features=false}
-  ```
-  to its Cargo.toml.  Turning off default features will include
-  only the runtime parsing routines of rustlr as part of the crate.
+  2. Create a Cargo crate for the sample and **`cargo add rustlr --no-default-features`**
+  in the crate.  Turning off default features will include
+  only the runtime parsing routines of rustlr.
   
   3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
   The filename determines the names of the modules created, and must 
