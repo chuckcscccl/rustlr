@@ -27,27 +27,6 @@ type PREAGENDATYPE = HashSet<usize>;
 type COMBINGTYPE = HashMap<usize,Vec<usize>>;
 type ITEMSETTYPE = HashSet<LRitem>;
 
-// new experiment 10/23: rank conflict items by the combing extension size
-#[derive(Clone,Debug,Eq,PartialEq,Ord)]
-struct RConflict {
-  item: LRitem,
-  rank: usize,
-}
-impl PartialOrd for RConflict {
-  fn partial_cmp(&self, other:&RConflict) -> Option<core::cmp::Ordering> {
-    if self.rank != other.rank {Some(other.rank.cmp(&self.rank))}
-    else {Some(self.item.cmp(&other.item))}
-  }
-}
-impl RConflict {
-  pub fn new(i:LRitem, r:usize) -> Self {
-    RConflict { item:i, rank:r }
-  }
-}
-
-
-////////////
-
 // #[derive(Clone,Debug,Default)]
 pub struct MLState // emulates LR1/oldlalr engine
 {
@@ -372,9 +351,6 @@ impl Eq for MLState {}
 // known-conflict structure:
 // (type rr/sr ,rule1, rule2/shift_la)  -> (clearly_resolved, rule# or 0-shift)
 
-
-
-////////////////////////////////////////////////////
 pub struct MLStatemachine  // Consumes Grammar
 {
    pub Gmr: Grammar,
@@ -388,7 +364,7 @@ pub struct MLStatemachine  // Consumes Grammar
    pub combing: COMBINGTYPE,
    pub Ruleshash: HashMap<Vec<usize>,usize>,
    preagenda : PREAGENDATYPE,
-   deprecated_states: HashSet<usize>,  // not used
+   deprecated_states: HashSet<usize>,
    maxk : usize,
    pub failed: bool,
    pub regenerate: bool,
