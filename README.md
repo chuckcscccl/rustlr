@@ -7,11 +7,11 @@ Besides traditional LR and LALR parser generation, Rustlr supports the following
 options
 
 1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR.  For example, the following grammar
-```
-  S -->  a B c  |  A B d
-  B --> b | B b
-  A --> a
-```
+   ```
+     S -->  a B c  |  A B d
+     B --> b | B b
+     A --> a
+   ```
 is unambiguous but is **not** LR(k) because it cannot decide to reduce a to A
 with a fixed number of lookaheads.  However, Rustlr
 can still genereate a deterministic parser for the grammar (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
