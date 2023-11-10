@@ -6,8 +6,15 @@
 Besides traditional LR and LALR parser generation, Rustlr supports the following
 options
 
-1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR and helps to allow new productions to be added to a grammar without
-creating conflicts (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
+1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR.  For example, the following grammar
+```
+  S -->  a B c  |  A B d
+  B --> b | B b
+  A --> a
+```
+is unambiguous but is **not** LR(k) because it cannot decide to reduce a to A
+with a fixed number of lookaheads.  However, Rustlr
+can still genereate a deterministic parser for the grammar (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
 2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that controls how ASTs are to be generated. 
 3. Support for choosing [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create recursive ASTs that use references instead of smart pointers: this
 enables *deep pattern matching* on recursive structures.
