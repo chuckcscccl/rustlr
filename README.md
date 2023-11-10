@@ -15,15 +15,22 @@ options
 is unambiguous but is **not** LR(k) because it cannot decide to reduce a to A
 with a fixed number of lookaheads.  However, Rustlr
 can still genereate a deterministic parser for the grammar (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
+
 2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that controls how ASTs are to be generated. 
+
 3. Support for choosing [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create recursive ASTs that use references instead of smart pointers: this
 enables *deep pattern matching* on recursive structures.
+
 4. Recognizes regex-style operators `*`, `+` and `?`, which simplify
 the writing of grammars and allow better ASTs to be created.
+
 5. Generates a lexical scanner automatically from the grammar.
+
 6. Operator precedence and associativity declarations further allow grammars
 to be written that's closer to EBNF syntax.
+
 7. The ability to train the parser, interactively or from script, for better error reporting.
+
 8. Generates parsers for Rust [and for F\#](https://github.com/chuckcscccl/Fussless).  Rustlr is designed to promote typed functional programming languages in the creation of compilers and
 language-analysis tools.  Parser generation for other such languages will
 gradually become available.
