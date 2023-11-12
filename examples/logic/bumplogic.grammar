@@ -1,0 +1,74 @@
+# Grammar "bumplogic" for propositional logic with bump-allocated ASTs
+auto-bump
+lifetime 'lt
+
+lexterminal AND *
+lexterminal OR +
+lexterminal NOT ~
+lexterminal IMPLIES ->
+lexterminal SEMICOLON ;
+terminals ( )
+valterminal Prop Alphanumeric
+
+nonterminal FormulaSeq
+nonterminal Formula
+nonterminal PrimaryFormula : Formula
+
+# error recovery point
+resynch SEMICOLON
+
+topsym FormulaSeq
+
+left AND 80
+left OR 50
+right IMPLIES 30
+
+PrimaryFormula --> ( Formula )
+PrimaryFormula --> Prop
+PrimaryFormula:Neg --> NOT PrimaryFormula
+
+Formula --> PrimaryFormula
+Formula:And --> Formula AND Formula
+Formula:Or --> Formula OR Formula
+Formula:Implies --> Formula IMPLIES Formula
+
+FormulaSeq --> Formula<SEMICOLON+>
+
+# function to return negation normal form, injected into logic_ast.rs:
+$
+$pub fn NNF<'t>(form:&'t Formula<'t>, bump:&'t bumpalo::Bump) -> &'t Formula<'t> {
+$ use Formula::*;
+$ let REF = |x|{bump.alloc(x)}; // for simplified syntax
+$ let nnf = |x|{NNF(x,bump)};
+$ match form {
+$   Neg(Neg(A)) => nnf(A), // the nnf of ~~A is the nnf of A
+$   Neg(And(A,B)) => REF(Or(nnf(REF(Neg(A))),nnf(REF(Neg(B))))),
+$   Neg(Or(A,B)) => REF(And(nnf(REF(Neg(A))),nnf(REF(Neg(B))))),
+$   Neg(Implies(A,B)) => REF(And(nnf(A),nnf(REF(Neg(B))))),
+$   And(A,B) => REF(And(nnf(A),nnf(B))),
+$   Or(A,B) => REF(Or(nnf(A),nnf(B))),
+$   Implies(A,B) => nnf(REF(Or(REF(Neg(A)),B))), // ~A+B
+$   _ => form, //default no change to literals
+$ }//match
+$}
+
+# function injected into logicparser.rs:
+!mod bumplogic_ast;
+!use std::io::{Write};
+!fn main() {
+! let bump = bumpalo::Bump::new();
+! print!("Enter proposition: ");  let r=std::io::stdout().flush();
+! let mut input = String::new();
+! let res = std::io::stdin().read_line(&mut input);
+! let mut lexer1 = bumplogiclexer::from_str(&input);
+! let mut parser1 = make_parser();
+! parser1.exstate.set(&bump);  //the exstate is a "Bumper"
+! let fseq = parse_with(&mut parser1, &mut lexer1)
+!     .unwrap_or_else(|x|{println!("Parsing Errors Encountered"); x});
+! if let FormulaSeq(formulas) = fseq {
+!   for f in &formulas {
+!     let nnf = NNF(f,parser1.exstate.get());
+!     println!("NNF for line {}: {:?}",f.line(),nnf);
+!   }
+! }
+!}//main

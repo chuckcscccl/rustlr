@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 rustlr = { path = "../../../rustlr" }
-fixedstr = "0.2.8"
+fixedstr = "0.5"
+bumpalo = "3.14.0"
+
