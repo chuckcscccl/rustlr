@@ -45,10 +45,13 @@
 //!   rustlr = { version = "0.5", default-features = false }
 //! ```
 //!
+//! **Compatibility Notice:**
+//!
 //! There is another optional feature, `legacy-parser`, that can be enabled
 //! with or without the parser generation routines, that is required for
 //! grammars and parsers for very old versions of rustlr (prior to version 0.2).
-//! This feature is *not* included by default.
+//! This feature is *not* included by default and must be installed with
+//! the `cargo install/add --features legacy-parser` option.
 //!
 //! Many of the items exported are only required by the parsers
 //! that are generated, and are not intended to be used in other programs.
@@ -117,7 +120,7 @@ pub use zc_parser::{ZCParser,ZCRProduction,StackedItem};
 #[cfg(feature = "legacy-parser")]
 pub use runtime_parser::{RuntimeParser,RProduction};
 
-pub const VERSION:&'static str = "0.5.0";
+pub const VERSION:&'static str = "0.5.1";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.

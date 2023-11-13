@@ -1,6 +1,6 @@
 [package]
 name = "rustlr"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Chuck Liang"]
 edition = "2021"
 license = "MIT"
@@ -23,3 +23,6 @@ bumpalo = "3"
 
 #[patch.crates-io]
 #termion = { git = "https://gitlab.redox-os.org/Jezza/termion.git", branch = "windows-support" }
+
+[package.metadata.docs.rs]
+all-features = true

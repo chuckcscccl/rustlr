@@ -30,7 +30,8 @@ use std::cell::{RefCell,Ref,RefMut};
 use std::io::{self,Read,Write,BufReader,BufRead};
 use std::fs::File;
 */
-/// **This structure is deprecated by [TerminalToken]**.
+/// **This structure is deprecated by [TerminalToken]** and is only available
+/// when installed with the `legacy-parser` feature.
 /// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
 /// symbol specified in the grammar.
@@ -51,8 +52,8 @@ impl<AT:Default> Lextoken<AT>
   }//new Lextoken
 }//impl Lextoken
 
-/// **This trait is deprecated by [Tokenizer]** and is only retained for
-/// compatibility.
+/// **This trait is deprecated by [Tokenizer]** and is only 
+/// available with the `legacy-parser` installation feature.
 pub trait Lexer<AT:Default>
 {
   /// retrieves the next Lextoken, or None at end-of-stream. 
@@ -70,7 +71,8 @@ pub trait Lexer<AT:Default>
 
 
 /// **This struct is deprecated by [charscanner]**.  It is compatible with
-/// [Lexer] and [Lextoken], which are also deprecated.
+/// [Lexer] and [Lextoken], which are also deprecated.  This struct requires
+/// the `legacy-parser` installation feature.
 pub struct charlexer<'t>
 {
    chars: Chars<'t>,

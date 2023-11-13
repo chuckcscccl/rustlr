@@ -260,7 +260,7 @@ impl Grammar
               };
          let needref = lhsreachable && !nonlctype(&rsymtype) && !self.basictypes.contains(&rsymtype[..]) &&ltref.len()>0;
          if needref {
-           self.logeprint(&format!("WARNING: Recursive structs may require the manual implementation of the Default trait for reference types, as in\n  impl<{0}> Default for &{0} {1} ...",&self.lifetime,&lhsymtype));
+           self.logeprint(&format!("WARNING: Recursive bumpalo structs may require the manual implementation of the Default trait for reference types, as in\n  impl<{0}> Default for &{0} {1} ...",&self.lifetime,&lhsymtype));
          }
 
          let mut flattened = false;
