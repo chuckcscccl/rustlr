@@ -1,7 +1,7 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
 **LR-Style Parser Generator**
 
-**A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.** (recent broken links fixed)
+**A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.**
 
 Besides traditional LR and LALR parser generation, Rustlr supports the following
 options
