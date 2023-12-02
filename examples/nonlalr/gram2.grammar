@@ -1,0 +1,45 @@
+# Properly LR(1) grammar
+auto
+terminals a b c d e
+nonterminals E T F A B
+nonterminals Aeven Aodd Beven Bodd
+topsym E
+
+# The following grammar, similar to one found in the Dragon book, is not
+# LALR(1), but it does belong to another subclass of LR(1) grammars: BRC(1,1)
+#E --> a T d
+#E --> a F e
+#E --> b T e
+#E --> b F d
+#T --> c
+#F --> c
+
+# The following grammar is LR(1) but not BRC(1,1) nor LALR(1):
+
+E --> A T d
+E --> A F e
+E --> B T e
+E --> B F d
+T --> c
+F --> c
+A --> a  |  a a A
+B --> b  |  b b B
+
+Aodd  --> Aeven a
+Aeven --> Aodd a  |  # epsilon second production
+Bodd --> Beven b
+Beven --> Bodd b | 
+# E --> Aodd T d
+# E --> Aodd F e
+
+EOF
+
+This grammar is not BRC because it must also recognize that there are an odd number of preceeding a's or b's.  A proper state machine is required for this kind
+of recognition.  A few more non-terminals would be required to make it BRC(1,1):
+
+Aodd  --> Aeven a
+Aeven --> Aodd a  |   # epsilon second production
+
+And similarly for B.  The "states" of the state machine can also be replicated
+inside the grammar itself.
+

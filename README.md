@@ -1,19 +1,19 @@
 # **[rustlr](https://docs.rs/rustlr/latest/rustlr/index.html)**
 **LR-Style Parser Generator**
 
-**A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.**
+**A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.** (recent broken links fixed)
 
 Besides traditional LR and LALR parser generation, Rustlr supports the following
 options
 
-1. An experimental feature that generates parsers for *Selective Marcus-Leermakers* grammars.  This is a larger class of unambiguous grammars than traditional LR.  For example, the following grammar
+1. An experimental feature that generates parsers for *[Selective Marcus-Leermakers grammars](https://hal.archives-ouvertes.fr/hal-00769668/document)*.  This is a larger class of unambiguous grammars than traditional LR.  For example, the following grammar
    ```
      S -->  a B c  |  A B d
      B --> b | B b
      A --> a
    ```
 is unambiguous but is **not** LR(k) because it cannot decide whether to
-reduce a to A with a fixed number of lookaheads.  However, rustlr
+reduce `a` to `A` with a fixed number of lookaheads.  However, rustlr
 can still genereate a deterministic parser for the grammar (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
 
 2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that controls how ASTs are to be generated. 
@@ -72,7 +72,7 @@ ExpList --> E<;+> ;?    # ;-separated list with optional trailing ;
 !  let ast =
 !    parseresult.
 !    unwrap_or_else(|x| {
-!       println!("Parsing errors encountered; results not guaranteed..");
+!       eprintln!("Parsing errors encountered; results not guaranteed..");
 !       x
 !    });
 !  println!("\nAST: {:?}\n",&ast);
@@ -136,7 +136,7 @@ To run this example,
   
   2. Create a Cargo crate for the sample and **`cargo add rustlr --no-default-features`**
   in the crate.  Turning off default features will include
-  only runtime parsing routines.
+  only the runtime parsing routines.
   
   3. save [the grammar](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar) in the crate as **`simplecalc.grammar`**.
   The filename determines the names of the modules created, and must 
