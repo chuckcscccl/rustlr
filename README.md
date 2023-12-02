@@ -15,6 +15,7 @@ options
 is unambiguous but is **not** LR(k) because it cannot decide whether to
 reduce `a` to `A` with a fixed number of lookaheads.  However, rustlr
 can still genereate a deterministic parser for the grammar (see the [Appendix](https://chuckcscccl.github.io/rustlr_project/appendix.html) of the tutorial).
+Rustlr is the only practical parser generator that supports this capability.
 
 2. The option of creating the abstract syntax data types and semantic actions from the grammar. Rustlr grammars contain a sub-language that controls how ASTs are to be generated. 
 
