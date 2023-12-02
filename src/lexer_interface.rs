@@ -35,11 +35,13 @@ use std::fs::File;
 /// The structure is expected to be returned by the lexical analyzer ([Lexer] objects).
 /// Furthermore, the .sym field of a Lextoken *must* match the name of a terminal
 /// symbol specified in the grammar.
+#[cfg(feature = "legacy-parser")]
 pub struct Lextoken<AT:Default> // now separated from Gsym
 {
    pub sym: String, // must correspond to terminal symbol
    pub value: AT,         // value of terminal symbol, if any
 }
+#[cfg(feature = "legacy-parser")]
 impl<AT:Default> Lextoken<AT>
 {
   /// creates a new Lextoken
@@ -54,6 +56,7 @@ impl<AT:Default> Lextoken<AT>
 
 /// **This trait is deprecated by [Tokenizer]** and is only 
 /// available with the `legacy-parser` installation feature.
+#[cfg(feature = "legacy-parser")]
 pub trait Lexer<AT:Default>
 {
   /// retrieves the next Lextoken, or None at end-of-stream. 
@@ -73,6 +76,7 @@ pub trait Lexer<AT:Default>
 /// **This struct is deprecated by [charscanner]**.  It is compatible with
 /// [Lexer] and [Lextoken], which are also deprecated.  This struct requires
 /// the `legacy-parser` installation feature.
+#[cfg(feature = "legacy-parser")]
 pub struct charlexer<'t>
 {
    chars: Chars<'t>,
@@ -87,6 +91,7 @@ pub struct charlexer<'t>
    /// be translated into something like "LBRACE" and "RBRACE"
    pub modify: fn(char)->String, 
 }
+#[cfg(feature = "legacy-parser")]
 impl<'t> charlexer<'t>
 {
   /// creates a charlexer that emits only non-whitespace chars
@@ -96,6 +101,7 @@ impl<'t> charlexer<'t>
   pub fn make<'u:'t>(input:&'u str, kws:bool) -> charlexer<'u>
   { charlexer {chars:input.chars(), index:0, len:input.len(), line:1, keep_ws:kws, modify:|x|{x.to_string()}} } 
 }
+#[cfg(feature = "legacy-parser")]
 impl<'t, AT:Default> Lexer<AT> for charlexer<'t>
 {
    fn nextsym(&mut self) -> Option<Lextoken<AT>>

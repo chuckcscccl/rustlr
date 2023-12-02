@@ -15,9 +15,9 @@ use std::hash::{Hash,Hasher};
 use std::io::{self,Read,Write,BufReader,BufRead,Result,Error,ErrorKind,SeekFrom};
 use std::fs::File;
 use std::io::prelude::*;
-use crate::{Lexer,Lextoken,Stateaction,StandardReporter};
+use crate::{Stateaction,StandardReporter};
 #[cfg(feature = "legacy-parser")]
-use crate::{RuntimeParser,ErrHandler};
+use crate::{RuntimeParser,ErrHandler,Lexer,Lextoken};
 
 
 /////////////////////////////////////////////////////

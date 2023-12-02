@@ -30,12 +30,14 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::mem;
-use crate::{Lexer,Lextoken,Stateaction,iserror};
+use crate::{Stateaction,iserror};
 #[cfg(feature = "generator")]
 use crate::Statemachine;
 use crate::{LBox,LRc};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
+#[cfg(feature = "legacy-parser")]
+use crate::{Lexer,Lextoken};
 
 /// this structure is only exported because it is required by the generated parsers.
 /// There is no reason to use it in other programs.
