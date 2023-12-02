@@ -419,12 +419,14 @@ impl Grammar
                self.name = String::from(stokens[1]);
             },
             "auto" | "genabsyn" => {
-               if stage==0 {self.genabsyn=true;} else if !self.genabsyn {
+               if stage==0 {self.genabsyn=true; self.genlex=true;}
+               else if !self.genabsyn {
                  self.logeprint("ERROR: Place 'auto' at beginning of the grammar or run with -auto option, directive may not be effective.");
                }
             },
             "auto-bump" => {
-               if stage==0 {self.bumpast=true; self.genabsyn=true;} else if !self.genabsyn {
+               if stage==0 {self.bumpast=true; self.genabsyn=true; self.genlex=true;}
+               else if !self.genabsyn {
                  self.logeprint("ERROR: Place 'auto' or 'auto-bump' at beginning of the grammar or run with -auto option, directive may not be effective.");
                }
             },

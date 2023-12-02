@@ -1215,7 +1215,7 @@ impl<'t> Tokenizer<'t,i64> for StrTokenizer<'t>
 */
 
 
-/// This is a sample Lexer implementation designed to return every character in a
+/// This is a sample lexer implementation designed to return every character in a
 /// string as a separate token, and is used in small grammars for testing and
 /// illustration purposes.  It is assumed that the characters read are defined as
 /// terminal symbols in the grammar.  This replaces [charlexer] using
