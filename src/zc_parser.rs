@@ -185,7 +185,7 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
     /// returns the previous position (before shift) according to tokenizer
     pub fn previous_position(&self)->usize {self.prev_position}
 
-    /// this function can be called from with the "semantic" actions attached
+    /// this function can be called from within the semantic actions attached
     /// to grammar production rules that are executed for each
     /// "reduce" action of the parser.
     pub fn abort(&mut self, msg:&str)
@@ -196,6 +196,13 @@ impl<AT:Default,ET:Default> ZCParser<AT,ET>
 
        self.err_occurred = true;
        self.stopparsing=true;
+    }
+
+
+    /// this function can be called from within the "semantic" actions attached
+    /// to production rules to terminate parsing.
+    pub fn stop(&mut self) {
+      self.stopparsing = true;
     }
 
     /// may be called from grammar semantic actions to report error.
