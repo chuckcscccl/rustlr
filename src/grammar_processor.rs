@@ -1734,6 +1734,7 @@ pub fn compute_First(&mut self)
      Fseq
   }//FirstSeqb
 
+/*
 // not used - in case needed in future
 fn Follow_set(&self) -> HashMap<usize,HashSet<usize>>
 {
@@ -1766,6 +1767,7 @@ fn Follow_set(&self) -> HashMap<usize,HashSet<usize>>
   }// while changed
   Follow
 }//follow (not used)
+*/
 
 // procedure to generate lexical scanner from lexname, lexval and lexattribute
 // declarations in the grammar file.  Added for Version 0.2.3.  This procedure
