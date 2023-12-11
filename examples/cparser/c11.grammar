@@ -316,8 +316,11 @@ expression --> assignment_expression
 expression:expr_list --> twoormoreexps
 #twoormoreexps --> assignment_expression:car Comma assignment_expression<Comma+>:cdr {cdr.insert(0,parser.lc(0,car)); cdr }
 
-twoormoreexps --> assignment_expression:[a] Comma assignment_expression:[b] { vec![a,b] }
-twoormoreexps --> twoormoreexps:v Comma assignment_expression:[c] { v.push(c); v }
+#twoormoreexps --> twoormoreexps:v Comma assignment_expression:[c] { v.push(LC::from_lbox(c)); v }
+
+twoormoreexps --> assignment_expression:a Comma assignment_expression:b { vec![parser.lc(0,a),parser.lc(2,b)] }
+twoormoreexps --> twoormoreexps:v Comma assignment_expression:c { v.push(parser.lc(2,c)); v }
+
 
 # intentionally ambiguous
 #expression --> assignment_expression<Comma+>
