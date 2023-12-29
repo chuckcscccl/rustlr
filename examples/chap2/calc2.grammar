@@ -1,0 +1,41 @@
+# Advanced Calculator
+auto
+lifetime 'lt
+terminals + - * / = ;
+terminals let in
+lexterminal LPAREN (
+lexterminal RPAREN )
+valueterminal int ~ i64 ~ Num(n) ~ n
+valueterminal var ~ &'lt str ~ Alphanum(n) ~ n
+lexattribute set_line_comment("#")
+
+nonterminals Expr ExprList
+nonterminal UnaryExpr : Expr
+nonterminal LetExpr : Expr
+
+topsym ExprList
+resync ;
+
+left * 500
+left / 500
+left + 400
+left - 400
+
+UnaryExpr:Val --> int
+UnaryExpr:Var --> var
+UnaryExpr:Neg --> - UnaryExpr
+UnaryExpr --> LPAREN LetExpr RPAREN
+
+Expr --> UnaryExpr
+Expr:Plus --> Expr + Expr
+Expr:Minus --> Expr - Expr
+Expr:Div --> Expr / Expr
+Expr:Times --> Expr * Expr
+
+LetExpr --> Expr
+LetExpr:Let --> let var:let_var = Expr:init_value in LetExpr:let_body
+
+ExprList:nil -->
+ExprList:cons --> LetExpr:car ; ExprList:cdr
+# alternative, will create a vector:
+# ExprList --> (LetExpr ;)*
