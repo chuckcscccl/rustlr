@@ -445,7 +445,6 @@ if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
      write!(fd,"    Some({{TerminalToken.sym=utype; svalue=uval; line=lt.line; column=lt.column;}});;\n")?;
      
 
-
       ////// WRITE parse_with
       let abindex = *self.Gmr.enumhash.get(&self.Gmr.Absyntype).unwrap();
       write!(fd,"\nlet parse_with(parser:RTParser<FLTypeDUnion,{1}>, lexer:AbstractLexer<{1}>) : {0} option  =\n",absyn,extype)?;
