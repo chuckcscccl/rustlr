@@ -4,6 +4,7 @@
 #![allow(non_camel_case_types)]
 #![allow(unused_parens)]
 #![allow(unused_imports)]
+/*
 use std::fmt::Display;
 use std::default::Default;
 use std::collections::{HashMap,HashSet,BTreeSet};
@@ -60,13 +61,12 @@ use selmlk::{MLStatemachine};
 mod yacc_ast;
 #[cfg(feature = "generator")]
 mod yaccparser;
+*/
 
 #[cfg(feature = "generator")]
 fn main()
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
-  //let mut args2 = Vec::new();
-  //for s in &args { args2.push(&s[..]); }
   let res = rustlr::rustle(&args);
   match res {
     Err(s) => { eprintln!("FAILURE: {}",s); },

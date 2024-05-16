@@ -106,6 +106,9 @@ mod lalr_statemachine;
 #[cfg(feature = "generator")]
 mod selmlk; // experimental
 
+pub mod base_parser; // experimental
+pub use base_parser::{BaseParser,BaseProduction,StackItem};
+
 //mod logos_lexer;
 
 #[cfg(feature = "generator")]
@@ -120,7 +123,7 @@ pub use zc_parser::{ZCParser,ZCRProduction,StackedItem};
 #[cfg(feature = "legacy-parser")]
 pub use runtime_parser::{RuntimeParser,RProduction};
 
-pub const VERSION:&'static str = "0.5.1";
+pub const RUSTLRVERSION:&'static str = "0.5.2";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.
