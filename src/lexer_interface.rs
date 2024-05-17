@@ -200,14 +200,6 @@ impl<'t,AT:Default+'static> TerminalToken<'t,AT>
  }
 }//impl for AT:'static
 
-/* useless
-impl<'t,AT:Default+std::fmt::Debug> TerminalToken<'t,AT>
-{
-   pub fn make_string(&self)->String
-   { format!("{}({:?})",self.sym,&self.value) }
-}
-*/
-
 ///////////
 /// This is the trait that repesents an abstract lexical scanner for
 /// any grammar.  Any tokenizer must be adopted to implement this trait.
@@ -229,6 +221,9 @@ pub trait Tokenizer<'t,AT:Default>
   fn position(&self) -> usize { 0 }
   // returns (line, column) information based on given position
   //fn get_line_column(&self, position:usize) -> (usize,usize) { (0,0) }
+
+  /// add symbol to priority multiset: default implementation does nothing
+  fn add_priority_symbol(&mut self, sym:&'static str) {}
   /*
   /// returns the previous position (before as opposed to after the current token).
   /// The default implementation returns 0.
@@ -1188,6 +1183,7 @@ impl<'t> StrTokenizer<'t>
       stk
    }   
 }// impl StrTokenizer
+
 
 /*
 // testing an example

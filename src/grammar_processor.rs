@@ -1935,6 +1935,7 @@ impl<{2}> {0}<{2}>
    fn position(&self) -> usize {{self.stk.current_position()}}
    fn current_line(&self) -> &str {{self.stk.current_line()}}
    fn get_line(&self,i:usize) -> Option<&str> {{self.stk.get_line(i)}}
+   fn add_priority_symbol(&mut self, s:&'static str) {{self.stk.add_priority_symbol(s);}}
    fn get_slice(&self,s:usize,l:usize) -> &str {{self.stk.get_slice(s,l)}}")?;
    if (!self.sametype) || self.genabsyn {
 
