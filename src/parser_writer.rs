@@ -62,7 +62,6 @@ impl Statemachine
     let ref lifetime = self.Gmr.lifetime;
     let has_lt = lifetime.len()>0 /*&& (absyn.len()==0 || (absyn.contains(lifetime) || extype.contains(lifetime)))*/;
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
-//println!("abysn: {}, ltopt: {}",absyn,&ltopt);    
     let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
 
     let rlen = self.Gmr.Rules.len();
@@ -303,7 +302,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       let lexerlt = if has_lt {&ltopt} else {"<'t>"};
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"pub fn parse_with{}(parser:&mut ZCParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,lexerlt,extype,&lexername,absyn,absyn)?;
       if self.Gmr.bumpast {
         write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
       }//bump
@@ -340,7 +339,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
 
 /////////////////////////////////////// for base_parser
-////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
 
 impl Statemachine
@@ -348,17 +347,20 @@ impl Statemachine
   pub fn writebaseenumparser(&self, filename:&str)->Result<(),std::io::Error>
   {
     let ref absyn = self.Gmr.Absyntype;
-
-    if self.Gmr.sametype || is_lba(absyn){
-       return self.writelbaparser(filename);
-    }
-    
     let ref extype = self.Gmr.Externtype;
     let ref lifetime = self.Gmr.lifetime;
     let has_lt = lifetime.len()>0 /*&& (absyn.len()==0 || (absyn.contains(lifetime) || extype.contains(lifetime)))*/;
     let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
 //println!("abysn: {}, ltopt: {}",absyn,&ltopt);    
     let lbc = if self.Gmr.bumpast {"lc"} else {"lbx"};
+
+      ////// WRITE parse_with and parse_train_with
+      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
+      let lexerlife = if has_lt {lifetime} else {"'t"};
+      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
+      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
+      
+
 
     let rlen = self.Gmr.Rules.len();
     // generate action fn's from strings stored in gen-time grammar
@@ -370,7 +372,7 @@ impl Statemachine
       let rettype = &self.Gmr.Symbols[lhsi].rusttype; // return type=rusttype
       let ltoptr = if has_lt || (lifetime.len()>0 && rettype.contains(lifetime))
         {format!("<{}>",lifetime)} else {String::from("")};
-      let mut fndef = format!("\nfn _semaction_rule_{}_{}<{},TT:Tokenizer<{},ReTypeEnum{}>>(parser:&{} mut BaseParser<{},RetTypeEnum{},{},TT>) -> {} {{\n",ri,&ltoptr, lifetime,lifetime, &ltopt,lifetime,lifetime,&ltopt, extype,rettype);
+      let mut fndef = format!("\nfn _semaction_rule_{}_<{},TT:Tokenizer<{},RetTypeEnum{}>>(parser:&mut BaseParser<{},RetTypeEnum{},{},TT>) -> {} {{\n",ri,lexerlife,lexerlife, &ltopt,lexerlife,&ltopt, extype,rettype);
       let mut k = self.Gmr.Rules[ri].rhs.len(); //k=len of rhs of rule ri
       //form if-let labels and patterns as we go...
       let mut labels = String::from("(");
@@ -515,15 +517,15 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     for deffn in &actions { write!(fd,"{}",deffn)?; }
 
     // must know what absyn type is when generating code.
-    write!(fd,"\npub fn make_parser{}() -> BaseParser<RetTypeEnum{},{}>",&ltopt,&ltopt,extype)?; 
+    write!(fd,"\npub fn make_parser<{},TT:Tokenizer<{},RetTypeEnum{}>>(tk:&{} mut TT) -> BaseParser<{},RetTypeEnum{},{},TT>",lexerlife,lexerlife,&ltopt,lexerlife,lexerlife,&ltopt,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:BaseParser<RetTypeEnum{},{}> = BaseParser::new({},{});\n",&ltopt,extype,self.Gmr.Rules.len(),self.FSM.len())?;
+    write!(fd," let mut parser1:BaseParser<{},RetTypeEnum{},{},TT> = BaseParser::new({},{},tk);\n",lexerlife,&ltopt,extype,self.Gmr.Rules.len(),self.FSM.len())?;
     // generate rules and Ruleaction delegates to call action fns, cast
-     write!(fd," let mut rule = BaseProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,"start")?; // dummy for init
+     write!(fd," let mut rule = BaseProduction::<{},RetTypeEnum{},{},TT>::new_skeleton(\"{}\");\n",lexerlife,&ltopt,extype,"start")?; // dummy for init
     for i in 0..self.Gmr.Rules.len() 
     {
-      write!(fd," rule = BaseProduction::<RetTypeEnum{},{}>::new_skeleton(\"{}\");\n",&ltopt,extype,self.Gmr.Rules[i].lhs.sym)?;
+      write!(fd," rule = BaseProduction::<{},RetTypeEnum{},{},TT>::new_skeleton(\"{}\");\n",lexerlife,&ltopt,extype,self.Gmr.Rules[i].lhs.sym)?;
       write!(fd," rule.Ruleaction = |parser|{{ ")?;
 
     // write code to call action function, then convert to RetTypeEnum
@@ -559,51 +561,27 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
-/* // took out 0.2.97
-    // write special value extraction functions for transform_function
-    //if self.Gmr.transform_function.len()>0 {
-      let mut already:HashSet<&str> = HashSet::new();
-      for sym in &self.Gmr.Symbols
-      {
-         if sym.terminal && &sym.rusttype!="()" && !already.contains(&sym.rusttype[..]) && &sym.sym!="_WILDCARD_TOKEN_" {
-//println!("processing for {}, type {}",&sym.sym, &sym.rusttype);         
-            already.insert(&sym.rusttype);
-            let ei = self.Gmr.enumhash.get(&sym.rusttype).expect("GRAMMAR CORRUPTED");
-//            let ltm = &self.Gmr.lifetime;
-//            let refform = format!("&{} ",ltm);
-            let needclone = ".clone()"; //if sym.rusttype.starts_with("&") {""} else {".clone()"};
+      write!(fd,"pub fn parse_with{}(parser:&{} mut BaseParser<{},RetTypeEnum{},{},{}>) -> Result<{},{}>\n{{\n",lexerlt,lexerlife,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
             
-            write!(fd," fn extract_value_{}{}(x:&RetTypeEnum{}) -> {} {{
-    if let RetTypeEnum::Enumvariant_{}(_v_) = x {{_v_{}}} else {{<{}>::default()}}
- }}\n",&sym.sym,&ltopt,&ltopt,&sym.rusttype,ei,needclone,&sym.rusttype)?;
-            write!(fd," fn encode_value_{}{}(x:{}) -> RetTypeEnum{} {{ RetTypeEnum::Enumvariant_{}(x) }}\n",&sym.sym,&ltopt,&sym.rusttype,&ltopt,ei)?;
-         }
-      }//for each terminal symbol
-    //}//transform-related
-*/
-
-    //if !self.Gmr.sametype {  // checked at first
-
-      ////// WRITE parse_with and parse_train_with
-      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
-      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
-      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-      write!(fd,"pub fn parse_with{}(parser:&mut BaseParser<RetTypeEnum{},{}>, lexer:&mut {}) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
       if self.Gmr.bumpast {
-        write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
+        write!(fd,"  if parser.tokenizer.bump.is_some() {{let bb = parser.tokenizer.bump.unwrap(); parser.exstate.set(bb);}}\n")?;
       }//bump
       
-      write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
-      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse(lexer) {{\n",abindex)?;
+      write!(fd,"  parser.tokenizer.shared_state = Rc::clone(&parser.shared_state);\n")?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse() {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
+      
       // training version
-      write!(fd,"\npub fn parse_train_with{}(parser:&mut BaseParser<RetTypeEnum{},{}>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,&ltopt,extype,&lexername,absyn,absyn)?;
+      //write!(fd,"\npub fn parse_train_with<{},TT:Tokenizer<{},RetTypeEnum{}>>(parser:&{} mut BaseParser<{},RetTypeEnum{},{},TT>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlife,lexerlife,&ltopt,lexerlife,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
+
+      write!(fd,"\npub fn parse_train_with{}(parser:&{} mut BaseParser<{},RetTypeEnum{},{},{}>, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,lexerlife,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
+      
       if self.Gmr.bumpast {
-        write!(fd,"  if lexer.bump.is_some() {{parser.exstate.set(lexer.bump.unwrap());}}\n")?;
+        write!(fd,"  if parser.tokenizer.bump.is_some() {{let bb = parser.tokenizer.bump.unwrap(); parser.exstate.set(bb);}}\n")?;
       }//bump
-      write!(fd,"  lexer.shared_state = Rc::clone(&parser.shared_state);\n")?;
-      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(lexer,parserpath) {{\n",abindex)?;
+      write!(fd,"  parser.tokenizer.shared_state = Rc::clone(&parser.shared_state);\n")?;
+      write!(fd,"  if let RetTypeEnum::Enumvariant_{}(_xres_) = parser.parse_train(parserpath) {{\n",abindex)?;
       write!(fd,"     if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n  }} ")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_train_with public function\n",absyn)?;
 
@@ -616,7 +594,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
 
     ////// Augment!
-    write!(fd,"fn load_extras{}(parser:&mut BaseParser<RetTypeEnum{},{}>)\n{{\n",&ltopt,&ltopt,extype)?;
+    write!(fd,"fn load_extras<{},TT:Tokenizer<{},RetTypeEnum{}>>(parser:&mut BaseParser<{},RetTypeEnum{},{},TT>)\n{{\n",lexerlife,lexerlife,&ltopt,lexerlife,&ltopt,extype)?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
   }//writeenumparser

@@ -107,7 +107,7 @@ mod lalr_statemachine;
 mod selmlk; // experimental
 
 pub mod base_parser; // experimental
-pub use base_parser::{BaseParser,BaseProduction,StackItem};
+pub use base_parser::{BaseParser,BaseProduction};
 
 //mod logos_lexer;
 
@@ -119,9 +119,9 @@ mod yaccparser;
 use lalr_statemachine::LALRMachine;
 #[cfg(feature = "generator")]
 use selmlk::{MLStatemachine};
-pub use zc_parser::{ZCParser,ZCRProduction,StackedItem};
+pub use zc_parser::{ZCParser,ZCRProduction};
 #[cfg(feature = "legacy-parser")]
-pub use runtime_parser::{RuntimeParser,RProduction};
+pub use runtime_parser::{RuntimeParser,RProduction,StackedItem};
 
 pub const RUSTLRVERSION:&'static str = "0.5.2";
 
@@ -166,6 +166,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
   let mut zc = true;
+  let mut newbase = false;
   let mut genlex = false;
   let mut genabsyn = false;
   let mut lrsd = false;
@@ -206,6 +207,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
        },
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
+       "-newbase" => {newbase = true; genabsyn=true; genlex=true;},
        "genlex" | "-genlex" => {genlex=true; },
        "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
@@ -326,8 +328,10 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   }
   let write_result =
     if mode==1 { fsm0.writefsparser(&parserfile) }
-    else
-    if zc {  // write zero-copy parser
+    else if newbase && !lrsd {
+      fsm0.writebaseenumparser(&parserfile)
+    }
+    else if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)
       //fsm0.writelbaparser(&parserfile)
       if !lrsd {fsm0.writeenumparser(&parserfile)}

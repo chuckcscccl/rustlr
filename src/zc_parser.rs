@@ -39,7 +39,7 @@ use crate::{Stateaction,iserror,TerminalToken,Tokenizer};
 use crate::{LBox,LRc,LC};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
-use crate::{StandardReporter};
+use crate::{StandardReporter,StackedItem};
 #[cfg(feature = "generator")]
 use crate::{Statemachine};
 
@@ -66,6 +66,7 @@ impl<AT:Default,ET:Default> ZCRProduction<AT,ET>
   }
 }//impl ZCRProduction
 
+/* moved to runtime_parser module for uniformity
 /// These structures are what's on the parse stack.
 pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
@@ -83,6 +84,7 @@ impl<AT:Default> StackedItem<AT>
   pub fn lbox(self) -> LBox<AT>  // no longer used
   {  LBox::new(self.value,self.line,self.column) }
 }
+*/
 
 /// this is the structure created by the generated parser.  The generated parser
 /// program will contain a make_parser function that returns this structure.

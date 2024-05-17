@@ -930,3 +930,24 @@ impl<AT:Default,ET:Default> RuntimeParser<AT,ET>
   }//train_from_script
 
 }// 3rd impl RuntimeParser
+
+
+//// for uniformity
+
+/// These structures are what's on the parse stack.
+pub struct StackedItem<AT:Default>   // replaces Stackelement
+{
+   pub si : usize, // state index
+   pub value : AT, // semantic value (don't clone grammar symbols)
+   pub line: usize,  // line and column
+   pub column: usize, 
+}
+impl<AT:Default> StackedItem<AT>
+{
+  pub fn new(si:usize,value:AT,line:usize,column:usize) -> StackedItem<AT>
+  { StackedItem{si,value,line,column} }
+  /// converts the information in a stacked item to an [LBox] enclosing
+  /// the abstract syntax value along with starting line and column numbers
+  pub fn lbox(self) -> LBox<AT>  // no longer used
+  {  LBox::new(self.value,self.line,self.column) }
+}

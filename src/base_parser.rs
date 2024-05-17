@@ -39,7 +39,7 @@ use crate::{Stateaction,iserror,TerminalToken,Tokenizer};
 use crate::{LBox,LRc,LC};
 use crate::Stateaction::*;
 use crate::{lbup,lbdown,lbget};
-use crate::{StandardReporter};
+use crate::{StandardReporter,StackedItem};
 #[cfg(feature = "generator")]
 use crate::{Statemachine};
 
@@ -66,25 +66,27 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseProduction<'t,AT,ET,TT>
   }
 }//impl BaseProduction
 
+/* imported from runtime_parser module
 /// These structures are what's on the parse stack.
-pub struct StackItem<AT:Default>   // replaces Stackelement
+pub struct StackedItem<AT:Default>   // replaces Stackelement
 {
    si : usize, // state index
    pub value : AT, // semantic value (don't clone grammar symbols)
    pub line: usize,  // line and column
    pub column: usize, 
 }
-impl<AT:Default> StackItem<AT>
+impl<AT:Default> StackedItem<AT>
 {
-  pub fn new(si:usize,value:AT,line:usize,column:usize) -> StackItem<AT>
-  { StackItem{si,value,line,column} }
+  pub fn new(si:usize,value:AT,line:usize,column:usize) -> StackedItem<AT>
+  { StackedItem{si,value,line,column} }
   /// converts the information in a stacked item to an [LBox] enclosing
   /// the abstract syntax value along with starting line and column numbers
   pub fn lbox(self) -> LBox<AT>  // no longer used
   {  LBox::new(self.value,self.line,self.column) }
 }
+*/
 
-/// this is the structure created by the generated parser.  The generated parser
+/// This is the structure created by the generated parser.  The generated parser
 /// program will contain a make_parser function that returns this structure.
 /// Most of the pub items are, however, only exported to support the operation
 /// of the parser, and should not be accessed directly.  Only the functions
@@ -114,13 +116,13 @@ pub struct BaseParser<'ilt,AT:Default,ET:Default,TT:Tokenizer<'ilt,AT>>
   ////// this value should be set through abort or report
   stopparsing : bool,
   /// do not reference  
-  pub stack :  Vec<StackItem<AT>>, // parse stack
+  pub stack :  Vec<StackedItem<AT>>, // parse stack
 //  pub recover : HashSet<&'static str>, // for error recovery
   pub resynch : HashSet<&'static str>,
   pub Errsym : &'static str,
   err_occurred : bool,
   /// axiom: linenum and column represents the starting position of the
-  /// topmost StackItem.
+  /// topmost StackedItem.
   pub linenum : usize,
   pub column : usize,
   pub position : usize, // absolute byte position of input
@@ -135,7 +137,7 @@ pub struct BaseParser<'ilt,AT:Default,ET:Default,TT:Tokenizer<'ilt,AT>>
   err_report : Option<String>, // optional err report with logging reporter
 }//struct BaseParser
 
-// 'ilt is input lifetime
+// 't is input lifetime
 impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
 {
     /// this is only called by the make_parser function in the machine-generated
@@ -247,22 +249,13 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
        AT::default()
     }
 
-/*
-    /// sets an index that index source information, such as the source file
-    /// when compiling multiple sources. This information must be maintained externally.
-    /// The source id will also be passed on to the [LBox] and [LRc] smartpointers by
-    /// the [BaseParser::lb] function.
-    pub fn set_src_id(&mut self, id:usize)
-    { self.src_id =id; }
-*/
-
     //called to simulate a shift
     fn errshift(&mut self, sym:&str) -> bool
     {
        let csi = self.stack[self.stack.len()-1].si; // current state
        let actionopt = self.RSM[csi].get(sym);
        if let Some(Shift(ni)) = actionopt {
-         self.stack.push(StackItem::new(*ni,AT::default(),self.linenum,self.column)); true
+         self.stack.push(StackedItem::new(*ni,AT::default(),self.linenum,self.column)); true
        }
        else {false}
     }
@@ -275,14 +268,14 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
      self.linenum = lookahead.line;  self.column=lookahead.column;
      self.prev_position = self.position;
      self.position = self.tokenizer.position();
-     self.stack.push(StackItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
+     self.stack.push(StackedItem::new(nextstate,lookahead.value,lookahead.line,lookahead.column));
      self.tokenizer.next_tt()
   }
 
     /// this function is called from the generated semantic actions and should
     /// most definitely not be called from elsewhere as it would corrupt
     /// the base parser.
-    pub fn popstack(&mut self) -> StackItem<AT>
+    pub fn popstack(&mut self) -> StackedItem<AT>
     {
        let item = self.stack.pop().expect("PARSER STATE MACHINE/STACK CORRUPTED");
        self.linenum = item.line; self.column=item.column;
@@ -305,18 +298,11 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
        self.popped.clear();
        let rulei = &self.Rules[*ri];
        let ruleilhs = rulei.lhs; // &'static : Copy
-       //let mut dummy = RuntimeParser::new(1,1);
        let val = (rulei.Ruleaction)(self); // should be self
        let newtop = self.stack[self.stack.len()-1].si; 
        let goton = self.RSM[newtop].get(ruleilhs).expect("PARSER STATEMACHINE CORRUPTED");
        if let Stateaction::Gotonext(nsi) = goton {
-/*
-the line/column must be the last thing that was popped, but how is this communicated from the semantic actions?
-Solution: When the semantic action pops, it changes self.linenum,self.column,
-instead of pop, there should be a function self.popstack() that returns value.
-This is correct because linenum/column will again reflect start of tos item
-*/
-       self.stack.push(StackItem::new(*nsi,val,self.linenum,self.column)); 
+       self.stack.push(StackedItem::new(*nsi,val,self.linenum,self.column)); 
                 //self.stack.push(Stackelement{si:*nsi,value:val});
        }// goto next state after reduce
               else {
@@ -352,7 +338,7 @@ This is correct because linenum/column will again reflect start of tos item
     /// similar to [BaseParser::lb], but creates a [LRc] instead of [LBox]
     pub fn lrc<T>(&self,e:T) -> LRc<T> { LRc::new(e,self.linenum,self.column /*,self.src_id*/) }
     /// similar to [BaseParser::lba] but creates a [LRc]
-    pub fn lrca<T:'static>(&self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column /*,self.src_id*/)) }
+    pub fn lrca<T:'static>(&'t self,e:T) -> LRc<dyn Any> { LRc::upcast(LRc::new(e,self.linenum,self.column /*,self.src_id*/)) }
 
     /// creates LBox enclosing e using line/column information associated
     /// with right-hand side symbols, numbered left-to-right starting at 0
@@ -401,203 +387,6 @@ This is correct because linenum/column will again reflect start of tos item
 }// impl BaseParser
 
 
-//////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////
-//// new version of write_fsm: (include calls to genlexer)
-#[cfg(feature = "generator")]
-impl Statemachine
-{  /////// base_parser version
-  pub fn writebaseparser(&self, filename:&str)->Result<(),std::io::Error>
-  {
-    let ref absyn = self.Gmr.Absyntype;
-    let ref extype = self.Gmr.Externtype;
-    let ref lifetime = self.Gmr.lifetime;
-    let has_lt = lifetime.len()>0 && (absyn.contains(lifetime) || extype.contains(lifetime));
-    let ltopt = if has_lt {format!("<{}>",lifetime)} else {String::from("")};
-
-    let mut fd = File::create(filename)?;
-    write!(fd,"//Parser generated by rustlr for grammar {}",&self.Gmr.name)?;
-    write!(fd,"\n
-#![allow(unused_variables)]
-#![allow(non_snake_case)]
-#![allow(non_camel_case_types)]
-#![allow(unused_parens)]
-#![allow(unused_mut)]
-#![allow(unused_imports)]
-#![allow(unused_assignments)]
-#![allow(dead_code)]
-#![allow(irrefutable_let_patterns)]
-#![allow(unreachable_patterns)]
-use std::rc::Rc;
-use std::cell::RefCell;
-extern crate rustlr;
-use rustlr::{{Tokenizer,TerminalToken,BaseParser,BaseProduction,Stateaction,decode_action}};\n")?;
-    if self.Gmr.genlex {
-      write!(fd,"use rustlr::{{StrTokenizer,RawToken,LexSource}};
-use std::collections::{{HashMap,HashSet}};\n")?;
-    }
-
-    write!(fd,"{}\n",&self.Gmr.Extras)?; // use clauses and such
-
-    // write static array of symbols
-    write!(fd,"static SYMBOLS:[&'static str;{}] = [",self.Gmr.Symbols.len())?;
-    for i in 0..self.Gmr.Symbols.len()-1
-    {
-      write!(fd,"\"{}\",",&self.Gmr.Symbols[i].sym)?;
-    }
-    write!(fd,"\"{}\"];\n\n",&self.Gmr.Symbols[self.Gmr.Symbols.len()-1].sym)?;
-    // position of symbols must be inline with self.Gmr.Symhash
-
-    // record table entries in a static array
-    let mut totalsize = 0;
-    for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
-    write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
-    // generate table to represent FSM
-    let mut encode:u64 = 0;
-    for i in 0..self.FSM.len() // for each state index i
-    {
-      let row = &self.FSM[i]; // this is a hashmap<usize,stateaction>
-      for key in row.keys()
-      { // see function decode for opposite translation
-        let k = *key; //*self.Gmr.Symhash.get(key).unwrap(); // index of symbol
-        encode = ((i as u64) << 48) + ((k as u64) << 32);
-        match row.get(key) {
-          Some(Shift(statei)) => { encode += (*statei as u64) << 16; },
-          Some(Gotonext(statei)) => { encode += ((*statei as u64) << 16)+1; },
-          Some(Reduce(rulei)) => { encode += ((*rulei as u64) << 16)+2; },
-          Some(Accept) => {encode += 3; },
-          _ => {encode += 4; },  // 4 indicates Error
-        }//match
-        write!(fd,"{},",encode)?;
-      } //for symbol index k
-    }//for each state index i
-    write!(fd,"];\n\n")?;
-
-    // must know what absyn type is when generating code.
-    write!(fd,"pub fn make_parser<{},TT:Tokenizer<{},{}>>(tk:&{} mut TT ) -> BaseParser<{},{},{},TT>",lifetime,lifetime,absyn,lifetime,lifetime,absyn,extype)?; 
-    write!(fd,"\n{{\n")?;
-    // write code to pop stack, assign labels to variables.
-    write!(fd," let mut parser1:BaseParser<{},{},{},TT> = BaseParser::new({},{},tk);\n",lifetime,absyn,extype,self.Gmr.Rules.len(),self.FSM.len())?;
-    // generate rules and Ruleaction delegates, must pop values from runtime stack
-    write!(fd," let mut rule = BaseProduction::<{},{},{},TT>::new_skeleton(\"{}\");\n",lifetime,absyn,extype,"start")?;
-    for i in 0..self.Gmr.Rules.len() 
-    {
-      write!(fd," rule = BaseProduction::<{},{},{},TT>::new_skeleton(\"{}\");\n",lifetime,absyn,extype,self.Gmr.Rules[i].lhs.sym)?;      
-      write!(fd," rule.Ruleaction = |parser|{{ ")?;
-      let mut k = self.Gmr.Rules[i].rhs.len();
-
-      //form if-let labels and patterns as we go...
-      let mut labels = String::from("(");
-      let mut patterns = String::from("(");
-      while k>0 // k is length of right-hand side
-      {
-        let mut boxedlabel = false;  // see if named label is of form [x]
-        let gsym = &self.Gmr.Rules[i].rhs[k-1];
-        let findat = gsym.label.find('@');
-        let mut plab = format!("_item{}_",k-1);
-        match &findat {
-          None if gsym.label.len()>0 && !gsym.label.contains('(') => {
-            let rawlabel = gsym.label.trim();
-            let truelabel = checkboxlabel(rawlabel);
-            boxedlabel = truelabel != rawlabel;
-            plab = String::from(truelabel);             
-            // plab=format!("{}",gsym.label.trim());
-          },
-          Some(ati) if *ati>0 => {
-            let rawlabel = gsym.label[0..*ati].trim();
-            let truelabel = checkboxlabel(rawlabel);
-            boxedlabel = truelabel != rawlabel;
-            plab = String::from(truelabel);            
-          },
-          _ => {},
-        }//match
-        let poppedlab = plab.as_str();
-        if !boxedlabel {
-           write!(fd,"let mut {} = parser.popstack(); ",poppedlab)?;
-        } else {
-           write!(fd,"let mut {} = parser.popstack_as_lbox(); ",poppedlab)?;     
-        }
-        
-	if gsym.label.len()>1 && findat.is_some() { // if-let pattern
-	  let atindex = findat.unwrap();
-          if atindex>0 { // label like es:@Exp(..)@
-            //let varlab = &gsym.label[0..atindex];   //es before @: es:@..@
-            labels.push_str("&mut "); // for if-let
-            if boxedlabel {labels.push('*');}
-            labels.push_str(poppedlab); labels.push_str(".value,");
-            //write!(fd," let mut {}={}.value; ",varlab,poppedlab)?;
-          }
-          else { // non-labeled pattern: E:@..@
-            labels.push_str(poppedlab); labels.push_str(".value,");
-          }
-	  patterns.push_str(&gsym.label[atindex+1..]); patterns.push(',');
-	} // @@ pattern exists, with or without label
-	else if gsym.label.len()>0 && gsym.label.contains('(') // simple label like E:(a,b)
-        { // label exists but only simple pattern
-          labels.push_str(poppedlab); labels.push_str(".value,");
-          patterns.push_str(&gsym.label[..]); // non-mutable
-          patterns.push(',')
-        }// simple label
-        // else simple label is not a pattern, so do nothing
-        k -= 1;      
-      }// for each symbol on right hand side of rule
-      // form if let pattern=labels ...
-      let defaultaction = format!("<{}>::default()}}",absyn);
-      let mut semaction = &self.Gmr.Rules[i].action; //string that ends with }
-      if semaction.len()<=1 {semaction = &defaultaction;}
-      if labels.len()<2 { write!(fd,"{};\n",semaction.trim_end())?; } //empty pattern
-      else { // write an if-let
-        labels.push(')');  patterns.push(')');
-	write!(fd,"\n  if let {}={} {{ {}  else {{parser.bad_pattern(\"{}\")}} }};\n",&patterns,&labels,semaction.trim_end(),&patterns)?;
-      }// if-let semantic action
-
-      write!(fd," parser1.Rules.push(rule);\n")?;
-    }// for each rule
-    write!(fd," parser1.Errsym = \"{}\";\n",&self.Gmr.Errsym)?;
-    // resynch vector
-    for s in &self.Gmr.Resynch {write!(fd," parser1.resynch.insert(\"{}\");\n",s)?;}
-
-    // generate code to load RSM from TABLE
-    write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
-    write!(fd,"   let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;\n")?;
-    write!(fd,"   let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;\n")?;
-    write!(fd,"   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));\n }}\n\n")?;
-//    write!(fd,"\n for i in 0..{} {{for k in 0..{} {{\n",rows,cols)?;
-//    write!(fd,"   parser1.RSM[i].insert(SYMBOLS[k],decode_action(TABLE[i*{}+k]));\n }}}}\n",cols)?;
-    write!(fd," for s in SYMBOLS {{ parser1.Symset.insert(s); }}\n\n")?;
-
-    write!(fd," load_extras(&mut parser1);\n")?;
-    write!(fd," return parser1;\n")?;
-    write!(fd,"}} //make_parser\n\n")?;
-
-      ////// WRITE parse_with and parse_train_with
-      let lexerlt = if has_lt {&ltopt} else {"<'t>"};
-      let traitlt = if has_lt {&self.Gmr.lifetime} else {"'t"};
-      let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
-      let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
-      write!(fd,"pub fn parse_with{}(parser:&mut BaseParser<{},{}>, lexer:&mut dyn Tokenizer<{},{}>) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,traitlt,absyn,absyn,absyn)?;
-      write!(fd,"  let _xres_ = parser.parse(lexer); ")?;
-      write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_with public function\n")?;
-      // training version
-      write!(fd,"\npub fn parse_train_with{}(parser:&mut BaseParser<{},{}>, lexer:&mut dyn Tokenizer<{},{}>, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,absyn,extype,traitlt,absyn,absyn,absyn)?;
-      write!(fd,"  let _xres_ = parser.parse_train(lexer,parserpath); ")?;
-      write!(fd," if !parser.error_occurred() {{Ok(_xres_)}} else {{Err(_xres_)}}\n}}//parse_train_with public function\n")?;
-
-
-    ////// WRITE LEXER
-    if self.Gmr.genlex { self.Gmr.genlexer(&mut fd,"from_raw")?; }
-
-    ////// AUGMENT!
-    write!(fd,"fn load_extras{}(parser:&mut BaseParser<{},{}>)\n{{\n",&ltopt,absyn,extype)?;
-    write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
-    Ok(())
-  }//writebaseparser
-
-
-//writelba, write-verbose no longer supported
-} // impl Statemachine
-
-
 ///////////////////////////////////////////////////////////////////////////
 impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
 {
@@ -636,7 +425,7 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
               match gotonopt {
                 Some(Gotonext(nsi)) => { 
                   //self.stack.push(Stackelement{si:*nsi,value:val});
-                  self.stack.push(StackItem::new(*nsi,val,self.linenum,self.column)); 
+                  self.stack.push(StackedItem::new(*nsi,val,self.linenum,self.column)); 
                 },// goto next state after reduce
                 _ => {self.abort("recovery failed"); },
               }//match
@@ -647,7 +436,7 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
       } // while let erraction is reduce
       // remaining defined action on Errsym must be shift
       if let Some(Shift(i)) = erraction { // simulate shift errsym 
-          self.stack.push(StackItem::new(*i,AT::default(),lookahead.line,lookahead.column));
+          self.stack.push(StackedItem::new(*i,AT::default(),lookahead.line,lookahead.column));
           // keep lookahead until action is found that transitions from
           // current state (i). but skipping ahead without reducing
           // the error production is not a good idea.  This implementation
@@ -877,13 +666,13 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
   /// [ErrReportMaker] object that handles the display of error messages.
   /// This function will reset the parse stack but it will not reset the
   /// Tokenizer or the *external state* of the parser.
-  pub fn parse_core(&mut self, err_handler:&mut dyn ErrReportMaker<'t,AT,ET,TT>) -> AT
+  pub fn parse_core<R:ErrReportMaker<'t,AT,ET,TT>>(&mut self, err_handler:&mut R) -> AT
   {
     self.stack.clear();
     self.err_occurred = false;
     let mut result = AT::default();
     //self.exstate = ET::default();
-    self.stack.push(StackItem::new(0,AT::default(),0,0));
+    self.stack.push(StackedItem::new(0,AT::default(),0,0));
     self.stopparsing = false;
     let mut action = Stateaction::Error("");
     let mut lookahead = TerminalToken::new("EOF",AT::default(),0,0); //just init
