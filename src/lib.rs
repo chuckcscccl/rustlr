@@ -207,7 +207,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
        },
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true;},
-       "-newbase" => {newbase = true; genabsyn=true; genlex=true;},
+       "-newbase" | "-base" => {newbase = true; genabsyn=true; genlex=true;},
        "genlex" | "-genlex" => {genlex=true; },
        "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
@@ -330,6 +330,9 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
     if mode==1 { fsm0.writefsparser(&parserfile) }
     else if newbase && !lrsd {
       fsm0.writebaseenumparser(&parserfile)
+    }
+    else if newbase && lrsd {
+      fsm0.writelrsdbaseparser(&parserfile)    
     }
     else if zc {  // write zero-copy parser
       //fsm0.writezcparser(&parserfile)

@@ -338,7 +338,9 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 }//impl statemachine
 
 
-/////////////////////////////////////// for base_parser
+
+
+/////////////////////////////////////// for new base_parser
 ////////////////////////////////////////////////////////////////////////
 
 
@@ -360,8 +362,6 @@ impl Statemachine
       let lexername = format!("{}lexer{}",&self.Gmr.name,lexerlt);
       let abindex = *self.Gmr.enumhash.get(absyn).unwrap();
       
-
-
     let rlen = self.Gmr.Rules.len();
     // generate action fn's from strings stored in gen-time grammar
     let mut actions:Vec<String> = Vec::with_capacity(rlen);    
@@ -517,7 +517,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     for deffn in &actions { write!(fd,"{}",deffn)?; }
 
     // must know what absyn type is when generating code.
-    write!(fd,"\npub fn make_parser<{},TT:Tokenizer<{},RetTypeEnum{}>>(tk:&{} mut TT) -> BaseParser<{},RetTypeEnum{},{},TT>",lexerlife,lexerlife,&ltopt,lexerlife,lexerlife,&ltopt,extype)?; 
+    write!(fd,"\npub fn make_parser<{},TT:Tokenizer<{},RetTypeEnum{}>>(tk:TT) -> BaseParser<{},RetTypeEnum{},{},TT>",lexerlife,lexerlife,&ltopt,lexerlife,&ltopt,extype)?; 
     write!(fd,"\n{{\n")?;
     // write code to pop stack, assign labels to variables.
     write!(fd," let mut parser1:BaseParser<{},RetTypeEnum{},{},TT> = BaseParser::new({},{},tk);\n",lexerlife,&ltopt,extype,self.Gmr.Rules.len(),self.FSM.len())?;
@@ -561,7 +561,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
 
-      write!(fd,"pub fn parse_with{}(parser:&{} mut BaseParser<{},RetTypeEnum{},{},{}>) -> Result<{},{}>\n{{\n",lexerlt,lexerlife,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"pub fn parse_with{}(parser:&mut BaseParser<{},RetTypeEnum{},{},{}>) -> Result<{},{}>\n{{\n",lexerlt,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
             
       if self.Gmr.bumpast {
         write!(fd,"  if parser.tokenizer.bump.is_some() {{let bb = parser.tokenizer.bump.unwrap(); parser.exstate.set(bb);}}\n")?;
@@ -573,9 +573,8 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       write!(fd,"else {{ Err(<{}>::default())}}\n}}//parse_with public function\n",absyn)?;
       
       // training version
-      //write!(fd,"\npub fn parse_train_with<{},TT:Tokenizer<{},RetTypeEnum{}>>(parser:&{} mut BaseParser<{},RetTypeEnum{},{},TT>, lexer:&mut {}, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlife,lexerlife,&ltopt,lexerlife,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
 
-      write!(fd,"\npub fn parse_train_with{}(parser:&{} mut BaseParser<{},RetTypeEnum{},{},{}>, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,lexerlife,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
+      write!(fd,"\npub fn parse_train_with{}(parser:&mut BaseParser<{},RetTypeEnum{},{},{}>, parserpath:&str) -> Result<{},{}>\n{{\n",lexerlt,lexerlife,&ltopt,extype,&lexername,absyn,absyn)?;
       
       if self.Gmr.bumpast {
         write!(fd,"  if parser.tokenizer.bump.is_some() {{let bb = parser.tokenizer.bump.unwrap(); parser.exstate.set(bb);}}\n")?;

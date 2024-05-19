@@ -131,7 +131,7 @@ pub struct BaseParser<'ilt,AT:Default,ET:Default,TT:Tokenizer<'ilt,AT>>
   report_line : usize,
   /// Hashset containing all grammar symbols (terminal and non-terminal). This is used for error reporting and training.
   pub Symset : HashSet<&'static str>,
-  pub tokenizer:&'ilt mut TT,
+  pub tokenizer: TT,
   popped : Vec<(usize,usize)>,
   gindex : RefCell<u32>,  // global index for uid
   err_report : Option<String>, // optional err report with logging reporter
@@ -143,7 +143,7 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
     /// this is only called by the make_parser function in the machine-generated
     /// parser program.  *Do not call this function in other places* as it
     /// only generates a skeleton.
-    pub fn new(rlen:usize, slen:usize, tk:&'t mut TT) -> Self
+    pub fn new(rlen:usize, slen:usize, tk: TT) -> Self
     {  // given number of rules and number states
        let mut p = BaseParser {
          RSM : Vec::with_capacity(slen),
@@ -174,6 +174,18 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
        }
        return p;
     }//new
+
+    /// returns a mutatble borrow of the parser's tokenizer
+    pub fn get_tokenizer(&mut self) -> &mut TT {
+      &mut self.tokenizer
+    }
+
+    /// replaces the parser's tokenizer with a new tokenizer, and
+    /// returns the previous tokenizer
+    pub fn swap_tokenizer(&mut self, mut newtk:TT) -> TT {
+      std::mem::swap(&mut self.tokenizer, &mut newtk);
+      newtk
+    }
 
     /// returns the current line number
     pub fn current_line(&self)->usize {self.linenum}

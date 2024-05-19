@@ -30,19 +30,38 @@ fn main() {
       if args.len()>1 {input = args[1].as_str();}
        let mut scanner4 = calcautoparser::calcautolexer::from_str(input);
     */
+
+    /*
     let src = rustlr::LexSource::new("input.txt").expect("input not found");
     let mut scanner4 = calcautoparser::calcautolexer::from_source(&src);
     let mut parser4 = calcautoparser::make_parser();
+    parser4.set_err_report(true);
     //let tree4= calcautoparser::parse_train_with(&mut parser4, &mut scanner4,"src/calcautoparser.rs");
     let tree4 = calcautoparser::parse_with(&mut parser4, &mut scanner4);
     let result4 = tree4.unwrap_or_else(|x| {
+        println!("ERROR REPORT:\n{}",parser4.get_err_report());
         println!("Parsing errors encountered; results are partial..");
         x
     });
+    */
 
-    println!("\nABSYN: {:?}\n", &result4);
+    // testing new base_parser
+    let src = rustlr::LexSource::new("input.txt").expect("input not found");
+    let mut scanner4 = calcautoparser::calcautolexer::from_source(&src);
+    let mut parser4 = calcautoparser::make_parser(scanner4);
+    parser4.set_err_report(true);
+    let tree4 = calcautoparser::parse_with(&mut parser4);
+    let result4 = tree4.unwrap_or_else(|x| {
+       //println!("\nParsing errors encountered; results are partial..");
+       println!("{}",parser4.get_err_report());       
+       x
+    });
+    println!("\nABSYN: {:?}\n", result4);
+    //println!("{}",parser4.get_err_report());       
+
+
     //eval_seq(&newenv(), &result4, 1); // evaluate each expression in sequence
-                                      //   println!("\nline 10: {}",scanner4.get_line(10).unwrap());
+    //println!("\nline 10: {}",parser4.get_tokenizer().get_line(10).unwrap());
 } //main
 
 
