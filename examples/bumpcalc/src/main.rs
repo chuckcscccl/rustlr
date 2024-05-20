@@ -33,6 +33,8 @@ fn main()
    // interesting: only need to use Tokenizer for it to recognize function,
    // don't need to typecast
 
+
+/*
    ////////////////////////////////////////////////////////////////
    println!("====== auto-bump ======\n");
    let source2=LexSource::with_bump(srcfile).unwrap();
@@ -43,6 +45,16 @@ fn main()
    let tree5= bautocalcparser::parse_with(&mut parser5, &mut scanner5);
    let result5 = tree5.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
    println!("ast: {:?}",&result5);
+*/
+
+   /////// for new base_parser
+   println!("====== auto-bump base======\n");
+   let source2=LexSource::with_bump(srcfile).unwrap();
+   let mut scanner5 = bautocalcparser::bautocalclexer::from_source(&source2);   
+   let mut parser5 = bautocalcparser::make_parser(scanner5);
+   let tree5= bautocalcparser::parse_with(&mut parser5);
+   let result5 = tree5.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
+   println!("ast: {:?}",&result5);   
 
    test();
 }//main
