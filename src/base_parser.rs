@@ -90,8 +90,9 @@ impl<AT:Default> StackedItem<AT>
 /// program will contain a make_parser function that returns this structure.
 /// Most of the pub items are, however, only exported to support the operation
 /// of the parser, and should not be accessed directly.  Only the functions
-/// [BaseParser::parse], [BaseParser::report], [BaseParser::abort]
-/// and [BaseParser::error_occurred] should be called directly 
+/// [BaseParser::parse], [BaseParser::report], [BaseParser::abort],
+/// [BaseParser::error_occurred], [BaseParser::get_tokenizer] and
+/// [BaseParser::swap_tokenizer] should be called directly 
 /// from user programs.  Only the field [BaseParser::exstate] should be accessed
 /// by user programs.
 pub struct BaseParser<'ilt,AT:Default,ET:Default,TT:Tokenizer<'ilt,AT>>  
