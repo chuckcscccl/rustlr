@@ -513,6 +513,7 @@ impl<'t,AT:Default,ET:Default,TT:Tokenizer<'t,AT>> BaseParser<'t,AT,ET,TT>
     self.err_occurred = false;
     let mut result = AT::default();
     self.exstate = ET::default();
+    *self.shared_state.borrow_mut() = ET::default();
   }//reset
 
   /// Retrieves recorded error report.  This function will return an empty string

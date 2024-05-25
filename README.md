@@ -8,8 +8,7 @@
 This rewrite of key components consists of mainly internal changes except
 for how the parser interacts with the lexical tokenizer.  Semantic actions
 in grammars can now make adjustments directly to the tokenizer.  The version
-0.5 style is temporarily preserved if the `rustlr` application is
-given the `-zc` option.
+0.5 style is preserved by giving the `rustlr` application the `-zc` option.
 
 -------------------
 
@@ -172,6 +171,10 @@ AST: ExpList([BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4))), Binary
 Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
 
 <br>
+
+#### New in Version 0.6.0
+
+Semantic actions can now control the behavior of the lexical tokenizer.
 
 #### New in Version 0.5.0
 
