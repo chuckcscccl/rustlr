@@ -10,6 +10,7 @@ mod java15parser;
 
 use rustlr::{LexSource,Tokenizer};
 
+/*
 fn main()
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -26,7 +27,7 @@ fn main()
   println!("\nParsing errors: {}",parser.error_occurred());
    
 }//main
-
+*/
 /*
 fn main()
 {
@@ -62,7 +63,7 @@ fn main()
 }//main
 */
 
-/*
+
 fn main()
 {
   let args:Vec<String> = std::env::args().collect(); // command-line args
@@ -79,4 +80,4 @@ fn main()
   println!("\nParsing errors: {}",parser.error_occurred());
    
 }//main
-*/
+

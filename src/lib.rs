@@ -165,8 +165,8 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   let mut newlalr = true;
   let mut tracelev:usize = 1; // trace-level
   let mut verbose = false;
-  let mut zc = true;
-  let mut newbase = false;
+  let mut zc = false;
+  let mut newbase = true;
   let mut genlex = false;
   let mut genabsyn = false;
   let mut lrsd = false;
@@ -206,8 +206,8 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
           }
        },
        "verbose" | "-verbose" => { verbose=true; },
-       "-zc" | "zero_copy" => {zc=true;},
-       "-newbase" | "-base" => {newbase = true; genabsyn=true; genlex=true;},
+       "-zc" | "zero_copy" => {zc=true; newbase=false;},
+       "-newbase" | "-base" => {newbase = true; zc=false; genabsyn=true; genlex=true;},
        "genlex" | "-genlex" => {genlex=true; },
        "-genabsyn" | "-ast" | "-auto" => {genabsyn = true; },
        "-nozc" => {zc=false;},
