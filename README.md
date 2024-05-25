@@ -3,9 +3,9 @@
 
 **A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.**
 
-### New Version 0.6.0
+### New Version 0.5.2
 
-This rewrite of key components consists of mainly internal changes except for
+This rewrite of key components consists of mainly internal changes except
 for how the parser interacts with the lexical tokenizer.  Semantics actions
 in grammars can now make adjustments directly to the tokenizer.  The version
 0.5 style is temporarily preserved if the `rustlr` application is
