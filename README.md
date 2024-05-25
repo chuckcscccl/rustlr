@@ -3,7 +3,7 @@
 
 **A [Tutorial](https://chuckcscccl.github.io/rustlr_project/) with several examples is available.**
 
-### New Version 0.5.2
+### New Version 0.6
 
 This rewrite of key components consists of mainly internal changes except
 for how the parser interacts with the lexical tokenizer.  Semantics actions
@@ -20,8 +20,8 @@ options
 
    ```
    S -->  a B c  |  A B d
-   A --> a
    B --> b | B b
+   A --> a
    ```
    
 is unambiguous but is **not** LR(k) because it cannot decide whether to

@@ -123,7 +123,7 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 #[cfg(feature = "legacy-parser")]
 pub use runtime_parser::{RuntimeParser,RProduction,StackedItem};
 
-pub const RUSTLRVERSION:&'static str = "0.5.2";
+pub const RUSTLRVERSION:&'static str = "0.6.0";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.
