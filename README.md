@@ -61,6 +61,7 @@ compatibility will be maintained as much as possible.
 ### Quick Example: Arithmetic Expressions and Their Abstract Syntax
 
 The following are the contents of a Rustlr grammar, [`simplecalc.grammar`](https://github.com/chuckcscccl/rustlr/blob/main/examples/simplecalc/simplecalc.grammar):
+
 ```
 auto
 terminals + * - / ; ( )   # verbatim terminal symbols
@@ -70,7 +71,7 @@ nonterminal T : E  # specifies that AST for T should merge into E
 nonterminal F : E
 nonterminal ExpList
 startsymbol ExpList
-variant-group-for E BinaryOp + - * /  # group operators in AST generation
+variant-group-for E BinaryOp + - * /    # controls AST generation
 
 # production rules:
 E --> E + T  | E - T | T
@@ -82,18 +83,19 @@ ExpList --> E<;+> ;?    # ;-separated list with optional trailing ;
 
 !mod simplecalc_ast; // !-lines are injected verbatim into the parser
 !fn main()  {
-!  let mut scanner1 = simplecalclexer::from_str("10+-2*4; 9-(4-1)");
-!  let mut parser1 = make_parser();
-!  let parseresult = parse_with(&mut parser1, &mut scanner1);
+!  let mut scanner1 = simplecalclexer::from_str("10+-2*4; 9-(4-1);");
+!  let mut parser1 = make_parser(scanner1);
+!  let parseresult = parse_with(&mut parser1);
 !  let ast =
 !    parseresult.
 !    unwrap_or_else(|x| {
-!       eprintln!("Parsing errors encountered; results not guaranteed..");
+!       println!("Parsing errors encountered; results not guaranteed..");
 !       x
 !    });
 !  println!("\nAST: {:?}\n",&ast);
 !}//main
 ```
+
 The grammar recognizes one or more arithmetic expressions separated by
 semicolons.  In addition to a parser, the grammar generates a lexical
 scanner from the declarations of terminal symbols.  It also created
@@ -144,9 +146,8 @@ Specifying operator precedence and associativity instead of using the
 `T` and `F` categories is also supported.
 
 The generated parser and lexer normally form a separate module.  However,
-as this is a quick example, we've injected a `main` directly into the parser
-to demonstrate how to invoke the parser.
-To run this example,
+for this quick example we've injected a `main` directly into the parser
+to demonstrate how to invoke it.  To run this example,
 
   1. Install rustlr as a command-line application: **`cargo install rustlr`**
   
