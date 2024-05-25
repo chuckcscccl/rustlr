@@ -1,0 +1,8 @@
+[package]
+name = "bumplogic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rustlr = { path = "../../../rustlr", default-features = false }
+bumpalo = "3.16.0"
