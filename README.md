@@ -19,7 +19,7 @@ options
 1. An experimental feature that generates parsers for *[Selective Marcus-Leermakers grammars](https://hal.archives-ouvertes.fr/hal-00769668/document)*.  This is a larger class of unambiguous grammars than traditional LR.  For example, the following grammar
 
    ```
-   S -->  a B c  |  A B d
+   S --> a B c  |  A B d
    B --> b | B b
    A --> a
    ```
