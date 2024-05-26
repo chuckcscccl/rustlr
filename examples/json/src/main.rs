@@ -12,7 +12,7 @@ use rustlr::Tokenizer;
 
 fn main() {
     let src = rustlr::LexSource::new("person.json").expect("input not found");
-    let mut scanner4 = jsonparser::jsonlexer::from_source(&src);
+    let scanner4 = jsonparser::jsonlexer::from_source(&src);
     let mut parser4 = jsonparser::make_parser(scanner4);
     parser4.set_err_report(true);
     //let tree4= jsonparser::parse_train_with(&mut parser4,"src/jsonparser.rs");
@@ -23,6 +23,6 @@ fn main() {
         x
     });
 
-    println!("\nABSYN: {:?}\n", &result4);
+    println!("\nABSYN: {:#?}\n", &result4);
 } //main
 

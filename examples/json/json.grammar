@@ -22,10 +22,14 @@ nonterminal Integer i64
 nonterminal Floatpt f64
 nonterminal Boolean bool
 nonterminals Value KeyValuePair Number
-nonterminal Object : Value
 nonterminal List : Value
-topsym Value
+#nonterminal Object : Value
+$use std::collections::HashMap;
+nonterminal Object HashMap<&'lt str,LBox<@Value>>
+
+startsymbol Value
 resync COMMA RBRACK RBRACE
+
 
 Integer --> MINUS?:m NUM:n {if m.is_some() {n*-1} else {n}}
 Floatpt --> MINUS?:m FLOAT:n {if m.is_some() {-1.0*n} else {n}} 
@@ -37,10 +41,17 @@ Boolean --> TRUE | FALSE
 Value:Number --> Number
 Value:Boolean --> Boolean
 Value:Str --> STRING
-Value --> Object
+Value:Map --> Object
 Value --> List
 Value --> NULL
 Value --> LPAREN Value RPAREN
 KeyValuePair --> STRING COLON Value
 List:List --> LBRACK Value<COMMA*> RBRACK
-Object:Object --> LBRACE KeyValuePair<COMMA*> RBRACE
+Object:Object ==> LBRACE KeyValuePair<COMMA*>:entries RBRACE {
+    let mut map = HashMap::new();
+    for (mut lbx) in entries {
+      let KeyValuePair(k,v) = lbx.take();
+      map.insert(k,v);
+    }
+    map
+  } <==
