@@ -6,9 +6,10 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
-use crate::{LC,LBox};
-pub use std::collections::{HashSet,BTreeSet};
+pub use crate::LC;
+use crate::LBox;
 
+pub use std::collections::{HashSet,BTreeSet};
 #[derive(Default,Debug)]
 pub struct symbol_table<'t> {
   pub lexterminals : HashSet<&'t str>,
@@ -20,30 +21,38 @@ pub struct symbol_table<'t> {
 
 
 #[derive(Debug)]
+pub enum yacc_decl<'lt> {
+  lexterminal(&'lt str,&'lt str),
+  topsym{s:&'lt str},
+  nonterminal(Option<LBox<&'lt str>>,Vec<LC<&'lt str>>),
+  uniondec(unionset,&'lt str),
+  left{vs:Vec<LC<idnum<'lt>>>},
+  terminals(Vec<LC<idnum<'lt>>>),
+  right{vs:Vec<LC<idnum<'lt>>>},
+  nonassoc{vs:Vec<LC<idnum<'lt>>>},
+  yacc_decl_Nothing,
+}
+impl<'lt> Default for yacc_decl<'lt> { fn default()->Self { yacc_decl::yacc_decl_Nothing } }
+
+#[derive(Debug)]
 pub enum semstart {
   semstart_Nothing,
 }
 impl Default for semstart { fn default()->Self { semstart::semstart_Nothing } }
 
 #[derive(Debug)]
-pub enum yacc_decl<'lt> {
-  lexterminal(&'lt str,&'lt str),
-  right{vs:Vec<LC<idnum<'lt>>>},
-  uniondec(unionset,&'lt str),
-  topsym{s:&'lt str},
-  terminals(Vec<LC<idnum<'lt>>>),
-  nonterminal(Option<LBox<&'lt str>>,Vec<LC<&'lt str>>),
-  nonassoc{vs:Vec<LC<idnum<'lt>>>},
-  left{vs:Vec<LC<idnum<'lt>>>},
-  yacc_decl_Nothing,
+pub enum semcontent<'lt> {
+  RBRACE,
+  _WILDCARD_TOKEN_(&'lt str),
+  semcontent_Nothing,
 }
-impl<'lt> Default for yacc_decl<'lt> { fn default()->Self { yacc_decl::yacc_decl_Nothing } }
+impl<'lt> Default for semcontent<'lt> { fn default()->Self { semcontent::semcontent_Nothing } }
 
 #[derive(Debug)]
 pub enum rhs_symbol<'lt> {
-  ID(&'lt str,Option<LBox<label<'lt>>>),
   LEXSTR{t:&'lt str},
   LEXCHAR{t:&'lt str},
+  ID(&'lt str,Option<LBox<label<'lt>>>),
   rhs_symbol_Nothing,
 }
 impl<'lt> Default for rhs_symbol<'lt> { fn default()->Self { rhs_symbol::rhs_symbol_Nothing } }
@@ -51,35 +60,26 @@ impl<'lt> Default for rhs_symbol<'lt> { fn default()->Self { rhs_symbol::rhs_sym
 #[derive(Debug)]
 pub enum label<'lt> {
   parened(Vec<LC<&'lt str>>),
-  boxed(&'lt str),
   simple(&'lt str),
+  boxed(&'lt str),
   label_Nothing,
 }
 impl<'lt> Default for label<'lt> { fn default()->Self { label::label_Nothing } }
 
-#[derive(Debug)]
-pub enum semcontent {
-  RBRACE,
-  _WILDCARD_TOKEN_((usize,usize)),
-  semcontent_Nothing,
-}
-impl Default for semcontent { fn default()->Self { semcontent::semcontent_Nothing } }
+#[derive(Default,Debug)]
+pub struct semaction<'lt>(pub Vec<LC<semcontent<'lt>>>,);
 
 #[derive(Default,Debug)]
-pub struct rhsunit<'lt>(pub Option<LBox<semaction>>,pub rhs_symbol<'lt>,);
+pub struct rhs<'lt>(pub Vec<LC<rhsunit<'lt>>>,pub Option<LBox<semaction<'lt>>>,);
 
 #[derive(Default,Debug)]
-pub struct primary<'lt> {
-  pub raw_declarations:Option<LBox<&'lt str>>,
-  pub yacc_declarations:Vec<LC<yacc_decl<'lt>>>,
-  pub rules:Vec<LC<grammar_rules<'lt>>>,
-}
+pub struct Yacc<'lt>(pub Option<LBox<NEWSEQNT_8_0<'lt>>>,pub primary<'lt>,pub Option<&'lt str>,);
 
 #[derive(Default,Debug)]
-pub struct rhs<'lt>(pub Vec<LC<rhsunit<'lt>>>,pub Option<LBox<semaction>>,);
+pub struct idnum<'lt>(pub &'lt str,pub Option<u32>,);
 
 #[derive(Default,Debug)]
-pub struct semaction(pub Vec<LC<semcontent>>,);
+pub struct rhsunit<'lt>(pub Option<LBox<semaction<'lt>>>,pub rhs_symbol<'lt>,);
 
 #[derive(Default,Debug)]
 pub struct grammar_rules<'lt> {
@@ -88,16 +88,17 @@ pub struct grammar_rules<'lt> {
 }
 
 #[derive(Default,Debug)]
-pub struct idnum<'lt>(pub &'lt str,pub Option<u32>,);
-
-#[derive(Default,Debug)]
 pub struct NEWSEQNT_8_0<'lt>(pub &'lt str,pub &'lt str,);
 
 #[derive(Default,Debug)]
 pub struct unionset();
 
 #[derive(Default,Debug)]
-pub struct Yacc<'lt>(pub Option<LBox<NEWSEQNT_8_0<'lt>>>,pub primary<'lt>,pub Option<LBox<&'lt str>>,);
+pub struct primary<'lt> {
+  pub raw_declarations:Option<&'lt str>,
+  pub yacc_declarations:Vec<LC<yacc_decl<'lt>>>,
+  pub rules:Vec<LC<grammar_rules<'lt>>>,
+}
 
 #[derive(Default,Debug)]
 pub struct tag<'lt>(pub Option<LBox<&'lt str>>,);

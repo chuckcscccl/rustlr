@@ -13,7 +13,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::io::{self,Read,Write,BufReader,BufRead};
-use crate::{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action};
+use crate::{Tokenizer,TerminalToken,BaseParser,BaseProduction,Stateaction,decode_action};
 use crate::{StrTokenizer,RawToken,LexSource};
 use std::collections::{HashMap,HashSet};
 use crate::{LC,LBox};
@@ -22,19 +22,18 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-
-////////////// manually added
+// manually added
 pub fn convert_from_yacc(srcfile:&str)
 {
   let sourceopt = LexSource::new(srcfile);
   if sourceopt.is_err() {return;}
   let source = sourceopt.unwrap();
 
-   let mut scanner4 = yacclexer::from_source(&source);
-   let mut parser4 =make_parser();
-   let tree4= parse_with(&mut parser4, &mut scanner4);
-   let result4 = tree4.unwrap_or_else(|x|{eprintln!("Grammar Parsing errors encountered; results are partial.."); x});
-   if parser4.error_occurred() {eprintln!("\n Grammar Parsing Errors Encountered.. check above");}
+   let scanner4 = yacclexer::from_source(&source);
+   let mut parser4 = make_parser(scanner4);
+   let tree4= parse_with(&mut parser4);
+   let result4 = tree4.unwrap_or_else(|x|{println!("Parsing errors encountered; results are partial.."); x});
+   if parser4.error_occurred() {println!("\n Parser Errors Encountered.. check above");}
 
    let symboltable = parser4.shared_state.take();
    let rrgmr = build_rr(&result4,&symboltable);
@@ -53,12 +52,10 @@ pub fn convert_from_yacc(srcfile:&str)
    }// write to file
 }//convert_from_yacc
 
-
 ///// building rustlr grammar
 use yacc_decl::*;
 use rhs_symbol::*;
 use label::*;
-
 
 // ignore all raw C code and all semantic actions as they are meaningless
 // in rust anyway.  Only extract and translate the pure grammar.
@@ -71,11 +68,10 @@ pub fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
   // write collected lexterminals from symbol table
   // create reverse hashmap from lexforms to names
   let mut lexhash = HashMap::with_capacity(symtab.lexterminals.len());
-
-// insert names for common symbols
+  // insert names for common symbols
   let syms1 = ["+","-","*","/","%","#","&","^","$","@",",",";",".","|",":"];
   let names1= ["PLUS","MINUS","STAR","SLASH","MOD","HASH","AND","HAT","DOLLAR","ATSYMBOL","COMMA","SEMICOLON","PERIOD","BAR","COLON"];
-  let syms2= ["=","!","!=","==","&&","||","++","--","<",">","<=",">=","**"];
+  let syms2 =["=","!","!=","==","&&","||","++","--","<",">","<=",">=","**"];
   let names2= ["EQUALS","BANG","NOTEQ","EQEQ","ANDAND","OROR","PLUSPLUS","MINUSMINUS", "LESSTHAN", "GREATERTHAN","LEQ","GEQ","STARSTAR"];
   let syms3 = ["(",")","[","]","{","}","+=","-=","*=","/=","?","\\","~","::","->"];
   let names3= ["LPAREN","RPAREN","LBRACK","RBRACK","LBRACE","RBRACE","PLUSEQ","MINUSEQ","TIMESEQ","DIVEQ","QUEST","BACKSLASH","TILDE","COLONCOLON","ARROW"];
@@ -92,6 +88,8 @@ pub fn build_rr<'t>(yygmr:&Yacc<'t>, symtab:&symbol_table<'t>) -> String
        tname1
     });
     rrgmr.push_str(&format!("lexterminal {} {}\n",tname,lterm));
+    //lexhash.insert(lterm,tname); // maps * to TERMINAL1
+    //ltcx+=1;
   }//for lexterminals in symbol table
   
   // process yacc_declarations for more terminals,
@@ -221,370 +219,365 @@ fn getlabel(lab:&label) -> String
   }
 }//getlabel
 
-//////////////
-
-
-
-
 
 static SYMBOLS:[&'static str;76] = ["_WILDCARD_TOKEN_","ACTION","ADDITIONALS","RAWDECL","ID","LEXCHAR","LEXSTR","NUMBER","PERTYPE","PERTOKEN","PERLEFT","PERRIGHT","PERNONASSOC","PERSTART","PERPERCENT","LBRACE","RBRACE","LPAREN","RPAREN","LBRACK","RBRACK","LANGLE","RANGLE","PERCENT","COLON","SEMICOLON","COMMA","BAR","STAR","PLUS","QUEST","PERLBRACK","PERRBRACK","AT","DOLLAR","TWODOLLARS","DASH","union","yacc_decl","Yacc","grammar_rules","rhs_symbol","rhs","label","tag","idnum","primary","rhsunit","semaction","semcontent","semstart","unionset","NEWRENT_1_0","NEWRENT_3_1","NEWRENT_5_2","NEWSEQNT_8_0","NEWRENT_9_1","NEWRENT_11_2","NEWRENT_13_3","NEWRENT_16_0","NEWRENT_26_0","NEWSEQNT_29_0","NEWRENT_30_1","NEWRENT_33_0","NEWSEQNT_36_0","NEWRENT_37_1","NEWSEPNT_44_0","NEWRENT_46_1","NEWRENT_49_0","NEWRENT_52_0","NEWRENT_57_0","NEWSEPNT_60_0","START","EOF","NEWDELAYNT_NEWRENT_9_1_46","NEWDELAYNT_NEWRENT_1_0_53"];
 
-static TABLE:[u64;449] = [55835361280,38655819776,167503986689,317827973121,12886343680,47245361152,236223528961,227634446337,163210002433,34360590336,42950590464,98790473728,197568954369,51540262912,322123923457,1126213439455235,1407387769896960,1407422128914432,1407417834143744,1407409244143616,1407473668784128,1407413539373056,1407538093555713,1407572453359617,1407602517999617,1407426423816192,1407697007476737,1407430718914560,1688858450919426,1688909995638784,1689163393597442,1689094679166977,1970638373781506,1970333431103490,1970384970711042,2815003174371329,2814943044894721,2814766951301120,3096478152589313,3096418021605377,3096241928011776,3377716906033152,3659440990322689,3659436695420929,3659363680845825,3659264896794624,3659191879073794,3940666858143744,3940842951737345,3940903082000385,4222283569299456,4222343698776065,4785267881869313,4785328011804673,4785091788537856,5066605416153088,5066592531382272,5066588236611584,5066712791121921,5066609714724866,5066648366022656,5066596826152960,5066601121054720,5066583941382144,5348080392273922,5348063212404738,5348076097306626,5348058917437442,5348123341946882,5348067507372034,5348084687241218,5348071802339330,5629813070954498,5629508128276482,5629559667884034,5911034642104320,6192548272865280,6192677122408449,6192492438224896,6192612697636865,6192501027897344,6192496732995584,6192505322995712,6192483848224768,6192488143454208,6473971709706240,6473958824935424,6473963120164864,6474087674675201,6473984598212610,6473967414935552,6474023249575936,6473976004608000,6473980299706368,6755498225565698,6755446685958146,6755450980925442,6755442390990850,6755433801056258,6755459570860034,6755455275892738,6755438096023554,7037106347835393,7036891599339520,7037046218227713,7318452475658240,7599884501057538,7599841551384578,7599832961449986,7600137904128002,7881307942289410,7881316529471488,7881471148490753,7881359481896962,7881612884967426,8162791504871426,8163087857614850,8162834454544386,8162782914936834,8444545656160257,8444270779564034,8444275074531330,8444356678909954,8444313729236994,8444266484596738,8444554246029313,8444429692108801,8444365268844546,8725831654506496,8725840244375552,9007491315138561,9007220732788738,9007216437821442,9007405415661569,9007315222069250,9007225027756034,9007306632134658,9007263681675264,9007401120759809,9288790199500802,9288781609566210,9570265175687170,9570174981373954,9570329599148033,9570256585752578,9570445563002881,9570213636079618,9570170686406658,9570166391439362,9851937721352194,9851684318281730,9851632778674178,9851641368608770,10133215129698306,10133206539763714,10414642861506562,10414874789937153,10414574142029826,10696070593118210,10696074888085506,10696066298150914,10696165082398722,10696156492464130,10977640059305986,10977545570025474,10977549864992770,10977631469371394,10977541275058178,10977588519698434,11259016251179008,11259020546015232,11259106445950978,11259024840916992,11259175164903425,11259115035885570,11540538472267778,11540495522594818,11540590011875330,11540581421940738,11540499817562114,11540491227627522,11821970499239938,11822064988520450,11822056398585858,11821966204272642,11821974794207234,11822013448912898,12103445476540418,12103488426213378,12103531375886338,12103539965820930,12103449771507714,12103441181573122,12385014941810690,12385178151223297,12384963402203138,12385173856190465,12385002057433088,12384916157562882,12384924747497474,12384920452530178,12385006351876098,12666455559569408,12666446969569280,12666391135125504,12666558638915585,12947956305362946,12947870406017026,12947866111049730,12947964895297538,12947874700984322,12947913355689986,13229439871811586,13229388332204034,13229349677498370,13229345382531074,13229431281876994,13229341087563778,13511082353491969,13510816065585152,13792291042099200,14073864802336770,14073770313056258,14073766018088962,14073856212402178,14073813262729218,14073774608023554,14355339778719746,14355240994471938,14355245289439234,14355288239112194,14355331188785154,14355249584406530,14636784691773440,14918190948286466,14918195243253762,14918281142599682,14918238192926722,14918199538221058,14918289732534274,15199936508919809,15199760415195136,15199726054801410,15481235391119362,15481201031380994,15762676008288258,15762615879532544,16044150985719808,16325565831905282,16325570126872578,16325664616153090,16325656026218498,16325613076545538,16325574421839874,16607135298027522,16607100938289154,16888567326113792,16888498606702592,16888709060165633,17169999352823810,17169973582954498,17170042302431234,17169995057856514,17170080957202434,17169990762889218,17170089547137026,17451448559599618,17451517279076354,17732923536572418,17732992256049154,18014415693676544,18014437165629442,18014497295171586,18014445755564034,18014454345498626,18014591787532289,18014458640465922,18014450050531330,18014432870662146,18014441460596738,18295933616783362,18295916436914178,18295890667110402,18295925026848770,18295929321816066,18295920731881474,18295907846979586,18295972271489026,18295912141946882,18577400004673538,18577365644935170,18577408594608130,18577619050233857,18577404299640834,18577395709706242,18577382824804354,18577378532130816,18577391414738946,18577387119771650,18577447249313794,18858866391384066,18858870686351362,18858857801449474,18858922225958914,18858862096416770,18858879276285954,18858840621580290,18858874981318658,18858883571253250,19140315598422018,19140337073258498,19140358548094978,19140341368225794,19140354253127682,19140332778291202,19140397202800642,19140349958160386,19140345663193090,19421816343822338,19421790574018562,19421812048855042,19421824933756930,19421820638789634,19421829228724226,19421872178397186,19421833523691522,19421807753887746,19703282731646978,19703291321581570,19703278438973440,19703265551777794,19703308501450754,19703287026614274,19703295616548866,19703304206483458,19703518957076481,19703274144268288,19703347156156418,19703299911516162,19984774887047170,19984916624506881,19984770592079874,19984740530651136,19984766297112578,19984757707177986,19984762002145282,19984822131687426,19984783476981762,19984779182014466,20266254158921730,20266258453889026,20266236979052546,20266245568987138,20266241274019842,20266232684085250,20266297108594690,20266249863954434,20547677599760384,20829152573128706,21110666204479490,21110722039054338,21110661909512194,21110683384348674,21110674794414082,21110670499446786,21110657614544898,21110679089381378,21392115414204416,21392197015568386,21392141180993538,21392149770928130,21392291508060161,21392145475960834,21392154065895426,21392132591058946,21392136886026242,21392158360862722,21673590392029184,21673830910263297,21955065365135362,22236540342042626,22518015322030080,22799567608217600,23080965272043522,23362461723394050,23362440248557570,23362478903263234,23362483198230530,23362470313328642,23362466018361346,23362474608295938,23362521852936194,23362457428426754,23643936700039170,23643945289973762,23643915229134848,23643949584941058,23643953879908354,23643996829581314,23643932405071874,23643940995006466,23643958174875650,23925471806423042,23925390202044418,23925407381913602,23925433151717378,23925428856750082,23925420266815490,23925411676880898,23925415971848194,23925424561782786,24206899537969154,24206882358099970,24206886653067266,24206903832936450,24206946782609410,24206908127903746,24206890948034562,24206895243001858,24488365924876290,24488374514810882,24488357334941698,24488383104745474,24488340158021632,24488361629908994,24488516251877377,24488421759451138,24488370219843586,24488378809778178,24769806546436096,24770047064539137,24770111484002306,25051281517969410,25051586460647426,25333061440831490,25614536414199810,26740341835628545,26740281706151936,26740139973672960,27021752389402624,27303089927225344,27584594962808834,27584582077906946,27584560603070466,27584646502416386,27584586372874242,27584599257776130,27584590667841538,27584603552743426,];
+static TABLE:[u64;449] = [317833281537,55835557888,12891127808,98790670336,197574066177,322128445441,236228837377,163209936897,42950590464,47245426688,38655754240,34360983552,51540918272,167503921153,227639230465,844738462744579,2251808404406274,2252113347084290,2815063300636674,3377892998971393,3377953129037825,3377716905443328,3940903082393601,3940666858864640,3940842952392705,4222141835313152,4503853035290625,4503792905814017,4503616812220416,4785233522524160,4785293652000769,5066588235694082,5066605415563266,5066592530661378,5066601120595970,5066609710530562,5066648365236226,5066596825628674,5066583940726786,5348286552080385,5348041739337730,5348290846916609,5348213537439745,5348114753323008,5629692812656641,5629752942788609,5629516719128576,5910991692627968,5911232210731009,6192466669338626,6473941645852672,6755416622956546,7036968908750848,7318366576246786,7599867322499074,7599875912433666,7599884502368258,7599871617466370,7599923157073922,7599858732564482,7599841552957440,7599880207400962,7599863027531778,7881342299275266,7881398133850114,7881355184177154,7881346594242562,7881359479144450,7881350889209858,7881316529471490,7881333709340674,7881338004307970,8162825865986050,8162830160953346,8162817276051458,8162873110626306,8162834455920642,8162791506247682,8162808686116866,8162812981084162,8162821571018754,8725767227965442,8725780112867330,8725758638030850,8725771522932738,8725775817900034,8725784407834626,8725823062540290,8725762932998146,9007259384610818,9007207845003266,9007216434937858,9007512787681282,9288777313026048,9851684314808322,9851641365135362,9851632775200770,9851937717878786,10133116344860674,10133279552765953,10133215129108482,10133206539173890,10133120639827970,10133124934795266,10133404106752001,10133163589500930,10133395516751873,10414690105622530,10414776004444161,10414638565556224,10414599911309314,10414780299542529,10414681515687938,10414591321374722,10414866198691841,10414595616342018,10696165083578368,10696156493578240,10977631469830146,10977640059764738,11259020546408448,11259115035885570,11259024841506816,11259175165296641,11259106445950978,11259016251637760,11540495523446786,11540491228479490,11540538473119746,11540499818414082,11540590012727298,11540581422792706,11822017745059842,11822249672441857,11821949025583106,12103531376017410,12103449771638786,12103441181704194,12103539965952002,12103445476671490,12385109431746561,12384898978283520,12384967697694720,12666373955584002,12666395430486018,12666481329831938,12666489919766530,12666391135518722,12666399725453314,12666442675060738,12947917651705858,12947848932229122,13229392628678658,13229323909201922,13510914848784386,13510824654471170,13510863309176834,13510816064536578,13510906258849794,13510820359503874,13792291041837058,13792338286477314,13792389826084866,13792381236150274,13792295336804354,13792299631771650,14073813262663682,14073766018023426,14073770312990722,14073774607958018,14073856212336642,14073864802271234,14355326894931968,14355502988525569,14355331188850690,14355240994537474,14355339778785282,14355245289504770,14355249584472066,14355498693689345,14355288239177730,14636720266084354,14636715971117058,14636763215757314,14636814755364866,14636724561051650,14636806165430274,14918246783909888,14918255373713408,14918358452994049,14918190949138432,15199670219702274,15199674514669570,15199713169375234,15199764708982786,15199665924734978,15199756119048194,15481145196609538,15481231095955458,15481188146282498,15481149491576834,15481140901642242,15481239685890050,15762615879532544,16044095149703170,16044099444670466,16044138099376130,16044189638983682,16044090854735874,16044181049049090,16325832121057281,16325565833150464,16607109529206784,16888605979574274,16888520080228354,16888515785261058,16888614569508866,16888524375195650,16888563029901314,17170050891776002,17170261346287617,17170085252694016,17451560228093954,17451525868355586,17733000846442496,18014475821973506,18014415693676544,18295989453127682,18295980863193090,18295894963847170,18295899258814466,18295890668879874,18295937913520130,18577460135002114,18577425775263746,18858840623349762,18858832033415170,18859136976093186,18858883573022722,19140594771492865,19140319894568962,19140414383849474,19140362844241922,19140324189536258,19140315599601666,19140405793914882,19140478809473025,19421889361149954,19421880771215362,19703252669431808,19984727642996738,20266241274347522,20266258454216706,20266297108922370,20266236979380226,20266245569314818,20266232684412930,20266254159249410,20266249864282114,20547724840730626,20547729135697922,20547716250796034,20547707660861442,20547720545763330,20547733430665218,20547711955828738,20547772085370882,20829199817179138,20829165461504000,20829182637309954,20829341555228673,20829195522211842,20829247061819394,20829191227244546,20829208407113730,20829186932277250,20829204112146434,21110661909053442,21110666204020738,21110722038595586,21110640434216962,21110674793955330,21110670498988034,21110657614086146,21110683383889922,21110679088922626,21392145476812802,21392132591910914,21392158361714690,21392368818192385,21392136886878210,21392149771780098,21392128299958272,21392154066747394,21392197016420354,21392141181845506,21392124005122048,21392115412041730,21673633338425346,21673607568621570,21673616158556162,21673671993131010,21673629043458050,21673590388752386,21673624748490754,21673603276668928,21673843794903041,21673611863588866,21673620453523458,21955146968793090,21955086839250946,21955095429185538,21955099724152834,21955082544283650,21955104019120130,21955108314087426,21955091134218242,21955065364414466,22236540342239234,22236557522108418,22236578996944898,22236566112043010,22236561817075714,22236583291912194,22236574701977602,22236570407010306,22236621946617858,22518045383589890,22518096923197442,22518049678557186,22518053973524482,22518032498688002,22518058268491778,22518041088622594,22518015318818818,22518036793655298,22799524654350338,22799520359383042,22799571898990594,22799516064415746,22799533244284930,22799528949317634,22799507474481154,22799511769448450,23080986746290178,23081141368913921,23081046875832322,23080965275189248,23081003926159362,23081008221126658,23080982451322882,23080999631192066,23080991041257474,23080995336224770,23362478902935554,23362470313000962,23362440251899904,23362474607968258,23362466018033666,23362457428099074,23362483197902850,23362461723066370,23362521852608514,23362616345624577,23643949584744450,23643940994809858,23643958174679042,23643915228610560,23643996829384706,23643936699842562,23643953879711746,23643932404875266,23644091322335233,23643945289777154,23925686557212674,23925381614534658,23925433154142210,24206860888244224,24207011207053313,24206882358099968,24207170125561857,24206899538034688,24207045571706881,24206946782478336,24206886652870656,24206895242543104,24206903832674304,24206890947706880,24207075636346881,24488331564482562,24488383103893504,24488636507160578,24488567792730113,24770047064473601,24770111484002306,24769806541127680,25051586464120834,25332808039792640,25614283014537218,25614386091458561,25614265831260160,25614270126096384,25614261536423936,25614321666031616,25614257241653248,25614274421587968,25614278716227584,26177486370832386,26177232967761922,26177181428154370,26458746596163584,26458699351719936,26458695056228352,26458686466555904,26458682171785216,26458811021590529,26458703646359552,26458707944734722,26458690761392128,26740157148495872,26740170032939008,26740350426939393,26740174328430592,26740285997449217,26740165738102784,26740221572874240,26740178623070208,26740161443266560,27021614946254848,27021769565011969,27021829698813953,27303081335324674,27303386278002690,27303089922965504,27303244541919233,27303132874932226,27584564904001536,27584706636087296,27584766765563905,27866177319731200,28147514857553920,28429024187908098,28428985533202434,28429015597973506,28429019892940802,28429007008038914,28429028482875394,28429071432548354,28429011303006210,];
 
 
-fn _rrsemaction_0_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut raw_declarations:Option<LBox<&'lt str>>, mut yacc_declarations:Vec<LC<yacc_decl<'lt>>>, mut _item2_:(), mut rules:Vec<LC<grammar_rules<'lt>>>) -> primary<'lt> { parser.shared_state.borrow_mut().skip = true;   primary {raw_declarations:raw_declarations, yacc_declarations:yacc_declarations, rules:rules, } }
+fn _rrsemaction_0_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut raw_declarations:Option<&'lt str>, mut yacc_declarations:Vec<LC<yacc_decl<'lt>>>, mut _item2_:(), mut rules:Vec<LC<grammar_rules<'lt>>>) -> primary<'lt> { parser.shared_state.borrow_mut().skip = true;   primary {raw_declarations:raw_declarations, yacc_declarations:yacc_declarations, rules:rules, } }
 
-fn _rrsemaction_1_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<LBox<&'lt str>> {  None }
+fn _rrsemaction_1_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<&'lt str> {  None }
 
-fn _rrsemaction_2_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str) -> Option<LBox<&'lt str>> {  Some(parser.lbx(0,_item0_)) }
+fn _rrsemaction_2_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> Option<&'lt str> {  Some(_item0_) }
 
-fn _rrsemaction_3_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:yacc_decl<'lt>) -> Vec<LC<yacc_decl<'lt>>> {  vec![parser.lc(0,_item0_)] }
+fn _rrsemaction_3_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:yacc_decl<'lt>) -> Vec<LC<yacc_decl<'lt>>> {  vec![parser.lc(0,_item0_)] }
 
-fn _rrsemaction_4_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<yacc_decl<'lt>>>, mut _item1_:yacc_decl<'lt>) -> Vec<LC<yacc_decl<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
+fn _rrsemaction_4_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<yacc_decl<'lt>>>, mut _item1_:yacc_decl<'lt>) -> Vec<LC<yacc_decl<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
 
-fn _rrsemaction_5_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:grammar_rules<'lt>) -> Vec<LC<grammar_rules<'lt>>> {  vec![parser.lc(0,_item0_)] }
+fn _rrsemaction_5_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:grammar_rules<'lt>) -> Vec<LC<grammar_rules<'lt>>> {  vec![parser.lc(0,_item0_)] }
 
-fn _rrsemaction_6_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<grammar_rules<'lt>>>, mut _item1_:grammar_rules<'lt>) -> Vec<LC<grammar_rules<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
+fn _rrsemaction_6_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<grammar_rules<'lt>>>, mut _item1_:grammar_rules<'lt>) -> Vec<LC<grammar_rules<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
 
-fn _rrsemaction_7_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Option<LBox<NEWSEQNT_8_0<'lt>>>, mut _item1_:primary<'lt>, mut _item2_:(), mut _item3_:Option<LBox<&'lt str>>) -> Yacc<'lt> {  Yacc(_item0_,_item1_,_item3_,) }
+fn _rrsemaction_7_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Option<LBox<NEWSEQNT_8_0<'lt>>>, mut _item1_:primary<'lt>, mut _item2_:(), mut _item3_:Option<&'lt str>) -> Yacc<'lt> {  Yacc(_item0_,_item1_,_item3_,) }
 
-fn _rrsemaction_8_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:(), mut _item3_:&'lt str) -> NEWSEQNT_8_0<'lt> {  NEWSEQNT_8_0(_item1_,_item3_,) }
+fn _rrsemaction_8_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:(), mut _item3_:&'lt str) -> NEWSEQNT_8_0<'lt> {  NEWSEQNT_8_0(_item1_,_item3_,) }
 
-fn _rrsemaction_9_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<LBox<NEWSEQNT_8_0<'lt>>> {  None }
+fn _rrsemaction_9_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<LBox<NEWSEQNT_8_0<'lt>>> {  None }
 
-fn _rrsemaction_10_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:NEWSEQNT_8_0<'lt>) -> Option<LBox<NEWSEQNT_8_0<'lt>>> {  Some(parser.lbx(0,_item0_)) }
+fn _rrsemaction_10_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:NEWSEQNT_8_0<'lt>) -> Option<LBox<NEWSEQNT_8_0<'lt>>> {  Some(parser.lbx(0,_item0_)) }
 
-fn _rrsemaction_11_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> () { <()>::default()}
+fn _rrsemaction_11_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> () { <()>::default()}
 
-fn _rrsemaction_12_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:()) -> () { <()>::default()}
+fn _rrsemaction_12_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:()) -> () { <()>::default()}
 
-fn _rrsemaction_13_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<LBox<&'lt str>> {  None }
+fn _rrsemaction_13_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<&'lt str> {  None }
 
-fn _rrsemaction_14_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str) -> Option<LBox<&'lt str>> {  Some(parser.lbx(0,_item0_)) }
+fn _rrsemaction_14_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> Option<&'lt str> {  Some(_item0_) }
 
-fn _rrsemaction_15_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::terminals(_item1_) }
+fn _rrsemaction_15_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::terminals(_item1_) }
 
-fn _rrsemaction_16_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:idnum<'lt>) -> Vec<LC<idnum<'lt>>> {  vec![parser.lc(0,_item0_)] }
+fn _rrsemaction_16_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:idnum<'lt>) -> Vec<LC<idnum<'lt>>> {  vec![parser.lc(0,_item0_)] }
 
-fn _rrsemaction_17_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<idnum<'lt>>>, mut _item1_:idnum<'lt>) -> Vec<LC<idnum<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
+fn _rrsemaction_17_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<idnum<'lt>>>, mut _item1_:idnum<'lt>) -> Vec<LC<idnum<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
 
-fn _rrsemaction_18_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:&'lt str) -> yacc_decl<'lt> {  yacc_decl::lexterminal(_item1_,_item2_) }
+fn _rrsemaction_18_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:&'lt str) -> yacc_decl<'lt> {  yacc_decl::lexterminal(_item1_,_item2_) }
 
-fn _rrsemaction_19_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut s:&'lt str) -> yacc_decl<'lt> { parser.shared_state.borrow_mut().topsym=s;   yacc_decl::topsym{s:s} }
+fn _rrsemaction_19_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut s:&'lt str) -> yacc_decl<'lt> { parser.shared_state.borrow_mut().topsym=s;   yacc_decl::topsym{s:s} }
 
-fn _rrsemaction_20_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut vs:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::left{vs:vs} }
+fn _rrsemaction_20_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut vs:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::left{vs:vs} }
 
-fn _rrsemaction_21_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut vs:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::right{vs:vs} }
+fn _rrsemaction_21_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut vs:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::right{vs:vs} }
 
-fn _rrsemaction_22_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut vs:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::nonassoc{vs:vs} }
+fn _rrsemaction_22_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut vs:Vec<LC<idnum<'lt>>>) -> yacc_decl<'lt> {  yacc_decl::nonassoc{vs:vs} }
 
-fn _rrsemaction_23_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:unionset, mut _item2_:&'lt str) -> yacc_decl<'lt> { parser.shared_state.borrow_mut().skip_match=false;   yacc_decl::uniondec(_item1_,_item2_) }
+fn _rrsemaction_23_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:unionset, mut _item2_:&'lt str) -> yacc_decl<'lt> { parser.shared_state.borrow_mut().skip_match=false;   yacc_decl::uniondec(_item1_,_item2_) }
 
-fn _rrsemaction_24_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:()) -> unionset { parser.shared_state.borrow_mut().skip_match=true;   unionset() }
+fn _rrsemaction_24_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:()) -> unionset { parser.shared_state.borrow_mut().skip_match=true;   unionset() }
 
-fn _rrsemaction_25_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:tag<'lt>, mut _item2_:Vec<LC<&'lt str>>) -> yacc_decl<'lt> {  yacc_decl::nonterminal(_item1_.0,_item2_) }
+fn _rrsemaction_25_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:tag<'lt>, mut _item2_:Vec<LC<&'lt str>>) -> yacc_decl<'lt> {  yacc_decl::nonterminal(_item1_.0,_item2_) }
 
-fn _rrsemaction_26_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str) -> Vec<LC<&'lt str>> {  vec![parser.lc(0,_item0_)] }
+fn _rrsemaction_26_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> Vec<LC<&'lt str>> {  vec![parser.lc(0,_item0_)] }
 
-fn _rrsemaction_27_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<&'lt str>>, mut _item1_:&'lt str) -> Vec<LC<&'lt str>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
+fn _rrsemaction_27_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<&'lt str>>, mut _item1_:&'lt str) -> Vec<LC<&'lt str>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
 
-fn _rrsemaction_28_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Option<LBox<&'lt str>>) -> tag<'lt> {  tag(_item0_,) }
+fn _rrsemaction_28_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Option<LBox<&'lt str>>) -> tag<'lt> {  tag(_item0_,) }
 
-fn _rrsemaction_29_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:()) -> &'lt str {  _item1_ }
+fn _rrsemaction_29_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:()) -> &'lt str {  _item1_ }
 
-fn _rrsemaction_30_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<LBox<&'lt str>> {  None }
+fn _rrsemaction_30_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<LBox<&'lt str>> {  None }
 
-fn _rrsemaction_31_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str) -> Option<LBox<&'lt str>> {  Some(parser.lbx(0,_item0_)) }
+fn _rrsemaction_31_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> Option<LBox<&'lt str>> {  Some(parser.lbx(0,_item0_)) }
 
-fn _rrsemaction_32_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str, mut _item1_:Option<u32>) -> idnum<'lt> {  idnum(_item0_,_item1_,) }
+fn _rrsemaction_32_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str, mut _item1_:Option<u32>) -> idnum<'lt> {  idnum(_item0_,_item1_,) }
 
-fn _rrsemaction_33_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<u32> {  None }
+fn _rrsemaction_33_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<u32> {  None }
 
-fn _rrsemaction_34_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:u32) -> Option<u32> {  Some(_item0_) }
+fn _rrsemaction_34_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:u32) -> Option<u32> {  Some(_item0_) }
 
-fn _rrsemaction_35_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str, mut _item1_:Option<LBox<label<'lt>>>) -> rhs_symbol<'lt> {  rhs_symbol::ID(_item0_,_item1_) }
+fn _rrsemaction_35_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str, mut _item1_:Option<LBox<label<'lt>>>) -> rhs_symbol<'lt> {  rhs_symbol::ID(_item0_,_item1_) }
 
-fn _rrsemaction_36_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:label<'lt>) -> label<'lt> {  _item1_ }
+fn _rrsemaction_36_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:label<'lt>) -> label<'lt> {  _item1_ }
 
-fn _rrsemaction_37_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<LBox<label<'lt>>> {  None }
+fn _rrsemaction_37_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<LBox<label<'lt>>> {  None }
 
-fn _rrsemaction_38_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:label<'lt>) -> Option<LBox<label<'lt>>> {  Some(parser.lbx(0,_item0_)) }
+fn _rrsemaction_38_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:label<'lt>) -> Option<LBox<label<'lt>>> {  Some(parser.lbx(0,_item0_)) }
 
-fn _rrsemaction_39_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut t:&'lt str) -> rhs_symbol<'lt> { parser.shared_state.borrow_mut().lexterminals.insert(t);
+fn _rrsemaction_39_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut t:&'lt str) -> rhs_symbol<'lt> { parser.shared_state.borrow_mut().lexterminals.insert(t);
     rhs_symbol::LEXCHAR{t:t} }
 
-fn _rrsemaction_40_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut t:&'lt str) -> rhs_symbol<'lt> { parser.shared_state.borrow_mut().lexterminals.insert(t);
+fn _rrsemaction_40_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut t:&'lt str) -> rhs_symbol<'lt> { parser.shared_state.borrow_mut().lexterminals.insert(t);
     rhs_symbol::LEXSTR{t:t} }
 
-fn _rrsemaction_41_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str) -> label<'lt> {  label::simple(_item0_) }
+fn _rrsemaction_41_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> label<'lt> {  label::simple(_item0_) }
 
-fn _rrsemaction_42_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:()) -> label<'lt> {  label::boxed(_item1_) }
+fn _rrsemaction_42_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:&'lt str, mut _item2_:()) -> label<'lt> {  label::boxed(_item1_) }
 
-fn _rrsemaction_43_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:Vec<LC<&'lt str>>, mut _item2_:(), mut _item3_:()) -> label<'lt> {  label::parened(_item1_) }
+fn _rrsemaction_43_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:Vec<LC<&'lt str>>, mut _item2_:(), mut _item3_:()) -> label<'lt> {  label::parened(_item1_) }
 
-fn _rrsemaction_44_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str) -> Vec<LC<&'lt str>> {  vec![parser.lc(0,_item0_)] }
+fn _rrsemaction_44_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> Vec<LC<&'lt str>> {  vec![parser.lc(0,_item0_)] }
 
-fn _rrsemaction_45_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<&'lt str>>, mut _item1_:(), mut _item2_:&'lt str) -> Vec<LC<&'lt str>> {  _item0_.push(parser.lc(2,_item2_)); _item0_ }
+fn _rrsemaction_45_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<&'lt str>>, mut _item1_:(), mut _item2_:&'lt str) -> Vec<LC<&'lt str>> {  _item0_.push(parser.lc(2,_item2_)); _item0_ }
 
-fn _rrsemaction_46_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> () { <()>::default()}
+fn _rrsemaction_46_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> () { <()>::default()}
 
-fn _rrsemaction_47_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:()) -> () { <()>::default()}
+fn _rrsemaction_47_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:()) -> () { <()>::default()}
 
-fn _rrsemaction_48_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Option<LBox<semaction>>, mut _item1_:rhs_symbol<'lt>) -> rhsunit<'lt> {  rhsunit(_item0_,_item1_,) }
+fn _rrsemaction_48_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Option<LBox<semaction<'lt>>>, mut _item1_:rhs_symbol<'lt>) -> rhsunit<'lt> {  rhsunit(_item0_,_item1_,) }
 
-fn _rrsemaction_49_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Option<LBox<semaction>> {  None }
+fn _rrsemaction_49_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Option<LBox<semaction<'lt>>> {  None }
 
-fn _rrsemaction_50_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:semaction) -> Option<LBox<semaction>> {  Some(parser.lbx(0,_item0_)) }
+fn _rrsemaction_50_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:semaction<'lt>) -> Option<LBox<semaction<'lt>>> {  Some(parser.lbx(0,_item0_)) }
 
-fn _rrsemaction_51_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<rhsunit<'lt>>>, mut _item1_:Option<LBox<semaction>>) -> rhs<'lt> {  rhs(_item0_,_item1_,) }
+fn _rrsemaction_51_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<rhsunit<'lt>>>, mut _item1_:Option<LBox<semaction<'lt>>>) -> rhs<'lt> {  rhs(_item0_,_item1_,) }
 
-fn _rrsemaction_52_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Vec<LC<rhsunit<'lt>>> {  Vec::new() }
+fn _rrsemaction_52_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Vec<LC<rhsunit<'lt>>> {  Vec::new() }
 
-fn _rrsemaction_53_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<rhsunit<'lt>>>, mut _item1_:rhsunit<'lt>) -> Vec<LC<rhsunit<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
+fn _rrsemaction_53_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<rhsunit<'lt>>>, mut _item1_:rhsunit<'lt>) -> Vec<LC<rhsunit<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
 
-fn _rrsemaction_54_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(usize,usize)) -> semcontent {  semcontent::_WILDCARD_TOKEN_(_item0_) }
+fn _rrsemaction_54_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str) -> semcontent<'lt> {  semcontent::_WILDCARD_TOKEN_(_item0_) }
 
-fn _rrsemaction_55_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:()) -> semcontent {  semcontent::RBRACE }
+fn _rrsemaction_55_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:()) -> semcontent<'lt> {  semcontent::RBRACE }
 
-fn _rrsemaction_56_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:(), mut _item1_:Vec<LC<semcontent>>, mut _item2_:()) -> semaction {  semaction(_item1_,) }
+fn _rrsemaction_56_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:(), mut _item1_:Vec<LC<semcontent<'lt>>>, mut _item2_:()) -> semaction<'lt> {  semaction(_item1_,) }
 
-fn _rrsemaction_57_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>) -> Vec<LC<semcontent>> {  Vec::new() }
+fn _rrsemaction_57_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>) -> Vec<LC<semcontent<'lt>>> {  Vec::new() }
 
-fn _rrsemaction_58_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<semcontent>>, mut _item1_:semcontent) -> Vec<LC<semcontent>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
+fn _rrsemaction_58_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<semcontent<'lt>>>, mut _item1_:semcontent<'lt>) -> Vec<LC<semcontent<'lt>>> {  _item0_.push(parser.lc(1,_item1_)); _item0_ }
 
-fn _rrsemaction_59_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut lhs:&'lt str, mut _item1_:(), mut rhsides:Vec<LC<rhs<'lt>>>, mut _item3_:()) -> grammar_rules<'lt> { let mut symtable =parser.shared_state.borrow_mut();
+fn _rrsemaction_59_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut lhs:&'lt str, mut _item1_:(), mut rhsides:Vec<LC<rhs<'lt>>>, mut _item3_:()) -> grammar_rules<'lt> { let mut symtable =parser.shared_state.borrow_mut();
   symtable.nonterminals.insert(lhs);
   if symtable.topsym.len()==0 {symtable.topsym=lhs;}
     grammar_rules {lhs:lhs, rhsides:rhsides, } }
 
-fn _rrsemaction_60_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:rhs<'lt>) -> Vec<LC<rhs<'lt>>> {  vec![parser.lc(0,_item0_)] }
+fn _rrsemaction_60_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:rhs<'lt>) -> Vec<LC<rhs<'lt>>> {  vec![parser.lc(0,_item0_)] }
 
-fn _rrsemaction_61_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Vec<LC<rhs<'lt>>>, mut _item1_:(), mut _item2_:rhs<'lt>) -> Vec<LC<rhs<'lt>>> {  _item0_.push(parser.lc(2,_item2_)); _item0_ }
+fn _rrsemaction_61_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Vec<LC<rhs<'lt>>>, mut _item1_:(), mut _item2_:rhs<'lt>) -> Vec<LC<rhs<'lt>>> {  _item0_.push(parser.lc(2,_item2_)); _item0_ }
 
-fn _rrsemaction_62_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:Yacc<'lt>, mut _item1_:(), mut _item2_:(), mut _item3_:(), mut _item4_:()) -> () { <()>::default()}
+fn _rrsemaction_62_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:Yacc<'lt>, mut _item1_:(), mut _item2_:(), mut _item3_:(), mut _item4_:()) -> () { <()>::default()}
 
-fn _rrsemaction_63_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:NEWSEQNT_8_0<'lt>, mut _item_del1_63_10_:primary<'lt>) -> (Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,) {  let _delvar_74_0_ = _rrsemaction_10_(parser,_item0_); (_delvar_74_0_,_item_del1_63_10_,) }
+fn _rrsemaction_63_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:NEWSEQNT_8_0<'lt>, mut _item_del1_63_10_:primary<'lt>) -> (Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,) {  let _delvar_74_0_ = _rrsemaction_10_(parser,_item0_); (_delvar_74_0_,_item_del1_63_10_,) }
 
-fn _rrsemaction_64_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item_del0_64_9_:primary<'lt>) -> (Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,) {  let _delvar_74_0_ = _rrsemaction_9_(parser); (_delvar_74_0_,_item_del0_64_9_,) }
+fn _rrsemaction_64_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item_del0_64_9_:primary<'lt>) -> (Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,) {  let _delvar_74_0_ = _rrsemaction_9_(parser); (_delvar_74_0_,_item_del0_64_9_,) }
 
-fn _rrsemaction_65_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _delayitem0_7_82:(Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,), mut _item2_:(), mut _item3_:Option<LBox<&'lt str>>) -> Yacc<'lt> {  _rrsemaction_7_(parser,_delayitem0_7_82.0,_delayitem0_7_82.1,_item2_,_item3_) }
+fn _rrsemaction_65_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _delayitem0_7_83:(Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,), mut _item2_:(), mut _item3_:Option<&'lt str>) -> Yacc<'lt> {  _rrsemaction_7_(parser,_delayitem0_7_83.0,_delayitem0_7_83.1,_item2_,_item3_) }
 
-fn _rrsemaction_66_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _item0_:&'lt str, mut yacc_declarations:Vec<LC<yacc_decl<'lt>>>) -> (Option<LBox<&'lt str>>,Vec<LC<yacc_decl<'lt>>>,) {  let _delvar_75_0_ = _rrsemaction_2_(parser,_item0_); (_delvar_75_0_,yacc_declarations,) }
+fn _rrsemaction_66_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut yacc_declarations:Vec<LC<yacc_decl<'lt>>>) -> (Option<&'lt str>,Vec<LC<yacc_decl<'lt>>>,) {  let _delvar_75_0_ = _rrsemaction_1_(parser); (_delvar_75_0_,yacc_declarations,) }
 
-fn _rrsemaction_67_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut yacc_declarations:Vec<LC<yacc_decl<'lt>>>) -> (Option<LBox<&'lt str>>,Vec<LC<yacc_decl<'lt>>>,) {  let _delvar_75_0_ = _rrsemaction_1_(parser); (_delvar_75_0_,yacc_declarations,) }
+fn _rrsemaction_67_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _item0_:&'lt str, mut yacc_declarations:Vec<LC<yacc_decl<'lt>>>) -> (Option<&'lt str>,Vec<LC<yacc_decl<'lt>>>,) {  let _delvar_75_0_ = _rrsemaction_2_(parser,_item0_); (_delvar_75_0_,yacc_declarations,) }
 
-fn _rrsemaction_68_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, mut _delayitem0_0_87:(Option<LBox<&'lt str>>,Vec<LC<yacc_decl<'lt>>>,), mut _item1_:(), mut rules:Vec<LC<grammar_rules<'lt>>>) -> primary<'lt> {  _rrsemaction_0_(parser,_delayitem0_0_87.0,_delayitem0_0_87.1,_item1_,rules) }
+fn _rrsemaction_68_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>, mut _delayitem0_0_88:(Option<&'lt str>,Vec<LC<yacc_decl<'lt>>>,), mut _item1_:(), mut rules:Vec<LC<grammar_rules<'lt>>>) -> primary<'lt> {  _rrsemaction_0_(parser,_delayitem0_0_88.0,_delayitem0_0_88.1,_item1_,rules) }
 
-pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>
+pub fn make_parser<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(tk:TT) -> BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>
 {
- let mut parser1:ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>> = ZCParser::new(69,102);
+ let mut parser1:BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT> = BaseParser::new(69,102,tk);
  let mut rule;
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("primary");
- rule.Ruleaction = |parser|{ let rules = if let RetTypeEnum::Enumvariant_59(_rr_59)=parser.popstack().value { _rr_59 } else {<Vec<LC<grammar_rules<'lt>>>>::default()}; let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let yacc_declarations = if let RetTypeEnum::Enumvariant_73(_rr_73)=parser.popstack().value { _rr_73 } else {<Vec<LC<yacc_decl<'lt>>>>::default()}; let raw_declarations = if let RetTypeEnum::Enumvariant_63(_rr_63)=parser.popstack().value { _rr_63 } else {<Option<LBox<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_50(_rrsemaction_0_(parser,raw_declarations,yacc_declarations,_item2_,rules)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("primary");
+ rule.Ruleaction = |parser|{ let mut rules = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<grammar_rules<'lt>>>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut yacc_declarations = if let RetTypeEnum::Enumvariant_77(_rr_77)=parser.popstack().value { _rr_77 } else {<Vec<LC<yacc_decl<'lt>>>>::default()}; let mut raw_declarations = if let RetTypeEnum::Enumvariant_71(_rr_71)=parser.popstack().value { _rr_71 } else {<Option<&'lt str>>::default()};  RetTypeEnum::Enumvariant_61(_rrsemaction_0_(parser,raw_declarations,yacc_declarations,_item2_,rules)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_1_0");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_63(_rrsemaction_1_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_1_0");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_71(_rrsemaction_1_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_1_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_63(_rrsemaction_2_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_1_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_71(_rrsemaction_2_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_3_1");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_77(_rr_77)=parser.popstack().value { _rr_77 } else {<yacc_decl<'lt>>::default()};  RetTypeEnum::Enumvariant_73(_rrsemaction_3_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_3_1");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_58(_rr_58)=parser.popstack().value { _rr_58 } else {<yacc_decl<'lt>>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_3_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_3_1");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_77(_rr_77)=parser.popstack().value { _rr_77 } else {<yacc_decl<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_73(_rr_73)=parser.popstack().value { _rr_73 } else {<Vec<LC<yacc_decl<'lt>>>>::default()};  RetTypeEnum::Enumvariant_73(_rrsemaction_4_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_3_1");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_58(_rr_58)=parser.popstack().value { _rr_58 } else {<yacc_decl<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_77(_rr_77)=parser.popstack().value { _rr_77 } else {<Vec<LC<yacc_decl<'lt>>>>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_4_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_5_2");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_45(_rr_45)=parser.popstack().value { _rr_45 } else {<grammar_rules<'lt>>::default()};  RetTypeEnum::Enumvariant_59(_rrsemaction_5_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_5_2");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_64(_rr_64)=parser.popstack().value { _rr_64 } else {<grammar_rules<'lt>>::default()};  RetTypeEnum::Enumvariant_54(_rrsemaction_5_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_5_2");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_45(_rr_45)=parser.popstack().value { _rr_45 } else {<grammar_rules<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_59(_rr_59)=parser.popstack().value { _rr_59 } else {<Vec<LC<grammar_rules<'lt>>>>::default()};  RetTypeEnum::Enumvariant_59(_rrsemaction_6_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_5_2");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_64(_rr_64)=parser.popstack().value { _rr_64 } else {<grammar_rules<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<grammar_rules<'lt>>>>::default()};  RetTypeEnum::Enumvariant_54(_rrsemaction_6_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("Yacc");
- rule.Ruleaction = |parser|{ let _item3_ = if let RetTypeEnum::Enumvariant_63(_rr_63)=parser.popstack().value { _rr_63 } else {<Option<LBox<&'lt str>>>::default()}; let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_50(_rr_50)=parser.popstack().value { _rr_50 } else {<primary<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_64(_rr_64)=parser.popstack().value { _rr_64 } else {<Option<LBox<NEWSEQNT_8_0<'lt>>>>::default()};  RetTypeEnum::Enumvariant_0(_rrsemaction_7_(parser,_item0_,_item1_,_item2_,_item3_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("Yacc");
+ rule.Ruleaction = |parser|{ let mut _item3_ = if let RetTypeEnum::Enumvariant_71(_rr_71)=parser.popstack().value { _rr_71 } else {<Option<&'lt str>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<primary<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<Option<LBox<NEWSEQNT_8_0<'lt>>>>::default()};  RetTypeEnum::Enumvariant_0(_rrsemaction_7_(parser,_item0_,_item1_,_item2_,_item3_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEQNT_8_0");
- rule.Ruleaction = |parser|{ let _item3_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_74(_rrsemaction_8_(parser,_item0_,_item1_,_item2_,_item3_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEQNT_8_0");
+ rule.Ruleaction = |parser|{ let mut _item3_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_62(_rrsemaction_8_(parser,_item0_,_item1_,_item2_,_item3_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_9_1");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_64(_rrsemaction_9_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_9_1");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_70(_rrsemaction_9_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_9_1");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_74(_rr_74)=parser.popstack().value { _rr_74 } else {<NEWSEQNT_8_0<'lt>>::default()};  RetTypeEnum::Enumvariant_64(_rrsemaction_10_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_9_1");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_62(_rr_62)=parser.popstack().value { _rr_62 } else {<NEWSEQNT_8_0<'lt>>::default()};  RetTypeEnum::Enumvariant_70(_rrsemaction_10_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_11_2");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_70(_rrsemaction_11_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_11_2");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_76(_rrsemaction_11_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_11_2");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_70(_rrsemaction_12_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_11_2");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_76(_rrsemaction_12_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_13_3");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_63(_rrsemaction_13_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_13_3");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_71(_rrsemaction_13_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_13_3");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_63(_rrsemaction_14_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_13_3");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_71(_rrsemaction_14_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<Vec<LC<idnum<'lt>>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_15_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<Vec<LC<idnum<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_15_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_16_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_44(_rr_44)=parser.popstack().value { _rr_44 } else {<idnum<'lt>>::default()};  RetTypeEnum::Enumvariant_61(_rrsemaction_16_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_16_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_49(_rr_49)=parser.popstack().value { _rr_49 } else {<idnum<'lt>>::default()};  RetTypeEnum::Enumvariant_53(_rrsemaction_16_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_16_0");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_44(_rr_44)=parser.popstack().value { _rr_44 } else {<idnum<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<Vec<LC<idnum<'lt>>>>::default()};  RetTypeEnum::Enumvariant_61(_rrsemaction_17_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_16_0");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_49(_rr_49)=parser.popstack().value { _rr_49 } else {<idnum<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<Vec<LC<idnum<'lt>>>>::default()};  RetTypeEnum::Enumvariant_53(_rrsemaction_17_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_18_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_18_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let s = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_19_(parser,_item0_,s)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut s = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_19_(parser,_item0_,s)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let vs = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<Vec<LC<idnum<'lt>>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_20_(parser,_item0_,vs)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut vs = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<Vec<LC<idnum<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_20_(parser,_item0_,vs)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let vs = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<Vec<LC<idnum<'lt>>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_21_(parser,_item0_,vs)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut vs = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<Vec<LC<idnum<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_21_(parser,_item0_,vs)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let vs = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<Vec<LC<idnum<'lt>>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_22_(parser,_item0_,vs)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut vs = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<Vec<LC<idnum<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_22_(parser,_item0_,vs)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<unionset>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_23_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_60(_rr_60)=parser.popstack().value { _rr_60 } else {<unionset>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_23_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("unionset");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_76(_rrsemaction_24_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("unionset");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_60(_rrsemaction_24_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("yacc_decl");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<&'lt str>>>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_75(_rr_75)=parser.popstack().value { _rr_75 } else {<tag<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_77(_rrsemaction_25_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("yacc_decl");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_65(_rr_65)=parser.popstack().value { _rr_65 } else {<Vec<LC<&'lt str>>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_57(_rr_57)=parser.popstack().value { _rr_57 } else {<tag<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_58(_rrsemaction_25_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_26_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_54(_rrsemaction_26_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_26_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_65(_rrsemaction_26_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_26_0");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_54(_rrsemaction_27_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_26_0");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_65(_rr_65)=parser.popstack().value { _rr_65 } else {<Vec<LC<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_65(_rrsemaction_27_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("tag");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_63(_rr_63)=parser.popstack().value { _rr_63 } else {<Option<LBox<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_75(_rrsemaction_28_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("tag");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_59(_rr_59)=parser.popstack().value { _rr_59 } else {<Option<LBox<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_57(_rrsemaction_28_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEQNT_29_0");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_53(_rrsemaction_29_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEQNT_29_0");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_72(_rrsemaction_29_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_30_1");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_63(_rrsemaction_30_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_30_1");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_59(_rrsemaction_30_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_30_1");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_63(_rrsemaction_31_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_30_1");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_59(_rrsemaction_31_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("idnum");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_56(_rr_56)=parser.popstack().value { _rr_56 } else {<Option<u32>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_44(_rrsemaction_32_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("idnum");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_63(_rr_63)=parser.popstack().value { _rr_63 } else {<Option<u32>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_49(_rrsemaction_32_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_33_0");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_56(_rrsemaction_33_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_33_0");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_63(_rrsemaction_33_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_33_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_9(_rr_9)=parser.popstack().value { _rr_9 } else {<u32>::default()};  RetTypeEnum::Enumvariant_56(_rrsemaction_34_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_33_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_9(_rr_9)=parser.popstack().value { _rr_9 } else {<u32>::default()};  RetTypeEnum::Enumvariant_63(_rrsemaction_34_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("rhs_symbol");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_67(_rr_67)=parser.popstack().value { _rr_67 } else {<Option<LBox<label<'lt>>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_62(_rrsemaction_35_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("rhs_symbol");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_73(_rr_73)=parser.popstack().value { _rr_73 } else {<Option<LBox<label<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_66(_rrsemaction_35_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEQNT_36_0");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_60(_rr_60)=parser.popstack().value { _rr_60 } else {<label<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_60(_rrsemaction_36_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEQNT_36_0");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_75(_rr_75)=parser.popstack().value { _rr_75 } else {<label<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_75(_rrsemaction_36_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_37_1");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_67(_rrsemaction_37_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_37_1");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_73(_rrsemaction_37_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_37_1");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_60(_rr_60)=parser.popstack().value { _rr_60 } else {<label<'lt>>::default()};  RetTypeEnum::Enumvariant_67(_rrsemaction_38_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_37_1");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_75(_rr_75)=parser.popstack().value { _rr_75 } else {<label<'lt>>::default()};  RetTypeEnum::Enumvariant_73(_rrsemaction_38_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("rhs_symbol");
- rule.Ruleaction = |parser|{ let t = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_62(_rrsemaction_39_(parser,t)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("rhs_symbol");
+ rule.Ruleaction = |parser|{ let mut t = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_66(_rrsemaction_39_(parser,t)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("rhs_symbol");
- rule.Ruleaction = |parser|{ let t = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_62(_rrsemaction_40_(parser,t)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("rhs_symbol");
+ rule.Ruleaction = |parser|{ let mut t = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_66(_rrsemaction_40_(parser,t)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("label");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_60(_rrsemaction_41_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("label");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_75(_rrsemaction_41_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("label");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_60(_rrsemaction_42_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("label");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_75(_rrsemaction_42_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("label");
- rule.Ruleaction = |parser|{ let _item3_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<&'lt str>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_60(_rrsemaction_43_(parser,_item0_,_item1_,_item2_,_item3_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("label");
+ rule.Ruleaction = |parser|{ let mut _item3_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_65(_rr_65)=parser.popstack().value { _rr_65 } else {<Vec<LC<&'lt str>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_75(_rrsemaction_43_(parser,_item0_,_item1_,_item2_,_item3_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEPNT_44_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_54(_rrsemaction_44_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEPNT_44_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_65(_rrsemaction_44_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEPNT_44_0");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_54(_rrsemaction_45_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEPNT_44_0");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_65(_rr_65)=parser.popstack().value { _rr_65 } else {<Vec<LC<&'lt str>>>::default()};  RetTypeEnum::Enumvariant_65(_rrsemaction_45_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_46_1");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_70(_rrsemaction_46_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_46_1");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_76(_rrsemaction_46_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_46_1");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_70(_rrsemaction_47_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_46_1");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_76(_rrsemaction_47_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("rhsunit");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_62(_rr_62)=parser.popstack().value { _rr_62 } else {<rhs_symbol<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_65(_rr_65)=parser.popstack().value { _rr_65 } else {<Option<LBox<semaction>>>::default()};  RetTypeEnum::Enumvariant_48(_rrsemaction_48_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("rhsunit");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_66(_rr_66)=parser.popstack().value { _rr_66 } else {<rhs_symbol<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_68(_rr_68)=parser.popstack().value { _rr_68 } else {<Option<LBox<semaction<'lt>>>>::default()};  RetTypeEnum::Enumvariant_69(_rrsemaction_48_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_49_0");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_65(_rrsemaction_49_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_49_0");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_68(_rrsemaction_49_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_49_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_52(_rr_52)=parser.popstack().value { _rr_52 } else {<semaction>::default()};  RetTypeEnum::Enumvariant_65(_rrsemaction_50_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_49_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_48(_rr_48)=parser.popstack().value { _rr_48 } else {<semaction<'lt>>::default()};  RetTypeEnum::Enumvariant_68(_rrsemaction_50_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("rhs");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_65(_rr_65)=parser.popstack().value { _rr_65 } else {<Option<LBox<semaction>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_69(_rr_69)=parser.popstack().value { _rr_69 } else {<Vec<LC<rhsunit<'lt>>>>::default()};  RetTypeEnum::Enumvariant_72(_rrsemaction_51_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("rhs");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_68(_rr_68)=parser.popstack().value { _rr_68 } else {<Option<LBox<semaction<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_79(_rr_79)=parser.popstack().value { _rr_79 } else {<Vec<LC<rhsunit<'lt>>>>::default()};  RetTypeEnum::Enumvariant_74(_rrsemaction_51_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_52_0");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_69(_rrsemaction_52_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_52_0");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_79(_rrsemaction_52_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_52_0");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_48(_rr_48)=parser.popstack().value { _rr_48 } else {<rhsunit<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_69(_rr_69)=parser.popstack().value { _rr_69 } else {<Vec<LC<rhsunit<'lt>>>>::default()};  RetTypeEnum::Enumvariant_69(_rrsemaction_53_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_52_0");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_69(_rr_69)=parser.popstack().value { _rr_69 } else {<rhsunit<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_79(_rr_79)=parser.popstack().value { _rr_79 } else {<Vec<LC<rhsunit<'lt>>>>::default()};  RetTypeEnum::Enumvariant_79(_rrsemaction_53_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("semcontent");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_2(_rr_2)=parser.popstack().value { _rr_2 } else {<(usize,usize)>::default()};  RetTypeEnum::Enumvariant_71(_rrsemaction_54_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("semcontent");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_78(_rrsemaction_54_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("semcontent");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_71(_rrsemaction_55_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("semcontent");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_78(_rrsemaction_55_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("semaction");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_66(_rr_66)=parser.popstack().value { _rr_66 } else {<Vec<LC<semcontent>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()};  RetTypeEnum::Enumvariant_52(_rrsemaction_56_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("semaction");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_52(_rr_52)=parser.popstack().value { _rr_52 } else {<Vec<LC<semcontent<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()};  RetTypeEnum::Enumvariant_48(_rrsemaction_56_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_57_0");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_66(_rrsemaction_57_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_57_0");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_52(_rrsemaction_57_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWRENT_57_0");
- rule.Ruleaction = |parser|{ let _item1_ = if let RetTypeEnum::Enumvariant_71(_rr_71)=parser.popstack().value { _rr_71 } else {<semcontent>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_66(_rr_66)=parser.popstack().value { _rr_66 } else {<Vec<LC<semcontent>>>::default()};  RetTypeEnum::Enumvariant_66(_rrsemaction_58_(parser,_item0_,_item1_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWRENT_57_0");
+ rule.Ruleaction = |parser|{ let mut _item1_ = if let RetTypeEnum::Enumvariant_78(_rr_78)=parser.popstack().value { _rr_78 } else {<semcontent<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_52(_rr_52)=parser.popstack().value { _rr_52 } else {<Vec<LC<semcontent<'lt>>>>::default()};  RetTypeEnum::Enumvariant_52(_rrsemaction_58_(parser,_item0_,_item1_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("grammar_rules");
- rule.Ruleaction = |parser|{ let _item3_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let rhsides = if let RetTypeEnum::Enumvariant_46(_rr_46)=parser.popstack().value { _rr_46 } else {<Vec<LC<rhs<'lt>>>>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let lhs = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_45(_rrsemaction_59_(parser,lhs,_item1_,rhsides,_item3_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("grammar_rules");
+ rule.Ruleaction = |parser|{ let mut _item3_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut rhsides = if let RetTypeEnum::Enumvariant_56(_rr_56)=parser.popstack().value { _rr_56 } else {<Vec<LC<rhs<'lt>>>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut lhs = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_64(_rrsemaction_59_(parser,lhs,_item1_,rhsides,_item3_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEPNT_60_0");
- rule.Ruleaction = |parser|{ let _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<rhs<'lt>>::default()};  RetTypeEnum::Enumvariant_46(_rrsemaction_60_(parser,_item0_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEPNT_60_0");
+ rule.Ruleaction = |parser|{ let mut _item0_ = if let RetTypeEnum::Enumvariant_74(_rr_74)=parser.popstack().value { _rr_74 } else {<rhs<'lt>>::default()};  RetTypeEnum::Enumvariant_56(_rrsemaction_60_(parser,_item0_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWSEPNT_60_0");
- rule.Ruleaction = |parser|{ let _item2_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<rhs<'lt>>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_46(_rr_46)=parser.popstack().value { _rr_46 } else {<Vec<LC<rhs<'lt>>>>::default()};  RetTypeEnum::Enumvariant_46(_rrsemaction_61_(parser,_item0_,_item1_,_item2_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWSEPNT_60_0");
+ rule.Ruleaction = |parser|{ let mut _item2_ = if let RetTypeEnum::Enumvariant_74(_rr_74)=parser.popstack().value { _rr_74 } else {<rhs<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_56(_rr_56)=parser.popstack().value { _rr_56 } else {<Vec<LC<rhs<'lt>>>>::default()};  RetTypeEnum::Enumvariant_56(_rrsemaction_61_(parser,_item0_,_item1_,_item2_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("START");
- rule.Ruleaction = |parser|{ let _item4_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item3_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_0(_rr_0)=parser.popstack().value { _rr_0 } else {<Yacc<'lt>>::default()};  RetTypeEnum::Enumvariant_70(_rrsemaction_62_(parser,_item0_,_item1_,_item2_,_item3_,_item4_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("START");
+ rule.Ruleaction = |parser|{ let mut _item4_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item3_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_0(_rr_0)=parser.popstack().value { _rr_0 } else {<Yacc<'lt>>::default()};  RetTypeEnum::Enumvariant_76(_rrsemaction_62_(parser,_item0_,_item1_,_item2_,_item3_,_item4_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWDELAYNT_NEWRENT_9_1_46");
- rule.Ruleaction = |parser|{ let _item_del1_63_10_ = if let RetTypeEnum::Enumvariant_50(_rr_50)=parser.popstack().value { _rr_50 } else {<primary<'lt>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_74(_rr_74)=parser.popstack().value { _rr_74 } else {<NEWSEQNT_8_0<'lt>>::default()};  RetTypeEnum::Enumvariant_81(_rrsemaction_63_(parser,_item0_,_item_del1_63_10_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWDELAYNT_NEWRENT_9_1_46");
+ rule.Ruleaction = |parser|{ let mut _item_del1_63_10_ = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<primary<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_62(_rr_62)=parser.popstack().value { _rr_62 } else {<NEWSEQNT_8_0<'lt>>::default()};  RetTypeEnum::Enumvariant_82(_rrsemaction_63_(parser,_item0_,_item_del1_63_10_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWDELAYNT_NEWRENT_9_1_46");
- rule.Ruleaction = |parser|{ let _item_del0_64_9_ = if let RetTypeEnum::Enumvariant_50(_rr_50)=parser.popstack().value { _rr_50 } else {<primary<'lt>>::default()};  RetTypeEnum::Enumvariant_81(_rrsemaction_64_(parser,_item_del0_64_9_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWDELAYNT_NEWRENT_9_1_46");
+ rule.Ruleaction = |parser|{ let mut _item_del0_64_9_ = if let RetTypeEnum::Enumvariant_61(_rr_61)=parser.popstack().value { _rr_61 } else {<primary<'lt>>::default()};  RetTypeEnum::Enumvariant_82(_rrsemaction_64_(parser,_item_del0_64_9_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("Yacc");
- rule.Ruleaction = |parser|{ let _item3_ = if let RetTypeEnum::Enumvariant_63(_rr_63)=parser.popstack().value { _rr_63 } else {<Option<LBox<&'lt str>>>::default()}; let _item2_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _delayitem0_7_82 = if let RetTypeEnum::Enumvariant_81(_rr_81)=parser.popstack().value { _rr_81 } else {<(Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,)>::default()};  RetTypeEnum::Enumvariant_0(_rrsemaction_65_(parser,_delayitem0_7_82,_item2_,_item3_)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("Yacc");
+ rule.Ruleaction = |parser|{ let mut _item3_ = if let RetTypeEnum::Enumvariant_71(_rr_71)=parser.popstack().value { _rr_71 } else {<Option<&'lt str>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _delayitem0_7_83 = if let RetTypeEnum::Enumvariant_82(_rr_82)=parser.popstack().value { _rr_82 } else {<(Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,)>::default()};  RetTypeEnum::Enumvariant_0(_rrsemaction_65_(parser,_delayitem0_7_83,_item2_,_item3_)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWDELAYNT_NEWRENT_1_0_53");
- rule.Ruleaction = |parser|{ let yacc_declarations = if let RetTypeEnum::Enumvariant_73(_rr_73)=parser.popstack().value { _rr_73 } else {<Vec<LC<yacc_decl<'lt>>>>::default()}; let _item0_ = if let RetTypeEnum::Enumvariant_53(_rr_53)=parser.popstack().value { _rr_53 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_86(_rrsemaction_66_(parser,_item0_,yacc_declarations)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWDELAYNT_NEWRENT_1_0_53");
+ rule.Ruleaction = |parser|{ let mut yacc_declarations = if let RetTypeEnum::Enumvariant_77(_rr_77)=parser.popstack().value { _rr_77 } else {<Vec<LC<yacc_decl<'lt>>>>::default()};  RetTypeEnum::Enumvariant_87(_rrsemaction_66_(parser,yacc_declarations)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("NEWDELAYNT_NEWRENT_1_0_53");
- rule.Ruleaction = |parser|{ let yacc_declarations = if let RetTypeEnum::Enumvariant_73(_rr_73)=parser.popstack().value { _rr_73 } else {<Vec<LC<yacc_decl<'lt>>>>::default()};  RetTypeEnum::Enumvariant_86(_rrsemaction_67_(parser,yacc_declarations)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("NEWDELAYNT_NEWRENT_1_0_53");
+ rule.Ruleaction = |parser|{ let mut yacc_declarations = if let RetTypeEnum::Enumvariant_77(_rr_77)=parser.popstack().value { _rr_77 } else {<Vec<LC<yacc_decl<'lt>>>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_72(_rr_72)=parser.popstack().value { _rr_72 } else {<&'lt str>::default()};  RetTypeEnum::Enumvariant_87(_rrsemaction_67_(parser,_item0_,yacc_declarations)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,symbol_table<'lt>>::new_skeleton("primary");
- rule.Ruleaction = |parser|{ let rules = if let RetTypeEnum::Enumvariant_59(_rr_59)=parser.popstack().value { _rr_59 } else {<Vec<LC<grammar_rules<'lt>>>>::default()}; let _item1_ = if let RetTypeEnum::Enumvariant_70(_rr_70)=parser.popstack().value { _rr_70 } else {<()>::default()}; let _delayitem0_0_87 = if let RetTypeEnum::Enumvariant_86(_rr_86)=parser.popstack().value { _rr_86 } else {<(Option<LBox<&'lt str>>,Vec<LC<yacc_decl<'lt>>>,)>::default()};  RetTypeEnum::Enumvariant_50(_rrsemaction_68_(parser,_delayitem0_0_87,_item1_,rules)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>::new_skeleton("primary");
+ rule.Ruleaction = |parser|{ let mut rules = if let RetTypeEnum::Enumvariant_54(_rr_54)=parser.popstack().value { _rr_54 } else {<Vec<LC<grammar_rules<'lt>>>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_76(_rr_76)=parser.popstack().value { _rr_76 } else {<()>::default()}; let mut _delayitem0_0_88 = if let RetTypeEnum::Enumvariant_87(_rr_87)=parser.popstack().value { _rr_87 } else {<(Option<&'lt str>,Vec<LC<yacc_decl<'lt>>>,)>::default()};  RetTypeEnum::Enumvariant_61(_rrsemaction_68_(parser,_delayitem0_0_88,_item1_,rules)) };
  parser1.Rules.push(rule);
  parser1.Errsym = "";
  parser1.resynch.insert("SEMICOLON");
@@ -602,57 +595,58 @@ pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>
  return parser1;
 } //make_parser
 
-pub fn parse_with<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, lexer:&mut yacclexer<'lt>) -> Result<Yacc<'lt>,Yacc<'lt>>
+pub fn parse_with<'lt>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,yacclexer<'lt>>) -> Result<Yacc<'lt>,Yacc<'lt>>
 {
-  lexer.shared_state = Rc::clone(&parser.shared_state);
-  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse(lexer) {
+  parser.tokenizer.shared_state = Rc::clone(&parser.shared_state);
+  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse() {
      if !parser.error_occurred() {Ok(_xres_)} else {Err(_xres_)}
   } else { Err(<Yacc<'lt>>::default())}
 }//parse_with public function
 
-pub fn parse_train_with<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>, lexer:&mut yacclexer<'lt>, parserpath:&str) -> Result<Yacc<'lt>,Yacc<'lt>>
+pub fn parse_train_with<'lt>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,yacclexer<'lt>>, parserpath:&str) -> Result<Yacc<'lt>,Yacc<'lt>>
 {
-  lexer.shared_state = Rc::clone(&parser.shared_state);
-  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse_train(lexer,parserpath) {
+  parser.tokenizer.shared_state = Rc::clone(&parser.shared_state);
+  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse_train(parserpath) {
      if !parser.error_occurred() {Ok(_xres_)} else {Err(_xres_)}
   } else { Err(<Yacc<'lt>>::default())}
 }//parse_train_with public function
 
 //Enum for return values 
 pub enum RetTypeEnum<'lt> {
-  Enumvariant_53(&'lt str),
-  Enumvariant_73(Vec<LC<yacc_decl<'lt>>>),
-  Enumvariant_81((Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,)),
-  Enumvariant_86((Option<LBox<&'lt str>>,Vec<LC<yacc_decl<'lt>>>,)),
-  Enumvariant_72(rhs<'lt>),
-  Enumvariant_44(idnum<'lt>),
-  Enumvariant_77(yacc_decl<'lt>),
-  Enumvariant_74(NEWSEQNT_8_0<'lt>),
-  Enumvariant_49(semstart),
-  Enumvariant_66(Vec<LC<semcontent>>),
-  Enumvariant_45(grammar_rules<'lt>),
-  Enumvariant_46(Vec<LC<rhs<'lt>>>),
-  Enumvariant_56(Option<u32>),
-  Enumvariant_52(semaction),
-  Enumvariant_60(label<'lt>),
-  Enumvariant_64(Option<LBox<NEWSEQNT_8_0<'lt>>>),
-  Enumvariant_67(Option<LBox<label<'lt>>>),
-  Enumvariant_76(unionset),
-  Enumvariant_75(tag<'lt>),
-  Enumvariant_62(rhs_symbol<'lt>),
-  Enumvariant_50(primary<'lt>),
-  Enumvariant_69(Vec<LC<rhsunit<'lt>>>),
-  Enumvariant_65(Option<LBox<semaction>>),
-  Enumvariant_48(rhsunit<'lt>),
-  Enumvariant_61(Vec<LC<idnum<'lt>>>),
-  Enumvariant_59(Vec<LC<grammar_rules<'lt>>>),
-  Enumvariant_54(Vec<LC<&'lt str>>),
-  Enumvariant_71(semcontent),
-  Enumvariant_70(()),
-  Enumvariant_63(Option<LBox<&'lt str>>),
-  Enumvariant_0(Yacc<'lt>),
+  Enumvariant_53(Vec<LC<idnum<'lt>>>),
+  Enumvariant_87((Option<&'lt str>,Vec<LC<yacc_decl<'lt>>>,)),
   Enumvariant_9(u32),
+  Enumvariant_54(Vec<LC<grammar_rules<'lt>>>),
   Enumvariant_2((usize,usize)),
+  Enumvariant_59(Option<LBox<&'lt str>>),
+  Enumvariant_63(Option<u32>),
+  Enumvariant_58(yacc_decl<'lt>),
+  Enumvariant_76(()),
+  Enumvariant_62(NEWSEQNT_8_0<'lt>),
+  Enumvariant_78(semcontent<'lt>),
+  Enumvariant_56(Vec<LC<rhs<'lt>>>),
+  Enumvariant_60(unionset),
+  Enumvariant_0(Yacc<'lt>),
+  Enumvariant_69(rhsunit<'lt>),
+  Enumvariant_72(&'lt str),
+  Enumvariant_57(tag<'lt>),
+  Enumvariant_49(idnum<'lt>),
+  Enumvariant_64(grammar_rules<'lt>),
+  Enumvariant_75(label<'lt>),
+  Enumvariant_65(Vec<LC<&'lt str>>),
+  Enumvariant_82((Option<LBox<NEWSEQNT_8_0<'lt>>>,primary<'lt>,)),
+  Enumvariant_74(rhs<'lt>),
+  Enumvariant_71(Option<&'lt str>),
+  Enumvariant_70(Option<LBox<NEWSEQNT_8_0<'lt>>>),
+  Enumvariant_68(Option<LBox<semaction<'lt>>>),
+  Enumvariant_66(rhs_symbol<'lt>),
+  Enumvariant_45(semstart),
+  Enumvariant_48(semaction<'lt>),
+  Enumvariant_52(Vec<LC<semcontent<'lt>>>),
+  Enumvariant_73(Option<LBox<label<'lt>>>),
+  Enumvariant_77(Vec<LC<yacc_decl<'lt>>>),
+  Enumvariant_79(Vec<LC<rhsunit<'lt>>>),
+  Enumvariant_61(primary<'lt>),
 }
 impl<'lt> Default for RetTypeEnum<'lt> { fn default()->Self {RetTypeEnum::Enumvariant_0(<Yacc<'lt>>::default())} }
 
@@ -677,10 +671,10 @@ impl<'lt> yacclexer<'lt>
     let mut keywords = HashSet::with_capacity(64);
     let shared_state = Rc::new(RefCell::new(<symbol_table<'lt>>::default()));
     for kw in ["_WILDCARD_TOKEN_","union",] {keywords.insert(kw);}
-    for c in ['@',')','-','%',':',';','*',']','?','>','$','|','}','(','<','+','[',',','{',] {stk.add_single(c);}
-    for d in ["%}","$$","%%","%{",] {stk.add_double(d);}
+    for c in ['|',')','{','(',',','>','%','$','+','?',']',';','@','[','}','<',':','-','*',] {stk.add_single(c);}
+    for d in ["%{","$$","%%","%}",] {stk.add_double(d);}
     for d in [] {stk.add_triple(d);}
-    for (k,v) in [(r"%}","PERRBRACK"),(r"$$","TWODOLLARS"),(r"@","AT"),(r"%%","PERPERCENT"),(r")","RPAREN"),(r"-","DASH"),(r"%","PERCENT"),(r":","COLON"),(r";","SEMICOLON"),(r"%{","PERLBRACK"),(r"*","STAR"),(r"]","RBRACK"),(r"?","QUEST"),(r">","RANGLE"),(r"$","DOLLAR"),(r"|","BAR"),(r"}","RBRACE"),(r"(","LPAREN"),(r"<","LANGLE"),(r"+","PLUS"),(r"[","LBRACK"),(r",","COMMA"),(r"{","LBRACE"),] {lexnames.insert(k,v);}
+    for (k,v) in [(r#"|"#,"BAR"),(r#"%{"#,"PERLBRACK"),(r#")"#,"RPAREN"),(r#"{"#,"LBRACE"),(r#"("#,"LPAREN"),(r#","#,"COMMA"),(r#">"#,"RANGLE"),(r#"%"#,"PERCENT"),(r#"$"#,"DOLLAR"),(r#"$$"#,"TWODOLLARS"),(r#"+"#,"PLUS"),(r#"?"#,"QUEST"),(r#"]"#,"RBRACK"),(r#";"#,"SEMICOLON"),(r#"@"#,"AT"),(r#"["#,"LBRACK"),(r#"%%"#,"PERPERCENT"),(r#"}"#,"RBRACE"),(r#"<"#,"LANGLE"),(r#":"#,"COLON"),(r#"%}"#,"PERRBRACK"),(r#"-"#,"DASH"),(r#"*"#,"STAR"),] {lexnames.insert(k,v);}
     stk.add_custom("literal",r"^'.'");
     stk.add_custom("%type",r"^%type");
     stk.add_custom("%token",r"^%token");
@@ -705,31 +699,31 @@ impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for yacclexer<'lt>
         let truesym = self.lexnames.get(sym).unwrap_or(&sym);
         Some(TerminalToken::from_raw(token,truesym,<RetTypeEnum<'lt>>::default()))
       },
-      RawToken:: Skipmatched(d)  => Some(TerminalToken::from_raw(token,"ACTION",RetTypeEnum::Enumvariant_53( d
+      RawToken:: Skipmatched(d)  => Some(TerminalToken::from_raw(token,"ACTION",RetTypeEnum::Enumvariant_72( d
 ))),
-      RawToken:: Skipto(d)  => Some(TerminalToken::from_raw(token,"ADDITIONALS",RetTypeEnum::Enumvariant_53( d
+      RawToken:: Skipto(d)  => Some(TerminalToken::from_raw(token,"ADDITIONALS",RetTypeEnum::Enumvariant_72( d
 ))),
-      RawToken:: Custom("decls",d)  => Some(TerminalToken::from_raw(token,"RAWDECL",RetTypeEnum::Enumvariant_53( &d.trim()[2..d.len()-2]
+      RawToken:: Custom("decls",d)  => Some(TerminalToken::from_raw(token,"RAWDECL",RetTypeEnum::Enumvariant_72( &d.trim()[2..d.len()-2]
 ))),
-      RawToken:: Alphanum(n)  => Some(TerminalToken::from_raw(token,"ID",RetTypeEnum::Enumvariant_53( n
+      RawToken:: Alphanum(n)  => Some(TerminalToken::from_raw(token,"ID",RetTypeEnum::Enumvariant_72( n
 ))),
-      RawToken:: Custom("literal",d) => Some(TerminalToken::from_raw(token,"LEXCHAR",RetTypeEnum::Enumvariant_53( d[1..d.len()-1].trim()
+      RawToken:: Custom("literal",d) => Some(TerminalToken::from_raw(token,"LEXCHAR",RetTypeEnum::Enumvariant_72( d[1..d.len()-1].trim()
 ))),
-      RawToken:: Strlit(d) => Some(TerminalToken::from_raw(token,"LEXSTR",RetTypeEnum::Enumvariant_53( d[1..d.len()-1].trim()
+      RawToken:: Strlit(d) => Some(TerminalToken::from_raw(token,"LEXSTR",RetTypeEnum::Enumvariant_72( d[1..d.len()-1].trim()
 ))),
       RawToken:: Num(n)  => Some(TerminalToken::from_raw(token,"NUMBER",RetTypeEnum::Enumvariant_9( n as u32
 ))),
-      RawToken:: Custom("%type",_)  => Some(TerminalToken::from_raw(token,"PERTYPE",RetTypeEnum::Enumvariant_70( ()
+      RawToken:: Custom("%type",_)  => Some(TerminalToken::from_raw(token,"PERTYPE",RetTypeEnum::Enumvariant_76( ()
 ))),
-      RawToken:: Custom("%token",_)  => Some(TerminalToken::from_raw(token,"PERTOKEN",RetTypeEnum::Enumvariant_70( ()
+      RawToken:: Custom("%token",_)  => Some(TerminalToken::from_raw(token,"PERTOKEN",RetTypeEnum::Enumvariant_76( ()
 ))),
-      RawToken:: Custom("%left",_)  => Some(TerminalToken::from_raw(token,"PERLEFT",RetTypeEnum::Enumvariant_70( ()
+      RawToken:: Custom("%left",_)  => Some(TerminalToken::from_raw(token,"PERLEFT",RetTypeEnum::Enumvariant_76( ()
 ))),
-      RawToken:: Custom("%right",_)  => Some(TerminalToken::from_raw(token,"PERRIGHT",RetTypeEnum::Enumvariant_70( ()
+      RawToken:: Custom("%right",_)  => Some(TerminalToken::from_raw(token,"PERRIGHT",RetTypeEnum::Enumvariant_76( ()
 ))),
-      RawToken:: Custom("%nonassoc",_)  => Some(TerminalToken::from_raw(token,"PERNONASSOC",RetTypeEnum::Enumvariant_70( ()
+      RawToken:: Custom("%nonassoc",_)  => Some(TerminalToken::from_raw(token,"PERNONASSOC",RetTypeEnum::Enumvariant_76( ()
 ))),
-      RawToken:: Custom("%start",_)  => Some(TerminalToken::from_raw(token,"PERSTART",RetTypeEnum::Enumvariant_70( ()
+      RawToken:: Custom("%start",_)  => Some(TerminalToken::from_raw(token,"PERSTART",RetTypeEnum::Enumvariant_76( ()
 ))),
       RawToken::Symbol(s) if self.lexnames.contains_key(s) => {
         let tname = self.lexnames.get(s).unwrap();
@@ -745,10 +739,11 @@ impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for yacclexer<'lt>
    fn position(&self) -> usize {self.stk.current_position()}
    fn current_line(&self) -> &str {self.stk.current_line()}
    fn get_line(&self,i:usize) -> Option<&str> {self.stk.get_line(i)}
+   fn add_priority_symbol(&mut self, s:&'static str) {self.stk.add_priority_symbol(s);}
    fn get_slice(&self,s:usize,l:usize) -> &str {self.stk.get_slice(s,l)}
-   fn transform_wildcard(&self,t:TerminalToken<'lt,RetTypeEnum<'lt>>) -> TerminalToken<'lt,RetTypeEnum<'lt>> { TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_2((self.stk.previous_position(),self.stk.current_position())),t.line,t.column) }
+   fn transform_wildcard(&self,t:TerminalToken<'lt,RetTypeEnum<'lt>>) -> TerminalToken<'lt,RetTypeEnum<'lt>> { TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_72(self.stk.current_text()),t.line,t.column) }
 }//impl Tokenizer
 
-fn load_extras<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,symbol_table<'lt>>)
+fn load_extras<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,symbol_table<'lt>,TT>)
 {
 }//end of load_extras: don't change this line as it affects augmentation
