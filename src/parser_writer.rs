@@ -343,6 +343,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 /////////////////////////////////////// for new base_parser
 ////////////////////////////////////////////////////////////////////////
 
+/////// version that can write table to file.
 
 impl Statemachine
 {
@@ -491,7 +492,18 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     let mut totalsize = 0;
     for i in 0..self.FSM.len() { totalsize+=self.FSM[i].len(); }
     if self.Gmr.tracelev>1 {println!("{} total state table entries",totalsize);}
-    write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
+
+
+    let mut tfdopt = None;
+    if !self.Gmr.inlinetable {
+      write!(fd,"static TABLE:[u64;{}] = [0;{}];\n",totalsize,totalsize)?;
+      let tablefile = format!("{}_table.fsm",&self.Gmr.name);
+      let mut tfd1 = File::create(tablefile)?;
+      tfdopt = Some(tfd1);    
+    }
+    else {  // default behavior: write large table inline
+      write!(fd,"static TABLE:[u64;{}] = [",totalsize)?;
+    }
     // generate table to represent FSM
     let mut encode:u64 = 0;
     for i in 0..self.FSM.len() // for each state index i
@@ -508,10 +520,17 @@ use std::collections::{{HashMap,HashSet}};\n")?;
           Some(Accept) => {encode += 3; },
           _ => {encode += 4; },  // 4 indicates Error
         }//match
-        write!(fd,"{},",encode)?;
+        tfdopt.as_mut().map_or_else(||{write!(fd,"{},",encode)},
+	                   |tfd|{tfd.write_all(&encode.to_be_bytes())})?;
       } //for symbol index k
     }//for each state index i
-    write!(fd,"];\n\n")?;
+    if self.Gmr.inlinetable { write!(fd,"];\n\n")?; }
+    else { // generate code to read from file
+      let tablefile = format!("{}_table.fsm",&self.Gmr.name);
+      write!(fd,"let mut tfd = File::open(tablefile).expect(\"Parse Table file {} Not Found\");\n",&tablefile)?;
+      panic!("THIS FEATURE IS NOT YET SUPPORTED");
+    }
+
 
     // write action functions fn _semaction_rule_{} ..
     for deffn in &actions { write!(fd,"{}",deffn)?; }
@@ -596,6 +615,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     write!(fd,"fn load_extras<{},TT:Tokenizer<{},RetTypeEnum{}>>(parser:&mut BaseParser<{},RetTypeEnum{},{},TT>)\n{{\n",lexerlife,lexerlife,&ltopt,lexerlife,&ltopt,extype)?;
     write!(fd,"}}//end of load_extras: don't change this line as it affects augmentation\n")?;
     Ok(())
-  }//writeenumparser
+  }//writebaseenumparser
 
 }//impl statemachine

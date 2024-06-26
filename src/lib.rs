@@ -42,7 +42,7 @@
 //! the following to your Cargo.toml:
 //! ```
 //!   [dependencies]
-//!   rustlr = { version = "0.5", default-features = false }
+//!   rustlr = { version = "0.6", default-features = false }
 //! ```
 //!
 //! **Compatibility Notice:**
@@ -123,7 +123,7 @@ pub use zc_parser::{ZCParser,ZCRProduction};
 #[cfg(feature = "legacy-parser")]
 pub use runtime_parser::{RuntimeParser,RProduction,StackedItem};
 
-pub const RUSTLRVERSION:&'static str = "0.6.0";
+pub const RUSTLRVERSION:&'static str = "0.6.1";
 
 /// This function can be called from within Rust to generate a parser/lexer.
 /// It takes the same arguments as the rustlr command-line application.
@@ -174,6 +174,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   let mut regenerate = false;
   let mut mode = 0;
   let mut conv_yacc = false;
+  let mut inlinetable = true;
   let mut argi = 1; // next argument position
   while argi<argc
   {
@@ -205,6 +206,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
           if tracelev>0 {println!("trace-level set to {}",tracelev);}
           }
        },
+       "table" => { inlinetable = false; },
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true; newbase=false;},
        "-newbase" | "-base" => {newbase = true; zc=false; genabsyn=true; genlex=true;},
@@ -241,6 +243,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   grammar1.genlex = genlex;
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
+  grammar1.inlinetable = inlinetable;
   grammar1.mode = mode; // 0 for rust, 1 for fsharp
   let parsedok = grammar1.parse_grammar(filepath);  //  ***
   if !parsedok {
