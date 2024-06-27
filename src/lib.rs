@@ -206,7 +206,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
           if tracelev>0 {println!("trace-level set to {}",tracelev);}
           }
        },
-       "table" => { inlinetable = false; },
+       "-table" => { inlinetable = false; },
        "verbose" | "-verbose" => { verbose=true; },
        "-zc" | "zero_copy" => {zc=true; newbase=false;},
        "-newbase" | "-base" => {newbase = true; zc=false; genabsyn=true; genlex=true;},

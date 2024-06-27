@@ -496,7 +496,11 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
     let mut tfdopt = None;
     if !self.Gmr.inlinetable {
-      write!(fd,"static TABLE:[u64;{}] = [0;{}];\n",totalsize,totalsize)?;
+      //write!(fd,"static TABLE:[u64;{}] = [0;{}];\n",totalsize,totalsize)?;
+      write!(fd,"use std::fs::File;\n")?;
+      write!(fd,"use std::io::prelude::*;\n")?;
+      write!(fd,"use std::path::Path;\n")?;
+      write!(fd,"use std::io::Read;\n")?;
       let tablefile = format!("{}_table.fsm",&self.Gmr.name);
       let mut tfd1 = File::create(tablefile)?;
       tfdopt = Some(tfd1);    
@@ -525,12 +529,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
       } //for symbol index k
     }//for each state index i
     if self.Gmr.inlinetable { write!(fd,"];\n\n")?; }
-    else { // generate code to read from file
-      let tablefile = format!("{}_table.fsm",&self.Gmr.name);
-      write!(fd,"let mut tfd = File::open(tablefile).expect(\"Parse Table file {} Not Found\");\n",&tablefile)?;
-      panic!("THIS FEATURE IS NOT YET SUPPORTED");
-    }
-
 
     // write action functions fn _semaction_rule_{} ..
     for deffn in &actions { write!(fd,"{}",deffn)?; }
@@ -562,20 +560,27 @@ use std::collections::{{HashMap,HashSet}};\n")?;
     for s in &self.Gmr.Resynch {write!(fd," parser1.resynch.insert(\"{}\");\n",s)?;}
 
     // generate code to load RSM from TABLE
+
+  if self.Gmr.inlinetable {
     write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
     write!(fd,"   let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;\n")?;
     write!(fd,"   let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;\n")?;
     write!(fd,"   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));\n }}\n\n")?;
-//    write!(fd,"\n for i in 0..{} {{for k in 0..{} {{\n",rows,cols)?;
-//    write!(fd,"   parser1.RSM[i].insert(SYMBOLS[k],decode_action(TABLE[i*{}+k]));\n }}}}\n",cols)?;
-    write!(fd," for s in SYMBOLS {{ parser1.Symset.insert(s); }}\n\n")?;
+  } // if inlinetable (default)
+  else {  // load from binary file  (0.6.1)
+          let tablefile = format!("{}_table.fsm",&self.Gmr.name);
+          write!(fd,"let mut tfd = File::open(\"{}\").expect(\"Parse Table file {} Not Found\");\n",&tablefile,&tablefile)?;
+	  write!(fd,"\n let mut tbuf = [0u8;8];")?;
+          write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
+	  write!(fd,"   tfd.read_exact(&mut tbuf).expect(\"File Read Failed\");\n")?;
+	  write!(fd,"   let tabi = u64::from_be_bytes(tbuf);\n")?;
+	  write!(fd,"   let symi = ((tabi & 0x0000ffff00000000) >> 32) as usize;\n")?;
+    write!(fd,"   let sti = ((tabi & 0xffff000000000000) >> 48) as usize;\n")?;
+    write!(fd,"   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(tabi));\n }}\n\n")?;
+  } //load table from file
 
-    /* // took out 0.2.97
-    if self.Gmr.transform_function.len()>0 {
-      write!(fd," parser1.set_transform_token({});\n\n",&self.Gmr.transform_function)?;
-    }
-    */
-    
+
+    write!(fd," for s in SYMBOLS {{ parser1.Symset.insert(s); }}\n\n")?;
     write!(fd," load_extras(&mut parser1);\n")?;
     write!(fd," return parser1;\n")?;
     write!(fd,"}} //make_parser\n\n")?;
