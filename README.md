@@ -18,7 +18,7 @@ options
 1. An experimental feature that generates parsers for *[Selective Marcus-Leermakers grammars](https://hal.archives-ouvertes.fr/hal-00769668/document)*.  This is a larger class of unambiguous grammars than traditional LR.  For example, the following grammar
 
    ```
-     S --> a B c  |  A B d
+    S --> a B c  |  A B d
      B --> b | B b
      A --> a
    ```
@@ -171,6 +171,11 @@ AST: ExpList([BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4))), Binary
 Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
 
 <br>
+
+#### New in Version 0.6.1
+
+The `-table` option stores the parse table to a binary file instead of
+an inlined static array.
 
 #### New in Version 0.6.0
 

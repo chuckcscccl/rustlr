@@ -172,7 +172,8 @@ pub struct Grammar
   pub vargroupnames : Vec<String>,
   pub vargroups: HashMap<(usize,usize),usize>, // (ntsymi, rhssymi) to index in vargroupnames  , ntsymi can be usize::MAX to mean any nt
   pub genlog : String,
-  pub inlinetable : bool,
+  pub tablefile : String,
+  //pub inlinetable : bool,
   //pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
 }// struct Grammar
 
@@ -229,7 +230,8 @@ impl Grammar
        vargroupnames : Vec::new(),
        vargroups : HashMap::new(),
        genlog : String::new(),
-       inlinetable: true,
+       tablefile : String::new(),
+       //inlinetable: true,
        //wildcardvarnum : 2,       
      }
   }//new grammar

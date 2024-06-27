@@ -243,7 +243,7 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
   grammar1.genlex = genlex;
   grammar1.genabsyn = genabsyn;
   grammar1.tracelev = tracelev;
-  grammar1.inlinetable = inlinetable;
+  //grammar1.tablefile = tablefile;
   grammar1.mode = mode; // 0 for rust, 1 for fsharp
   let parsedok = grammar1.parse_grammar(filepath);  //  ***
   if !parsedok {
@@ -263,9 +263,9 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
 
   let pfsuffix = if mode==1 {"fs"} else {"rs"};
 
+  let mut slashpos = parserfile.rfind('/');
+  if let None = slashpos {slashpos = parserfile.rfind('\\');}
   if grammar1.genabsyn {
-     let mut slashpos = parserfile.rfind('/');
-     if let None = slashpos {slashpos = parserfile.rfind('\\');}
      let mut astpath = format!("{}_ast.{}",&gramname,pfsuffix);
      if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }
      let wres;
@@ -276,6 +276,11 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
        //eprintln!("Failed to generate abstract syntax");
        return Err("Failed to generate abstract syntax".to_owned());
      }
+  }
+  if !inlinetable {
+     let mut fsmpath = format!("{}_table.fsm",&gramname);
+     if let Some(pos) = slashpos { fsmpath=format!("{}{}",&parserfile[..pos+1],&fsmpath); }
+     grammar1.tablefile = fsmpath;
   }
 
  grammar1.delay_transform(); // static delayed reduction markers

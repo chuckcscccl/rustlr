@@ -495,14 +495,13 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
 
     let mut tfdopt = None;
-    if !self.Gmr.inlinetable {
+    if self.Gmr.tablefile.len()>0 {
       //write!(fd,"static TABLE:[u64;{}] = [0;{}];\n",totalsize,totalsize)?;
       write!(fd,"use std::fs::File;\n")?;
       write!(fd,"use std::io::prelude::*;\n")?;
       write!(fd,"use std::path::Path;\n")?;
       write!(fd,"use std::io::Read;\n")?;
-      let tablefile = format!("{}_table.fsm",&self.Gmr.name);
-      let mut tfd1 = File::create(tablefile)?;
+      let mut tfd1 = File::create(&self.Gmr.tablefile)?;
       tfdopt = Some(tfd1);    
     }
     else {  // default behavior: write large table inline
@@ -528,7 +527,7 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 	                   |tfd|{tfd.write_all(&encode.to_be_bytes())})?;
       } //for symbol index k
     }//for each state index i
-    if self.Gmr.inlinetable { write!(fd,"];\n\n")?; }
+    if self.Gmr.tablefile.len()==0 { write!(fd,"];\n\n")?; }
 
     // write action functions fn _semaction_rule_{} ..
     for deffn in &actions { write!(fd,"{}",deffn)?; }
@@ -561,15 +560,18 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
     // generate code to load RSM from TABLE
 
-  if self.Gmr.inlinetable {
+  if self.Gmr.tablefile.len()==0 {
     write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
     write!(fd,"   let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;\n")?;
     write!(fd,"   let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;\n")?;
     write!(fd,"   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));\n }}\n\n")?;
   } // if inlinetable (default)
   else {  // load from binary file  (0.6.1)
-          let tablefile = format!("{}_table.fsm",&self.Gmr.name);
-          write!(fd,"let mut tfd = File::open(\"{}\").expect(\"Parse Table file {} Not Found\");\n",&tablefile,&tablefile)?;
+          let mut fsmfile = &self.Gmr.tablefile[..];
+	  if let Some(pos) = self.Gmr.tablefile.rfind("/") {
+	     fsmfile = &self.Gmr.tablefile[pos+1..];
+	  }
+          write!(fd,"let mut tfd = File::open(\"./src/{}\").or(File::open(\"{}\")).expect(\"Parse Table File {} Not Found\");\n",fsmfile, fsmfile, fsmfile)?;
 	  write!(fd,"\n let mut tbuf = [0u8;8];")?;
           write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
 	  write!(fd,"   tfd.read_exact(&mut tbuf).expect(\"File Read Failed\");\n")?;
