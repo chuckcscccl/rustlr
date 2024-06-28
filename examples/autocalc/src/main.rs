@@ -60,12 +60,12 @@ fn main() {
     //println!("{}",parser4.get_err_report());       
 
 
-    //eval_seq(&newenv(), &result4, 1); // evaluate each expression in sequence
+    eval_seq(&newenv(), &result4, 1); // evaluate each expression in sequence
     //println!("\nline 10: {}",parser4.get_tokenizer().get_line(10).unwrap());
 } //main
 
 
-/*
+
 /////////// evaluating generated ast
 
 pub enum Env<'t> {
@@ -115,7 +115,7 @@ pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
         //Minus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a-b})}).flatten(),
         Neg(x) => eval(env, x).map(|a| -1 * a),
         Binop("/", x, y) => eval(env, y)
-            .map(|yval| {
+            .and_then(|yval| {
                 if yval == 0 {
                     eprint!(
                         "Division by zero line {}, column {} ... ",
@@ -126,8 +126,7 @@ pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
                 } else {
                     eval(env, x).map(|xval| xval / yval)
                 }
-            })
-            .flatten(),
+            }),
         Let {
             let_var: x,
             init_value: e,
@@ -143,13 +142,13 @@ pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
 } //eval
 
 fn eval_seq<'t>(env: &Rc<Env<'t>>, s: &ExprList, line: usize) -> Option<i64> {
-    /*
+/*
       for expr in seq.0.iter() {
         if let Some(val) = eval(env,expr) {
            println!("result for line {}: {} ;",line,&val);
         } else { println!("Error evaluating line {};",line);}
       }
-    */
+*/
 
     match s {
         cons { car, cdr } => {
@@ -165,5 +164,6 @@ fn eval_seq<'t>(env: &Rc<Env<'t>>, s: &ExprList, line: usize) -> Option<i64> {
         }
         _ => None,
     } //match
+
 } //eval_seq
-*/
+

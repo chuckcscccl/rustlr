@@ -81,10 +81,10 @@ Expr --> Expr / Expr | Expr Star Expr  # variant group cases
 LetExpr --> Expr
 LetExpr:Let --> let var:let_var = Expr:init_value in LetExpr:let_body
 
-#ExprList:nil --> 
-#ExprList:cons --> LetExpr:[car] ; ExprList:cdr
+ExprList:nil --> 
+ExprList:cons --> LetExpr:[car] ; ExprList:cdr
 
-ExprList --> LetExpr<;+> ;? 
+#ExprList --> LetExpr<;+> ;? 
 
 #ExprList --> { vec![] }
 #ExprList --> ExprList:cdr LetExpr:car ; { cdr.push(car); cdr }
