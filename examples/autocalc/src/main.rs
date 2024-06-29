@@ -132,11 +132,10 @@ pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
             init_value: e,
             let_body: b,
         } => eval(env, e)
-            .map(|ve| {
+            .and_then(|ve| {
                 let newenv = push(x, ve, env);
                 eval(&newenv, b)
-            })
-            .flatten(),
+            }),
         _ => None,
     } //match
 } //eval
