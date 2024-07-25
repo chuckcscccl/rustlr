@@ -42,7 +42,7 @@
 //! the following to your Cargo.toml:
 //! ```
 //!   [dependencies]
-//!   rustlr = { version = "0.6", default-features = false }
+//!   rustlr = { version = "0.6.2", default-features = false }
 //! ```
 //!
 //! **Compatibility Notice:**
@@ -263,8 +263,8 @@ fn rustle1(args:&[&str]) -> Result<String,String> // called from main
 
   let pfsuffix = if mode==1 {"fs"} else {"rs"};
 
-  let mut slashpos = parserfile.rfind('/');
-  if let None = slashpos {slashpos = parserfile.rfind('\\');}
+  let slashpos = parserfile.rfind('/').or(parserfile.rfind('\\'));
+  //  if let None = slashpos {slashpos = parserfile.rfind('\\');}
   if grammar1.genabsyn {
      let mut astpath = format!("{}_ast.{}",&gramname,pfsuffix);
      if let Some(pos) = slashpos { astpath=format!("{}{}",&parserfile[..pos+1],&astpath); }

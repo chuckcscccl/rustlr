@@ -669,10 +669,11 @@ use std::collections::{{HashMap,HashSet}};\n")?;
    }
    else { // load from fsm binary file (0.6.1)
       let mut fsmfile = &self.Gmr.tablefile[..];
-      if let Some(pos) = self.Gmr.tablefile.rfind("/") {
+      if let Some(pos) = self.Gmr.tablefile.rfind("/")
+                         .or(self.Gmr.tablefile.rfind('\\')) {
          fsmfile = &self.Gmr.tablefile[pos+1..];
       }
-      write!(fd,"let mut tfd = File::open(\"./src/{}\").or(File::open(\"{}\")).expect(\"Parse Table File {} Not Found\");\n",fsmfile, fsmfile, fsmfile)?;
+      write!(fd,"let mut tfd = File::open(r\"./src/{}\").or(File::open(r\".\\src\\{}\")).or(File::open(r\"{}\")).expect(r\"Parse Table File {} Not Found\");\n",fsmfile, fsmfile, fsmfile,fsmfile)?;
       write!(fd,"\n let mut tbuf = [0u8;8];")?;
       write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
       write!(fd,"   tfd.read_exact(&mut tbuf).expect(\"File Read Failed\");\n")?;

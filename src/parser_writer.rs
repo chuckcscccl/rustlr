@@ -496,7 +496,6 @@ use std::collections::{{HashMap,HashSet}};\n")?;
 
     let mut tfdopt = None;
     if self.Gmr.tablefile.len()>0 {
-      //write!(fd,"static TABLE:[u64;{}] = [0;{}];\n",totalsize,totalsize)?;
       write!(fd,"use std::fs::File;\n")?;
       write!(fd,"use std::io::prelude::*;\n")?;
       write!(fd,"use std::path::Path;\n")?;
@@ -568,10 +567,11 @@ use std::collections::{{HashMap,HashSet}};\n")?;
   } // if inlinetable (default)
   else {  // load from binary file  (0.6.1)
           let mut fsmfile = &self.Gmr.tablefile[..];
-	  if let Some(pos) = self.Gmr.tablefile.rfind("/") {
+	  if let Some(pos) = self.Gmr.tablefile.rfind('/')
+	                     .or(self.Gmr.tablefile.rfind('\\')) {
 	     fsmfile = &self.Gmr.tablefile[pos+1..];
 	  }
-          write!(fd,"let mut tfd = File::open(\"./src/{}\").or(File::open(\"{}\")).expect(\"Parse Table File {} Not Found\");\n",fsmfile, fsmfile, fsmfile)?;
+          write!(fd,"let mut tfd = File::open(r\"./src/{}\").or(File::open(r\".\\src\\{}\")).or(File::open(\"{}\")).expect(r\"Parse Table File {} Not Found\");\n",fsmfile, fsmfile, fsmfile, fsmfile)?;
 	  write!(fd,"\n let mut tbuf = [0u8;8];")?;
           write!(fd,"\n for i in 0..{} {{\n",totalsize)?;
 	  write!(fd,"   tfd.read_exact(&mut tbuf).expect(\"File Read Failed\");\n")?;

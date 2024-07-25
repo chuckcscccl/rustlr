@@ -172,10 +172,10 @@ Rustlr can also be invoked from within Rust by calling the [rustlr::generate](ht
 
 <br>
 
-#### New in Version 0.6.1
+#### New in Version 0.6.1, 0.6.2
 
 The `-table` option stores the parse table to a binary file instead of
-an inlined static array.
+an inlined static array.  Windows pathname compatibility issues fixed in 0.6.2.
 
 #### New in Version 0.6.0
 

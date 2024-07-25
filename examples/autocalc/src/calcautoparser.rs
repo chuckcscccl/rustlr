@@ -10,102 +10,223 @@
 #![allow(dead_code)]
 #![allow(unreachable_patterns)]
 #![allow(irrefutable_let_patterns)]
+use std::rc::Rc;
+use std::cell::RefCell;
 extern crate rustlr;
-use rustlr::{Tokenizer,TerminalToken,ZCParser,ZCRProduction,Stateaction,decode_action};
+use rustlr::{Tokenizer,TerminalToken,BaseParser,BaseProduction,Stateaction,decode_action};
 use rustlr::{StrTokenizer,RawToken,LexSource};
 use std::collections::{HashMap,HashSet};
 use rustlr::LBox;
-use crate::calcauto_ast;
 use crate::calcauto_ast::*;
 
-static SYMBOLS:[&'static str;17] = ["_WILDCARD_TOKEN_","Expr","ES","+","-","*","/","(",")","=",";","let","in","int","var","START","EOF"];
+static SYMBOLS:[&'static str;30] = ["_WILDCARD_TOKEN_","+","-","/","=",";","Star","let","in","int","var","LPAREN","RPAREN","Expr","ExprList","UnaryExpr","LetExpr","Txpr","Sxpr","Aexpr","Bexpr","Yxpr","Zxpr","Xxpr","AA","BB","CC","DD","START","EOF"];
 
-static TABLE:[u64;146] = [8590393345,47244902400,4295032833,30065098752,17180000256,60129738752,55834968064,68720066562,281500747169792,281492157169664,281487862136832,281517927170048,281496452268032,562980018520064,562954249240577,563005788389376,562997198323712,563010083160064,562967133421568,844446405033986,844467879870466,844437815099394,844476469805058,844459289935874,844442110066690,844450700001282,1125960037302272,1407392063553536,1407430718521344,1407404948652032,1407379179503617,1407435013292032,1407422128455680,1688875630067714,1688862745165826,1688871335100418,1688867040133122,1688884220002306,1688901399871490,1688892809936898,1970393556451331,2251855648653312,2251829878784000,2251804109701121,2251816993685504,2251847058587648,2251859943424000,2533304855494656,2533330625363968,2533334920134656,2533279086477313,2533291970396160,2533322035298304,2814754063253505,2814779832205312,2814797012008960,2814809896845312,2814766947106816,2814805602074624,3096284873555968,3096229040029697,3096254808915968,3096271988719616,3096241923817472,3096280578785280,3377716900528128,3377759850266624,3377729785626624,3377708311773185,3377704015560705,3377755555495936,3377746965430272,3377768440594434,3659187582599170,3659217647370242,3659209057435650,3659191877566466,3659200467697664,3659226237304834,3659196172795904,3940688330031104,4222137536086016,4222146126217216,4222150421118976,4222141831118848,4222159011840000,4503625397829632,4503633987305474,4503642577240066,4503616807436290,4503621102927872,4503651167174658,4503612512468994,4785100374540288,4785096079638528,4785117554016258,4785091784212482,4785108964081666,4785087489245186,4785126143950850,5066583940857858,5066571055955970,5066575350923266,5066566760988674,5066592530792450,5066601120727042,5066562466021378,5348046032732162,5348067507568642,5348041737764866,5348076097503234,5348050327699458,5348058917634050,5348037442797570,5629568254345218,5910978807398401,5911004576022528,5910991690924032,5911021755826176,5911034640662528,5911030345891840,6192466668027906,6192470962995202,6192483847897090,6192475257962498,6192501027766274,6192462373060610,6192492437831682,6473941644804096,6473945939902464,6473976005525504,6473937349771264,6473950234804224,6755416621056000,6755455276023808,6755459570794496,6755429506154496,6755446685958144,6755403737661441,7036908777635842,7036917367570434,7036891598225408,7036895893323776,7036900188225536,7036925957505026,7036887303192576,];
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
+use std::io::Read;
 
+fn _semaction_rule_0_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Txpr {
+let mut _item3_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut bi = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut ai = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  Txpr {ai:ai, bi:bi, } }
 
-fn _semaction_rule_0_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_4(_x_4)=parser.popstack().value { _x_4 } else {<i64>::default()}; Expr::Val(_item0_) }
+fn _semaction_rule_1_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_39(_x_39)=parser.popstack().value { _x_39 } else {<Sxpr>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_39(_x_39)=parser.popstack().value { _x_39 } else {<Sxpr>::default()};  Expr::Expr_1(_item0_,parser.lc(2,_item2_)) }
 
-fn _semaction_rule_1_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<&'lt str>::default()}; Expr::Var(_item0_) }
+fn _semaction_rule_2_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Sxpr {
+let mut b = if let RetTypeEnum::Enumvariant_37(_x_37)=parser.popstack().value { _x_37 } else {<Txpr>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut a1 = if let RetTypeEnum::Enumvariant_37(_x_37)=parser.popstack().value { _x_37 } else {<Txpr>::default()};  Sxpr {a1:a1, b:b, } }
 
-fn _semaction_rule_2_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item5_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item4_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item3_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_5(_x_5)=parser.popstack().value { _x_5 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; Expr::Letexp(_item1_,parser.lbx(3,_item3_),parser.lbx(5,_item5_)) }
+fn _semaction_rule_3_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Zxpr<'lt> {
+let mut yy = if let RetTypeEnum::Enumvariant_35(_x_35)=parser.popstack().value { _x_35 } else {<Xxpr<'lt>>::default()}; let mut _item7_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut xx = if let RetTypeEnum::Enumvariant_35(_x_35)=parser.popstack().value { _x_35 } else {<Xxpr<'lt>>::default()}; let mut y = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut b = if let RetTypeEnum::Enumvariant_34(_x_34)=parser.popstack().value { _x_34 } else {<Yxpr<'lt>>::default()}; let mut _item3_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut a = if let RetTypeEnum::Enumvariant_34(_x_34)=parser.popstack().value { _x_34 } else {<Yxpr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut x = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; /*AAAA*/   Zxpr {x:x, a__item0_:a.0, a__item2_:a.1, b__item0_:b.0, b__item2_:b.1, y:y, xx:parser.lc(6,xx), _item7_:_item7_, yy:yy, } }
 
-fn _semaction_rule_3_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Plus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+fn _semaction_rule_4_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Yxpr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()};  Yxpr(_item0_,_item2_,) }
 
-fn _semaction_rule_4_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Minus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+fn _semaction_rule_5_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Xxpr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut b = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut a = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; /*BBBB*/   Xxpr::X1{a:a,b:parser.lc(1,b)} }
 
-fn _semaction_rule_5_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Div(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+fn _semaction_rule_6_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Xxpr<'lt> {
+let mut _item3_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()}; let mut u = if let RetTypeEnum::Enumvariant_34(_x_34)=parser.popstack().value { _x_34 } else {<Yxpr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; println!("see {:?}",u);   Xxpr::X2{_item0_:_item0_,u__item0_:u.0,u__item2_:u.1,_item3_:_item3_} }
 
-fn _semaction_rule_6_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; Expr::Times(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+fn _semaction_rule_7_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> AA<'lt> {
+let mut r = if let RetTypeEnum::Enumvariant_30(_x_30)=parser.popstack().value { _x_30 } else {<BB<'lt>>::default()}; let mut q = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()}; let mut p = if let RetTypeEnum::Enumvariant_30(_x_30)=parser.popstack().value { _x_30 } else {<BB<'lt>>::default()};  AA::AA_7{p_a:p.a,p_b:p.b,p_c:p.c,q:q,r_a:r.a,r_b:r.b,r_c:r.c} }
 
-fn _semaction_rule_7_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item1_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; Expr::Neg(parser.lbx(1,_item1_)) }
+fn _semaction_rule_8_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> AA<'lt> {
+let mut _item3_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_36(_x_36)=parser.popstack().value { _x_36 } else {<CC>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()};  AA::var_8(_item0_,_item1_,_item2_,_item3_) }
 
-fn _semaction_rule_8_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> Expr<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut e = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()};  e }
+fn _semaction_rule_9_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> BB<'lt> {
+let mut c = if let RetTypeEnum::Enumvariant_27(_x_27)=parser.popstack().value { _x_27 } else {<AA<'lt>>::default()}; let mut b = if let RetTypeEnum::Enumvariant_27(_x_27)=parser.popstack().value { _x_27 } else {<AA<'lt>>::default()}; let mut a = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()};  BB {a:a, b:parser.lbx(1,b), c:parser.lbx(2,c), } }
 
-fn _semaction_rule_9_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
-ES::nil }
+fn _semaction_rule_10_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> CC {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  CC::CC_10 }
 
-fn _semaction_rule_10_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
-let mut _item2_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_1(_x_1)=parser.popstack().value { _x_1 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_2(_x_2)=parser.popstack().value { _x_2 } else {<Expr<'lt>>::default()}; ES::cons(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+fn _semaction_rule_11_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> CC {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()};  CC::int_11(_item0_) }
 
-fn _semaction_rule_11_<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>) -> ES<'lt> {
-let mut _item0_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ES<'lt>>::default()}; <ES<'lt>>::default()}
+fn _semaction_rule_12_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> CC {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  CC::let_12 }
 
-pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,()>
+fn _semaction_rule_13_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> DD {
+let mut _item3_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  DD() }
+
+fn _semaction_rule_14_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Aexpr<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()};  Aexpr::ae(_item0_) }
+
+fn _semaction_rule_15_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Aexpr<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()};  Aexpr::be(_item0_) }
+
+fn _semaction_rule_16_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_32(_x_32)=parser.popstack().value { _x_32 } else {<Aexpr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  Expr::Expr_16(_item2_) }
+
+fn _semaction_rule_17_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_3(_x_3)=parser.popstack().value { _x_3 } else {<i64>::default()};  Expr::Val(_item0_) }
+
+fn _semaction_rule_18_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()};  Expr::Var(_item0_) }
+
+fn _semaction_rule_19_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item1_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  Expr::Neg(parser.lbx(1,_item1_)) }
+
+fn _semaction_rule_20_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  _item1_ }
+
+fn _semaction_rule_21_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  _item0_ }
+
+fn _semaction_rule_22_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  Expr::Plus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+
+fn _semaction_rule_23_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  Expr::Minus(parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+
+fn _semaction_rule_24_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  Expr::Binop("/",parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+
+fn _semaction_rule_25_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item2_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  Expr::Binop("*",parser.lbx(0,_item0_),parser.lbx(2,_item2_)) }
+
+fn _semaction_rule_26_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  _item0_ }
+
+fn _semaction_rule_27_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> Expr<'lt> {
+let mut let_body = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item4_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut init_value = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()}; let mut _item2_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut let_var = if let RetTypeEnum::Enumvariant_12(_x_12)=parser.popstack().value { _x_12 } else {<&'lt str>::default()}; let mut _item0_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()};  Expr::Let{let_var:let_var,init_value:parser.lbx(3,init_value),let_body:parser.lbx(5,let_body)} }
+
+fn _semaction_rule_28_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> ExprList<'lt> {
+ ExprList::nil }
+
+fn _semaction_rule_29_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> ExprList<'lt> {
+let mut cdr = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ExprList<'lt>>::default()}; let mut _item1_ = if let RetTypeEnum::Enumvariant_28(_x_28)=parser.popstack().value { _x_28 } else {<()>::default()}; let mut car = if let RetTypeEnum::Enumvariant_40(_x_40)=parser.popstack().value { _x_40 } else {<Expr<'lt>>::default()};  ExprList::cons{car:parser.lc(0,car),cdr:parser.lbx(2,cdr)} }
+
+fn _semaction_rule_30_<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>) -> () {
+let mut _item0_ = if let RetTypeEnum::Enumvariant_0(_x_0)=parser.popstack().value { _x_0 } else {<ExprList<'lt>>::default()}; <()>::default()}
+
+pub fn make_parser<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(tk:TT) -> BaseParser<'lt,RetTypeEnum<'lt>,(),TT>
 {
- let mut parser1:ZCParser<RetTypeEnum<'lt>,()> = ZCParser::new(12,26);
- let mut rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("start");
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_0_(parser)) };
+ let mut parser1:BaseParser<'lt,RetTypeEnum<'lt>,(),TT> = BaseParser::new(31,42,tk);
+ let mut rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("start");
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Txpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_37(_semaction_rule_0_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_1_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_1_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_2_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Sxpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_39(_semaction_rule_2_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_3_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Zxpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_29(_semaction_rule_3_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_4_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Yxpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_34(_semaction_rule_4_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_5_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Xxpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_35(_semaction_rule_5_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_6_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Xxpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_35(_semaction_rule_6_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_7_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("AA");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_27(_semaction_rule_7_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("Expr");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_2(_semaction_rule_8_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("AA");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_27(_semaction_rule_8_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("ES");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_9_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("BB");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_30(_semaction_rule_9_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("ES");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_10_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("CC");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_36(_semaction_rule_10_(parser)) };
  parser1.Rules.push(rule);
- rule = ZCRProduction::<RetTypeEnum<'lt>,()>::new_skeleton("START");
- rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_11_(parser)) };
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("CC");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_36(_semaction_rule_11_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("CC");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_36(_semaction_rule_12_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("DD");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_41(_semaction_rule_13_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Aexpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_32(_semaction_rule_14_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Bexpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_32(_semaction_rule_15_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_16_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("UnaryExpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_17_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("UnaryExpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_18_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("UnaryExpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_19_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("UnaryExpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_20_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_21_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_22_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_23_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_24_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("Expr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_25_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("LetExpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_26_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("LetExpr");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_40(_semaction_rule_27_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("ExprList");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_28_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("ExprList");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_0(_semaction_rule_29_(parser)) };
+ parser1.Rules.push(rule);
+ rule = BaseProduction::<'lt,RetTypeEnum<'lt>,(),TT>::new_skeleton("START");
+ rule.Ruleaction = |parser|{  RetTypeEnum::Enumvariant_28(_semaction_rule_30_(parser)) };
  parser1.Rules.push(rule);
  parser1.Errsym = "";
  parser1.resynch.insert(";");
+let mut tfd = File::open("./src/calcauto_table.fsm").or(File::open(r".\src\calcauto_table.fsm")).or(File::open("calcauto_table.fsm")).expect("Parse Table File calcauto_table.fsm Not Found");
 
- for i in 0..146 {
-   let symi = ((TABLE[i] & 0x0000ffff00000000) >> 32) as usize;
-   let sti = ((TABLE[i] & 0xffff000000000000) >> 48) as usize;
-   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(TABLE[i]));
+ let mut tbuf = [0u8;8];
+ for i in 0..229 {
+   tfd.read_exact(&mut tbuf).expect("File Read Failed");
+   let tabi = u64::from_be_bytes(tbuf);
+   let symi = ((tabi & 0x0000ffff00000000) >> 32) as usize;
+   let sti = ((tabi & 0xffff000000000000) >> 48) as usize;
+   parser1.RSM[sti].insert(SYMBOLS[symi],decode_action(tabi));
  }
 
  for s in SYMBOLS { parser1.Symset.insert(s); }
@@ -114,55 +235,70 @@ pub fn make_parser<'lt>() -> ZCParser<RetTypeEnum<'lt>,()>
  return parser1;
 } //make_parser
 
-pub fn parse_with<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>, lexer:&mut calcautolexer<'lt>) -> Result<ES<'lt>,ES<'lt>>
+pub fn parse_with<'lt>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),calcautolexer<'lt>>) -> Result<ExprList<'lt>,ExprList<'lt>>
 {
-  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse(lexer) {
+  parser.tokenizer.shared_state = Rc::clone(&parser.shared_state);
+  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse() {
      if !parser.error_occurred() {Ok(_xres_)} else {Err(_xres_)}
-  } else { Err(<ES<'lt>>::default())}
+  } else { Err(<ExprList<'lt>>::default())}
 }//parse_with public function
 
-pub fn parse_train_with<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>, lexer:&mut calcautolexer<'lt>, parserpath:&str) -> Result<ES<'lt>,ES<'lt>>
+pub fn parse_train_with<'lt>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),calcautolexer<'lt>>, parserpath:&str) -> Result<ExprList<'lt>,ExprList<'lt>>
 {
-  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse_train(lexer,parserpath) {
+  parser.tokenizer.shared_state = Rc::clone(&parser.shared_state);
+  if let RetTypeEnum::Enumvariant_0(_xres_) = parser.parse_train(parserpath) {
      if !parser.error_occurred() {Ok(_xres_)} else {Err(_xres_)}
-  } else { Err(<ES<'lt>>::default())}
+  } else { Err(<ExprList<'lt>>::default())}
 }//parse_train_with public function
 
 //Enum for return values 
 pub enum RetTypeEnum<'lt> {
-  Enumvariant_1(()),
-  Enumvariant_2(Expr<'lt>),
-  Enumvariant_0(ES<'lt>),
-  Enumvariant_5(&'lt str),
-  Enumvariant_4(i64),
+  Enumvariant_2((usize,usize)),
+  Enumvariant_35(Xxpr<'lt>),
+  Enumvariant_30(BB<'lt>),
+  Enumvariant_12(&'lt str),
+  Enumvariant_32(Aexpr<'lt>),
+  Enumvariant_27(AA<'lt>),
+  Enumvariant_0(ExprList<'lt>),
+  Enumvariant_29(Zxpr<'lt>),
+  Enumvariant_34(Yxpr<'lt>),
+  Enumvariant_28(()),
+  Enumvariant_39(Sxpr),
+  Enumvariant_3(i64),
+  Enumvariant_40(Expr<'lt>),
+  Enumvariant_41(DD),
+  Enumvariant_36(CC),
+  Enumvariant_37(Txpr),
 }
-impl<'lt> Default for RetTypeEnum<'lt> { fn default()->Self {RetTypeEnum::Enumvariant_0(<ES<'lt>>::default())} }
+impl<'lt> Default for RetTypeEnum<'lt> { fn default()->Self {RetTypeEnum::Enumvariant_0(<ExprList<'lt>>::default())} }
 
 
 // Lexical Scanner using RawToken and StrTokenizer
-pub struct calcautolexer<'t> {
-   stk: StrTokenizer<'t>,
+pub struct calcautolexer<'lt> {
+   stk: StrTokenizer<'lt>,
    keywords: HashSet<&'static str>,
    lexnames: HashMap<&'static str,&'static str>,
+   shared_state: Rc<RefCell<()>>,
 }
-impl<'t> calcautolexer<'t> 
+impl<'lt> calcautolexer<'lt> 
 {
-  pub fn from_str(s:&'t str) -> calcautolexer<'t>  {
+  pub fn from_str(s:&'lt str) -> calcautolexer<'lt>  {
     Self::new(StrTokenizer::from_str(s))
   }
-  pub fn from_source(s:&'t LexSource<'t>) -> calcautolexer<'t>  {
+  pub fn from_source(s:&'lt LexSource<'lt>) -> calcautolexer<'lt>  {
     Self::new(StrTokenizer::from_source(s))
   }
-  pub fn new(mut stk:StrTokenizer<'t>) -> calcautolexer<'t> {
+  pub fn new(mut stk:StrTokenizer<'lt>) -> calcautolexer<'lt> {
     let mut lexnames = HashMap::with_capacity(64);
     let mut keywords = HashSet::with_capacity(64);
-    for kw in ["let","in","_WILDCARD_TOKEN_",] {keywords.insert(kw);}
-    for c in ['+','-','*','/','(',')','=',';',] {stk.add_single(c);}
+    let shared_state = Rc::new(RefCell::new(<()>::default()));
+    for kw in ["in","_WILDCARD_TOKEN_","let",] {keywords.insert(kw);}
+    for c in ['+','-','/','=',';',')','(','*',] {stk.add_single(c);}
     for d in [] {stk.add_double(d);}
     for d in [] {stk.add_triple(d);}
-    for (k,v) in [] {lexnames.insert(k,v);}
+    for (k,v) in [(r#")"#,"RPAREN"),(r#"("#,"LPAREN"),(r#"*"#,"Star"),] {lexnames.insert(k,v);}
     stk.set_line_comment("#");
-    calcautolexer {stk,keywords,lexnames}
+    calcautolexer {stk,keywords,lexnames,shared_state,}
   }
 }
 impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for calcautolexer<'lt>
@@ -176,15 +312,17 @@ impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for calcautolexer<'lt>
         let truesym = self.lexnames.get(sym).unwrap_or(&sym);
         Some(TerminalToken::from_raw(token,truesym,<RetTypeEnum<'lt>>::default()))
       },
-      RawToken::Num(n) => Some(TerminalToken::from_raw(token,"int",RetTypeEnum::Enumvariant_4(n))),
-      RawToken::Alphanum(x) => Some(TerminalToken::from_raw(token,"var",RetTypeEnum::Enumvariant_5(x))),
+      RawToken:: Num(n)  => Some(TerminalToken::from_raw(token,"int",RetTypeEnum::Enumvariant_3( n
+))),
+      RawToken:: Alphanum(n)  => Some(TerminalToken::from_raw(token,"var",RetTypeEnum::Enumvariant_12( n
+))),
       RawToken::Symbol(s) if self.lexnames.contains_key(s) => {
         let tname = self.lexnames.get(s).unwrap();
         Some(TerminalToken::from_raw(token,tname,<RetTypeEnum<'lt>>::default()))
       },
       RawToken::Symbol(s) => Some(TerminalToken::from_raw(token,s,<RetTypeEnum<'lt>>::default())),
       RawToken::Alphanum(s) => Some(TerminalToken::from_raw(token,s,<RetTypeEnum<'lt>>::default())),
-      _ => Some(TerminalToken::from_raw(token,"<LexicalError>",<RetTypeEnum<'lt>>::default())),
+      _ => { let _rrodb=token.0.to_staticstr(); Some(TerminalToken::from_raw(token,_rrodb,<RetTypeEnum<'lt>>::default())) },
     }
   }
    fn linenum(&self) -> usize {self.stk.line()}
@@ -192,8 +330,11 @@ impl<'lt> Tokenizer<'lt,RetTypeEnum<'lt>> for calcautolexer<'lt>
    fn position(&self) -> usize {self.stk.current_position()}
    fn current_line(&self) -> &str {self.stk.current_line()}
    fn get_line(&self,i:usize) -> Option<&str> {self.stk.get_line(i)}
+   fn add_priority_symbol(&mut self, s:&'static str) {self.stk.add_priority_symbol(s);}
+   fn get_slice(&self,s:usize,l:usize) -> &str {self.stk.get_slice(s,l)}
+   fn transform_wildcard(&self,t:TerminalToken<'lt,RetTypeEnum<'lt>>) -> TerminalToken<'lt,RetTypeEnum<'lt>> { TerminalToken::new(t.sym,RetTypeEnum::Enumvariant_12(self.stk.current_text()),t.line,t.column) }
 }//impl Tokenizer
 
-fn load_extras<'lt>(parser:&mut ZCParser<RetTypeEnum<'lt>,()>)
+fn load_extras<'lt,TT:Tokenizer<'lt,RetTypeEnum<'lt>>>(parser:&mut BaseParser<'lt,RetTypeEnum<'lt>,(),TT>)
 {
 }//end of load_extras: don't change this line as it affects augmentation
