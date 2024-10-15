@@ -1,0 +1,33 @@
+auto
+terminals + * - / ; ( )
+valterminal Int i32
+nonterminal E
+nonterminal T : E
+nonterminal F : E
+nonterminal ExpList
+startsymbol ExpList
+variant-group-for E BinaryOp + - * /
+lexattribute set_line_comment(r"⍝")
+
+E --> E + T | E - T | T
+T --> T * F | T / F | F
+F:Neg --> - F
+F --> Int | ( E )
+ExpList --> E<;+> ;?
+
+!mod commentcalc_ast;
+!fn main()  {
+!  let mut scanner1 = commentcalclexer::from_str(r"
+!10+-2*4;
+!⍝ example comment
+!9-(4-1)");
+!  let mut parser1 = make_parser(scanner1);
+!  let parseresult = parse_with(&mut parser1);
+!  let ast =
+!    parseresult.
+!    unwrap_or_else(|x| {
+!       println!("Parsing errors encountered; results not guaranteed..");
+!       x
+!    });
+!  println!("\nAST: {:?}\n",&ast);
+!}
