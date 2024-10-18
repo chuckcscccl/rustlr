@@ -832,7 +832,7 @@ impl<'t> StrTokenizer<'t>
     }//for each custom key
 
     // look for line comment
-    if clen>0 && pi+clen<=self.input.len() && self.line_comment==&self.input[pi..pi+clen] {
+    if clen>0 && pi+clen<=self.input.len() && self.input.is_char_boundary(pi+clen) && self.line_comment==&self.input[pi..pi+clen] {
       if let Some(nlpos) = self.input[pi+clen..].find("\n") {
         self.position = nlpos+pi+clen;
         if self.keep_comment {
