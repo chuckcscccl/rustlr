@@ -1,9 +1,12 @@
-typedterminal VAL i64
+auto
+
+#typedterminal VAL i64
 #typedterminal a i32
 #typedterminal b usize
+valterminal VAL i64
 terminals c a b
-nonterminal T usize
-nonterminal E
+#nonterminal T usize
+nonterminals E T
 #nonterminal E Vec<LBox<T>>
 topsym E
 
@@ -13,10 +16,13 @@ topsym E
 #T:wc -->  _
 #T --> b | _
 
-T --> b {parser.current_position()}
-T --> _:@(x,y)@ {x}
-E --> a T*:positions b
+#!use rustlr::LC;
 
-lexvalue VAL Num(n) n
+
+T --> b  #{parser.current_position()}
+T --> _
+E --> a T*:bees b
+
+#lexvalue VAL Num(n) n
 
 EOF
