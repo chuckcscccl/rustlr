@@ -36,13 +36,12 @@ supports this capability.
 3. Support for choosing [bumpalo](https://docs.rs/bumpalo/latest/bumpalo/index.html) to create recursive ASTs that use references instead of smart pointers: this
 enables *deep pattern matching* on recursive structures.
 
-4. Recognizes regex-style operators `*`, `+` and `?`, which simplify
-the writing of grammars and allow better ASTs to be created.
+4. Recognizes regex-style operators `*`, `+` and `?` and generates Rust
+vectors and options to hold their semantic values.
 
 5. Generates a lexical scanner automatically from the grammar.
 
-6. Operator precedence and associativity declarations further allow grammars
-to be written that's closer to EBNF syntax.
+6. Operator precedence and associativity declarations are also supported.
 
 7. The ability to train the parser, interactively or from script, for better error reporting.
 
