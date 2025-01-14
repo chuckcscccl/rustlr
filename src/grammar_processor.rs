@@ -1219,16 +1219,15 @@ strtok is bstokens[i], but will change
                         if self.genabsyn {format!("Option<{}<@{}>>",&LBCref,&self.Symbols[gsymi].sym)} else {format!("Option<LBox<{}>>",&self.Symbols[gsymi].rusttype)} }
                      } // ends in ?
                      else {
-                     
-                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LC<{}>>",&self.Symbols[gsymi].rusttype)} };
+                       if self.genabsyn {format!("Vec<{}{}<@{}>>",&bltref,LBC,&self.Symbols[gsymi].sym)} else {format!("Vec<LC<{}>>",&self.Symbols[gsymi].rusttype)}
+                     };
+                     if !self.enumhash.contains_key(&newnt.rusttype) {
+                       self.enumhash.insert(newnt.rusttype.clone(),ntcx);
+                       ntcx += 1;
+                     }
                    }
                    // else type stays () (,*)
-                   /*  later
-		   if !self.enumhash.contains_key(&newnt.rusttype) {
- 		     self.enumhash.insert(newnt.rusttype.clone(),ntcx);
-		     ntcx+=1;
-		   }
-                   */
+                   
                    newnt.index = self.Symbols.len();
 		   self.Symhash.insert(newntname.clone(),self.Symbols.len());
 		   self.Symbols.push(newnt.clone());
@@ -1353,12 +1352,7 @@ strtok is bstokens[i], but will change
                   // type be? can note that it should follow from
                   // type of a symbol, in special format like Expr* or
                   // can create map inside Grammar with this info.
-                  /*
-	          if !self.enumhash.contains_key(&newnt3.rusttype) {
- 		     self.enumhash.insert(newnt3.rusttype.clone(),ntcx);
-		     ntcx+=1;
-		  }
-                  */
+
                   newnt3.index = self.Symbols.len();
 		  self.Symhash.insert(newntname3.clone(),self.Symbols.len());
 		  self.Symbols.push(newnt3.clone()); // register new nt
