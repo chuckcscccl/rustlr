@@ -203,7 +203,7 @@ When called from the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.
 
 #### New in Version 0.4.9: Error logging option
 
-Given a parser instance `parser`, it's now possible to call
+Given a parser instance `parser1`, it's now possible to call
 `parser1.set_err_report(true)`, which will log parse errors internally
 instead of printing them to stderr.  The error report can be retrieved
 by calling `parser1.get_err_report()`.
