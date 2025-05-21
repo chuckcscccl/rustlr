@@ -44,6 +44,9 @@ left - 400
 #variant-group Binop * /
 variant-group-for Expr Binop * /
 
+default Expr Val(0)
+default ExprList nil
+
 # rule for testing AST generation:
 #lexvalue bigint BigNumber(n) n
 Txpr --> ; int:ai int:bi ;

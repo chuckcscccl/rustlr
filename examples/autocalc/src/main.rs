@@ -33,7 +33,7 @@ fn main() {
 
     /*
     let src = rustlr::LexSource::new("input.txt").expect("input not found");
-    let mut scanner4 = calcautoparser::calcautolexer::from_source(&src);
+    let scanner4 = calcautoparser::calcautolexer::from_source(&src);
     let mut parser4 = calcautoparser::make_parser();
     parser4.set_err_report(true);
     //let tree4= calcautoparser::parse_train_with(&mut parser4, &mut scanner4,"src/calcautoparser.rs");
@@ -47,7 +47,7 @@ fn main() {
 
     // testing new base_parser
     let src = rustlr::LexSource::new("input.txt").expect("input not found");
-    let mut scanner4 = calcautoparser::calcautolexer::from_source(&src);
+    let scanner4 = calcautoparser::calcautolexer::from_source(&src);
     let mut parser4 = calcautoparser::make_parser(scanner4);
     parser4.set_err_report(true);
     let tree4 = calcautoparser::parse_with(&mut parser4);
@@ -96,6 +96,7 @@ use Expr::*;
 use ExprList::*;
 
 // evaluation
+/*
 pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
     match exp {
         Var(x) => {
@@ -128,6 +129,49 @@ pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
                     eval(env, x).map(|xval| xval / yval)
                 }
             }),
+        Let {
+            let_var: x,
+            init_value: e,
+            let_body: b,
+        } => eval(env, e)
+            .and_then(|ve| {
+                let newenv = push(x, ve, env);
+                eval(&newenv, b)
+            }),
+        _ => None,
+    } //match
+} //eval
+*/
+
+pub fn eval<'t>(env: &Rc<Env<'t>>, exp: &Expr<'t>) -> Option<i64> {
+    match exp {
+        Var(x) => {
+            if let Some(v) = lookup(x, env) {
+                Some(v)
+            } else {
+                eprint!("UNBOUND VARIABLE {} ... ", x);
+                None
+            }
+        }
+        Val(x) => Some(*x),
+        Plus(x, y) => Some(eval(env,x)? + eval(env,y)?),
+        Minus(x, y) => Some(eval(env,x)? - eval(env,y)?),
+        //Times(x,y) => eval(env,x).zip_with(eval(env,y),|a,b|{a*b}), //alternative
+        Binop("*", x, y) => Some(eval(env,x)? * eval(env,y)?),
+
+        //Minus(x,y) => eval(env,x).map(|a|{eval(env,y).map(|b|{a-b})}).flatten(),
+        Neg(x) => Some(-1 * eval(env, x)?),
+        Binop("/", x, y) => 
+	    eval(env, y)
+           .and_then(|yval| {
+          if yval == 0 {
+            eprint!("Division by zero line {}, column {} ... ",y.line(),
+                       y.column());
+             None
+          } else {
+              eval(env, x).map(|xval| xval / yval)
+          }
+        }),
         Let {
             let_var: x,
             init_value: e,
