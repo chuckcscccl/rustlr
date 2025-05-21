@@ -135,9 +135,11 @@ would-have-been four variants into one.  The `Neg` label on the unary
 minus rule separates that case from the "BinaryOp" variant group.
 
 Rustlr AST types implement the Default trait so that a partial result is
-always returned even when parse errors are encountered.
+always returned even when parse errors are encountered.  Automatically
+generated defaults can be overridden with directives such as
+`default E Int(0)`.
 
-Automatically generated AST types and semantic actions can always be
+All automatically generated AST types and semantic actions can be
 manually overridden.
 
 Specifying operator precedence and associativity instead of using the
@@ -170,6 +172,13 @@ AST: ExpList([BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4))), Binary
 Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
 
 <br>
+
+#### New in Version 0.6.5
+
+The ability to specify default variants for generated enums in the grammar,
+e.g. `default Expr Integer(0)`.  The keyword `default` should no longer 
+name non-terminals.  A variant such as `Expr_Nothing` is still generated if
+there are not explicit `default` overrides.
 
 #### New in Version 0.6.1, 0.6.2
 
