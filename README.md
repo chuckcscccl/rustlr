@@ -70,6 +70,7 @@ nonterminal F : E
 nonterminal ExpList
 startsymbol ExpList
 variant-group-for E BinaryOp + - * /    # controls AST generation
+default E Int(0)  # controls AST generation
 
 # production rules:
 E --> E + T  | E - T | T
@@ -105,9 +106,8 @@ pub enum E {
   BinaryOp(&'static str,LBox<E>,LBox<E>),
   Int(i32),
   Neg(LBox<E>),
-  E_Nothing,
 }
-impl Default for E { fn default()->Self { E::E_Nothing } }
+impl Default for E { fn default()->Self { E::Int(0) } }
 
 #[derive(Default,Debug)]
 pub struct ExpList(pub Vec<LC<E>>,);
@@ -135,9 +135,9 @@ would-have-been four variants into one.  The `Neg` label on the unary
 minus rule separates that case from the "BinaryOp" variant group.
 
 Rustlr AST types implement the Default trait so that a partial result is
-always returned even when parse errors are encountered.  Automatically
-generated defaults can be overridden with directives such as
-`default E Int(0)`.
+always returned even when parse errors are encountered. A default variant
+is automatically generated for enums if none are specified with a `default`
+directive.
 
 All automatically generated AST types and semantic actions can be
 manually overridden.
