@@ -840,7 +840,7 @@ fn augment_action(act0:&str) -> String
   // non-LBox types (nor LC)
 fn nonlbxtype(ty:&str) -> bool
   {
-     ty=="String" || (ty.starts_with('&') && !ty.contains("mut")) || ty.starts_with("Vec<LC") || ty.starts_with("Vec<LBox") || ty.starts_with("LBox") || ty.starts_with("Option<LBox")
+     ty=="String" || (ty.starts_with('&') && !ty.contains("mut")) || ty.starts_with("Vec<LC") || ty.starts_with("Vec<LBox") || ty.starts_with("LBox") || ty.starts_with("Option<LBox") || ((ty.starts_with("HashMap<") || ty.starts_with("HashSet<") || ty.starts_with("BTree")) && (ty.contains("LBox<") || ty.contains("LC<")))
   }//nonlbxtype
 
 fn nonlctype(ty:&str) -> bool

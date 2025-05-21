@@ -173,6 +173,7 @@ pub struct Grammar
   pub vargroups: HashMap<(usize,usize),usize>, // (ntsymi, rhssymi) to index in vargroupnames  , ntsymi can be usize::MAX to mean any nt
   pub genlog : String,
   pub tablefile : String,
+  pub defaults : HashMap<usize,String>,
   //pub inlinetable : bool,
   //pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
 }// struct Grammar
@@ -231,6 +232,7 @@ impl Grammar
        vargroups : HashMap::new(),
        genlog : String::new(),
        tablefile : String::new(),
+       defaults : HashMap::new(), 
        //inlinetable: true,
        //wildcardvarnum : 2,       
      }
@@ -863,6 +865,25 @@ impl Grammar
                let mut dtokens:Vec<_> = line[pos..].split('~').collect();
                self.Lexconditionals.push((dtokens[0].trim().to_owned(),dtokens[1].trim().to_owned()));
             },
+            "default" => {
+              if let Some(symi) =  self.Symhash.get(stokens[1]) {
+                if !self.Symbols[*symi].terminal && stokens.len()>2 {
+                  // add default info
+                  let mut defstring = String::new();
+                  for i in 2..stokens.len() {
+                    defstring.push_str(stokens[i]);
+                    defstring.push(' ');
+                  }
+                  self.defaults.insert(*symi,defstring);
+                }
+                else {
+                  self.logeprint(&format!("Malformed default definition, line {}",linenum));
+                }
+              }
+              else {
+                self.logeprint(&format!("Symbol {} not found, line {}",stokens[1],linenum));
+              }
+            }, // default declaration (version 0.6.5)
             "variant-group" | "operator-group" if stokens.len()>2 => {
 	       let groupfornt = usize::MAX;
 	       // there may be some duplicates in following vector ... fine

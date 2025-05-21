@@ -618,10 +618,18 @@ impl Grammar
      // Now close all unclosed enums
      for (nt,ntast) in enumasts.iter() {
        if !self.Symbols[*nt].rusttype.starts_with(&self.Symbols[*nt].sym) {continue;}
+       if let Some(defaultdef) = self.defaults.get(nt) {
+         let mut ast = format!("{}}}\n",ntast);
+         //println!("cloned {}",&ntast);
+         let uselt = if self.lifetime.len()>0 && self.Symbols[*nt].rusttype.contains(&self.lifetime) {&ltopt} else {""};         
+         ast.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ use {}::*;  {} }}\n}}\n\n",uselt,&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym,defaultdef));
+         ASTS.push_str(&ast);         
+       }
+       else
        if ntast.starts_with("#[derive(Debug)]") { // enum
+       
  	let defaultvar = format!("{}_Nothing",&self.Symbols[*nt].sym);
         let mut ast = format!("{}  {},\n}}\n",ntast,&defaultvar);
-        
         let uselt = if self.lifetime.len()>0 && self.Symbols[*nt].rusttype.contains(&self.lifetime) {&ltopt} else {""};
 	ast.push_str(&format!("impl{} Default for {} {{ fn default()->Self {{ {}::{} }} }}\n\n",uselt,&self.Symbols[*nt].rusttype,&self.Symbols[*nt].sym,&defaultvar));
         ASTS.push_str(&ast);
