@@ -14,6 +14,7 @@
 # it to recognize non-context free languages.  Here we implement the 
 # canonical example of the context free pumping lemma.
 
+# Process this grammar with the -zc option: rustlr ncf.grammar -zc ...
 
 # (i32,i32) defaults to (0,0), used to form two-counter automaton.
 
