@@ -173,12 +173,13 @@ Rustlr can also be invoked from within Rust by calling the [rustlr::generate](ht
 
 <br>
 
-#### New in Version 0.6.5
+#### New in Version 0.6.5, 0.6.6
 
-The ability to specify default variants for generated enums in the grammar,
-e.g. `default Expr Integer(0)`.  The keyword `default` should no longer 
-name non-terminals.  A variant such as `Expr_Nothing` is still generated if
-there are not explicit `default` overrides.
+The ability to specify default variants for generated enums and
+structs in the grammar, e.g. `default Expr Integer(0)`.  The keyword
+`default` should no longer name non-terminals.  A variant such as
+`Expr_Nothing` is still generated for enums if there are not explicit
+`default` overrides.
 
 #### New in Version 0.6.1, 0.6.2
 

@@ -216,8 +216,18 @@ impl Grammar
        let NT = &self.Symbols[*nt].sym;
        let lhsymtype = self.Symbols[*nt].rusttype.clone();
        let ntsym = &self.Symbols[*nt];
-       let mut SAST = if !simplestruct {format!("#[derive(Default,Debug)]\npub struct {} {{\n",&ntsym.rusttype)}
-         else {format!("#[derive(Default,Debug)]\npub struct {}(",&ntsym.rusttype)};  // sets struct header
+
+       let mut havedefault;
+       if let Some(defaultstruct) = self.defaults.get(nt) {
+         havedefault = format!("impl Default for {} {{ fn default()->Self {{ {} }} }}\n#[derive(Debug)]\n",&ntsym.rusttype, defaultstruct);
+       }
+       else {
+         havedefault = String::from("#[derive(Default,Debug)]\n");
+       }
+
+
+       let mut SAST = if !simplestruct {format!("{}pub struct {} {{\n",havedefault,&ntsym.rusttype)}
+         else {format!("{}pub struct {}(",havedefault,&ntsym.rusttype)};  // sets struct header
        let mut fields = String::new();  // like "enumvar in previous version"
        let mut vfields = Vec::new(); // (rhsi,label,type)
 
@@ -353,7 +363,7 @@ impl Grammar
         let willextend = toextend.contains_key(nt);
         // default for new enum
 	let mut AST = if willextend {String::new()}
-          else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
+          else {format!("#[derive(Debug)]/*enum*/\npub enum {} {{\n",&ntsym.rusttype)};
         let NT = &self.Symbols[nti].sym;
 	let mut targetnt = nti;
 	if let Some(ntd) = toextend.get(nt) { targetnt = *ntd;}
@@ -626,7 +636,7 @@ impl Grammar
          ASTS.push_str(&ast);         
        }
        else
-       if ntast.starts_with("#[derive(Debug)]") { // enum
+       if ntast.starts_with("#[derive(Debug)]/*enum*/") { // enum
        
  	let defaultvar = format!("{}_Nothing",&self.Symbols[*nt].sym);
         let mut ast = format!("{}  {},\n}}\n",ntast,&defaultvar);
