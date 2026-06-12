@@ -244,11 +244,15 @@ impl Grammar
 
        let mut havedefault;
        if let Some(defaultstruct) = self.defaults.get(nt) {
-         havedefault = format!("impl Default for {} {{ fn default()->Self {{ {} }} }}\n#[derive(Debug)]\n",&ntsym.rusttype, defaultstruct);
+         havedefault = format!("impl Default for {} {{ fn default()->Self {{ {} }} }}\n#[derive(Debug,",&ntsym.rusttype, defaultstruct);
        }
        else {
-         havedefault = String::from("#[derive(Default,Debug)]\n");
+         havedefault = String::from("#[derive(Default,Debug,");
        }
+       let derstring = String::new();
+       let derivestring = self.derives.get(nt).unwrap_or(&derstring);
+       havedefault.push_str(derivestring);
+       havedefault.push_str(")]\n");
 
        let mut SAST = if !simplestruct {format!("{}pub struct {} {{\n",havedefault,&ntsym.rusttype)}
          else {format!("{}pub struct {}(",havedefault,&ntsym.rusttype)};  // sets struct header
@@ -390,7 +394,15 @@ impl Grammar
         let willextend = toextend.contains_key(nt);
         // default for new enum
 	let mut AST = if willextend {String::new()}
-          else {format!("#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)};
+          else {
+             let mut ast1 = String::from("/*enum*/#[derive(Debug,");
+             let derstring = String::new();
+             let derivestring = self.derives.get(nt).unwrap_or(&derstring);
+             ast1.push_str(derivestring);
+             ast1.push_str(&format!(")]\npub enum {} {{\n",&ntsym.rusttype));
+             ast1
+          //format!("/*enum*/#[derive(Debug)]\npub enum {} {{\n",&ntsym.rusttype)
+          };
         let NT = &self.Symbols[nti].sym;
 
 	let mut targetnt = nti; // actual nt for enums
@@ -654,7 +666,7 @@ impl Grammar
          ASTS.push_str(&ast);         
        }
        else
-       if ntast.starts_with("#[derive(Debug)]") { // enum
+       if ntast.starts_with("/*enum*/#[derive(Debug") { // enum
  	let defaultvar = format!("{}_Nothing",&self.Symbols[*nt].sym);
         let mut ast = format!("{}  {},\n}}\n",ntast,&defaultvar);
         

@@ -71,6 +71,7 @@ nonterminal ExpList
 startsymbol ExpList
 variant-group-for E BinaryOp + - * /    # controls AST generation
 default E Int(0)  # controls AST generation
+derive E Clone    # additional traits to be derived for generated AST
 
 # production rules:
 E --> E + T  | E - T | T
@@ -101,7 +102,7 @@ scanner from the declarations of terminal symbols.  It also created
 the following abstract syntax types and the semantic actions that
 produce instances of the types.
 ```
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum E {
   BinaryOp(&'static str,LBox<E>,LBox<E>),
   Int(i32),
@@ -172,6 +173,11 @@ AST: ExpList([BinaryOp("+", Int(10), BinaryOp("*", Neg(Int(2)), Int(4))), Binary
 Rustlr can also be invoked from within Rust by calling the [rustlr::generate](https://docs.rs/rustlr/latest/rustlr/fn.generate.html) function.
 
 <br>
+
+#### New in Version 0.6.7
+
+The ability to specify additional traits to be derived for automatically generated
+AST types.
 
 #### New in Version 0.6.5, 0.6.6
 

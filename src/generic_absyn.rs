@@ -320,7 +320,7 @@ impl<T:std::fmt::Debug> std::fmt::Debug for LRc<T> {
 /// may begin with the same line/column position, but the unique id will
 /// disambiguate them.
 /// This feature was added to Rustlr to support bumpalo-allocated ASTs.
-#[derive(Clone)]
+#[derive(Copy,Clone,)]
 pub struct LC<T>(pub T,pub (u32,u32,u32));
 
 impl<T:Default> Default for LC<T> {

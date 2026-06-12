@@ -174,6 +174,7 @@ pub struct Grammar
   pub genlog : String,
   pub tablefile : String,
   pub defaults : HashMap<usize,String>,
+  pub derives : HashMap<usize,String>,
   //pub inlinetable : bool,
   //pub wildcardvarnum : usize,   // the enumtype variant number for wildcard
 }// struct Grammar
@@ -232,7 +233,8 @@ impl Grammar
        vargroups : HashMap::new(),
        genlog : String::new(),
        tablefile : String::new(),
-       defaults : HashMap::new(), 
+       defaults : HashMap::new(),
+       derives : HashMap::new(),
        //inlinetable: true,
        //wildcardvarnum : 2,       
      }
@@ -884,6 +886,26 @@ impl Grammar
                 self.logeprint(&format!("Symbol {} not found, line {}",stokens[1],linenum));
               }
             }, // default declaration (version 0.6.5)
+            "derive" => {
+              if let Some(symi) = self.Symhash.get(stokens[1]) {
+                if !self.Symbols[*symi].terminal && stokens.len()>2 {
+                  let mut derstring = String::new();
+                  for i in 2..stokens.len() {
+                    derstring.push_str(stokens[i]);
+                    if i < stokens.len()-1 && !derstring.ends_with(",") {
+                      derstring.push(',');
+                    }
+                  }
+                  self.derives.insert(*symi,derstring);
+                }
+                else {
+                  self.logeprint(&format!("Malformed derive declaration, line {}",linenum));
+                }
+              }
+              else {
+                self.logeprint(&format!("Symbol {} not found, line {}",stokens[1],linenum));
+              }
+            }, // derive (version 0.6.7)
             "variant-group" | "operator-group" if stokens.len()>2 => {
 	       let groupfornt = usize::MAX;
 	       // there may be some duplicates in following vector ... fine

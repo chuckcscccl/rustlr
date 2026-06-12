@@ -7,6 +7,8 @@ nonterminal F : E
 nonterminal ExpList
 startsymbol ExpList
 variant-group-for E BinaryOp + - * /  # simplifies AST enum by combining variants
+default E Int(0) # controls AST generation
+derive E Clone # additional traits to be derived for generated AST
 
 # production rules:
 E --> E + T  | E - T | T
